@@ -44,10 +44,23 @@ export interface DataAccessPermissions {
 // Agent request to backend
 export interface AgentRequest {
   message: string;
-  context?: ContextRefs & { scope?: ContextScope };
+  context?: ContextRefs & { scope?: ContextScope; dataAccess?: DataAccessPermissions };
   agentVersion?: AgentVersion;
   reasoner?: string;
   followUpIntent?: FollowUpIntent;
+  sessionId?: string;
+  documentIds?: number[];
+}
+
+export interface ContextLifecycleEvent {
+  conversationId: string;
+  type: 'expired' | 'posture_reset' | 'cleared' | string;
+  reason?: string;
+  at?: string;
+  previousUpdatedAt?: string | null;
+  previousPosture?: string | null;
+  nextPosture?: string | null;
+  ttlMs?: number;
 }
 
 // ─── Post-Read Interpretation Types (MANDATORY) ───
@@ -370,6 +383,7 @@ export interface AgentResponse {
     reasoner: string;
     output: AgentOutput;
     ledgerEntryId: string;
+    contextLifecycle?: ContextLifecycleEvent | null;
   };
   error?: string;
 }
@@ -403,9 +417,16 @@ export async function sendAgentMessage(
     contextRefs?: ContextRefs;
     agentVersion?: AgentVersion;
     followUpIntent?: FollowUpIntent;
+    sessionId?: string;
   } = {}
 ): Promise<ProcessedAgentResponse> {
-  const { contextScope = 'GLOBAL', contextRefs = {}, agentVersion = 'v1', followUpIntent } = options;
+  const {
+    contextScope = 'GLOBAL',
+    contextRefs = {},
+    agentVersion = 'v1',
+    followUpIntent,
+    sessionId,
+  } = options;
 
   const request: AgentRequest & { followUpIntent?: FollowUpIntent } = {
     message,
@@ -418,6 +439,9 @@ export async function sendAgentMessage(
   };
   if (followUpIntent) {
     request.followUpIntent = followUpIntent;
+  }
+  if (sessionId) {
+    request.sessionId = sessionId;
   }
 
   try {
@@ -637,7 +661,7 @@ export interface StreamCallbacks {
   /** Streaming chunk for intent framing message (for real-time display) */
   onIntentFramingChunk?: (chunk: string) => void;
   onChunk?: (content: string) => void;
-  onResult?: (data: { output: AgentOutput; intent: string }) => void;
+  onResult?: (data: { output: AgentOutput; intent: string; contextLifecycle?: ContextLifecycleEvent | null }) => void;
   onCommentary?: (data: CommentaryOutput) => void;
   /** Streaming chunk for commentary message (for real-time display) */
   onCommentaryChunk?: (chunk: string) => void;
@@ -743,11 +767,87 @@ export function streamAgentMessage(
       let buffer = '';
       let currentEvent = '';
       let currentData = '';
+      let hasStartEnvelope = false;
+      let hasResultEnvelope = false;
+      let hasErrorEnvelope = false;
+      let hasDoneEnvelope = false;
+
+      const processCurrentEvent = () => {
+        if (!currentEvent || !currentData) return;
+        console.log('[SSE Client] Processing event:', currentEvent);
+        try {
+          const data = JSON.parse(currentData);
+          switch (currentEvent) {
+            case 'start':
+              hasStartEnvelope = true;
+              callbacks.onStart?.(data);
+              break;
+            case 'status':
+              callbacks.onStatus?.(data);
+              break;
+            case 'intent_framing':
+              callbacks.onIntentFraming?.(data);
+              break;
+            case 'intent_framing_chunk':
+              callbacks.onIntentFramingChunk?.(data.chunk);
+              break;
+            case 'chunk':
+              callbacks.onChunk?.(data.content);
+              break;
+            case 'result':
+              hasResultEnvelope = true;
+              callbacks.onResult?.(data);
+              break;
+            case 'commentary':
+              callbacks.onCommentary?.(data);
+              break;
+            case 'commentary_chunk':
+              callbacks.onCommentaryChunk?.(data.chunk);
+              break;
+            case 'done':
+              hasDoneEnvelope = true;
+              if (!hasResultEnvelope && !hasErrorEnvelope) {
+                callbacks.onError?.('Protocol violation: done received before result/error envelope');
+              }
+              callbacks.onDone?.(data);
+              break;
+            case 'error':
+              hasErrorEnvelope = true;
+              callbacks.onError?.(
+                typeof data?.error === 'string' && data.error.trim()
+                  ? data.error
+                  : 'Stream error envelope',
+              );
+              break;
+            case 'cancelled':
+              callbacks.onCancelled?.();
+              break;
+            default:
+              callbacks.onError?.(`Protocol violation: unhandled stream event "${currentEvent}"`);
+              break;
+          }
+        } catch {
+          callbacks.onError?.(
+            `Protocol violation: malformed JSON payload for event "${currentEvent}"`,
+          );
+        }
+        currentEvent = '';
+        currentData = '';
+      };
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) {
           console.log('[SSE Client] Stream done');
+          processCurrentEvent();
+          if (!abortController.signal.aborted) {
+            if (!hasStartEnvelope) {
+              callbacks.onError?.('Protocol violation: stream ended without start envelope');
+            }
+            if (!hasDoneEnvelope) {
+              callbacks.onError?.('Protocol violation: stream ended without done envelope');
+            }
+          }
           break;
         }
 
@@ -767,57 +867,18 @@ export function streamAgentMessage(
           if (line.startsWith('event: ')) {
             currentEvent = line.slice(7).trim();
           } else if (line.startsWith('data: ')) {
-            currentData = line.slice(6);
-          } else if (line === '' && currentEvent && currentData) {
+            const dataPart = line.slice(6);
+            currentData = currentData ? `${currentData}\n${dataPart}` : dataPart;
+          } else if (line === '') {
             // End of event, process it
-            console.log('[SSE Client] Processing event:', currentEvent);
-            try {
-              const data = JSON.parse(currentData);
-              switch (currentEvent) {
-                case 'start':
-                  callbacks.onStart?.(data);
-                  break;
-                case 'status':
-                  callbacks.onStatus?.(data);
-                  break;
-                case 'intent_framing':
-                  callbacks.onIntentFraming?.(data);
-                  break;
-                case 'intent_framing_chunk':
-                  callbacks.onIntentFramingChunk?.(data.chunk);
-                  break;
-                case 'chunk':
-                  callbacks.onChunk?.(data.content);
-                  break;
-                case 'result':
-                  callbacks.onResult?.(data);
-                  break;
-                case 'commentary':
-                  callbacks.onCommentary?.(data);
-                  break;
-                case 'commentary_chunk':
-                  callbacks.onCommentaryChunk?.(data.chunk);
-                  break;
-                case 'done':
-                  callbacks.onDone?.(data);
-                  break;
-                case 'error':
-                  callbacks.onError?.(data.error);
-                  break;
-                case 'cancelled':
-                  callbacks.onCancelled?.();
-                  break;
-              }
-            } catch {
-              // Skip malformed JSON
-            }
-            currentEvent = '';
-            currentData = '';
+            processCurrentEvent();
           }
         }
       }
     } catch (err) {
-      if ((err as Error).name !== 'AbortError') {
+      if ((err as Error).name === 'AbortError') {
+        callbacks.onCancelled?.();
+      } else {
         callbacks.onError?.((err as Error).message || 'Stream error');
       }
     }

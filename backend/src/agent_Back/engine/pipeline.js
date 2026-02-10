@@ -22,10 +22,7 @@ const {
   resolveEntityDisplayLabel,
   formatEntityTypeLabel,
 } = require("../utils/entityDisplay");
-const {
-  decideUngoverned,
-  generateChatResponse,
-} = require("../llm/llm.client");
+const { resolveInteractionPosture, POSTURES } = require("../posture.resolver");
 
 function isWorkSnapshotRefreshRequest(message) {
   const normalized = String(message || "").toLowerCase();
@@ -177,7 +174,6 @@ async function run({
   reasoner: preferredReasoner,
   followUpIntent,
   documentContext,
-  posture,
 } = {}) {
   const hasFollowUpIntent = Boolean(followUpIntent);
   const normalizedMessage =
@@ -194,18 +190,153 @@ async function run({
 
   const policy = this._resolvePolicy(agentVersion);
   this._assertExecutionIntent(context, policy);
+  const hasTurnDocumentContext = Boolean(
+    documentContext &&
+      Array.isArray(documentContext.documents) &&
+      documentContext.documents.length > 0,
+  );
+  const turnDocumentCount = hasTurnDocumentContext
+    ? documentContext.documents.length
+    : Number(context?.documentCount || 0);
+  const turnContext = hasTurnDocumentContext
+    ? {
+        ...(context || {}),
+        _hasDocumentContext: true,
+        hasDocuments: true,
+        documentCount: turnDocumentCount,
+        _turnDocumentContext: documentContext,
+      }
+    : { ...(context || {}) };
+  const conversationContextSnapshot =
+    turnContext && this.contextStore?.get
+      ? this.contextStore.get(turnContext)
+      : null;
+  const followUpDetection = hasFollowUpIntent
+    ? null
+    : detectFollowUp(normalizedMessage, turnContext);
+  const documentReadIntentCandidate =
+    !hasFollowUpIntent && hasTurnDocumentContext
+      ? detectReadIntent(normalizedMessage, turnContext)
+      : null;
+  const hasDocumentTurnBinding =
+    hasTurnDocumentContext &&
+    documentReadIntentCandidate?.intent === READ_INTENTS.SUMMARIZE_DOCUMENT;
+  const postureResolutionContext = conversationContextSnapshot
+    ? {
+        ...(turnContext || {}),
+        lastPosture: conversationContextSnapshot.lastPosture || null,
+        lastIntent: conversationContextSnapshot.lastIntent || null,
+        activeEntityType: conversationContextSnapshot.activeEntityType || null,
+        activeEntityId: conversationContextSnapshot.activeEntityId || null,
+      }
+    : (turnContext || {});
+  const resolvedPosture = await resolveInteractionPosture(
+    normalizedMessage,
+    postureResolutionContext,
+  );
+
+  const postureAuthority = {
+    resolvedMode: resolvedPosture?.mode || POSTURES.ASSISTANT,
+    finalMode: resolvedPosture?.mode || POSTURES.ASSISTANT,
+    overrideRule: null,
+    followUpSignal: followUpDetection?.type || null,
+    followUpReason: followUpDetection?.reason || null,
+    hasStructuredFollowUpIntent: hasFollowUpIntent,
+    contextPosture: conversationContextSnapshot?.lastPosture || null,
+    hasTurnDocumentContext,
+    hasDocumentTurnBinding,
+  };
+  const inheritedContextPosture = String(
+    conversationContextSnapshot?.lastPosture || "",
+  ).toUpperCase();
+  const hasGovernedContextPosture =
+    inheritedContextPosture === POSTURES.WORK ||
+    inheritedContextPosture === POSTURES.INSPECTION;
+  const followUpHasStrongContextAnchor = Boolean(
+    conversationContextSnapshot?.lastIntent ||
+      conversationContextSnapshot?.activeEntityType ||
+      conversationContextSnapshot?.pendingSelection,
+  );
+  const canInheritGovernedPosture =
+    !hasFollowUpIntent &&
+    followUpDetection?.isFollowUp === true &&
+    hasGovernedContextPosture &&
+    followUpHasStrongContextAnchor &&
+    followUpDetection?.reason !== "vague_query";
+
+  let finalPosture = resolvedPosture || {
+    mode: POSTURES.ASSISTANT,
+    confidence: 0.5,
+    signals: ["posture_default"],
+  };
+
+  if (
+    hasFollowUpIntent &&
+    finalPosture.mode === POSTURES.ASSISTANT &&
+    hasGovernedContextPosture
+  ) {
+    finalPosture = {
+      ...finalPosture,
+      mode: inheritedContextPosture,
+      confidence: Math.max(finalPosture.confidence || 0, 0.85),
+      signals: [
+        ...(Array.isArray(finalPosture.signals) ? finalPosture.signals : []),
+        "structured_follow_up_context_posture",
+      ],
+    };
+    postureAuthority.overrideRule = "structured_follow_up_context_posture";
+  } else if (
+    finalPosture.mode === POSTURES.ASSISTANT &&
+    canInheritGovernedPosture
+  ) {
+    finalPosture = {
+      ...finalPosture,
+      mode: inheritedContextPosture,
+      confidence: Math.max(finalPosture.confidence || 0, 0.8),
+      signals: [
+        ...(Array.isArray(finalPosture.signals) ? finalPosture.signals : []),
+        "follow_up_context_posture",
+      ],
+    };
+    postureAuthority.overrideRule = "follow_up_context_posture";
+  } else if (hasDocumentTurnBinding && finalPosture.mode === POSTURES.ASSISTANT) {
+    finalPosture = {
+      ...finalPosture,
+      mode: POSTURES.INSPECTION,
+      confidence: Math.max(finalPosture.confidence || 0, 0.9),
+      signals: [
+        ...(Array.isArray(finalPosture.signals) ? finalPosture.signals : []),
+        "document_turn_binding",
+      ],
+    };
+    postureAuthority.overrideRule = "document_turn_binding";
+  }
+  postureAuthority.finalMode = finalPosture.mode;
+  const governedPosture = finalPosture?.mode !== POSTURES.ASSISTANT;
+  this.ledger.record({
+    type: "posture_arbitrated",
+    resolvedMode: postureAuthority.resolvedMode,
+    finalMode: postureAuthority.finalMode,
+    overrideRule: postureAuthority.overrideRule,
+    hasStructuredFollowUpIntent: hasFollowUpIntent,
+    followUpType: followUpDetection?.type || null,
+    followUpReason: followUpDetection?.reason || null,
+    contextPosture: postureAuthority.contextPosture,
+    timestamp: new Date().toISOString(),
+  });
 
   const engineContext = {
     sessionId:
-      context?.sessionId ||
-      context?.conversationId ||
-      context?.session?.id ||
+      turnContext?.sessionId ||
+      turnContext?.conversationId ||
+      turnContext?.session?.id ||
       null,
-    userId: context?.userId || context?.user?.id || null,
-    activeEntity: context?.activeEntity || null,
-    dataAccess: context?.dataAccess || null,
+    userId: turnContext?.userId || turnContext?.user?.id || null,
+    activeEntity: turnContext?.activeEntity || null,
+    dataAccess: turnContext?.dataAccess || null,
     documentContext: documentContext || null,
-    posture: posture || null,
+    posture: finalPosture || null,
+    postureAuthority,
     request: {
       message: normalizedMessage,
       agentVersion: policy.version,
@@ -219,6 +350,38 @@ async function run({
 
   // ========== FOLLOW-UP INTENT (STRUCTURED) ==========
   if (hasFollowUpIntent) {
+    if (!governedPosture) {
+      return {
+        intent: "FOLLOW_UP_CLARIFICATION",
+        agentVersion: policy.version,
+        reasoner: "posture-arbitration",
+        output: {
+          type: "clarification",
+          reason: {
+            type: "FOLLOW_UP_REQUIRES_GOVERNED_POSTURE",
+          },
+          signals: [
+            {
+              type: "CLARIFICATION_REQUIRED",
+              reason: "FOLLOW_UP_REQUIRES_GOVERNED_POSTURE",
+            },
+          ],
+          options: [],
+          timestamp: new Date().toISOString(),
+          status: "awaiting_input",
+          source: "posture-arbitration",
+          requires_validation: false,
+        },
+        posture: engineContext.posture,
+        postureAuthority: engineContext.postureAuthority,
+        needsUserInput: true,
+      };
+    }
+    this._ensureTurnGateAllowed(policy, {
+      gate: "structured_follow_up",
+      intent: followUpIntent?.intent || null,
+      requiresRead: true,
+    });
     engineContext.followUp = {
       type: "structured",
       intent: followUpIntent?.intent || null,
@@ -227,147 +390,138 @@ async function run({
     const result = await this._executeFollowUpIntent(
       followUpIntent,
       normalizedMessage,
-      context,
+      turnContext,
       policy,
       engineContext,
     );
     this._updateConversationContext(
-      context,
+      turnContext,
       normalizedMessage,
       result,
       CONTEXT_SOURCES.FOLLOW_UP,
       engineContext.posture,
     );
-    return result;
+    return {
+      ...result,
+      posture: engineContext.posture,
+      postureAuthority: engineContext.postureAuthority,
+    };
   }
   // ========== END FOLLOW-UP INTENT ==========
 
   // STEP: Check for slash commands BEFORE intent classification
-  if (isSlashCommand(normalizedMessage)) {
+  if (governedPosture && isSlashCommand(normalizedMessage)) {
+    this._ensureTurnGateAllowed(policy, {
+      gate: "slash_command",
+      intent: "COMMAND",
+      requiresRead: true,
+    });
     engineContext.intent = "COMMAND";
     const result = await this._executeSlashCommand(
       normalizedMessage,
-      context,
+      turnContext,
       policy,
       engineContext,
     );
     // Update conversation context after slash command
     this._updateConversationContext(
-      context,
+      turnContext,
       normalizedMessage,
       result,
       CONTEXT_SOURCES.SLASH_COMMAND,
       engineContext.posture,
     );
-    return result;
-  }
-
-  // ========== UNGOVERNED MODE DECISION (FIRST-STAGE GATE) ==========
-  // CRITICAL: This MUST run BEFORE any intent detection, read gates, or follow-up detection
-  // Determine if request requires Organia system data or can be answered generically
-  const ungoverned = await decideUngoverned(normalizedMessage);
-  if (!ungoverned.requiresOrganiaData) {
-    engineContext.intent = INTENTS.GENERAL_CHAT;
-    this.ledger.record({
-      type: "ungoverned_mode_triggered",
-      message: normalizedMessage,
-      timestamp: new Date().toISOString(),
-    });
-
-    console.log("[Ungoverned Mode] Generating LLM response for:", normalizedMessage.slice(0, 50));
-
-    const chatResponse = await generateChatResponse(normalizedMessage);
-
-    if (!chatResponse) {
-      console.warn("[Ungoverned Mode] LLM response generation failed, using fallback");
-    } else {
-      console.log("[Ungoverned Mode] LLM response generated, length:", chatResponse.length);
-    }
-
-    const chatOutput = {
-      type: "chat",
-      message: chatResponse || "I'm here to help! I can assist with writing examples, explanations, advice, and answering general questions. What would you like to know?",
-      timestamp: new Date().toISOString(),
-      source: "ungoverned",
-    };
-
-    this.ledger.record({
-      type: "ungoverned_response_generated",
-      messageLength: chatOutput.message.length,
-      usedFallback: !chatResponse,
-      timestamp: new Date().toISOString(),
-    });
-
     return {
-      intent: INTENTS.GENERAL_CHAT,
-      agentVersion: policy.version,
-      reasoner: "ungoverned",
-      output: chatOutput,
+      ...result,
+      posture: engineContext.posture,
+      postureAuthority: engineContext.postureAuthority,
     };
   }
-  // ========== END UNGOVERNED MODE DECISION ==========
 
   // ========== FOLLOW-UP INTENT GATE ==========
   // Detect follow-up messages BEFORE regular intent classification
-  const followUpDetection = detectFollowUp(normalizedMessage, context);
-  if (followUpDetection && followUpDetection.isFollowUp) {
-    engineContext.followUp = {
-      type: "detected",
-      ...followUpDetection,
-    };
-    const followUpResult = await this._handleFollowUp(
-      followUpDetection,
-      normalizedMessage,
-      context,
-      policy,
-      engineContext,
-    );
-    if (followUpResult) {
-      return followUpResult;
+  if (governedPosture) {
+    if (followUpDetection && followUpDetection.isFollowUp) {
+      this._ensureTurnGateAllowed(policy, {
+        gate: "follow_up_detected",
+        intent: "FOLLOW_UP",
+        requiresRead: true,
+      });
+      engineContext.followUp = {
+        type: "detected",
+        ...followUpDetection,
+      };
+      const followUpResult = await this._handleFollowUp(
+        followUpDetection,
+        normalizedMessage,
+        turnContext,
+        policy,
+        engineContext,
+      );
+      if (followUpResult) {
+        return {
+          ...followUpResult,
+          posture: engineContext.posture,
+          postureAuthority: engineContext.postureAuthority,
+        };
+      }
+      // If follow-up handling returns null, continue to regular processing
     }
-    // If follow-up handling returns null, continue to regular processing
   }
   // ========== END FOLLOW-UP INTENT GATE ==========
 
   // ========== READ INTENT GATE ==========
   // Rule-based detection BEFORE LLM - ensures data questions always access local data
-  let readIntent = detectReadIntent(normalizedMessage, context);
-  if (!readIntent) {
-    readIntent = buildWorkSnapshotRefreshReadIntent(
-      normalizedMessage,
-      context,
-      this.contextStore,
-    );
-  }
-  if (
-    readIntent &&
-    readIntent.requiresLocalData &&
-    policy.allowedToolCategories.includes("read")
-  ) {
-    engineContext.intent = readIntent.intent;
-    this.ledger.record({
-      type: "read_intent_gate_triggered",
-      intent: readIntent.intent,
-      allowedTools: readIntent.allowedTools,
-      timestamp: new Date().toISOString(),
-    });
+  if (governedPosture) {
+    let readIntent = hasDocumentTurnBinding
+      ? documentReadIntentCandidate
+      : detectReadIntent(normalizedMessage, turnContext);
+    if (!readIntent) {
+      readIntent = buildWorkSnapshotRefreshReadIntent(
+        normalizedMessage,
+        turnContext,
+        this.contextStore,
+      );
+    }
+    if (
+      readIntent &&
+      readIntent.requiresLocalData &&
+      policy.allowedToolCategories.includes("read")
+    ) {
+      this._ensureTurnGateAllowed(policy, {
+        gate: "read_intent",
+        intent: readIntent.intent,
+        requiresRead: true,
+      });
+      engineContext.intent = readIntent.intent;
+      this.ledger.record({
+        type: "read_intent_gate_triggered",
+        intent: readIntent.intent,
+        allowedTools: readIntent.allowedTools,
+        timestamp: new Date().toISOString(),
+      });
 
-    const readResult = await this._executeReadIntent(
-      readIntent,
-      normalizedMessage,
-      context,
-      policy,
-      engineContext,
-    );
-    // Update conversation context after read intent execution
-    this._updateConversationContext(
-      context,
-      normalizedMessage,
-      readResult,
-      CONTEXT_SOURCES.READ_INTENT,
-      engineContext.posture,
-    );
-    return readResult;
+      const readResult = await this._executeReadIntent(
+        readIntent,
+        normalizedMessage,
+        turnContext,
+        policy,
+        engineContext,
+      );
+      // Update conversation context after read intent execution
+      this._updateConversationContext(
+        turnContext,
+        normalizedMessage,
+        readResult,
+        CONTEXT_SOURCES.READ_INTENT,
+        engineContext.posture,
+      );
+      return {
+        ...readResult,
+        posture: engineContext.posture,
+        postureAuthority: engineContext.postureAuthority,
+      };
+    }
   }
   // ========== END READ INTENT GATE ==========
 
@@ -390,6 +544,10 @@ async function run({
       );
 
     if (isFileOnlyMessage) {
+      this._ensureTurnGateAllowed(policy, {
+        gate: "document_only",
+        intent: INTENTS.GENERAL_CHAT,
+      });
       engineContext.intent = INTENTS.GENERAL_CHAT;
 
       const docs = engineContext.documentContext.documents;
@@ -423,19 +581,31 @@ async function run({
         agentVersion: policy.version,
         reasoner: "rule",
         output: ackOutput,
+        posture: engineContext.posture,
+        postureAuthority: engineContext.postureAuthority,
       };
     }
   }
   // ========== END DOCUMENT-ONLY GATE ==========
 
-  const intent = await classifyIntent(normalizedMessage, context);
+  let intent;
+  if (!governedPosture) {
+    intent = INTENTS.GENERAL_CHAT;
+  } else {
+    intent = await classifyIntent(normalizedMessage, turnContext);
+  }
   engineContext.intent = intent;
   engineContext._hasExplicitUserIntent = true;
-  this._ensureIntentAllowed(intent, policy);
+  this._ensureTurnGateAllowed(policy, {
+    gate: "intent_classification",
+    intent,
+  });
 
   // STEP: Detect data requirements and fetch local data if needed
-  const dataReqs = detectDataRequirements(normalizedMessage, context);
-  let enrichedContext = context;
+  const dataReqs = governedPosture
+    ? detectDataRequirements(normalizedMessage, turnContext)
+    : { requiresData: false, needs: [], entityHints: [] };
+  let enrichedContext = turnContext;
 
   if (dataReqs.requiresData && policy.allowedToolCategories.includes("read")) {
     // Log data requirement detection
@@ -450,7 +620,7 @@ async function run({
     // Check for entity resolution failures that require clarification
     const fetchedData = await this._fetchRequiredData(
       dataReqs,
-      context,
+      turnContext,
       policy,
     );
 
@@ -509,7 +679,7 @@ async function run({
           allowedIntents: policy.allowedIntents,
         },
         reasoner: "rule",
-        request: { message, context },
+        request: { message, context: turnContext },
         response: clarificationOutput,
         needsClarification: true,
       });
@@ -520,12 +690,14 @@ async function run({
         reasoner: "rule",
         output: clarificationOutput,
         needsClarification: true,
+        posture: engineContext.posture,
+        postureAuthority: engineContext.postureAuthority,
       };
     }
 
     // Build enriched context with fetched data
     enrichedContext = this._buildEnrichedContext(
-      context,
+      turnContext,
       fetchedData,
       dataReqs,
     );
@@ -557,66 +729,12 @@ async function run({
   const executionResult = await this._executePlan(plan, policy, engineContext);
 
   if (executionResult.hasFailed && !executionResult.lastOutput) {
-    // ========== DOWNGRADE TO UNGOVERNED MODE ==========
-    // If governed mode fails, attempt to answer generically via ungoverned mode
-    console.log("[Downgrade] Governed mode failed, attempting ungoverned response");
     this.ledger.record({
-      type: "governed_mode_failed_downgrading",
+      type: "governed_mode_failed",
       intent,
       errors: executionResult.stepResults.filter((s) => s.error).map((s) => s.error),
       timestamp: new Date().toISOString(),
     });
-
-    try {
-      const chatResponse = await generateChatResponse(normalizedMessage);
-
-      if (chatResponse) {
-        console.log("[Downgrade] Successfully generated ungoverned response");
-        const downgradedOutput = {
-          type: "chat",
-          message: chatResponse,
-          timestamp: new Date().toISOString(),
-          source: "downgraded-ungoverned",
-        };
-
-        this.ledger.record({
-          type: "downgrade_successful",
-          originalIntent: intent,
-          timestamp: new Date().toISOString(),
-        });
-
-        return {
-          intent: INTENTS.GENERAL_CHAT,
-          agentVersion: policy.version,
-          reasoner: "downgraded-ungoverned",
-          output: downgradedOutput,
-        };
-      } else {
-        console.warn("[Downgrade] LLM response failed, using fallback");
-        const fallbackOutput = {
-          type: "chat",
-          message: "I understand you're asking about this topic. While I don't have access to specific system data at the moment, I'm happy to provide general guidance. Could you rephrase your question or provide more context?",
-          timestamp: new Date().toISOString(),
-          source: "downgraded-ungoverned-fallback",
-        };
-
-        this.ledger.record({
-          type: "downgrade_used_fallback",
-          originalIntent: intent,
-          timestamp: new Date().toISOString(),
-        });
-
-        return {
-          intent: INTENTS.GENERAL_CHAT,
-          agentVersion: policy.version,
-          reasoner: "downgraded-ungoverned",
-          output: fallbackOutput,
-        };
-      }
-    } catch (downgradeError) {
-      console.warn("[Downgrade] Failed to generate ungoverned response:", downgradeError);
-    }
-    // ========== END DOWNGRADE ==========
 
     const error = new Error(
       `Plan execution failed: ${executionResult.stepResults
@@ -650,7 +768,7 @@ async function run({
     reasoner: reasoner.name,
     request: {
       message,
-      context,
+      context: turnContext,
     },
     response,
     validation: {
@@ -677,6 +795,8 @@ async function run({
     agentVersion: policy.version,
     reasoner: reasoner.name,
     output: response,
+    posture: engineContext.posture,
+    postureAuthority: engineContext.postureAuthority,
     ledgerEntryId: ledgerEntry.id,
     plan: {
       planId: plan.planId,
@@ -741,6 +861,44 @@ function _ensureIntentAllowed(intent, policy) {
   }
 }
 
+function _ensureTurnGateAllowed(
+  policy,
+  { gate = "unknown", intent = null, requiresRead = false } = {},
+) {
+  if (requiresRead && !policy.allowedToolCategories.includes("read")) {
+    const error = new Error(
+      `Gate ${gate} requires read capability, but agent version ${policy.version} does not allow read tools.`,
+    );
+    error.status = 403;
+    throw error;
+  }
+
+  if (!intent) return;
+
+  const normalizedIntent = String(intent).toUpperCase();
+  const readIntentValues = new Set(Object.values(READ_INTENTS));
+
+  if (normalizedIntent === "COMMAND" || normalizedIntent === "FOLLOW_UP") {
+    return;
+  }
+
+  if (
+    readIntentValues.has(normalizedIntent) ||
+    normalizedIntent === "READ_DATA"
+  ) {
+    if (!policy.allowedToolCategories.includes("read")) {
+      const error = new Error(
+        `Intent ${normalizedIntent} requires read capability in policy ${policy.version}.`,
+      );
+      error.status = 403;
+      throw error;
+    }
+    return;
+  }
+
+  this._ensureIntentAllowed(normalizedIntent, policy);
+}
+
 async function _executeIntent(intent, reasoner, payload) {
   const { message, context } = payload;
   switch (intent) {
@@ -773,5 +931,6 @@ module.exports = {
   _resolveReasoner,
   _assertExecutionIntent,
   _ensureIntentAllowed,
+  _ensureTurnGateAllowed,
   _executeIntent,
 };

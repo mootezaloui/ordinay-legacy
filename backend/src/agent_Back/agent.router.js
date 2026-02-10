@@ -14,14 +14,9 @@ const { resolveInteractionPosture } = require("./posture.resolver");
 const { INTENTS } = require("./intents");
 const {
   streamChatWithCallbacks,
-  generateIntentFramingMessage,
   streamIntentFramingMessage,
-  decideUngoverned,
 } = require("./llm.client");
-const {
-  generateAgentCommentary,
-  streamCommentary,
-} = require("./commentary.generator");
+const { streamCommentary } = require("./commentary.generator");
 
 const router = express.Router();
 const agentEngine = new AgentEngine();
@@ -362,65 +357,60 @@ async function sendIntentFramingIfNeeded(sendEvent, payload, signal, aborted) {
   });
 }
 
+function normalizeResultEnvelopeOutput(result) {
+  const output = result?.output;
+  if (!output || typeof output !== "object") {
+    return null;
+  }
+
+  if (output.type === "chat") {
+    return output;
+  }
+
+  // ARTIFACT JUSTIFICATION: convert low-value artifacts into chat result envelopes.
+  const artifactHasValue = checkArtifactValue(output);
+  if (!artifactHasValue.hasValue) {
+    console.log(
+      "[Artifact Justification] Converting low-value artifact to chat envelope:",
+      artifactHasValue.reason,
+    );
+    return {
+      type: "chat",
+      message:
+        artifactHasValue.textAlternative ||
+        "I understand your request, but I don't have specific information to show right now.",
+      timestamp: new Date().toISOString(),
+      source: "fallback",
+    };
+  }
+
+  return output;
+}
+
 /**
- * Send agent result with turn-completion guarantee.
- * INVARIANT: Every result produces either chunks OR a recognized artifact.
- * Chat outputs are sent as chunks, not as result artifacts.
- * ARTIFACT JUSTIFICATION: Artifacts are shown only when they add value.
+ * Send unified result envelope.
+ * INVARIANT: successful turns emit exactly one `result` envelope.
  *
  * @param {Function} sendEvent - SSE event sender
  * @param {Object} result - Agent result from engine
  * @param {boolean} aborted - Whether connection was aborted
+ * @returns {boolean} True when a result envelope was emitted
  */
-function sendResultWithCompletionGuarantee(sendEvent, result, aborted, posture) {
-  if (aborted) return;
+function sendResultWithCompletionGuarantee(sendEvent, result, aborted) {
+  if (aborted) return false;
 
-  const output = result?.output;
-  if (!output) {
-    console.warn("[Turn Completion] No output in result, sending fallback");
-    sendEvent("chunk", { content: "I apologize, but I wasn't able to generate a response. Could you try rephrasing your request?" });
-    return;
+  const normalizedOutput = normalizeResultEnvelopeOutput(result);
+  if (!normalizedOutput) {
+    console.warn("[Turn Completion] Missing output envelope in result");
+    return false;
   }
 
-  // ASSISTANT Mode: Always send as text chunks (no artifacts)
-  if (posture && posture.mode === 'ASSISTANT') {
-    const message = output.message || output.summary || output.statement || JSON.stringify(output);
-    if (message && typeof message === 'string') {
-      sendEvent("chunk", { content: message });
-    } else {
-      console.warn("[Turn Completion] ASSISTANT mode but no extractable text, sending fallback");
-      sendEvent("chunk", { content: "I'm here to help! Could you provide more details?" });
-    }
-    return;
-  }
-
-  // CRITICAL: Chat outputs must be sent as chunks, not as result artifacts,
-  // because the frontend's onResult handler doesn't process chat types.
-  if (output.type === "chat") {
-    const message = output.message || "";
-    if (message) {
-      sendEvent("chunk", { content: message });
-    } else {
-      console.warn("[Turn Completion] Empty chat message, sending fallback");
-      sendEvent("chunk", { content: "I'm here to help! Could you provide more details about what you'd like me to do?" });
-    }
-    return;
-  }
-
-  // ARTIFACT JUSTIFICATION: Check if artifact adds value before showing
-  // Artifacts must contain real data or they should be suppressed
-  const artifactHasValue = checkArtifactValue(output);
-
-  if (!artifactHasValue.hasValue) {
-    console.log("[Artifact Justification] Suppressing low-value artifact:", artifactHasValue.reason);
-    // Send as text instead of artifact
-    const textResponse = artifactHasValue.textAlternative || "I understand your request, but I don't have specific information to show right now.";
-    sendEvent("chunk", { content: textResponse });
-    return;
-  }
-
-  // All other output types are sent as structured results
-  sendEvent("result", { output, intent: result.intent });
+  sendEvent("result", {
+    output: normalizedOutput,
+    intent: result.intent,
+    contextLifecycle: result?.contextLifecycle || null,
+  });
+  return true;
 }
 
 /**
@@ -546,7 +536,7 @@ async function sendCommentaryIfNeeded(
 
   // Skip commentary for chat outputs (already conversational)
   const artifactType = result?.output?.type;
-  if (!artifactType || artifactType === "chat") return;
+  if (!artifactType || artifactType === "chat" || artifactType === "clarification") return;
 
   const resultCount =
     typeof result?.readMeta?.count === "number"
@@ -617,14 +607,11 @@ async function sendCommentaryIfNeeded(
             console.log(
               "[SSE] Sending commentary, source:",
               commentaryResult.source,
-              "mode:",
-              commentaryResult.mode,
             );
             sendEvent("commentary", {
               message: commentaryResult.commentary || "",
               source: commentaryResult.source,
               signals: commentaryResult.signals || [],
-              mode: commentaryResult.mode, // Include mode for debugging/analytics
             });
           } else {
             console.log(
@@ -632,8 +619,6 @@ async function sendCommentaryIfNeeded(
               commentaryResult?.source,
               "reason:",
               commentaryResult?.reason,
-              "mode:",
-              commentaryResult?.mode,
             );
           }
           resolve();
@@ -662,23 +647,112 @@ router.get("/agent/commands", (req, res) => {
   });
 });
 
-router.post("/agent/run", async (req, res, next) => {
-  const { message, context, agentVersion, reasoner, followUpIntent } =
-    req.body || {};
+function resolveDocumentContext(sessionId, documentIds) {
+  if (!sessionId && (!Array.isArray(documentIds) || documentIds.length === 0)) {
+    return null;
+  }
+
   try {
-    // Resolve interaction posture
-    const posture = await resolveInteractionPosture(message, context || {});
-    const result = await agentEngine.run({
-      message,
+    const agentDocumentsService = require("../services/agentDocuments.service");
+    if (sessionId) {
+      return agentDocumentsService.buildAgentDocumentContext(sessionId);
+    }
+  } catch (err) {
+    console.warn("[Agent] Failed to load document context:", err.message);
+  }
+
+  return null;
+}
+
+function buildRequestContext(context, sessionId, documentContext) {
+  const requestContext = { ...(context || {}) };
+  if (sessionId && !requestContext.conversationId) {
+    requestContext.conversationId = sessionId;
+  }
+  if (
+    documentContext &&
+    Array.isArray(documentContext.documents) &&
+    documentContext.documents.length > 0
+  ) {
+    requestContext._hasDocumentContext = true;
+    requestContext.documentCount = documentContext.documents.length;
+  }
+  return requestContext;
+}
+
+function getLifecycleStatusAction(contextLifecycle) {
+  const type = String(contextLifecycle?.type || "").toLowerCase();
+  if (type === "expired") {
+    return "Previous context expired; starting with a fresh context.";
+  }
+  if (type === "posture_reset") {
+    return "Context reset because interaction mode changed.";
+  }
+  if (type === "posture_transition") {
+    return "Interaction mode changed; conversation context was preserved.";
+  }
+  if (type === "cleared") {
+    return "Conversation context was cleared.";
+  }
+  return "Conversation context changed.";
+}
+
+function shouldSendIntentFraming(result, requestContext, framingPayload) {
+  if (!framingPayload) return false;
+
+  const outputType = String(result?.output?.type || "").toLowerCase();
+  if (outputType === "chat" || outputType === "clarification") {
+    return false;
+  }
+
+  if (requestContext?._hasDocumentContext) {
+    return false;
+  }
+
+  return true;
+}
+
+router.post("/agent/run", async (req, res, next) => {
+  const {
+    message,
+    context,
+    agentVersion,
+    reasoner,
+    followUpIntent,
+    sessionId,
+    documentIds,
+  } = req.body || {};
+  try {
+    const documentContext = resolveDocumentContext(sessionId, documentIds);
+    const requestContext = buildRequestContext(
       context,
+      sessionId,
+      documentContext,
+    );
+    const hasMessage =
+      typeof message === "string" && String(message).trim().length > 0;
+    const hasDocuments =
+      documentContext &&
+      Array.isArray(documentContext.documents) &&
+      documentContext.documents.length > 0;
+    const effectiveMessage =
+      hasMessage || followUpIntent || !hasDocuments ? message : "uploaded file";
+
+    const result = await agentEngine.run({
+      message: effectiveMessage,
+      context: requestContext,
       agentVersion,
       reasoner,
       followUpIntent,
-      posture,
+      documentContext,
     });
+    const contextLifecycle =
+      typeof agentEngine.contextStore?.consumeLifecycleEvent === "function"
+        ? agentEngine.contextStore.consumeLifecycleEvent(requestContext)
+        : null;
     res.json({
       status: "ok",
-      data: result,
+      data: contextLifecycle ? { ...result, contextLifecycle } : result,
     });
   } catch (err) {
     next(err);
@@ -699,71 +773,29 @@ router.post("/agent/stream", async (req, res) => {
     message,
     context,
     agentVersion = "v1",
+    reasoner,
     followUpIntent,
     sessionId,
     documentIds,
   } = req.body || {};
 
-  // ========== DOCUMENT CONTEXT RESOLUTION ==========
-  // If sessionId or documentIds are provided, load document context
-  // so the agent can reason about user-uploaded files.
-  // Resolved BEFORE validation so file-only uploads can be handled gracefully.
-  let documentContext = null;
-  if (sessionId || (Array.isArray(documentIds) && documentIds.length > 0)) {
-    try {
-      const agentDocumentsService = require("../services/agentDocuments.service");
-      if (sessionId) {
-        documentContext =
-          agentDocumentsService.buildAgentDocumentContext(sessionId);
-      }
-    } catch (err) {
-      console.warn("[SSE] Failed to load document context:", err.message);
-    }
-  }
+  const documentContext = resolveDocumentContext(sessionId, documentIds);
 
   const hasMessage = message && typeof message === "string" && message.trim();
   const hasDocuments = documentContext && documentContext.documents && documentContext.documents.length > 0;
-  const requestContext = { ...(context || {}) };
-  if (sessionId && !requestContext.conversationId) {
-    requestContext.conversationId = sessionId;
-  }
-  if (hasDocuments) {
-    requestContext._hasDocumentContext = true;
-    requestContext.documentCount = documentContext.documents.length;
-  }
+  const requestContext = buildRequestContext(
+    context,
+    sessionId,
+    documentContext,
+  );
 
   // Validate message — allow file-only uploads to pass through
   if (!hasMessage && !followUpIntent && !hasDocuments) {
     res.status(400).json({ error: "Message is required" });
     return;
   }
-
-  // ========== FILE-ONLY UPLOAD: ACKNOWLEDGE & ASK ==========
-  // When the user uploads a file without an explicit instruction,
-  // acknowledge receipt and prompt for intent — no pipeline execution.
-  if (!hasMessage && !followUpIntent && hasDocuments) {
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    res.setHeader("X-Accel-Buffering", "no");
-    res.flushHeaders();
-    if (res.socket) {
-      res.socket.setNoDelay(true);
-    }
-    const sendSSE = (event, data) => {
-      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-      if (typeof res.flush === "function") res.flush();
-    };
-    const docCount = documentContext.documents.length;
-    const fileLabel = docCount === 1 ? "your file" : `your ${docCount} files`;
-    sendSSE("start", { intent: "FILE_RECEIVED", agentVersion });
-    sendSSE("chunk", {
-      content: `I've received ${fileLabel}. What would you like me to do with ${docCount === 1 ? "it" : "them"}? For example, I can summarize the content or answer questions about ${docCount === 1 ? "it" : "them"}.`,
-    });
-    sendSSE("done", { timestamp: new Date().toISOString() });
-    res.end();
-    return;
-  }
+  const effectiveMessage =
+    hasMessage || followUpIntent || !hasDocuments ? message : "uploaded file";
 
   // Set up SSE headers
   res.setHeader("Content-Type", "text/event-stream");
@@ -779,14 +811,7 @@ router.post("/agent/stream", async (req, res) => {
 
   // Helper to send SSE events with immediate flush
   const sendEvent = (event, data) => {
-    console.log(`[SSE] Sending event: ${event}`, data);
-    console.log(
-      `[SSE] Connection writable: ${res.writable}, finished: ${res.writableFinished}, destroyed: ${res.destroyed}`,
-    );
-    const success = res.write(
-      `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`,
-    );
-    console.log(`[SSE] Write result: ${success}`);
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     // Force flush if available (compression middleware)
     if (typeof res.flush === "function") {
       res.flush();
@@ -803,27 +828,142 @@ router.post("/agent/stream", async (req, res) => {
     abortController.abort();
   });
 
-  // TURN COMPLETION INVARIANT: Track whether we've sent substantive content
-  let hasContentBeenSent = false;
+  // TURN COMPLETION INVARIANT: Track terminal lifecycle envelopes
+  let hasResultBeenSent = false;
+  let hasErrorBeenSent = false;
+  let hasDoneBeenSent = false;
   const trackingSendEvent = (event, data) => {
     sendEvent(event, data);
-    if (event === "chunk" || event === "result") {
-      hasContentBeenSent = true;
+    if (event === "result") {
+      hasResultBeenSent = true;
+    }
+    if (event === "error") {
+      hasErrorBeenSent = true;
     }
   };
 
-  // TURN COMPLETION INVARIANT: Ensure we send content before done
+  const sendErrorEnvelope = (message, code = "STREAM_ERROR") => {
+    if (aborted || hasErrorBeenSent) return;
+    trackingSendEvent("error", {
+      error: message || "Unknown stream error",
+      code,
+      terminal: true,
+      timestamp: new Date().toISOString(),
+    });
+  };
+
+  const sendDoneEnvelope = (status = "success") => {
+    if (aborted || hasDoneBeenSent) return;
+    hasDoneBeenSent = true;
+    trackingSendEvent("done", {
+      status,
+      timestamp: new Date().toISOString(),
+    });
+  };
+
+  // TURN COMPLETION INVARIANT: Every turn ends with result OR error before done.
   const sendDoneWithCompletionGuarantee = () => {
-    if (!hasContentBeenSent && !aborted) {
-      console.warn("[Turn Completion] No content sent before done, sending fallback");
-      trackingSendEvent("chunk", {
-        content: "I'm ready to help! Could you please provide more details about what you'd like me to do?"
-      });
+    if (aborted) return;
+    if (!hasResultBeenSent && !hasErrorBeenSent) {
+      console.warn("[Turn Completion] Missing result envelope before done");
+      sendErrorEnvelope(
+        "Stream completed without result envelope",
+        "PROTOCOL_NO_RESULT",
+      );
     }
-    trackingSendEvent("done", { timestamp: new Date().toISOString() });
+    sendDoneEnvelope(hasErrorBeenSent ? "error" : "success");
   };
 
   try {
+    trackingSendEvent("start", {
+      intent: "PENDING",
+      agentVersion,
+    });
+
+    trackingSendEvent("status", {
+      action: getStatusAction(null, "classifying"),
+      phase: "classifying",
+    });
+
+    const unifiedResult = await agentEngine.run({
+      message: effectiveMessage,
+      context: requestContext,
+      agentVersion,
+      reasoner,
+      followUpIntent,
+      documentContext,
+    });
+    const contextLifecycle =
+      typeof agentEngine.contextStore?.consumeLifecycleEvent === "function"
+        ? agentEngine.contextStore.consumeLifecycleEvent(requestContext)
+        : null;
+    const unifiedResultWithLifecycle = contextLifecycle
+      ? { ...unifiedResult, contextLifecycle }
+      : unifiedResult;
+
+    if (contextLifecycle) {
+      trackingSendEvent("status", {
+        action: getLifecycleStatusAction(contextLifecycle),
+        phase: "context_lifecycle",
+        contextLifecycle,
+      });
+    }
+
+    const contextSnapshot = agentEngine.contextStore.get(requestContext);
+    const framingPayload = buildIntentFramingPayload({
+      intent: unifiedResultWithLifecycle.intent,
+      followUpIntent,
+      contextSnapshot,
+    });
+    if (
+      shouldSendIntentFraming(
+        unifiedResultWithLifecycle,
+        requestContext,
+        framingPayload,
+      )
+    ) {
+      await sendIntentFramingIfNeeded(
+        trackingSendEvent,
+        framingPayload,
+        abortController.signal,
+        aborted,
+      );
+    }
+
+    trackingSendEvent("status", {
+      action: getStatusAction(unifiedResultWithLifecycle.intent, "interpreting"),
+      phase: "interpreting",
+    });
+    const sentResult = sendResultWithCompletionGuarantee(
+      trackingSendEvent,
+      unifiedResultWithLifecycle,
+      aborted,
+    );
+    if (!sentResult) {
+      sendErrorEnvelope("Agent response did not include valid output", "INVALID_OUTPUT");
+    }
+
+    if (sentResult) {
+      trackingSendEvent("status", {
+        action: getStatusAction(unifiedResultWithLifecycle.intent, "commentary"),
+        phase: "commentary",
+      });
+      await sendCommentaryIfNeeded(
+        trackingSendEvent,
+        unifiedResultWithLifecycle,
+        requestContext,
+        aborted,
+        abortController.signal,
+      );
+    }
+
+    sendDoneWithCompletionGuarantee();
+    res.end();
+    return;
+
+    // Legacy stream gating path retained for reference only.
+    // It is explicitly disabled to keep turn semantics endpoint-independent.
+    if (false) {
     // ========== POSTURE RESOLUTION GATE (PRIMARY CONTROL PLANE) ==========
     // CRITICAL: Resolve interaction posture BEFORE any other gates
     // Posture determines artifact requirements, context scope, streaming behavior
@@ -1413,9 +1553,11 @@ router.post("/agent/stream", async (req, res) => {
     );
 
     clearInterval(heartbeatInterval);
+    }
   } catch (err) {
     if (!aborted) {
-      trackingSendEvent("error", { error: err.message || "Unknown error" });
+      sendErrorEnvelope(err.message || "Unknown error", "STREAM_EXCEPTION");
+      sendDoneWithCompletionGuarantee();
     }
   }
 

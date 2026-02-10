@@ -100,6 +100,7 @@ function freezeDeep(value) {
 class ConversationContextStore {
   constructor(options = {}) {
     this._contexts = new Map();
+    this._lifecycleEvents = new Map();
     this._ttlMs = options.ttlMs || CONTEXT_TTL_MS;
   }
 
@@ -112,10 +113,29 @@ class ConversationContextStore {
    * @returns {string} Conversation ID
    */
   _getConversationId(requestContext) {
-    const userId = requestContext.userId || 'default';
-    const scope = requestContext.scope || 'GLOBAL';
+    const explicitConversationId =
+      requestContext?.conversationId ?? requestContext?.agentSessionId ?? null;
+    if (
+      explicitConversationId !== null &&
+      explicitConversationId !== undefined &&
+      String(explicitConversationId).trim().length > 0
+    ) {
+      return String(explicitConversationId).trim();
+    }
+
+    const userId = requestContext?.userId || 'default';
+    const scope = requestContext?.scope || 'GLOBAL';
     // Include scope in conversation ID so different screens have different contexts
     return `conv:${userId}:${scope}`;
+  }
+
+  _recordLifecycleEvent(conversationId, event) {
+    if (!conversationId || !event || typeof event !== 'object') return;
+    this._lifecycleEvents.set(conversationId, Object.freeze({
+      conversationId,
+      ...event,
+      at: event.at || new Date().toISOString(),
+    }));
   }
 
   /**
@@ -143,6 +163,12 @@ class ConversationContextStore {
     if (!context) return null;
     if (!this._isValid(context)) {
       this._contexts.delete(conversationId);
+      this._recordLifecycleEvent(conversationId, {
+        type: 'expired',
+        reason: 'ttl_expired',
+        previousUpdatedAt: context.updatedAt || null,
+        ttlMs: this._ttlMs,
+      });
       return null;
     }
 
@@ -235,13 +261,15 @@ class ConversationContextStore {
     const conversationId = this._getConversationId(requestContext);
     const previous = this._contexts.get(conversationId);
 
-    // CRITICAL: Reset context on posture change (prevents context pollution)
+    // Posture transitions are observable, but do not implicitly reset context.
+    // Context reset must be explicit (clear) or expiration-based.
     if (previous && previous.lastPosture && posture && previous.lastPosture !== posture.mode) {
-      console.log(
-        `[Context] Posture changed: ${previous.lastPosture} → ${posture.mode}, resetting context`,
-      );
-      this._contexts.delete(conversationId);
-      // Continue with empty context
+      this._recordLifecycleEvent(conversationId, {
+        type: 'posture_transition',
+        reason: 'posture_changed_preserved_context',
+        previousPosture: previous.lastPosture,
+        nextPosture: posture.mode,
+      });
     }
 
     const nextActiveEntityType =
@@ -331,7 +359,14 @@ class ConversationContextStore {
    */
   clear(requestContext) {
     const conversationId = this._getConversationId(requestContext);
+    const hadContext = this._contexts.has(conversationId);
     this._contexts.delete(conversationId);
+    if (hadContext) {
+      this._recordLifecycleEvent(conversationId, {
+        type: 'cleared',
+        reason: 'explicit_clear',
+      });
+    }
   }
 
   /**
@@ -391,8 +426,22 @@ class ConversationContextStore {
     for (const [id, context] of this._contexts.entries()) {
       if (!this._isValid(context)) {
         this._contexts.delete(id);
+        this._recordLifecycleEvent(id, {
+          type: 'expired',
+          reason: 'ttl_cleanup',
+          previousUpdatedAt: context.updatedAt || null,
+          ttlMs: this._ttlMs,
+        });
       }
     }
+  }
+
+  consumeLifecycleEvent(requestContext) {
+    const conversationId = this._getConversationId(requestContext);
+    const event = this._lifecycleEvents.get(conversationId) || null;
+    if (!event) return null;
+    this._lifecycleEvents.delete(conversationId);
+    return { ...event };
   }
 }
 

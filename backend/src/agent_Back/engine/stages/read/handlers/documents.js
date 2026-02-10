@@ -250,12 +250,21 @@ async function handleSummarizeDocument(state) {
   // --- Session-attached document resolution (short-circuit) ---
   // If the user uploaded files to this session, resolve from session first
   // before requiring a dossier/client scope.
+  const turnContextDocuments = Array.isArray(context?._turnDocumentContext?.documents)
+    ? context._turnDocumentContext.documents.map((doc) => ({
+        ...doc,
+        document_text: doc.document_text || doc.text || null,
+      }))
+    : [];
   const conversationSessionId =
     typeof context?.conversationId === "string" && context.conversationId.trim()
       ? context.conversationId.trim()
       : null;
-  if (conversationSessionId) {
-    let sessionDocs = agentDocumentsService.listBySession(conversationSessionId, { includeText: false });
+  if (turnContextDocuments.length > 0 || conversationSessionId) {
+    let sessionDocs =
+      turnContextDocuments.length > 0
+        ? turnContextDocuments
+        : agentDocumentsService.listBySession(conversationSessionId, { includeText: false });
     if (sessionDocs.length > 0) {
       let readableSessionDocs = sessionDocs.filter(
         (doc) => doc.text_status === "readable" || (doc.has_text && !doc.unreadable_text),
@@ -266,7 +275,11 @@ async function handleSummarizeDocument(state) {
           (doc) => doc.text_status === "processing",
         );
 
-        if (processingSessionDocs.length > 0 && DOCUMENT_WAIT_MS > 0) {
+        if (
+          processingSessionDocs.length > 0 &&
+          DOCUMENT_WAIT_MS > 0 &&
+          conversationSessionId
+        ) {
           const startedAt = Date.now();
           while (Date.now() - startedAt < DOCUMENT_WAIT_MS) {
             await sleep(Math.max(250, DOCUMENT_WAIT_INTERVAL_MS));
@@ -372,6 +385,40 @@ async function handleSummarizeDocument(state) {
 
       if (sessionDoc) {
         const selectedLabel = sessionDoc.title || sessionDoc.original_filename || "Document";
+        const inlineText =
+          typeof sessionDoc.document_text === "string" && sessionDoc.document_text.trim()
+            ? sessionDoc.document_text
+            : typeof sessionDoc.text === "string" && sessionDoc.text.trim()
+              ? sessionDoc.text
+              : null;
+        if (inlineText) {
+          let summaryText = await summarizeDocumentText({
+            title: selectedLabel,
+            text: inlineText,
+            question: message,
+          });
+          if (summaryText) {
+            summaryText = summaryText.replace(/\s+/g, " ").trim();
+            if (summaryText.length > SUMMARY_MAX_CHARS) {
+              summaryText = `${summaryText.slice(0, SUMMARY_MAX_CHARS - 3)}...`;
+            }
+          }
+          summary = summaryText || `Summary for ${selectedLabel}.`;
+          details.push(`Document: ${selectedLabel}`);
+          const sourceValue = sessionDoc.text_source;
+          if (sourceValue) {
+            details.push(`Source: ${sourceValue === "ocr" ? "OCR" : sourceValue}`);
+          }
+          const lengthLabel = formatDocLength(sessionDoc.text_length || inlineText.length);
+          if (lengthLabel) {
+            details.push(`Text length: ${lengthLabel} characters`);
+          }
+          sources.push({ sourceType: "system", reference: "documents.text", note: "Document text" });
+          sources.push({ sourceType: "system", reference: "documents.metadata", note: "Document metadata" });
+          data = { ...sessionDoc, id: sessionDoc.document_id };
+          return { data, title, summary };
+        }
+
         const textResult = this._loadDocumentTexts([sessionDoc.document_id], context);
         if (!textResult.permitted) {
           summary = "Document access not available.";

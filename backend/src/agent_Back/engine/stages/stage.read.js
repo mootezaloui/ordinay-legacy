@@ -50,6 +50,26 @@ async function _executeReadIntent(
     filters = {},
     aggregateSummary = false,
   } = readIntent;
+  const turnDocumentContext =
+    context?._turnDocumentContext ||
+    engineContext?.documentContext ||
+    null;
+  const hasTurnDocumentContext = Boolean(
+    turnDocumentContext &&
+      Array.isArray(turnDocumentContext.documents) &&
+      turnDocumentContext.documents.length > 0,
+  );
+  if (hasTurnDocumentContext) {
+    context = {
+      ...(context || {}),
+      _turnDocumentContext: turnDocumentContext,
+      _hasDocumentContext: true,
+      hasDocuments: true,
+      documentCount:
+        Number(context?.documentCount || 0) ||
+        Number(turnDocumentContext.documents.length || 0),
+    };
+  }
   const now = new Date();
   const scope = String(context?.scope || "").toLowerCase();
   const storedConversationContext =

@@ -921,7 +921,13 @@ export function useAgentState() {
 
     const abortController = streamAgentMessage(
       followUpLabel,
-      { contextScope, agentVersion, dataAccess, followUpIntent: userMessage.followUpIntent },
+      {
+        contextScope,
+        agentVersion,
+        dataAccess,
+        followUpIntent: userMessage.followUpIntent,
+        sessionId,
+      },
         {
           onStart: (data) => {
             intent = data.intent;
@@ -1234,7 +1240,13 @@ export function useAgentState() {
 
       const abortController = streamAgentMessage(
       userContent,
-      { contextScope, agentVersion, dataAccess, followUpIntent: opts?.followUpIntent },
+      {
+        contextScope,
+        agentVersion,
+        dataAccess,
+        followUpIntent: opts?.followUpIntent,
+        sessionId: activeSessionId,
+      },
         {
           onStart: (data) => {
             intent = data.intent;

@@ -99,17 +99,6 @@ const WORK_PLANNING_KEYWORDS = [
 ];
 
 /**
- * Follow-up indicators (inherit posture from context)
- */
-const FOLLOW_UP_INDICATORS = [
-  /\b(what\s+about|how\s+about|and)\s+(the|those|them)/i,
-  /\bshow\s+(me\s+)?(more|again|them|those)/i,
-  /\b(yes|yeah|ok|sure|no|nope|cancel)\b/i,
-  /\bwhat\s+else/i,
-  /\btell\s+me\s+(more|about)/i,
-];
-
-/**
  * Check if message uses generic domain language (examples, templates)
  */
 function isGenericDomainUsage(normalized) {
@@ -154,21 +143,6 @@ function hasSpecificEntityReference(message, context) {
  */
 function hasWorkPlanningKeywords(normalized) {
   return WORK_PLANNING_KEYWORDS.some((pattern) => pattern.test(normalized));
-}
-
-/**
- * Check if message is likely a follow-up (inherit prior posture)
- */
-function isFollowUpMessage(message, context) {
-  const normalized = message.toLowerCase().trim();
-
-  // Very short messages are likely follow-ups
-  if (normalized.split(/\s+/).length <= 3) {
-    return true;
-  }
-
-  // Explicit follow-up indicators
-  return FOLLOW_UP_INDICATORS.some((pattern) => pattern.test(normalized));
 }
 
 /**
@@ -242,20 +216,7 @@ async function resolveInteractionPosture(message, context = {}) {
     };
   }
 
-  // RULE 2: Follow-up inherits posture from context
-  if (isFollowUpMessage(message, context)) {
-    const inheritedPosture = context?.lastPosture || POSTURES.ASSISTANT;
-    console.log(
-      `[Posture] Follow-up detected → Inherited ${inheritedPosture} (confidence: 0.85)`,
-    );
-    return {
-      mode: inheritedPosture,
-      confidence: 0.85,
-      signals: ["follow_up_inherit"],
-    };
-  }
-
-  // RULE 3: No entity keywords → ASSISTANT
+  // RULE 2: No entity keywords → ASSISTANT
   if (!hasEntityKeywords(normalized)) {
     console.log(
       "[Posture] No entity keywords → ASSISTANT (confidence: 0.9)",
@@ -267,7 +228,7 @@ async function resolveInteractionPosture(message, context = {}) {
     };
   }
 
-  // RULE 4: Entity keywords present → disambiguate WORK vs INSPECTION
+  // RULE 3: Entity keywords present → disambiguate WORK vs INSPECTION
   // Check for specific entity reference (name, ID) → WORK
   if (hasSpecificEntityReference(message, context)) {
     console.log(
@@ -292,7 +253,7 @@ async function resolveInteractionPosture(message, context = {}) {
     };
   }
 
-  // RULE 5: Work planning keywords → WORK
+  // RULE 4: Work planning keywords → WORK
   if (hasWorkPlanningKeywords(normalized)) {
     console.log(
       "[Posture] Work planning keywords → WORK (confidence: 0.85)",

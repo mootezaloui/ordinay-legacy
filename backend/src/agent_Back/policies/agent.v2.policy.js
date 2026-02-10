@@ -5,6 +5,7 @@ const { INTENTS } = require('../intents');
 const agentV2Policy = {
   version: 'v2',
   allowedIntents: [
+    INTENTS.GENERAL_CHAT,
     INTENTS.EXPLAIN_ENTITY_STATE,
     INTENTS.SUMMARIZE_SESSION,
     INTENTS.DRAFT_INVITATION,
