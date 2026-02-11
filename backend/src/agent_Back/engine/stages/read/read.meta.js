@@ -42,6 +42,10 @@ function _resolveReadEntityType(intent) {
     [READ_INTENTS.READ_MISSION]: "mission",
     [READ_INTENTS.EXPLAIN_MISSION_STATE]: "mission",
     [READ_INTENTS.SUMMARIZE_MISSION]: "mission",
+    [READ_INTENTS.LIST_OFFICERS]: "officer",
+    [READ_INTENTS.READ_OFFICER]: "officer",
+    [READ_INTENTS.EXPLAIN_OFFICER_STATE]: "officer",
+    [READ_INTENTS.SUMMARIZE_OFFICER]: "officer",
     [READ_INTENTS.LIST_FINANCIAL_ENTRIES]: "financial_entry",
     [READ_INTENTS.READ_FINANCIAL_ENTRY]: "financial_entry",
     [READ_INTENTS.EXPLAIN_FINANCIAL_ENTRY_STATE]: "financial_entry",
@@ -251,6 +255,7 @@ function _buildReadInterpretationContext(
     if (entityType === "task") context.taskData = entityData;
     if (entityType === "session") context.sessionData = entityData;
     if (entityType === "mission") context.missionData = entityData;
+    if (entityType === "officer") context.officerData = entityData;
     if (entityType === "financial_entry") context.financialEntryData = entityData;
   }
 
@@ -492,6 +497,15 @@ function _buildReadExplanation({
       "relationships",
       "documents",
       "recent activity",
+    ],
+    officer: [
+      "summary",
+      "status",
+      "agency",
+      "location",
+      "specialization",
+      "registration",
+      "documents",
     ],
     financial_entry: [
       "summary",

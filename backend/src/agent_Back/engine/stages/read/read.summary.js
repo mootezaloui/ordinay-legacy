@@ -181,6 +181,7 @@ function buildSummaryHelpers({
       personal_task: { tool: "listPersonalTasks", key: "personalTasks" },
       session: { tool: "listSessions", key: "sessions" },
       mission: { tool: "listMissions", key: "missions" },
+      officer: { tool: "listOfficers", key: "officers" },
       notification: { tool: "listNotifications", key: "notifications" },
       history_event: { tool: "listHistoryEvents", key: "historyEvents" },
     };
@@ -191,6 +192,10 @@ function buildSummaryHelpers({
     const params = { limit: 200 };
 
     if (entityType === "client") {
+      if (aggregateFilters.status) params.status = aggregateFilters.status;
+    }
+
+    if (entityType === "officer") {
       if (aggregateFilters.status) params.status = aggregateFilters.status;
     }
 
@@ -330,6 +335,7 @@ function buildSummaryHelpers({
         session: context?.sessionId,
         task: context?.taskId,
         mission: context?.missionId,
+        officer: context?.officerId,
         personal_task: context?.personalTaskId,
         financial_entry: context?.financialEntryId,
       };
@@ -348,6 +354,7 @@ function buildSummaryHelpers({
         session: context?.sessionId,
         task: context?.taskId,
         mission: context?.missionId,
+        officer: context?.officerId,
         personal_task: context?.personalTaskId,
         financial_entry: context?.financialEntryId,
       };

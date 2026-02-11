@@ -305,23 +305,29 @@ async function handler({
     language
   );
 
-  // Map tone to contract enum
-  const contractTone = tone === 'formal' ? DRAFT_TONE.FORMAL
-    : tone === 'friendly' ? DRAFT_TONE.FRIENDLY
-    : DRAFT_TONE.NEUTRAL;
+  // Map tone to contract enum (contract only allows FORMAL and NEUTRAL)
+  const contractTone = tone === 'formal' ? DRAFT_TONE.FORMAL : DRAFT_TONE.NEUTRAL;
 
-  // Build sections
-  const sections = {};
-  if (subject) sections.subject = subject;
-  if (greeting) sections.greeting = greeting;
-  sections.body = body;
-  if (closing) sections.closing = closing;
+  // Build sections (contract requires header, body, footer)
+  const headerParts = [];
+  if (subject) headerParts.push(subject);
+  if (greeting) headerParts.push(greeting);
+  const header = headerParts.length > 0
+    ? headerParts.join('\n')
+    : (language === 'fr' ? 'Madame, Monsieur,' : 'Dear Sir or Madam,');
 
-  // Add footer
-  const footer = language === 'fr'
+  const footerText = language === 'fr'
     ? '---\nDocument généré automatiquement - Nécessite validation'
     : '---\nAutomatically generated document - Requires validation';
-  sections.footer = footer;
+  const footerParts = [];
+  if (closing) footerParts.push(closing);
+  footerParts.push(footerText);
+
+  const sections = {
+    header,
+    body,
+    footer: footerParts.join('\n'),
+  };
 
   // Build recipient (for CLIENT_EMAIL)
   let recipient = null;
@@ -348,7 +354,7 @@ async function handler({
     tone: contractTone,
     sections,
     metadata: {
-      source: DRAFT_SOURCE.LLM_GENERATED,
+      source: DRAFT_SOURCE.LLM,
       status: 'draft',
       requiresValidation: true,
       createdAt: new Date().toISOString(),

@@ -13,10 +13,6 @@ class BaseReasoner {
     this._notImplemented('summarize');
   }
 
-  async draft() {
-    this._notImplemented('draft');
-  }
-
   async analyzeRisks() {
     this._notImplemented('analyzeRisks');
   }

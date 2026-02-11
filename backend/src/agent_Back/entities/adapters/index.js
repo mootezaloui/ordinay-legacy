@@ -14,6 +14,7 @@ const sessionAdapter = require('./session.adapter');
 const lawsuitAdapter = require('./lawsuit.adapter');
 const personalTaskAdapter = require('./personalTask.adapter');
 const missionAdapter = require('./mission.adapter');
+const officerAdapter = require('./officer.adapter');
 const financialEntryAdapter = require('./financialEntry.adapter');
 const notificationAdapter = require('./notification.adapter');
 const documentAdapter = require('./document.adapter');
@@ -27,6 +28,7 @@ const adapters = new Map([
   [lawsuitAdapter.entityType, lawsuitAdapter],
   [personalTaskAdapter.entityType, personalTaskAdapter],
   [missionAdapter.entityType, missionAdapter],
+  [officerAdapter.entityType, officerAdapter],
   [financialEntryAdapter.entityType, financialEntryAdapter],
   [notificationAdapter.entityType, notificationAdapter],
   [documentAdapter.entityType, documentAdapter],

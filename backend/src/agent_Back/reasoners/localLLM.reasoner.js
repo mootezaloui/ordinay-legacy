@@ -25,14 +25,6 @@ class LocalLLMReasoner extends BaseReasoner {
     };
   }
 
-  async draft(params) {
-    const base = await this.fallback.draft(params);
-    return {
-      ...base,
-      body: `${base.body}\n\n[Simulated locally with deterministic template]`,
-    };
-  }
-
   async analyzeRisks(params) {
     const base = await this.fallback.analyzeRisks(params);
     return {

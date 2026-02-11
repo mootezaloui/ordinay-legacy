@@ -4,6 +4,7 @@ const classifyIntent = require("../intent.classifier");
 const {
   detectDataRequirements,
   detectReadIntent,
+  detectDraftIntent,
   detectFollowUp,
   isSlashCommand,
   READ_INTENTS,
@@ -525,6 +526,51 @@ async function run({
   }
   // ========== END READ INTENT GATE ==========
 
+  // ========== DRAFT INTENT GATE ==========
+  // Rule-based detection BEFORE LLM — ensures draft requests invoke genericDraft tool
+  if (governedPosture) {
+    const draftIntent = detectDraftIntent(normalizedMessage, turnContext);
+    if (
+      draftIntent &&
+      policy.allowedToolCategories.includes("draft")
+    ) {
+      this._ensureTurnGateAllowed(policy, {
+        gate: "draft_intent",
+        intent: draftIntent.intent,
+        requiresRead: false,
+      });
+      engineContext.intent = draftIntent.intent;
+      this.ledger.record({
+        type: "draft_intent_gate_triggered",
+        intent: draftIntent.intent,
+        draftType: draftIntent.draftType,
+        entityHints: draftIntent.entityHints,
+        timestamp: new Date().toISOString(),
+      });
+
+      const draftResult = await this._executeDraftIntent(
+        draftIntent,
+        normalizedMessage,
+        turnContext,
+        policy,
+        engineContext,
+      );
+      this._updateConversationContext(
+        turnContext,
+        normalizedMessage,
+        draftResult,
+        CONTEXT_SOURCES.DRAFT_INTENT,
+        engineContext.posture,
+      );
+      return {
+        ...draftResult,
+        posture: engineContext.posture,
+        postureAuthority: engineContext.postureAuthority,
+      };
+    }
+  }
+  // ========== END DRAFT INTENT GATE ==========
+
   // ========== DOCUMENT-ONLY GATE ==========
   // When documents are present but the user has not provided an explicit
   // instruction, skip intent classification entirely and return a neutral
@@ -908,10 +954,6 @@ async function _executeIntent(intent, reasoner, payload) {
       return reasoner.explain({ message, context });
     case INTENTS.SUMMARIZE_SESSION:
       return reasoner.summarize({ message, context });
-    case INTENTS.DRAFT_INVITATION:
-      return reasoner.draft({ message, context, draftType: "invitation" });
-    case INTENTS.DRAFT_CLIENT_EMAIL:
-      return reasoner.draft({ message, context, draftType: "client_email" });
     case INTENTS.ANALYZE_OPERATIONAL_RISKS:
       return reasoner.analyzeRisks({ message, context });
     case INTENTS.PROPOSE_ACTIONS:

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
 import { getStatusColor } from "./statusColors";
 import { getMissionFormFields } from "../../FormModal/formConfigs";
@@ -46,6 +47,34 @@ export const createMissionConfig = (t) => ({
             if (mission) {
                 // Enrich with officer info when available
                 const officer = contextData.officers?.find(o => o.id === mission.officerId);
+                const dossiers = contextData.dossiers || [];
+                const lawsuits = contextData.lawsuits || [];
+                const clients = contextData.clients || [];
+
+                const linkedLawsuit =
+                    (mission.lawsuitId
+                        ? lawsuits.find(c => c.id === parseInt(mission.lawsuitId))
+                        : null) ||
+                    ((mission.entityType || "").toLowerCase() === "lawsuit" && mission.entityId
+                        ? lawsuits.find(c => c.id === parseInt(mission.entityId))
+                        : null) ||
+                    null;
+
+                const linkedDossier =
+                    (mission.dossierId
+                        ? dossiers.find(d => d.id === parseInt(mission.dossierId))
+                        : null) ||
+                    ((mission.entityType || "").toLowerCase() === "dossier" && mission.entityId
+                        ? dossiers.find(d => d.id === parseInt(mission.entityId))
+                        : null) ||
+                    (linkedLawsuit?.dossierId
+                        ? dossiers.find(d => d.id === parseInt(linkedLawsuit.dossierId))
+                        : null) ||
+                    null;
+
+                const linkedClient = linkedDossier?.clientId
+                    ? clients.find(c => c.id === parseInt(linkedDossier.clientId))
+                    : null;
 
                 // ✅ Enrich with financial entries linked to this mission
                 const financialEntries = contextData?.financialEntries || [];
@@ -61,6 +90,15 @@ export const createMissionConfig = (t) => ({
                     officerName: officer?.name || mission.officerName || "",
                     officerPhone: officer?.phone || mission.officerPhone || "",
                     officerLocation: officer?.location || mission.officerLocation || "",
+                    client: linkedClient
+                        ? { id: linkedClient.id, name: linkedClient.name }
+                        : null,
+                    dossier: linkedDossier
+                        ? { id: linkedDossier.id, lawsuitNumber: linkedDossier.lawsuitNumber, title: linkedDossier.title }
+                        : null,
+                    lawsuit: linkedLawsuit
+                        ? { id: linkedLawsuit.id, lawsuitNumber: linkedLawsuit.lawsuitNumber, title: linkedLawsuit.title }
+                        : null,
                     financialEntries: missionFinancialEntries,
                 };
             }
@@ -139,6 +177,33 @@ export const createMissionConfig = (t) => ({
                             <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
                                 {data.title || data.missionNumber}
                             </h2>
+                            {data.client?.id && (
+                                <Link
+                                    to={`/clients/${data.client.id}`}
+                                    className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
+                                >
+                                    <i className="fas fa-user"></i>
+                                    {data.client.name}
+                                </Link>
+                            )}
+                            {data.dossier?.id && (
+                                <Link
+                                    to={`/dossiers/${data.dossier.id}`}
+                                    className="mt-1 text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
+                                >
+                                    <i className="fas fa-folder-open"></i>
+                                    {data.dossier.lawsuitNumber} - {data.dossier.title}
+                                </Link>
+                            )}
+                            {data.lawsuit?.id && (
+                                <Link
+                                    to={`/lawsuits/${data.lawsuit.id}`}
+                                    className="mt-1 text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
+                                >
+                                    <i className="fas fa-gavel"></i>
+                                    {data.lawsuit.lawsuitNumber} - {data.lawsuit.title}
+                                </Link>
+                            )}
                             <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
                                 <i className="fas fa-briefcase"></i>
                                 <span>{translateMissionType(data.missionType, t)}</span>

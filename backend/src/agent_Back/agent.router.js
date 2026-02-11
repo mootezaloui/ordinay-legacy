@@ -97,6 +97,7 @@ const ENTITY_LABELS = Object.freeze({
   task: "task",
   personal_task: "personal task",
   mission: "mission",
+  officer: "officer",
   financial_entry: "financial entry",
   notification: "notification",
   history_event: "history entry",
@@ -181,6 +182,7 @@ function deriveEntityLabel(
   if (normalized.includes("PERSONAL_TASK")) return "personal task";
   if (normalized.includes("TASK")) return "task";
   if (normalized.includes("MISSION")) return "mission";
+  if (normalized.includes("OFFICER")) return "officer";
   if (normalized.includes("FINANCIAL")) return "financial entry";
   if (normalized.includes("NOTIFICATION")) return "notification";
   if (normalized.includes("HISTORY")) return "history entry";

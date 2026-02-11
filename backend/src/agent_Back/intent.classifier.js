@@ -13,6 +13,7 @@ const DATA_REQUIREMENTS = Object.freeze({
   TASK: "task",
   PERSONAL_TASK: "personal_task",
   MISSION: "mission",
+  OFFICER: "officer",
   FINANCIAL_ENTRY: "financial_entry",
   NOTIFICATION: "notification",
   HISTORY_EVENT: "history_event",
@@ -142,6 +143,22 @@ const SLASH_COMMANDS = Object.freeze({
     tools: ["listMissions", "getMission"],
     params: { requiresArg: true, argType: "referenceOrId" },
     category: "missions",
+  },
+  officers: {
+    command: "/officers",
+    description: "List all bailiffs/officers",
+    usage: "/officers",
+    tools: ["listOfficers"],
+    params: {},
+    category: "officers",
+  },
+  officer: {
+    command: "/officer",
+    description: "Get bailiff/officer by name",
+    usage: "/officer <name>",
+    tools: ["listOfficers", "getOfficer"],
+    params: { requiresArg: true, argType: "nameOrId" },
+    category: "officers",
   },
 
   // Personal task commands
@@ -407,7 +424,8 @@ function detectDataRequirements(message, context = {}) {
     personal_task: /\b(personal\s+task|personal\s+tasks)\b/i,
     task: /\b(task|tasks|todo|to-do)\b/i,
     session: /\b(session|sessions|meeting|appointment)\b/i,
-    mission: /\b(mission|missions|huissier)\b/i,
+    mission: /\b(mission|missions)\b/i,
+    officer: /\b(officer|officers|bailiff|bailiffs|huissier|huissiers)\b/i,
     financial_entry: /\b(accounting|financial|invoice|payment|expense|billing|entry|entries)\b/i,
     notification: /\b(notification|notifications|alert|alerts)\b/i,
     history_event: /\b(history|audit\s*trail|activity\s*log|audit)\b/i,
@@ -536,13 +554,15 @@ function extractEntityHints(message) {
 
   // Pattern: typed ID "client 123", "dossier 45"
   const typedIdMatch = message.match(
-    /\b(client|dossier|lawsuit|case|session|task|personal\s+task|mission|notification|history|financial\s+entry|accounting\s+entry)\s+#?(\d{1,9})\b/i,
+    /\b(client|dossier|lawsuit|case|session|task|personal\s+task|mission|officer|bailiff|huissier|notification|history|financial\s+entry|accounting\s+entry)\s+#?(\d{1,9})\b/i,
   );
   if (typedIdMatch) {
     const rawType = typedIdMatch[1].toLowerCase();
     const typeMap = {
       case: "lawsuit",
       "personal task": "personal_task",
+      bailiff: "officer",
+      huissier: "officer",
       "financial entry": "financial_entry",
       "accounting entry": "financial_entry",
       history: "history_event",
@@ -564,7 +584,7 @@ function extractEntityHints(message) {
 
   // "for X" pattern: "dossier for Emma"
   const forMatch = message.match(
-    /(?:dossier|lawsuit|case|task|session|mission|accounting|financial|invoice|payment|expense|billing|entry|entries)\s+for\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)/i,
+    /(?:dossier|lawsuit|case|task|session|mission|officer|bailiff|huissier|accounting|financial|invoice|payment|expense|billing|entry|entries)\s+for\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)/i,
   );
   if (forMatch)
     hints.push({ type: "name", value: forMatch[1], entityType: "client" });
@@ -676,6 +696,17 @@ function extractEntityHints(message) {
       entityType: "mission",
     });
 
+  // Capitalized name after "officer"/"bailiff"/"huissier"
+  const officerNameMatch = message.match(
+    /(officer|bailiff|huissier)\s+(?:named\s+)?([A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+)*)/i,
+  );
+  if (officerNameMatch)
+    hints.push({
+      type: "name",
+      value: officerNameMatch[2],
+      entityType: "officer",
+    });
+
   // Pattern: "X's status/info/details" (where X is capitalized name)
   const statusMatch = message.match(
     /([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)'s\s+(?:status|info|information|details|data)/,
@@ -696,6 +727,7 @@ const AGGREGATE_PLURAL_PATTERNS = Object.freeze({
   personal_task: /\bpersonal\s+tasks\b/i,
   session: /\bsessions\b/i,
   mission: /\bmissions\b/i,
+  officer: /\b(officers|bailiffs|huissiers)\b/i,
   financial_entry: /\b(entries|financials|invoices|payments)\b/i,
   notification: /\bnotifications\b/i,
   history_event: /\b(history\s+events|history|audit\s*trail|activity\s*log)\b/i,
@@ -709,6 +741,7 @@ const SCOPE_ID_KEYS = Object.freeze({
   personal_task: "personalTaskId",
   session: "sessionId",
   mission: "missionId",
+  officer: "officerId",
   financial_entry: "financialEntryId",
   notification: "notificationId",
   history_event: "historyEventId",
@@ -777,6 +810,84 @@ function buildAggregateFilters(normalized, entityType, temporal) {
   }
 
   return filters;
+}
+
+/**
+ * Detect DRAFT intent using rule-based pattern matching.
+ * Runs BEFORE LLM classification — deterministic verb-first detection.
+ *
+ * Returns null if no draft intent detected.
+ * Returns descriptor with intent, draftType, and entityHints if detected.
+ *
+ * @param {string} message - User message
+ * @param {Object} context - Request context
+ * @returns {Object|null} DRAFT intent descriptor or null
+ */
+function detectDraftIntent(message, context = {}) {
+  const normalized = message.toLowerCase();
+
+  // Exclude generic/template requests — these are informational, not production
+  const genericPatterns = [
+    /\b(a|an)\s+(sample|example|template|generic)\s+(email|letter|message|document|invitation)\b/i,
+    /\bhow\s+to\s+(write|draft|compose|structure)\s+(a|an)\b/i,
+    /\b(email|letter|message|document|invitation)\s+(template|example|sample|format)\b/i,
+  ];
+  if (genericPatterns.some(p => p.test(normalized))) {
+    return null;
+  }
+
+  // Verb-first detection: draft, write, compose, prepare, rédiger
+  const draftVerbPattern = /\b(draft|write|compose|prepare|rédiger|rediger)\b/i;
+  if (!draftVerbPattern.test(normalized)) {
+    return null;
+  }
+
+  // Detect draft type from message
+  const isInvitation = /\b(invitation|convocation|invite|meeting\s+request|summons)\b/i.test(normalized);
+  const isClientEmail = /\b(email|e-mail|mail|letter|message|courrier|lettre)\b/i.test(normalized)
+    && /\b(client|customer|mandant)\b/i.test(normalized);
+  const isHearingSummary = /\b(hearing\s+summary|session\s+summary|compte[\s-]?rendu|summary\s+of\s+(?:the\s+)?(?:hearing|session))\b/i.test(normalized);
+  const isInternalNote = /\b(internal\s+note|memo|note\s+interne)\b/i.test(normalized);
+
+  let intent = null;
+  let draftType = null;
+
+  if (isInvitation) {
+    intent = INTENTS.DRAFT_INVITATION;
+    draftType = "INVITATION";
+  } else if (isClientEmail) {
+    intent = INTENTS.DRAFT_CLIENT_EMAIL;
+    draftType = "CLIENT_EMAIL";
+  } else if (isHearingSummary) {
+    intent = INTENTS.DRAFT_INVITATION;
+    draftType = "HEARING_SUMMARY";
+  } else if (isInternalNote) {
+    intent = INTENTS.DRAFT_INVITATION;
+    draftType = "INTERNAL_NOTE";
+  }
+
+  if (!intent) {
+    // Draft verb detected but no recognizable document type — needs clarification
+    intent = INTENTS.DRAFT_INVITATION;
+    draftType = null;
+  }
+
+  // Extract entity hints using existing helper
+  const entityHints = extractEntityHints(message);
+
+  // Extract "for X" patterns specific to drafting context
+  const forMatch = message.match(
+    /(?:draft|write|compose|prepare|rédiger|rediger)\s+(?:an?\s+)?(?:\w+\s+){0,3}(?:for|pour)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)/i,
+  );
+  if (forMatch && !entityHints.some(h => h.value === forMatch[1].trim())) {
+    entityHints.push({ type: "name", value: forMatch[1].trim() });
+  }
+
+  return {
+    intent,
+    draftType,
+    entityHints,
+  };
 }
 
 /**
@@ -888,7 +999,8 @@ function detectReadIntent(message, context = {}) {
       pattern:
         /\b(session|sessions|meeting|meetings|hearing|hearings|appointment|appointments)\b/i,
     },
-    { type: "mission", pattern: /\b(mission|missions|huissier)\b/i },
+    { type: "mission", pattern: /\b(mission|missions)\b/i },
+    { type: "officer", pattern: /\b(officer|officers|bailiff|bailiffs|huissier|huissiers)\b/i },
     {
       type: "financial_entry",
       pattern: /\b(accounting|financial|invoice|payment|expense|billing|entry|entries)\b/i,
@@ -1075,6 +1187,15 @@ function detectReadIntent(message, context = {}) {
         aggregateSummary,
         filters: aggregateFilters,
       };
+    if (entityType === "officer")
+      return {
+        intent: READ_INTENTS.SUMMARIZE_OFFICER,
+        requiresLocalData: true,
+        allowedTools: aggregateSummary ? ["listOfficers"] : ["getOfficer", "listOfficers"],
+        entityHints: extractedHints,
+        aggregateSummary,
+        filters: aggregateFilters,
+      };
     if (entityType === "financial_entry")
       return {
         intent: READ_INTENTS.SUMMARIZE_FINANCIAL_ENTRY,
@@ -1164,6 +1285,13 @@ function detectReadIntent(message, context = {}) {
         allowedTools: ["getMission", "listMissions"],
         entityHints: extractedHints,
       };
+    if (entityType === "officer")
+      return {
+        intent: READ_INTENTS.EXPLAIN_OFFICER_STATE,
+        requiresLocalData: true,
+        allowedTools: ["getOfficer", "listOfficers"],
+        entityHints: extractedHints,
+      };
     if (entityType === "financial_entry")
       return {
         intent: READ_INTENTS.EXPLAIN_FINANCIAL_ENTRY_STATE,
@@ -1214,6 +1342,13 @@ function detectReadIntent(message, context = {}) {
           intent: READ_INTENTS.READ_MISSION,
           requiresLocalData: true,
           allowedTools: ["getMission", "listMissions"],
+          entityHints: nameHints,
+        };
+      if (typed === "officer")
+        return {
+          intent: READ_INTENTS.READ_OFFICER,
+          requiresLocalData: true,
+          allowedTools: ["getOfficer", "listOfficers"],
           entityHints: nameHints,
         };
     }
@@ -1324,6 +1459,13 @@ function detectReadIntent(message, context = {}) {
         allowedTools: ["listMissions"],
         entityHints: extractedHints,
       };
+    if (entityType === "officer")
+      return {
+        intent: READ_INTENTS.LIST_OFFICERS,
+        requiresLocalData: true,
+        allowedTools: ["listOfficers"],
+        entityHints: extractedHints,
+      };
     if (entityType === "financial_entry")
       return {
         intent: READ_INTENTS.LIST_FINANCIAL_ENTRIES,
@@ -1416,6 +1558,13 @@ function detectReadIntent(message, context = {}) {
         intent: READ_INTENTS.READ_MISSION,
         requiresLocalData: true,
         allowedTools: ["getMission", "listMissions"],
+        entityHints: nameHints,
+      };
+    if (entityType === "officer")
+      return {
+        intent: READ_INTENTS.READ_OFFICER,
+        requiresLocalData: true,
+        allowedTools: ["getOfficer", "listOfficers"],
         entityHints: nameHints,
       };
     if (entityType === "financial_entry")
@@ -1689,7 +1838,7 @@ function detectFollowUp(message, context = {}) {
 
   // Entity keywords that indicate a NEW query, not a follow-up
   const entityKeywords =
-    /\b(client|clients|dossier|dossiers|task|tasks|personal\s+task|personal\s+tasks|session|sessions|meeting|meetings|hearing|hearings|appointment|appointments|lawsuit|lawsuits|case|cases|matter|matters|mission|missions|accounting|financial|invoice|payment|expense|billing|document|documents|file|files|attachment|attachments|notification|notifications|alert|alerts|history|audit)\b/i;
+    /\b(client|clients|dossier|dossiers|task|tasks|personal\s+task|personal\s+tasks|session|sessions|meeting|meetings|hearing|hearings|appointment|appointments|lawsuit|lawsuits|case|cases|matter|matters|mission|missions|officer|officers|bailiff|bailiffs|huissier|huissiers|accounting|financial|invoice|payment|expense|billing|document|documents|file|files|attachment|attachments|notification|notifications|alert|alerts|history|audit)\b/i;
 
   // Pattern 3: Pronoun references (refer to prior context)
   const pronounPatterns = [
@@ -1809,7 +1958,7 @@ function detectFollowUp(message, context = {}) {
   // Check for standalone filter words in short messages (no entity context)
   if (wordCount <= 5) {
     const entityPatterns = [
-      /\b(client|clients|dossier|dossiers|task|tasks|session|sessions)\b/i,
+      /\b(client|clients|dossier|dossiers|task|tasks|session|sessions|officer|officers|bailiff|bailiffs|huissier|huissiers)\b/i,
     ];
     const hasEntityMention = entityPatterns.some((p) => p.test(normalized));
 
@@ -1886,9 +2035,9 @@ function hasExplicitEntityMention(message) {
 
   // Check for entity type keywords with list/show verbs (new query)
   const newQueryPatterns = [
-    /\b(list|show|get|display)\s+(my\s+)?(all\s+)?(client|dossier|task|session|lawsuit|mission|accounting|notification|history)/i,
-    /\bmy\s+(client|dossier|task|session|lawsuit|mission|notification)s?\b/i,
-    /\b(client|dossier|task|session|lawsuit|mission|notification)s?\s+(list|overview)/i,
+    /\b(list|show|get|display)\s+(my\s+)?(all\s+)?(client|dossier|task|session|lawsuit|mission|officer|bailiff|huissier|accounting|notification|history)/i,
+    /\bmy\s+(client|dossier|task|session|lawsuit|mission|officer|bailiff|huissier|notification)s?\b/i,
+    /\b(client|dossier|task|session|lawsuit|mission|officer|bailiff|huissier|notification)s?\s+(list|overview)/i,
   ];
 
   // Check for specific entity references
@@ -1929,7 +2078,8 @@ function detectEntityType(message) {
     task: /\b(task|tasks|todo|to-do|todos)\b/i,
     session:
       /\b(session|sessions|meeting|meetings|hearing|hearings|appointment|appointments)\b/i,
-    mission: /\b(mission|missions|huissier)\b/i,
+    mission: /\b(mission|missions)\b/i,
+    officer: /\b(officer|officers|bailiff|bailiffs|huissier|huissiers)\b/i,
     financial_entry: /\b(accounting|financial|invoice|payment|expense|billing|entry|entries)\b/i,
     document: /\b(document|documents|file|files|attachment|attachments|pdf|docx|resume|cv|letter|report)\b/i,
     notification: /\b(notification|notifications|alert|alerts)\b/i,
@@ -1955,6 +2105,7 @@ module.exports.parseSlashCommand = parseSlashCommand;
 module.exports.getAvailableCommands = getAvailableCommands;
 module.exports.READ_INTENTS = READ_INTENTS;
 module.exports.detectReadIntent = detectReadIntent;
+module.exports.detectDraftIntent = detectDraftIntent;
 module.exports.FOLLOW_UP_TYPES = FOLLOW_UP_TYPES;
 module.exports.FILTER_MODIFIERS = FILTER_MODIFIERS;
 module.exports.detectFollowUp = detectFollowUp;

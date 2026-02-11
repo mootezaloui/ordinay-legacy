@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
 import { getStatusColor } from "./statusColors";
 import { getFinancialEntriesForDisplay, formatCurrency } from "../../../utils/financialUtils";
@@ -103,11 +104,74 @@ export const createFinancialEntryConfig = (t) => ({
 
     fetchData: async (id, contextData = null) => {
         const numericId = parseInt(id);
+        const findById = (list, value) => {
+            if (!Array.isArray(list) || value === null || value === undefined || value === "") return null;
+            return list.find(item => String(item.id) === String(value)) || null;
+        };
 
         // Use live data from context (backend-driven)
         if (contextData?.financialEntries) {
             const entry = contextData.financialEntries.find(e => e.id === numericId);
-            return entry || null;
+            if (!entry) return null;
+
+            const clients = contextData.clients || [];
+            const dossiers = contextData.dossiers || [];
+            const lawsuits = contextData.lawsuits || [];
+            const missions = contextData.missions || [];
+            const tasks = contextData.tasks || [];
+            const sessions = contextData.sessions || [];
+
+            let lawsuit = findById(lawsuits, entry.lawsuitId);
+            let dossier = findById(dossiers, entry.dossierId);
+            let client = findById(clients, entry.clientId);
+
+            if ((!lawsuit || !dossier) && entry.missionId) {
+                const mission = findById(missions, entry.missionId);
+                const missionEntityType = String(mission?.entityType || "").toLowerCase();
+
+                lawsuit =
+                    lawsuit ||
+                    findById(lawsuits, mission?.lawsuitId) ||
+                    (missionEntityType === "lawsuit" ? findById(lawsuits, mission?.entityId) : null);
+
+                dossier =
+                    dossier ||
+                    findById(dossiers, mission?.dossierId) ||
+                    (missionEntityType === "dossier" ? findById(dossiers, mission?.entityId) : null);
+            }
+
+            if ((!lawsuit || !dossier) && entry.taskId) {
+                const task = findById(tasks, entry.taskId);
+                lawsuit = lawsuit || findById(lawsuits, task?.lawsuitId);
+                dossier = dossier || findById(dossiers, task?.dossierId);
+            }
+
+            if ((!lawsuit || !dossier) && entry.sessionId) {
+                const session = findById(sessions, entry.sessionId);
+                lawsuit = lawsuit || findById(lawsuits, session?.lawsuitId);
+                dossier = dossier || findById(dossiers, session?.dossierId);
+            }
+
+            if (!dossier && lawsuit?.dossierId) {
+                dossier = findById(dossiers, lawsuit.dossierId);
+            }
+
+            if (!client && dossier?.clientId) {
+                client = findById(clients, dossier.clientId);
+            }
+
+            return {
+                ...entry,
+                client: client ? { id: client.id, name: client.name } : null,
+                dossier: dossier ? { id: dossier.id, lawsuitNumber: dossier.lawsuitNumber, title: dossier.title } : null,
+                lawsuit: lawsuit ? { id: lawsuit.id, lawsuitNumber: lawsuit.lawsuitNumber, title: lawsuit.title } : null,
+                clientName: entry.clientName || client?.name || "",
+                dossierReference: entry.dossierReference || (dossier ? `${dossier.lawsuitNumber} - ${dossier.title}` : ""),
+                caseReference:
+                    entry.caseReference ||
+                    entry.lawsuitReference ||
+                    (lawsuit ? `${lawsuit.lawsuitNumber} - ${lawsuit.title}` : ""),
+            };
         }
 
         // Fallback to static data
@@ -189,6 +253,33 @@ export const createFinancialEntryConfig = (t) => ({
                             <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
                                 {data.title || data.description || t('table.fallback.untitled', { id: data.id })}
                             </h2>
+                            {data.client?.id && (
+                                <Link
+                                    to={`/clients/${data.client.id}`}
+                                    className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
+                                >
+                                    <i className="fas fa-user"></i>
+                                    {data.client.name}
+                                </Link>
+                            )}
+                            {data.dossier?.id && (
+                                <Link
+                                    to={`/dossiers/${data.dossier.id}`}
+                                    className="mt-1 text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
+                                >
+                                    <i className="fas fa-folder-open"></i>
+                                    {data.dossier.lawsuitNumber} - {data.dossier.title}
+                                </Link>
+                            )}
+                            {data.lawsuit?.id && (
+                                <Link
+                                    to={`/lawsuits/${data.lawsuit.id}`}
+                                    className="mt-1 text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
+                                >
+                                    <i className="fas fa-gavel"></i>
+                                    {data.lawsuit.lawsuitNumber} - {data.lawsuit.title}
+                                </Link>
+                            )}
                             <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
                                 <i className={data.type === 'revenue' ? "fas fa-arrow-trend-down" : "fas fa-arrow-trend-up"}></i>
                                 <span>{translateFinancialType(data.type, t)}</span>

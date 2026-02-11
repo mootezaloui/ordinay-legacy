@@ -32,6 +32,7 @@ const context = require("./engine/context");
 const intentStage = require("./engine/stages/stage.intent");
 const readStage = require("./engine/stages/stage.read");
 const followUpStage = require("./engine/stages/stage.followup");
+const draftStage = require("./engine/stages/stage.draft");
 const state = require("./engine/state");
 const planner = require("./engine/planner");
 const executor = require("./engine/executor");
@@ -95,6 +96,7 @@ Object.assign(
   intentStage,
   readStage,
   followUpStage,
+  draftStage,
   state,
   planner,
   executor,

@@ -25,14 +25,6 @@ class ApiLLMReasoner extends BaseReasoner {
     };
   }
 
-  async draft(params) {
-    const base = await this.fallback.draft(params);
-    return {
-      ...base,
-      body: `${base.body}\n\n[API LLM stub - output synthesized without external request]`,
-    };
-  }
-
   async analyzeRisks(params) {
     const base = await this.fallback.analyzeRisks(params);
     return {

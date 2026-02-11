@@ -29,6 +29,8 @@ const listPersonalTasksTool = require('./read/listPersonalTasks.tool');
 const getPersonalTaskTool = require('./read/getPersonalTask.tool');
 const listMissionsTool = require('./read/listMissions.tool');
 const getMissionTool = require('./read/getMission.tool');
+const listOfficersTool = require('./read/listOfficers.tool');
+const getOfficerTool = require('./read/getOfficer.tool');
 const listFinancialEntriesTool = require('./read/listFinancialEntries.tool');
 const getFinancialEntryTool = require('./read/getFinancialEntry.tool');
 const listNotificationsTool = require('./read/listNotifications.tool');
@@ -94,6 +96,8 @@ function initializeToolRegistry() {
   registry.register(getPersonalTaskTool);
   registry.register(listMissionsTool);
   registry.register(getMissionTool);
+  registry.register(listOfficersTool);
+  registry.register(getOfficerTool);
   registry.register(listFinancialEntriesTool);
   registry.register(getFinancialEntryTool);
   registry.register(listNotificationsTool);

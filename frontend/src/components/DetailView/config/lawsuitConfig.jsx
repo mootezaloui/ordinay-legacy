@@ -51,16 +51,29 @@ export const createLawsuitConfig = (t) => {
       const sessions = contextData?.sessions || [];
       const tasks = contextData?.tasks || [];
       const dossiers = contextData?.dossiers || [];
+      const clients = contextData?.clients || [];
       const financialEntries = contextData?.financialEntries || [];
       let dossier = null;
+      let client = null;
       if (lawsuitData.dossierId) {
         const foundDossier = dossiers.find(d => d.id === parseInt(lawsuitData.dossierId));
         if (foundDossier) {
           dossier = {
             id: foundDossier.id,
             lawsuitNumber: foundDossier.lawsuitNumber,
-            title: foundDossier.title
+            title: foundDossier.title,
+            clientId: foundDossier.clientId,
           };
+
+          if (foundDossier.clientId) {
+            const foundClient = clients.find(c => c.id === parseInt(foundDossier.clientId));
+            if (foundClient) {
+              client = {
+                id: foundClient.id,
+                name: foundClient.name,
+              };
+            }
+          }
         }
       }
 
@@ -85,6 +98,7 @@ export const createLawsuitConfig = (t) => {
       return {
         ...lawsuitData,
         dossier: dossier || { id: null, lawsuitNumber: t('detail.fallback.na'), title: t('detail.fallback.unknownDossier') },
+        client: client || { id: null, name: t('detail.fallback.unknownClient', { defaultValue: 'Unknown client' }) },
         // Always derive related collections from live context (avoid stale embedded arrays)
         sessions: lawsuitSessions,
         tasks: tasks.filter((t) => t.parentType === "lawsuit" && t.lawsuitId === numericId),
@@ -168,16 +182,30 @@ export const createLawsuitConfig = (t) => {
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
                   {data.title}
                 </h2>
+                {data.client?.id ? (
+                  <Link
+                    to={`/clients/${data.client.id}`}
+                    className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
+                  >
+                    <i className="fas fa-user"></i>
+                    {data.client.name}
+                  </Link>
+                ) : (
+                  <span className="text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                    <i className="fas fa-user"></i>
+                    {data.client?.name || t('detail.fallback.unknownClient', { defaultValue: 'Unknown client' })}
+                  </span>
+                )}
                 {data.dossier?.id ? (
                   <Link
                     to={`/dossiers/${data.dossier.id}`}
-                    className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
+                    className="mt-1 text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
                   >
                     <i className="fas fa-folder-open"></i>
                     {data.dossier.lawsuitNumber} - {data.dossier.title}
                   </Link>
                 ) : (
-                  <span className="text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                  <span className="mt-1 text-slate-500 dark:text-slate-400 flex items-center gap-2">
                     <i className="fas fa-folder-open"></i>
                     {data.dossier?.title || t('detail.header.noDossier')}
                   </span>

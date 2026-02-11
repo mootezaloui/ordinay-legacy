@@ -74,21 +74,10 @@ export const createTaskConfig = (t) => {
       if (!task) return null;
 
       // ✅ Always resolve dossier and lawsuit from IDs using latest context data
+      const clients = contextData?.clients || [];
       const dossiers = contextData?.dossiers || [];
       const lawsuits = contextData?.lawsuits || [];
       const financialEntries = contextData?.financialEntries || [];
-
-      let dossier = null;
-      if (task.dossierId) {
-        const foundDossier = dossiers.find(d => d.id === parseInt(task.dossierId));
-        if (foundDossier) {
-          dossier = {
-            id: foundDossier.id,
-            lawsuitNumber: foundDossier.lawsuitNumber,
-            title: foundDossier.title
-          };
-        }
-      }
 
       let lawsuitData = null;
       if (task.lawsuitId) {
@@ -97,7 +86,43 @@ export const createTaskConfig = (t) => {
           lawsuitData = {
             id: foundLawsuit.id,
             lawsuitNumber: foundLawsuit.lawsuitNumber,
-            title: foundLawsuit.title
+            title: foundLawsuit.title,
+            dossierId: foundLawsuit.dossierId,
+          };
+        }
+      }
+
+      let dossier = null;
+      if (task.dossierId) {
+        const foundDossier = dossiers.find(d => d.id === parseInt(task.dossierId));
+        if (foundDossier) {
+          dossier = {
+            id: foundDossier.id,
+            lawsuitNumber: foundDossier.lawsuitNumber,
+            title: foundDossier.title,
+            clientId: foundDossier.clientId,
+          };
+        }
+      }
+      if (!dossier && lawsuitData?.dossierId) {
+        const foundDossier = dossiers.find(d => d.id === parseInt(lawsuitData.dossierId));
+        if (foundDossier) {
+          dossier = {
+            id: foundDossier.id,
+            lawsuitNumber: foundDossier.lawsuitNumber,
+            title: foundDossier.title,
+            clientId: foundDossier.clientId,
+          };
+        }
+      }
+
+      let client = null;
+      if (dossier?.clientId) {
+        const foundClient = clients.find(c => c.id === parseInt(dossier.clientId));
+        if (foundClient) {
+          client = {
+            id: foundClient.id,
+            name: foundClient.name,
           };
         }
       }
@@ -116,6 +141,7 @@ export const createTaskConfig = (t) => {
 
       return {
         ...task,
+        client: client || null,
         dossier: dossier || null,
         lawsuit: lawsuitData || null,
         financialEntries: relatedFinancialEntries,
@@ -225,29 +251,6 @@ export const createTaskConfig = (t) => {
         "Low": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
       };
 
-      // Determine parent link based on parentType
-      const parentLink = data.parentType === "lawsuit" && data.lawsuit
-        ? (
-          <Link
-            to={`/lawsuits/${data.lawsuit.id}`}
-            className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
-          >
-            <i className="fas fa-gavel"></i>
-            {data.lawsuit.lawsuitNumber} - {data.lawsuit.title}
-          </Link>
-        )
-        : data.dossier
-          ? (
-            <Link
-              to={`/dossiers/${data.dossier.id}`}
-              className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
-            >
-              <i className="fas fa-folder-open"></i>
-              {data.dossier.lawsuitNumber} - {data.dossier.title}
-            </Link>
-          )
-          : null;
-
       return (
         <ContentSection>
           <div className="p-6" data-tutorial="task-detail-header">
@@ -256,7 +259,33 @@ export const createTaskConfig = (t) => {
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
                   {data.title}
                 </h2>
-                {parentLink}
+                {data.client?.id && (
+                  <Link
+                    to={`/clients/${data.client.id}`}
+                    className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
+                  >
+                    <i className="fas fa-user"></i>
+                    {data.client.name}
+                  </Link>
+                )}
+                {data.dossier?.id && (
+                  <Link
+                    to={`/dossiers/${data.dossier.id}`}
+                    className="mt-1 text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
+                  >
+                    <i className="fas fa-folder-open"></i>
+                    {data.dossier.lawsuitNumber} - {data.dossier.title}
+                  </Link>
+                )}
+                {data.lawsuit?.id && (
+                  <Link
+                    to={`/lawsuits/${data.lawsuit.id}`}
+                    className="mt-1 text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
+                  >
+                    <i className="fas fa-gavel"></i>
+                    {data.lawsuit.lawsuitNumber} - {data.lawsuit.title}
+                  </Link>
+                )}
               </div>
               <div className="flex items-center gap-3">
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${priorityColor[data.priority]}`}>

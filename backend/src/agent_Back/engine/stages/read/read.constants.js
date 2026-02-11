@@ -11,6 +11,7 @@ const ENTITY_LABELS = {
   personal_task: "personal task",
   session: "session",
   mission: "mission",
+  officer: "officer",
   financial_entry: "financial entry",
   document: "document",
   web_search: "web search",
@@ -27,6 +28,7 @@ const ENTITY_PLURALS = {
   personal_task: "personal tasks",
   session: "sessions",
   mission: "missions",
+  officer: "officers",
   financial_entry: "financial entries",
   document: "documents",
   web_search: "web search results",
@@ -78,6 +80,10 @@ const INTENT_DOMAIN_MAP = {
   [READ_INTENTS.READ_MISSION]: DATA_DOMAINS.MISSIONS,
   [READ_INTENTS.EXPLAIN_MISSION_STATE]: DATA_DOMAINS.MISSIONS,
   [READ_INTENTS.SUMMARIZE_MISSION]: DATA_DOMAINS.MISSIONS,
+  [READ_INTENTS.LIST_OFFICERS]: DATA_DOMAINS.CLIENTS,
+  [READ_INTENTS.READ_OFFICER]: DATA_DOMAINS.CLIENTS,
+  [READ_INTENTS.EXPLAIN_OFFICER_STATE]: DATA_DOMAINS.CLIENTS,
+  [READ_INTENTS.SUMMARIZE_OFFICER]: DATA_DOMAINS.CLIENTS,
   [READ_INTENTS.LIST_FINANCIAL_ENTRIES]: DATA_DOMAINS.FINANCIAL_ENTRIES,
   [READ_INTENTS.READ_FINANCIAL_ENTRY]: DATA_DOMAINS.FINANCIAL_ENTRIES,
   [READ_INTENTS.EXPLAIN_FINANCIAL_ENTRY_STATE]: DATA_DOMAINS.FINANCIAL_ENTRIES,
@@ -98,6 +104,7 @@ const READ_INTENT_BY_ENTITY = {
   dossier: READ_INTENTS.READ_DOSSIER,
   task: READ_INTENTS.READ_TASK,
   session: READ_INTENTS.READ_SESSION,
+  officer: READ_INTENTS.READ_OFFICER,
 };
 
 module.exports = {

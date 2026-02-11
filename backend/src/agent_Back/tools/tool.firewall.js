@@ -52,6 +52,8 @@ const TOOL_DOMAIN_MAP = Object.freeze({
   getPersonalTask: 'personalTasks',
   listMissions: 'missions',
   getMission: 'missions',
+  listOfficers: 'clients',
+  getOfficer: 'clients',
   listFinancialEntries: 'financialEntries',
   getFinancialEntry: 'financialEntries',
   listNotifications: 'notifications',

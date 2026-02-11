@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
 import { getStatusColor } from "./statusColors";
 import { formatDateValue } from "../../../utils/dateFormat";
@@ -40,6 +41,7 @@ export const createSessionConfig = (t) => ({
     if (!session) return null;
 
     // ✅ Ensure lawsuit/dossier objects are populated
+    const clients = contextData?.clients || [];
     const lawsuits = contextData?.lawsuits || [];
     const dossiers = contextData?.dossiers || [];
 
@@ -57,7 +59,7 @@ export const createSessionConfig = (t) => ({
       ? (() => {
         const foundDossier = dossiers.find(d => d.id === parseInt(session.dossierId));
         return foundDossier
-          ? { id: foundDossier.id, lawsuitNumber: foundDossier.lawsuitNumber, title: foundDossier.title }
+          ? { id: foundDossier.id, lawsuitNumber: foundDossier.lawsuitNumber, title: foundDossier.title, clientId: foundDossier.clientId }
           : session.dossier || null;
       })()
       : // if linked to a lawsuit, derive dossier via lawsuit.dossierId
@@ -65,13 +67,25 @@ export const createSessionConfig = (t) => ({
         ? (() => {
           const found = dossiers.find(d => d.id === parseInt(lawsuitData.dossierId));
           return found
-            ? { id: found.id, lawsuitNumber: found.lawsuitNumber, title: found.title }
+            ? { id: found.id, lawsuitNumber: found.lawsuitNumber, title: found.title, clientId: found.clientId }
             : null;
         })()
         : session.dossier || null);
 
+    let client = null;
+    if (dossier?.clientId) {
+      const foundClient = clients.find(c => c.id === parseInt(dossier.clientId));
+      if (foundClient) {
+        client = {
+          id: foundClient.id,
+          name: foundClient.name,
+        };
+      }
+    }
+
     return {
       ...session,
+      client: client || null,
       lawsuit: lawsuitData || null,
       dossier: dossier || null
     };
@@ -176,14 +190,41 @@ export const createSessionConfig = (t) => ({
     return (
       <ContentSection>
         <div className="p-6" data-tutorial="session-detail-header">
-          <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
-                {data.title}
-              </h2>
-              <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                <i className={typeIcons[data.type]}></i>
-                <span>{translateSessionType(data.type, t)}</span>
+            <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+                  {data.title}
+                </h2>
+                {data.client?.id && (
+                  <Link
+                    to={`/clients/${data.client.id}`}
+                    className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
+                  >
+                    <i className="fas fa-user"></i>
+                    {data.client.name}
+                  </Link>
+                )}
+                {data.dossier?.id && (
+                  <Link
+                    to={`/dossiers/${data.dossier.id}`}
+                    className="mt-1 text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
+                  >
+                    <i className="fas fa-folder-open"></i>
+                    {data.dossier.lawsuitNumber} - {data.dossier.title}
+                  </Link>
+                )}
+                {data.lawsuit?.id && (
+                  <Link
+                    to={`/lawsuits/${data.lawsuit.id}`}
+                    className="mt-1 text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
+                  >
+                    <i className="fas fa-gavel"></i>
+                    {data.lawsuit.lawsuitNumber} - {data.lawsuit.title}
+                  </Link>
+                )}
+                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                  <i className={typeIcons[data.type]}></i>
+                  <span>{translateSessionType(data.type, t)}</span>
               </div>
             </div>
             <div className="flex items-center gap-3">

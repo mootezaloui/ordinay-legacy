@@ -8,6 +8,7 @@ const DEFAULT_LABELS = Object.freeze({
   personal_task: "Personal task",
   session: "Session",
   mission: "Mission",
+  officer: "Officer",
   financial_entry: "Financial entry",
   document: "Document",
   web_search: "Web Search",
@@ -185,6 +186,17 @@ function resolveMissionLabel(data) {
   return null;
 }
 
+function resolveOfficerLabel(data) {
+  const name = pickFirst(data.name, data.full_name, data.display_name);
+  const agency = pickFirst(data.agency, data.company, data.organization);
+  if (name && agency) {
+    return `${truncateLabel(name, 50)} - ${truncateLabel(agency, 30)}`;
+  }
+  if (name) return truncateLabel(name, 70);
+  if (agency) return truncateLabel(agency, 70);
+  return pickFirst(data.registration_number, data.reference);
+}
+
 function resolveFinancialEntryLabel(data) {
   const reference = pickFirst(
     data.reference,
@@ -254,6 +266,9 @@ function resolveEntityDisplayLabel(entityType, entityData, options = {}) {
       break;
     case "mission":
       label = resolveMissionLabel(data);
+      break;
+    case "officer":
+      label = resolveOfficerLabel(data);
       break;
     case "financial_entry":
       label = resolveFinancialEntryLabel(data);

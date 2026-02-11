@@ -8,6 +8,7 @@ const taskHandlers = require("./tasks");
 const personalTaskHandlers = require("./personal-tasks");
 const sessionHandlers = require("./sessions");
 const missionHandlers = require("./missions");
+const officerHandlers = require("./officers");
 const financialHandlers = require("./financial");
 const notificationHandlers = require("./notifications");
 const historyHandlers = require("./history");
@@ -344,12 +345,22 @@ async function dispatchReadIntent(state) {
     case READ_INTENTS.LIST_MISSIONS:
       result = await missionHandlers.handleListMissions.call(state.engine, state);
       break;
+    case READ_INTENTS.LIST_OFFICERS:
+      result = await officerHandlers.handleListOfficers.call(state.engine, state);
+      break;
     case READ_INTENTS.READ_MISSION:
       result = await missionHandlers.handleReadMission.call(state.engine, state);
+      break;
+    case READ_INTENTS.READ_OFFICER:
+      result = await officerHandlers.handleReadOfficer.call(state.engine, state);
       break;
     case READ_INTENTS.EXPLAIN_MISSION_STATE:
     case READ_INTENTS.SUMMARIZE_MISSION:
       result = await missionHandlers.handleExplainMission.call(state.engine, state);
+      break;
+    case READ_INTENTS.EXPLAIN_OFFICER_STATE:
+    case READ_INTENTS.SUMMARIZE_OFFICER:
+      result = await officerHandlers.handleExplainOfficer.call(state.engine, state);
       break;
 
     case READ_INTENTS.LIST_FINANCIAL_ENTRIES:

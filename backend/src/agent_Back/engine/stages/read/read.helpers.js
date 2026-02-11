@@ -76,7 +76,8 @@ function buildReadHelpers({
       lawsuit: /\b(lawsuit|case|trial|proces)\b\s*[:#\-]?\s*(.+)$/i,
       task: /\b(task|todo|to-do|todos)\b\s*[:#\-]?\s*(.+)$/i,
       session: /\b(session|hearing|meeting|appointment)\b\s*[:#\-]?\s*(.+)$/i,
-      mission: /\b(mission|missions|huissier)\b\s*[:#\-]?\s*(.+)$/i,
+      mission: /\b(mission|missions)\b\s*[:#\-]?\s*(.+)$/i,
+      officer: /\b(officer|officers|bailiff|bailiffs|huissier|huissiers)\b\s*[:#\-]?\s*(.+)$/i,
     };
     const pattern = patterns[entityType];
     if (!pattern) return null;
@@ -107,6 +108,7 @@ function buildReadHelpers({
       task: /\btasks\b/i,
       session: /\bsessions\b/i,
       mission: /\bmissions\b/i,
+      officer: /\b(officers|bailiffs|huissiers)\b/i,
       personal_task: /\bpersonal\s+tasks\b/i,
     };
     const pluralPattern = entityType ? pluralMap[entityType] : null;

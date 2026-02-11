@@ -52,6 +52,7 @@ const ACTION_TYPES = Object.freeze({
 const CONTEXT_SOURCES = Object.freeze({
   SLASH_COMMAND: 'slash_command',
   READ_INTENT: 'read_intent',
+  DRAFT_INTENT: 'draft_intent',
   NLP: 'nlp',
   FOLLOW_UP: 'follow_up',
 });

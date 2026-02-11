@@ -27,14 +27,6 @@ function _deriveExecutionMode(intent, policy) {
     return EXECUTION_MODE.research;
   }
 
-  if (
-    intent === INTENTS.DRAFT_INVITATION ||
-    intent === INTENTS.DRAFT_CLIENT_EMAIL
-  ) {
-    // Use genericDraft tool instead of reasoner
-    return EXECUTION_MODE.research;
-  }
-
   if (intent === INTENTS.PROPOSE_ACTIONS) {
     return policy.allowExecution
       ? EXECUTION_MODE.execute
@@ -71,6 +63,24 @@ function _buildPlan(intent, payload, policy, engineContext) {
   ) {
     this.ledger.record({
       type: "planner_downgrade_document_only",
+      originalIntent: intent,
+      downgradedTo: INTENTS.GENERAL_CHAT,
+      timestamp: new Date().toISOString(),
+    });
+    intent = INTENTS.GENERAL_CHAT;
+    engineContext.intent = INTENTS.GENERAL_CHAT;
+  }
+
+  // Safety net: DRAFT intents are handled by the dedicated DRAFT gate.
+  // If a DRAFT intent escaped the gate (e.g., LLM classifier returned it
+  // for a message without a draft verb), downgrade to GENERAL_CHAT.
+  // The _executeIntent switch no longer has DRAFT cases.
+  if (
+    intent === INTENTS.DRAFT_INVITATION ||
+    intent === INTENTS.DRAFT_CLIENT_EMAIL
+  ) {
+    this.ledger.record({
+      type: "planner_downgrade_escaped_draft",
       originalIntent: intent,
       downgradedTo: INTENTS.GENERAL_CHAT,
       timestamp: new Date().toISOString(),

@@ -330,12 +330,6 @@ class RuleReasoner extends BaseReasoner {
     };
   }
 
-  async draft({ context = {}, draftType = "generic" }) {
-    // Deprecated: Use genericDraft tool instead
-    // This method is kept for backward compatibility only
-    throw this._error(`Draft generation via rule reasoner is deprecated. Use genericDraft tool instead.`, 400);
-  }
-
   async analyzeRisks({ context = {} }) {
     const scope = this._requireString(context.scope, "scope");
     const concerns = this._requireNonEmptyArray(context.concerns, "concerns");
