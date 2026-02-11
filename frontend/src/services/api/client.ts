@@ -24,7 +24,6 @@ async function ipcRequest<T>(
   path: string,
   body?: unknown,
 ): Promise<T> {
-  console.log(`[API-IPC] ${method} ${path}`);
   const result = await window.electronAPI!.apiRequest(method, path, body);
 
   if (!result || typeof result.status !== "number") {
@@ -58,7 +57,6 @@ async function ipcRequest<T>(
 async function httpRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const apiBase = getApiBase();
   const url = `${apiBase}${path}`;
-  console.log(`[API-HTTP] ${init?.method || 'GET'} ${url}`);
   const res = await fetch(url, {
     headers: { "Content-Type": "application/json" },
     ...init,

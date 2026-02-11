@@ -179,8 +179,6 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
       // Check if we're editing an existing mission
       if (editingMissionId) {
         // UPDATE EXISTING MISSION
-        console.log("📝 Updating mission ID:", editingMissionId, "with:", submittedFormData);
-
         // ✅ Call backend API to update mission and get the adapted result
         const updatedMission = await updateMission(editingMissionId, submittedFormData);
 
@@ -199,8 +197,6 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
         setEditingMissionId(null);
       } else {
         // ADD NEW MISSION
-        console.log("📝 Mission creation - submittedFormData:", submittedFormData);
-
         // Extract financial entries, documents, and notes to create separately after mission creation
         const { financialEntries, documents, notes, entityType, entityReference, ...restFormData } = submittedFormData;
 
@@ -245,18 +241,12 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
           missionData.dossier_id = null;
         }
 
-        console.log("✨ Sending mission to backend:", missionData);
-
         // ✅ Call backend API to create mission
         const creation = await addMission(missionData);
         const createdMission = creation?.created || creation;
 
-        console.log("✅ Mission created with ID:", createdMission.id);
-
         // ✅ Create financial entries if they exist
         if (financialEntries && Array.isArray(financialEntries) && financialEntries.length > 0) {
-          console.log("💰 Creating financial entries for mission:", financialEntries);
-
           for (const entry of financialEntries) {
             const financialEntryData = {
               ...entry,
@@ -280,7 +270,6 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
 
             try {
               await addFinancialEntry(financialEntryData);
-              console.log("✅ Financial entry created:", financialEntryData);
             } catch (error) {
               console.error("❌ Failed to create financial entry:", error);
             }
@@ -290,8 +279,6 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
         // ✅ Upload documents if they exist
         let documentsUploaded = 0;
         if (documents && Array.isArray(documents) && documents.length > 0) {
-          console.log("📄 Uploading documents for mission:", documents);
-
           const uploadResults = await documentService.uploadMultipleDocuments(
             documents,
             'mission',
@@ -300,7 +287,6 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
           );
 
           if (uploadResults.successful.length > 0) {
-            console.log("✅ Documents uploaded successfully:", uploadResults.successful);
             documentsUploaded = uploadResults.successful.length;
             // Attach uploaded documents to the created mission
             createdMission.documents = uploadResults.successful;
@@ -322,8 +308,6 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
         // ✅ Convert notes string to array format if present
         let notesSaved = false;
         if (notes && typeof notes === 'string' && notes.trim()) {
-          console.log("📝 Converting notes string to array format:", notes);
-
           // Convert string to proper note object array
           const noteObject = {
             id: Date.now(),
@@ -335,7 +319,6 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
           try {
             // Update the mission with notes in array format
             await updateMission(createdMission.id, { notes: [noteObject] });
-            console.log("✅ Notes saved successfully:", noteObject);
             createdMission.notes = [noteObject];
             notesSaved = true;
           } catch (error) {
@@ -457,11 +440,8 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
 
     try {
       // ✅ STEP 1: Check delete impact BEFORE showing confirmation
-      console.log("🔍 Checking delete impact for mission ID:", missionId);
       const { apiClient } = await import('../../../services/api/client');
       const impactResponse = await apiClient.get(`/missions/${missionId}/delete-impact`);
-
-      console.log("📊 Delete impact analysis:", impactResponse);
 
       // ✅ STEP 2: Build impact summary for user
       const { canDelete, impacts } = impactResponse;
@@ -528,7 +508,6 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
         cancelText: t("dialog.detail.missions.delete.cancel"),
         variant: "danger"
       })) {
-        console.log("🗑️ Deleting mission ID:", missionId);
         await deleteMission(missionId);
 
         // Update local state
@@ -768,8 +747,6 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
       if (onItemsChange) {
         onItemsChange(tabConfig.itemsKey, updatedMissions);
       }
-
-      console.log("Deleting document:", documentId);
     }
   };
 
@@ -1228,7 +1205,6 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
             const missionId = pendingFormData.deleteId;
             try {
               // ✅ Actually call the delete API
-              console.log("🗑️ Cascade deleting mission ID:", missionId);
               await deleteMission(missionId);
 
               // Update local state

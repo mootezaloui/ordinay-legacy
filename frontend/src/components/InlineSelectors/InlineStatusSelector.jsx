@@ -155,7 +155,6 @@ export default function InlineStatusSelector({
       });
 
       if (result.success) {
-        console.log('✅ Client notification sent successfully');
       } else {
         console.error('❌ Failed to send client notification');
       }
@@ -171,7 +170,6 @@ export default function InlineStatusSelector({
    * 📧 Handle closing notification prompt without sending
    */
   const handleCloseNotificationPrompt = () => {
-    console.log('ℹ️ User chose not to notify client');
     setNotificationPrompt({ isOpen: false, eventType: null, eventData: null });
   };
 

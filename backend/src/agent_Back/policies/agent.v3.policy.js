@@ -15,6 +15,8 @@ const agentV3Policy = {
   ],
   allowedToolCategories: ['read', 'analysis', 'draft', 'execute', 'research'],
   allowExecution: true,
+  requirePosture: 'WORK',
+  executionRequiresConfirmation: true,
   allowExternalSearch: true,
   allowEnrichment: true,
   defaultReasoner: 'rule',

@@ -725,8 +725,6 @@ export default function PersonalTasks() {
         updatePersonalTask(editingTask.id, formData);
         showToast(t("toasts.updateSuccess"), "success");
       } else {
-        console.log('[PersonalTasks.handleSubmit] Creating personal task with formData:', formData);
-
         const creation = await addPersonalTask(formData);
         const createdTask = creation?.created || creation;
         if (!createdTask?.id) throw new Error(t("toasts.missingId"));

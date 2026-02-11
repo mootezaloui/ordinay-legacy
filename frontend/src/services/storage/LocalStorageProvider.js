@@ -161,7 +161,7 @@ export class LocalStorageProvider extends IStorageProvider {
     } catch (error) {
       console.error(
         "LocalStorageProvider: Failed to check file existence",
-        error
+        error,
       );
       return false;
     }
@@ -176,7 +176,6 @@ export class LocalStorageProvider extends IStorageProvider {
     try {
       await this.initDB();
 
-      console.log(`LocalStorageProvider: Starting deletion for path: ${path}`);
       const transaction = this.db.transaction([STORE_NAME], "readwrite");
       const store = transaction.objectStore(STORE_NAME);
 
@@ -185,22 +184,19 @@ export class LocalStorageProvider extends IStorageProvider {
 
         // Wait for the transaction to complete, not just the request
         transaction.oncomplete = () => {
-          console.log(
-            `LocalStorageProvider: Transaction completed, file deleted: ${path}`
-          );
           resolve(true);
         };
         transaction.onerror = () => {
           console.error(
             `LocalStorageProvider: Transaction error for ${path}:`,
-            transaction.error
+            transaction.error,
           );
           reject(transaction.error);
         };
         request.onerror = () => {
           console.error(
             `LocalStorageProvider: Request error for ${path}:`,
-            request.error
+            request.error,
           );
           reject(request.error);
         };
@@ -280,7 +276,7 @@ export class LocalStorageProvider extends IStorageProvider {
     } catch (error) {
       console.error(
         "LocalStorageProvider: Failed to generate preview URL",
-        error
+        error,
       );
       return null;
     }
@@ -312,7 +308,7 @@ export class LocalStorageProvider extends IStorageProvider {
           const files = request.result;
           const totalSize = files.reduce(
             (sum, f) => sum + (f.file.size || 0),
-            0
+            0,
           );
           resolve({
             fileCount: files.length,

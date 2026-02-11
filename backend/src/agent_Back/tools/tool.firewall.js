@@ -20,6 +20,7 @@
  */
 
 const { TOOL_CATEGORIES } = require('./tool.registry');
+const { getAdapter } = require('../engine/entityAdapters');
 
 /**
  * TOOL_DOMAIN_MAP
@@ -73,7 +74,12 @@ const TOOL_DOMAIN_MAP = Object.freeze({
   compileDossierResearch: 'dossiers',
 
   // EXECUTE tools
+  universalMutation: null, // Multi-domain — domain resolved per operation params
   createTask: 'tasks',
+  updateTask: 'tasks',
+  addNote: null, // Multi-entity — domain resolved per params
+  createDocumentDraft: 'documents',
+  updateDocumentMetadata: 'documents',
   scheduleReminder: 'tasks',
   prepareClientNotification: 'clients',
 });
@@ -99,6 +105,28 @@ const DATA_DOMAINS = Object.freeze({
   LEGAL: 'legal', // Legal research (jurisprudence, statutes, procedures)
 });
 
+/**
+ * ENTITY_TYPE_DOMAIN_MAP
+ *
+ * Maps entity types (from universalMutation params) to data domains.
+ * Used by GATE 6 to resolve domain for multi-domain tools.
+ */
+const ENTITY_TYPE_DOMAIN_MAP = Object.freeze({
+  client: 'clients',
+  dossier: 'dossiers',
+  lawsuit: 'lawsuits',
+  task: 'tasks',
+  session: 'sessions',
+  document: 'documents',
+  personal_task: 'personalTasks',
+  mission: 'missions',
+  financial_entry: 'financialEntries',
+  notification: 'notifications',
+  history_event: 'history',
+  officer: 'clients', // officers are client-domain entities
+  note: null, // polymorphic — resolved from target entity
+});
+
 class ToolFirewall {
   constructor({ registry, ledger }) {
     if (!registry) {
@@ -121,7 +149,7 @@ class ToolFirewall {
    * @param {Object} options.context - Execution context
    * @returns {Object} Permission result
    */
-  checkPermission({ toolName, policy, context = {} }) {
+  checkPermission({ toolName, policy, context = {}, params = null }) {
     const checks = [];
 
     // GATE 1: Tool must be declared in registry
@@ -227,6 +255,30 @@ class ToolFirewall {
         : 'Tool does not require execution permission',
     });
 
+    // GATE 4.5: Posture check — execute tools require matching posture
+    if (tool.category === TOOL_CATEGORIES.EXECUTE && policy.requirePosture) {
+      const currentPosture = context.posture || null;
+      if (currentPosture !== policy.requirePosture) {
+        const result = this._buildRejection({
+          toolName,
+          reason: 'POSTURE_MISMATCH',
+          message: `Tool '${toolName}' requires posture ${policy.requirePosture}, current posture is ${currentPosture || 'NONE'}`,
+          policy,
+          context,
+          checks,
+          tool,
+        });
+        this._logDecision(result);
+        return result;
+      }
+
+      checks.push({
+        gate: 'POSTURE_CHECK',
+        passed: true,
+        message: `Posture ${currentPosture} matches required ${policy.requirePosture}`,
+      });
+    }
+
     // GATE 5: Side effects require explicit confirmation in context (for execute tools)
     if (tool.sideEffects && tool.category === TOOL_CATEGORIES.EXECUTE) {
       const confirmationRequired = tool.confirmationRequired !== false; // default to true
@@ -278,12 +330,68 @@ class ToolFirewall {
         passed: true,
         message: `Access to ${toolDomain} domain is permitted`,
       });
+    } else if (toolDomain === null && params && context.dataAccess) {
+      // Multi-domain tool (universalMutation, addNote) — resolve domains from params
+      const entityTypes = _extractEntityTypes(params);
+      for (const et of entityTypes) {
+        const domain = ENTITY_TYPE_DOMAIN_MAP[et];
+        if (domain && context.dataAccess[domain] === false) {
+          const result = this._buildRejection({
+            toolName,
+            reason: 'DOMAIN_ACCESS_DENIED',
+            message: `Access to ${domain} data is disabled (entity type: ${et}). Enable ${domain} access in the context panel to use this feature.`,
+            policy,
+            context,
+            checks,
+            tool,
+            deniedDomain: domain,
+          });
+          this._logDecision(result);
+          return result;
+        }
+      }
+
+      checks.push({
+        gate: 'DOMAIN_ACCESS_CHECK',
+        passed: true,
+        message: entityTypes.length > 0
+          ? `Access to domains for [${entityTypes.join(', ')}] is permitted`
+          : 'No domain restrictions specified (all domains allowed)',
+      });
     } else if (toolDomain) {
       // No dataAccess in context = all domains allowed (backward compatibility)
       checks.push({
         gate: 'DOMAIN_ACCESS_CHECK',
         passed: true,
         message: 'No domain restrictions specified (all domains allowed)',
+      });
+    }
+
+    // GATE 7: Delete adapter restriction — block DELETE_ENTITY if adapter forbids it
+    if (params && params.operation === 'DELETE_ENTITY' && params.params && params.params.entityType) {
+      try {
+        const adapter = getAdapter(params.params.entityType);
+        if (adapter.allowedDelete === false) {
+          const result = this._buildRejection({
+            toolName,
+            reason: 'DELETE_NOT_ALLOWED',
+            message: `Deletion is not allowed for entity type '${params.params.entityType}'. Use soft-delete or archive instead.`,
+            policy,
+            context,
+            checks,
+            tool,
+          });
+          this._logDecision(result);
+          return result;
+        }
+      } catch (_) {
+        // Unknown entity type — let downstream validation handle it
+      }
+
+      checks.push({
+        gate: 'ADAPTER_DELETE_CHECK',
+        passed: true,
+        message: `Delete is allowed for ${params.params.entityType}`,
       });
     }
 
@@ -353,7 +461,12 @@ class ToolFirewall {
   _suggestReadAlternative(toolName) {
     // Map execute tools to their read equivalents
     const alternatives = {
+      universalMutation: 'listDossiers',
       createTask: 'listTasks',
+      updateTask: 'getTask',
+      addNote: 'getDossier',
+      createDocumentDraft: 'getDossier',
+      updateDocumentMetadata: 'getDossier',
       scheduleReminder: 'listReminders',
       prepareClientNotification: 'getClient',
       updateDossierStatus: 'getDossier',
@@ -371,8 +484,27 @@ class ToolFirewall {
   }
 }
 
+/**
+ * Extract entity types from universalMutation params for domain resolution.
+ * @param {Object} params - Tool params (operation + params)
+ * @returns {string[]} Unique entity types found
+ * @private
+ */
+function _extractEntityTypes(params) {
+  const types = new Set();
+  const p = params.params || params;
+
+  if (p.entityType) types.add(p.entityType);
+  if (p.sourceType) types.add(p.sourceType);
+  if (p.targetType) types.add(p.targetType);
+  if (p.target && p.target.type) types.add(p.target.type);
+
+  return [...types];
+}
+
 module.exports = {
   ToolFirewall,
   TOOL_DOMAIN_MAP,
   DATA_DOMAINS,
+  ENTITY_TYPE_DOMAIN_MAP,
 };

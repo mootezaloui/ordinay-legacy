@@ -133,19 +133,11 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
   const handleSave = async () => {
     // ✅ Validate before saving
     if (entityType && entityId) {
-      console.log("[OverviewTab] Validating section save:");
-      console.log("  Entity type:", entityType);
-      console.log("  Entity ID:", entityId);
-      console.log("  Original data:", data);
-      console.log("  Edited data (changes only):", editedData);
-
       const result = canPerformAction(entityType, entityId, 'edit', {
         data,
         newData: editedData,  // Only the changed fields
         entities: contextData  // Pass full context for client resolution
       });
-
-      console.log("  Validation result:", result);
 
       if (!result.allowed) {
         setValidationResult(result);
@@ -155,7 +147,6 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
 
       // Phase 2.5: Check for relational-impact changes
       if (result.requiresConfirmation) {
-        console.log("  >>> CONFIRMATION REQUIRED - showing modal");
         setValidationResult(result);
         setPendingData(editedData);
         setConfirmImpactModalOpen(true);
@@ -339,7 +330,7 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
               <textarea
                 value={normalizeNotesValue(
                   editedData[section.fieldKey || 'notes'] ??
-                    (typeof section.content === 'function' ? section.content(data) : section.content),
+                  (typeof section.content === 'function' ? section.content(data) : section.content),
                   ""
                 )}
                 onChange={(e) => handleFieldChange(section.fieldKey || 'notes', e.target.value)}
@@ -632,7 +623,7 @@ function RegularSection({ section, data, isEditing, onDataChange, contextData = 
               <textarea
                 value={normalizeNotesValue(
                   editedData[section.fieldKey || 'notes'] ??
-                    (typeof section.content === 'function' ? section.content(editedData) : section.content),
+                  (typeof section.content === 'function' ? section.content(editedData) : section.content),
                   ""
                 )}
                 onChange={(e) => handleFieldChange(section.fieldKey || 'notes', e.target.value)}

@@ -25,7 +25,7 @@ import { logEntityCreation } from "../../services/historyService";
  * - Data refresh callback support
  *
  * Usage:
- * <QuickActions onDataChange={(type, data) => console.log('New', type, data)} />
+ * <QuickActions onDataChange={(type, data) => {}} />
  */
 export default function QuickActions({ onDataChange }) {
   const [activeModal, setActiveModal] = useState(null);

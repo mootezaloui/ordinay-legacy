@@ -23,9 +23,12 @@ const DOCUMENT_SUMMARY_MAX_CHARS = parseInt(
   10,
 );
 
-async function classifyIntentWithLLM(message) {
+async function classifyIntentWithLLM(message, { customPrompt, validationList } = {}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), LLM_TIMEOUT);
+
+  const prompt = customPrompt || (INTENT_CLASSIFICATION_PROMPT + message);
+  const allowedValues = validationList || INTENT_LIST;
 
   try {
     const response = await fetch(`${LLM_BASE_URL}/api/generate`, {
@@ -33,7 +36,7 @@ async function classifyIntentWithLLM(message) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: LLM_MODEL,
-        prompt: INTENT_CLASSIFICATION_PROMPT + message,
+        prompt,
         stream: false,
         options: {
           temperature: 0,
@@ -54,8 +57,8 @@ async function classifyIntentWithLLM(message) {
     console.log("[LLM RAW RESPONSE]", rawResponse); // Log the raw LLM response for debugging
     const result = rawResponse.toUpperCase();
 
-    // Validate the response is a known intent
-    if (INTENT_LIST.includes(result)) {
+    // Validate the response against allowed values
+    if (allowedValues.includes(result)) {
       return result;
     }
 

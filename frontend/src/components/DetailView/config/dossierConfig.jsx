@@ -52,20 +52,16 @@ export const createDossierConfig = (t, helpers = {}) => {
     allowEdit: true,
 
     fetchData: async (id, contextData = null) => {
-      console.log('[dossierConfig] fetchData called with id:', id);
       const numericId = parseInt(id);
 
       let dossier;
       if (contextData?.dossiers) {
         // Use contextData.dossiers from DataContext (this is the live data)
-        console.log('[dossierConfig] Using contextData.dossiers');
         dossier = contextData.dossiers.find(d => d.id === numericId);
       } else {
         // Fallback to null (static data)
-        console.log('[dossierConfig] null keys:', Object.keys(null));
         dossier = null[numericId];
       }
-      console.log('[dossierConfig] Found dossier:', dossier);
       if (!dossier) return null;
 
       if (!dossier.transactions) {
@@ -117,7 +113,6 @@ export const createDossierConfig = (t, helpers = {}) => {
       try {
         const documentService = (await import("../../../services/documentService")).default;
         documents = await documentService.getEntityDocuments("dossier", numericId);
-        console.log('[dossierConfig] Loaded documents:', documents);
       } catch (err) {
         console.error('[dossierConfig] Failed to load documents:', err);
       }
@@ -138,8 +133,6 @@ export const createDossierConfig = (t, helpers = {}) => {
     updateData: async (id, data, contextData = null, options = {}) => {
       const numericId = parseInt(id);
 
-      console.log('[dossierConfig.updateData] Received:', { id, data, options, hasUpdateDossier: !!contextData?.updateDossier });
-
       // Filter out relationship fields - dossier entity should only contain dossier-specific data
       const dossierFields = [
         'lawsuitNumber', 'title', 'clientId', 'category', 'priority', 'phase',
@@ -152,20 +145,13 @@ export const createDossierConfig = (t, helpers = {}) => {
         return acc;
       }, {});
 
-      console.log('[dossierConfig.updateData] Filtered dossierData:', dossierData);
-
       // Only update if there are actual dossier fields to update
       if (Object.keys(dossierData).length > 0 && contextData?.updateDossier) {
         // Use DataContext to update (this persists to localStorage)
         // Pass skipConfirmation only if explicitly set in options (when user confirmed via ConfirmImpactModal)
         const skipConfirmation = options.skipConfirmation || false;
-        console.log('[dossierConfig.updateData] Calling updateDossier:', { numericId, dossierData, skipConfirmation });
         contextData.updateDossier(numericId, dossierData, skipConfirmation);
       } else {
-        console.log('[dossierConfig.updateData] Skipping update:', {
-          hasDossierData: Object.keys(dossierData).length > 0,
-          hasUpdateFunction: !!contextData?.updateDossier
-        });
       }
       // If no dossier fields to update, skip the update (this happens when only relationship fields change)
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -177,8 +163,6 @@ export const createDossierConfig = (t, helpers = {}) => {
       if (contextData?.deleteDossier) {
         // Use DataContext to delete (this persists to localStorage)
         contextData.deleteDossier(numericId);
-      } else {
-        console.log("Deleting dossier:", numericId);
       }
     },
 

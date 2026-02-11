@@ -148,7 +148,6 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
             }
 
             if (result.requiresConfirmation) {
-                console.log('[QuickActionsBar] Requires confirmation, opening modal with impact:', result.impactSummary);
                 setPendingValue(newValue);
                 setValidationResult(result);
                 setConfirmImpactModalOpen(true);
@@ -320,19 +319,16 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
                 }}
                 onUpdate={() => {
                     // Callback to refresh data when inline actions are performed
-                    console.log('Data updated, should refresh entity data');
                 }}
             />
             <ConfirmImpactModal
                 isOpen={confirmImpactModalOpen}
                 onClose={() => {
-                    console.log('[QuickActionsBar] ConfirmImpactModal closed');
                     setConfirmImpactModalOpen(false);
                     setPendingValue(null);
                     setValidationResult(null);
                 }}
                 onConfirm={async () => {
-                    console.log('[QuickActionsBar] ConfirmImpactModal confirmed, saving change:', pendingValue);
                     setConfirmImpactModalOpen(false);
                     const valueToSave = pendingValue;
                     setPendingValue(null);

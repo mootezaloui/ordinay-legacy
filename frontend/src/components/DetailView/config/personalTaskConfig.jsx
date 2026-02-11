@@ -73,8 +73,6 @@ export const createPersonalTaskConfig = (t) => ({
     if (contextData?.deletePersonalTask) {
       // Use DataContext to delete (this persists to localStorage)
       contextData.deletePersonalTask(numericId);
-    } else {
-      console.log("Deleting personal task:", numericId);
     }
   },
 

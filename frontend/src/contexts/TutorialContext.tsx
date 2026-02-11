@@ -555,7 +555,7 @@ export function TutorialProvider({ children }: TutorialProviderProps) {
           skippedSteps: state.skippedSteps,
           hasCompletedTutorial: state.hasCompletedTutorial,
           hasStartedTutorial: state.hasStartedTutorial,
-        })
+        }),
       );
     } catch (error) {
       console.warn("[Tutorial] Failed to persist state:", error);
@@ -698,55 +698,49 @@ export function TutorialProvider({ children }: TutorialProviderProps) {
   // Compatibility function for Clients.jsx - triggers create-client step completion
   const setCreatedClient = useCallback(
     (clientId: string) => {
-      console.log("[Tutorial] Client created:", clientId);
       notifyActionComplete("create-client");
     },
-    [notifyActionComplete]
+    [notifyActionComplete],
   );
 
   // Compatibility function for AggregatedRelatedTab - triggers create-dossier-from-client step completion
   const setCreatedDossier = useCallback(
     (dossierId: number | string) => {
-      console.log("[Tutorial] Dossier created:", dossierId);
       notifyActionComplete("create-dossier-from-client");
     },
-    [notifyActionComplete]
+    [notifyActionComplete],
   );
 
   // Compatibility function for AggregatedRelatedTab - triggers create-lawsuit-from-dossier step completion
   const setCreatedLawsuit = useCallback(
     (lawsuitId: number | string) => {
-      console.log("[Tutorial] Lawsuit created:", lawsuitId);
       notifyActionComplete("create-lawsuit-from-dossier");
     },
-    [notifyActionComplete]
+    [notifyActionComplete],
   );
 
   // Compatibility function for AggregatedRelatedTab - triggers create-task-from-dossier step completion
   const setCreatedTask = useCallback(
     (taskId: number | string) => {
-      console.log("[Tutorial] Task created:", taskId);
       notifyActionComplete("create-task-from-dossier");
     },
-    [notifyActionComplete]
+    [notifyActionComplete],
   );
 
   // Compatibility function for Sessions - triggers create-session step completion
   const setCreatedSession = useCallback(
     (sessionId: number | string) => {
-      console.log("[Tutorial] Session created:", sessionId);
       notifyActionComplete("create-session");
     },
-    [notifyActionComplete]
+    [notifyActionComplete],
   );
 
   // Compatibility function for AggregatedRelatedTab - triggers create-mission-from-dossier step completion
   const setCreatedMission = useCallback(
     (missionId: number | string) => {
-      console.log("[Tutorial] Mission created:", missionId);
       notifyActionComplete("create-mission-from-dossier");
     },
-    [notifyActionComplete]
+    [notifyActionComplete],
   );
 
   // Set waiting state (hides overlay while user completes action)
@@ -815,7 +809,7 @@ export function TutorialProvider({ children }: TutorialProviderProps) {
       canGoForward,
       isFirstStep,
       isLastStep,
-    ]
+    ],
   );
 
   return (
@@ -826,5 +820,3 @@ export function TutorialProvider({ children }: TutorialProviderProps) {
 }
 
 export default TutorialContext;
-
-

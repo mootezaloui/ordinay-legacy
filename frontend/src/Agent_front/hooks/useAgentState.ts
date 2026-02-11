@@ -517,7 +517,6 @@ export function useAgentState() {
             userMessage.id,
           );
           pendingDocumentIds = uploadedDocs.map(d => d.document_id);
-          console.log('[Agent] Uploaded', pendingDocumentIds.length, 'documents for session', sessionId);
         } catch (err) {
           console.error('[Agent] Attachment upload failed:', err);
           // Continue without documents — agent will handle gracefully

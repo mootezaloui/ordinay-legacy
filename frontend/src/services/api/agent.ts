@@ -48,7 +48,7 @@ export interface AgentRequest {
   agentVersion?: AgentVersion;
   reasoner?: string;
   followUpIntent?: FollowUpIntent;
-  sessionId?: string;
+  sessionId: string; // REQUIRED: Session ID for continuity
   documentIds?: number[];
 }
 
@@ -340,22 +340,22 @@ export interface ActionProposal {
     expiresAt: string;
   };
   sessionId?: string;
-  actionType?: 'CREATE_ENTITY' | 'UPDATE_ENTITY' | 'LINK_ENTITIES' | 'ATTACH_TO_ENTITY' | string;
+  actionType?: 'CREATE_ENTITY' | 'UPDATE_ENTITY' | 'DELETE_ENTITY' | 'LINK_ENTITIES' | 'ATTACH_TO_ENTITY' | string;
   toolCategory?: string;
   // Universal operation params (V3)
   params?: {
-    // CREATE_ENTITY
+    // CREATE_ENTITY / UPDATE_ENTITY / DELETE_ENTITY
     entityType?: string;
     payload?: Record<string, any>;
-
-    // UPDATE_ENTITY
     entityId?: number;
     changes?: Record<string, { from: any; to: any }>;
 
     // LINK_ENTITIES
-    relationType?: string;
-    from?: { type: string; id: number };
-    to?: { type: string; id: number };
+    sourceType?: string;
+    sourceId?: number;
+    targetType?: string;
+    targetId?: number;
+    linkField?: string;
     mode?: 'add' | 'remove';
 
     // ATTACH_TO_ENTITY
@@ -498,8 +498,8 @@ export async function sendAgentMessage(
     contextRefs?: ContextRefs;
     agentVersion?: AgentVersion;
     followUpIntent?: FollowUpIntent;
-    sessionId?: string;
-  } = {}
+    sessionId: string; // REQUIRED
+  }
 ): Promise<ProcessedAgentResponse> {
   const {
     contextScope = 'GLOBAL',
@@ -517,12 +517,10 @@ export async function sendAgentMessage(
     },
     agentVersion,
     reasoner: 'rule',
+    sessionId,
   };
   if (followUpIntent) {
     request.followUpIntent = followUpIntent;
-  }
-  if (sessionId) {
-    request.sessionId = sessionId;
   }
 
   try {
@@ -759,10 +757,12 @@ export interface CommentaryOutput {
 export type StreamEventType =
   | 'start'
   | 'status'
+  | 'intent'
   | 'intent_framing'
   | 'intent_framing_chunk'
   | 'chunk'
   | 'result'
+  | 'artifact'
   | 'commentary'
   | 'commentary_chunk'
   | 'done'
@@ -813,11 +813,11 @@ export function streamAgentMessage(
     agentVersion?: AgentVersion;
     dataAccess?: DataAccessPermissions;
     followUpIntent?: FollowUpIntent;
-    /** Agent conversation session ID — used to load session-bound documents */
-    sessionId?: string;
+    /** Agent conversation session ID — REQUIRED for continuity */
+    sessionId: string;
     /** Document IDs explicitly attached to this message */
     documentIds?: number[];
-  } = {},
+  },
   callbacks: StreamCallbacks
 ): AbortController {
   const { contextScope = 'GLOBAL', contextRefs = {}, agentVersion = 'v1', dataAccess, followUpIntent, sessionId, documentIds } = options;
@@ -826,7 +826,6 @@ export function streamAgentMessage(
   const request: AgentRequest & {
     dataAccess?: DataAccessPermissions;
     followUpIntent?: FollowUpIntent;
-    sessionId?: string;
     documentIds?: number[];
   } = {
     message,
@@ -836,12 +835,10 @@ export function streamAgentMessage(
       dataAccess,
     },
     agentVersion,
+    sessionId,
   };
   if (followUpIntent) {
     request.followUpIntent = followUpIntent;
-  }
-  if (sessionId) {
-    request.sessionId = sessionId;
   }
   if (documentIds && documentIds.length > 0) {
     request.documentIds = documentIds;
@@ -867,14 +864,12 @@ export function streamAgentMessage(
         }
       }
       
-      console.log('[SSE Client] Starting fetch to:', `${apiBase}/agent/stream`);
       const response = await fetch(`${apiBase}/agent/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request),
         signal: abortController.signal,
       });
-      console.log('[SSE Client] Fetch completed, status:', response.status);
 
       if (!response.ok) {
         const text = await response.text();
@@ -888,7 +883,6 @@ export function streamAgentMessage(
         return;
       }
 
-      console.log('[SSE Client] Got reader, starting to read...');
       const decoder = new TextDecoder();
       let buffer = '';
       let currentEvent = '';
@@ -900,7 +894,6 @@ export function streamAgentMessage(
 
       const processCurrentEvent = () => {
         if (!currentEvent || !currentData) return;
-        console.log('[SSE Client] Processing event:', currentEvent);
         try {
           const data = JSON.parse(currentData);
           switch (currentEvent) {
@@ -911,6 +904,7 @@ export function streamAgentMessage(
             case 'status':
               callbacks.onStatus?.(data);
               break;
+            case 'intent':
             case 'intent_framing':
               callbacks.onIntentFraming?.(data);
               break;
@@ -921,6 +915,7 @@ export function streamAgentMessage(
               callbacks.onChunk?.(data.content);
               break;
             case 'result':
+            case 'artifact':
               hasResultEnvelope = true;
               callbacks.onResult?.(data);
               break;
@@ -964,7 +959,6 @@ export function streamAgentMessage(
       while (true) {
         const { done, value } = await reader.read();
         if (done) {
-          console.log('[SSE Client] Stream done');
           processCurrentEvent();
           if (!abortController.signal.aborted) {
             if (!hasStartEnvelope) {
@@ -978,7 +972,6 @@ export function streamAgentMessage(
         }
 
         const chunk = decoder.decode(value, { stream: true });
-        console.log('[SSE Client] Received chunk:', chunk.slice(0, 100));
         buffer += chunk;
 
         // Parse SSE events from buffer

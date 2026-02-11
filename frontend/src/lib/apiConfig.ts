@@ -51,7 +51,6 @@ export async function initializeApiConfig(): Promise<string> {
       // base URL — all requests go through window.electronAPI.apiRequest().
       // We still cache a value so getApiBase() works for any edge cases.
       cachedApiBase = config.useIPC ? 'ipc://backend/api' : config.apiUrl;
-      console.log('[API Config] Initialized from Electron:', cachedApiBase, config.useIPC ? '(IPC transport)' : '(HTTP transport)');
     } catch (error) {
       console.error('[API Config] Failed to get Electron config:', error);
       cachedApiBase = getEnvApiBase();
@@ -59,7 +58,6 @@ export async function initializeApiConfig(): Promise<string> {
   } else {
     // Web context - use environment variable
     cachedApiBase = getEnvApiBase();
-    console.log('[API Config] Initialized from env:', cachedApiBase);
   }
 
   return cachedApiBase;

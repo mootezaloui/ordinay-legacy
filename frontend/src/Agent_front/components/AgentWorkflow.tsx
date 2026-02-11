@@ -1,7 +1,24 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Check, Loader2, Brain, Database, Search, Shield, FileOutput, X, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Check,
+  Loader2,
+  Brain,
+  Database,
+  Search,
+  Shield,
+  FileOutput,
+  X,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { AgentMessage } from "../types/agentMessage";
-import type { FollowUpSuggestion, ExplanationOutput, CollectionOutput, CollectionItem } from "../../services/api/agent";
+import type {
+  FollowUpSuggestion,
+  ExplanationOutput,
+  CollectionOutput,
+  CollectionItem,
+} from "../../services/api/agent";
+import { confirmProposal } from "../../services/api/agent";
 
 // Artifact renderers
 import { ExplanationArtifact } from "./artifacts/ExplanationArtifact";
@@ -16,7 +33,11 @@ import { CollectionArtifact } from "./artifacts/CollectionArtifact";
 import { FollowUpSuggestions } from "./artifacts/FollowUpSuggestions";
 import { CommentaryBubble } from "./artifacts/CommentaryBubble";
 import { MarkdownOutput } from "../../components/MarkdownOutput";
-import { decideCommentary, filterFollowUps, getResultCountFromMessage } from "../utils/responsePolicy";
+import {
+  decideCommentary,
+  filterFollowUps,
+  getResultCountFromMessage,
+} from "../utils/responsePolicy";
 
 // Staged message renderers
 import { AckMessage } from "./messages/AckMessage";
@@ -70,7 +91,11 @@ interface AgentWorkflowProps {
  * The result: the agent feels like it's doing work FOR you,
  * not just returning a database query.
  */
-export function AgentWorkflow({ message, onFollowUpClick, onExampleClick }: AgentWorkflowProps) {
+export function AgentWorkflow({
+  message,
+  onFollowUpClick,
+  onExampleClick,
+}: AgentWorkflowProps) {
   const isStreaming = message.status === "sending";
   const isError = message.status === "error";
   const isComplete = message.status === "success";
@@ -100,7 +125,14 @@ export function AgentWorkflow({ message, onFollowUpClick, onExampleClick }: Agen
     }
 
     return "complete";
-  }, [isStreaming, isComplete, isError, message.intent, hasContent, hasStructuredResult]);
+  }, [
+    isStreaming,
+    isComplete,
+    isError,
+    message.intent,
+    hasContent,
+    hasStructuredResult,
+  ]);
 
   // Track when result arrives during working phase
   useEffect(() => {
@@ -242,13 +274,15 @@ export function AgentWorkflow({ message, onFollowUpClick, onExampleClick }: Agen
       <div className="space-y-4">
         {/* Artifact reveal — primary factual output */}
         <div className="artifact-reveal agent-artifact-focus">
-          <ArtifactBody message={message} onFollowUpClick={onFollowUpClick} onExampleClick={onExampleClick} />
+          <ArtifactBody
+            message={message}
+            onFollowUpClick={onFollowUpClick}
+            onExampleClick={onExampleClick}
+          />
         </div>
 
         {/* Assistive reasoning — appears AFTER the artifact it references */}
-        {safeCommentary && (
-          <CommentaryBubble commentary={safeCommentary} />
-        )}
+        {safeCommentary && <CommentaryBubble commentary={safeCommentary} />}
       </div>
     );
   }
@@ -259,16 +293,19 @@ export function AgentWorkflow({ message, onFollowUpClick, onExampleClick }: Agen
   const safeCommentary = decideCommentary(message);
   const filteredFollowUps = filterFollowUps(followUps, resultCount);
 
-  const allowFollowUps = isComplete && filteredFollowUps.length > 0 && onFollowUpClick;
+  const allowFollowUps =
+    isComplete && filteredFollowUps.length > 0 && onFollowUpClick;
 
   return (
     <div className="space-y-4">
-      <ArtifactBody message={message} onFollowUpClick={onFollowUpClick} onExampleClick={onExampleClick} />
+      <ArtifactBody
+        message={message}
+        onFollowUpClick={onFollowUpClick}
+        onExampleClick={onExampleClick}
+      />
 
       {/* Assistive reasoning — appears AFTER the artifact it references */}
-      {safeCommentary && (
-        <CommentaryBubble commentary={safeCommentary} />
-      )}
+      {safeCommentary && <CommentaryBubble commentary={safeCommentary} />}
 
       {/* Follow-up suggestions — shown OUTSIDE the artifact card */}
       {allowFollowUps && (
@@ -370,7 +407,9 @@ function WorkingPhase({
       });
 
   const acknowledgment = getAcknowledgment(intent);
-  const totalProgress = Math.round(stageProgress.reduce((a, b) => a + b, 0) / 5);
+  const totalProgress = Math.round(
+    stageProgress.reduce((a, b) => a + b, 0) / 5,
+  );
 
   return (
     <div className="workflow-phase-enter agent-message-row">
@@ -412,7 +451,8 @@ function WorkingPhase({
                 {acknowledgment}
               </h4>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Stage {activeStage + 1} of {PIPELINE_STAGES.length}: {PIPELINE_STAGES[activeStage].label}
+                Stage {activeStage + 1} of {PIPELINE_STAGES.length}:{" "}
+                {PIPELINE_STAGES[activeStage].label}
               </p>
             </div>
           </div>
@@ -427,7 +467,9 @@ function WorkingPhase({
               ) : (
                 <ChevronDown className="w-4 h-4" />
               )}
-              <span className="text-xs">{showDetails ? "Hide" : "Details"}</span>
+              <span className="text-xs">
+                {showDetails ? "Hide" : "Details"}
+              </span>
             </button>
             {onCancel && (
               <button
@@ -447,7 +489,8 @@ function WorkingPhase({
         <div className="agent-pipeline-stages">
           {PIPELINE_STAGES.map((stage, idx) => {
             const StageIcon = stage.icon;
-            const isComplete = idx < activeStage || (idx === activeStage && resultArrived);
+            const isComplete =
+              idx < activeStage || (idx === activeStage && resultArrived);
             const isActive = idx === activeStage && !resultArrived;
             const isPending = idx > activeStage;
             const progress = stageProgress[idx];
@@ -456,7 +499,11 @@ function WorkingPhase({
               <div
                 key={stage.id}
                 className={`agent-pipeline-stage ${
-                  isComplete ? "is-complete" : isActive ? "is-active" : "is-pending"
+                  isComplete
+                    ? "is-complete"
+                    : isActive
+                      ? "is-active"
+                      : "is-pending"
                 }`}
               >
                 {/* Connector line */}
@@ -470,7 +517,9 @@ function WorkingPhase({
                 )}
 
                 {/* Stage node */}
-                <div className={`agent-pipeline-node agent-pipeline-node-${stage.color}`}>
+                <div
+                  className={`agent-pipeline-node agent-pipeline-node-${stage.color}`}
+                >
                   {isComplete ? (
                     <Check className="w-4 h-4 text-white" />
                   ) : isActive ? (
@@ -481,13 +530,15 @@ function WorkingPhase({
                 </div>
 
                 {/* Stage label */}
-                <span className={`agent-pipeline-label ${
-                  isComplete
-                    ? "text-slate-600 dark:text-slate-300"
-                    : isActive
-                      ? "text-slate-800 dark:text-slate-100 font-medium"
-                      : "text-slate-400 dark:text-slate-500"
-                }`}>
+                <span
+                  className={`agent-pipeline-label ${
+                    isComplete
+                      ? "text-slate-600 dark:text-slate-300"
+                      : isActive
+                        ? "text-slate-800 dark:text-slate-100 font-medium"
+                        : "text-slate-400 dark:text-slate-500"
+                  }`}
+                >
                   {stage.label}
                 </span>
 
@@ -510,7 +561,8 @@ function WorkingPhase({
           <div className="agent-pipeline-details">
             <div className="agent-pipeline-details-grid">
               {PIPELINE_STAGES.map((stage, idx) => {
-                const isComplete = idx < activeStage || (idx === activeStage && resultArrived);
+                const isComplete =
+                  idx < activeStage || (idx === activeStage && resultArrived);
                 const isActive = idx === activeStage && !resultArrived;
                 const StageIcon = stage.icon;
 
@@ -518,17 +570,23 @@ function WorkingPhase({
                   <div
                     key={stage.id}
                     className={`agent-pipeline-detail-card ${
-                      isComplete ? "is-complete" : isActive ? "is-active" : "is-pending"
+                      isComplete
+                        ? "is-complete"
+                        : isActive
+                          ? "is-active"
+                          : "is-pending"
                     }`}
                   >
                     <div className="flex items-center gap-2 mb-2">
-                      <StageIcon className={`w-4 h-4 ${
-                        isComplete
-                          ? "text-emerald-500"
-                          : isActive
-                            ? "text-indigo-500 animate-pulse"
-                            : "text-slate-400"
-                      }`} />
+                      <StageIcon
+                        className={`w-4 h-4 ${
+                          isComplete
+                            ? "text-emerald-500"
+                            : isActive
+                              ? "text-indigo-500 animate-pulse"
+                              : "text-slate-400"
+                        }`}
+                      />
                       <span className="text-xs font-semibold uppercase tracking-wide">
                         {stage.label}
                       </span>
@@ -609,27 +667,27 @@ function WorkingPhase({
  * Returns null if the explanation is not a list.
  */
 const STATUS_CANONICAL: Record<string, string> = {
-  "active": "active",
-  "inactive": "inactive",
+  active: "active",
+  inactive: "inactive",
   "in active": "inactive",
-  "open": "open",
-  "closed": "closed",
+  open: "open",
+  closed: "closed",
   "in progress": "in progress",
-  "in_progress": "in progress",
-  "pending": "pending",
-  "scheduled": "scheduled",
-  "todo": "todo",
-  "done": "done",
-  "completed": "completed",
-  "cancelled": "cancelled",
-  "canceled": "cancelled",
-  "draft": "draft",
-  "planned": "planned",
-  "overdue": "overdue",
-  "blocked": "blocked",
-  "unread": "unread",
-  "paid": "paid",
-  "resolved": "resolved",
+  in_progress: "in progress",
+  pending: "pending",
+  scheduled: "scheduled",
+  todo: "todo",
+  done: "done",
+  completed: "completed",
+  cancelled: "cancelled",
+  canceled: "cancelled",
+  draft: "draft",
+  planned: "planned",
+  overdue: "overdue",
+  blocked: "blocked",
+  unread: "unread",
+  paid: "paid",
+  resolved: "resolved",
 };
 
 function normalizeToken(value?: string): string {
@@ -646,7 +704,9 @@ function looksLikeDate(value: string): boolean {
   return (
     /\b\d{4}-\d{2}-\d{2}\b/.test(text) ||
     /\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b/.test(text) ||
-    /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\b/i.test(text)
+    /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\b/i.test(
+      text,
+    )
   );
 }
 
@@ -662,7 +722,11 @@ function looksLikeReference(value: string): boolean {
   const text = String(value || "").trim();
   if (!text) return false;
   if (/\s/.test(text) && !/\d/.test(text)) return false;
-  return /[0-9]/.test(text) || /[_/-]/.test(text) || /^[A-Z]{2,}[A-Z0-9_-]*$/.test(text);
+  return (
+    /[0-9]/.test(text) ||
+    /[_/-]/.test(text) ||
+    /^[A-Z]{2,}[A-Z0-9_-]*$/.test(text)
+  );
 }
 
 function sanitizePublicIdentifier(value?: string): string {
@@ -673,26 +737,37 @@ function sanitizePublicIdentifier(value?: string): string {
   return normalized;
 }
 
-function extractStatusWithRemainder(segment: string): { status?: string; remainder: string } {
+function extractStatusWithRemainder(segment: string): {
+  status?: string;
+  remainder: string;
+} {
   const trimmed = String(segment || "").trim();
   if (!trimmed) return { remainder: "" };
   const normalized = normalizeToken(trimmed);
-  const orderedStatuses = Object.keys(STATUS_CANONICAL).sort((a, b) => b.length - a.length);
+  const orderedStatuses = Object.keys(STATUS_CANONICAL).sort(
+    (a, b) => b.length - a.length,
+  );
   for (const key of orderedStatuses) {
     const canonical = STATUS_CANONICAL[key];
     if (normalized === key) {
       return { status: canonical, remainder: "" };
     }
     if (normalized.startsWith(`${key} `)) {
-      const prefixMatch = trimmed.match(new RegExp(`^${key.replace(/\s+/g, "\\s+")}\\s+`, "i"));
-      const remainder = prefixMatch ? trimmed.slice(prefixMatch[0].length).trim() : "";
+      const prefixMatch = trimmed.match(
+        new RegExp(`^${key.replace(/\s+/g, "\\s+")}\\s+`, "i"),
+      );
+      const remainder = prefixMatch
+        ? trimmed.slice(prefixMatch[0].length).trim()
+        : "";
       return { status: canonical, remainder };
     }
   }
   return { remainder: trimmed };
 }
 
-function extractPriority(value: string): CollectionItem["priority"] | undefined {
+function extractPriority(
+  value: string,
+): CollectionItem["priority"] | undefined {
   const normalized = normalizeToken(value);
   if (!normalized) return undefined;
   if (normalized === "critical") return "critical";
@@ -705,7 +780,9 @@ function extractPriority(value: string): CollectionItem["priority"] | undefined 
   return undefined;
 }
 
-function extractDateInfo(value: string): { date: string; dateLabel?: string } | null {
+function extractDateInfo(
+  value: string,
+): { date: string; dateLabel?: string } | null {
   const trimmed = String(value || "").trim();
   if (!trimmed) return null;
   const due = trimmed.match(/^due\s+(.+)$/i);
@@ -716,7 +793,11 @@ function extractDateInfo(value: string): { date: string; dateLabel?: string } | 
   return null;
 }
 
-function parseListDetailToItem(detail: string, entityType: string, index: number): CollectionItem | null {
+function parseListDetailToItem(
+  detail: string,
+  entityType: string,
+  index: number,
+): CollectionItem | null {
   const raw = String(detail || "").trim();
   if (!raw) return null;
 
@@ -747,7 +828,10 @@ function parseListDetailToItem(detail: string, entityType: string, index: number
   }
 
   const rightParts = right
-    ? right.split(/\s*•\s*/).map((s) => s.trim()).filter(Boolean)
+    ? right
+        .split(/\s*•\s*/)
+        .map((s) => s.trim())
+        .filter(Boolean)
     : [];
   const metadataParts = [...rightParts, ...parenMeta];
 
@@ -760,7 +844,11 @@ function parseListDetailToItem(detail: string, entityType: string, index: number
 
   const registerDetailMetric = (value: string) => {
     if (!value) return;
-    if (!metrics.some((m) => String(m.value).toLowerCase() === value.toLowerCase())) {
+    if (
+      !metrics.some(
+        (m) => String(m.value).toLowerCase() === value.toLowerCase(),
+      )
+    ) {
       metrics.push({ label: "Detail", value });
     }
   };
@@ -771,7 +859,10 @@ function parseListDetailToItem(detail: string, entityType: string, index: number
 
     const keyValueMetric = part.match(/^([^:]+):\s*(.+)$/);
     if (keyValueMetric) {
-      metrics.push({ label: keyValueMetric[1].trim(), value: keyValueMetric[2].trim() });
+      metrics.push({
+        label: keyValueMetric[1].trim(),
+        value: keyValueMetric[2].trim(),
+      });
       return;
     }
 
@@ -833,7 +924,12 @@ function parseListDetailToItem(detail: string, entityType: string, index: number
   const title = titleFromRight || left;
 
   let subtitle: string | undefined;
-  if (titleFromRight && leftIdentifier && leftIdentifier !== title && looksLikeReference(left)) {
+  if (
+    titleFromRight &&
+    leftIdentifier &&
+    leftIdentifier !== title &&
+    looksLikeReference(left)
+  ) {
     subtitle = leftIdentifier;
   } else {
     const emailMetric = metrics.find((m) => m.label === "Email");
@@ -857,7 +953,9 @@ function parseListDetailToItem(detail: string, entityType: string, index: number
   };
 }
 
-function tryConvertToCollection(explanation: ExplanationOutput): CollectionOutput | null {
+function tryConvertToCollection(
+  explanation: ExplanationOutput,
+): CollectionOutput | null {
   if (!explanation.entityId?.startsWith("list:")) return null;
 
   const details = explanation.facts?.details;
@@ -887,7 +985,8 @@ function tryConvertToCollection(explanation: ExplanationOutput): CollectionOutpu
     (item) => typeof item.status === "string" && item.status.trim().length > 0,
   );
   const canGroupByPriority = items.every(
-    (item) => typeof item.priority === "string" && item.priority.trim().length > 0,
+    (item) =>
+      typeof item.priority === "string" && item.priority.trim().length > 0,
   );
 
   return {
@@ -895,8 +994,13 @@ function tryConvertToCollection(explanation: ExplanationOutput): CollectionOutpu
     entityType,
     totalCount: items.length,
     items,
-    summary: explanation.facts?.summary || `${items.length} ${entityType}(s) found.`,
-    groupBy: canGroupByStatus ? "status" : canGroupByPriority ? "priority" : undefined,
+    summary:
+      explanation.facts?.summary || `${items.length} ${entityType}(s) found.`,
+    groupBy: canGroupByStatus
+      ? "status"
+      : canGroupByPriority
+        ? "priority"
+        : undefined,
     insights: insights.length > 0 ? insights : undefined,
     followUps: explanation.followUps,
   };
@@ -907,7 +1011,8 @@ function mapStatusSeverity(status?: string): CollectionItem["statusSeverity"] {
   const s = status.toLowerCase().replace(/_/g, " ");
   if (["overdue", "blocked", "failed", "rejected"].includes(s)) return "error";
   if (["on hold", "on_hold", "pending", "urgent"].includes(s)) return "warning";
-  if (["active", "open", "in progress", "in_progress"].includes(s)) return "success";
+  if (["active", "open", "in progress", "in_progress"].includes(s))
+    return "success";
   if (["completed", "closed", "done", "resolved"].includes(s)) return "success";
   return "neutral";
 }
@@ -939,7 +1044,12 @@ function ArtifactBody({
   const dataType = message.data?.type;
 
   if (isError) {
-    return <ErrorArtifact content={message.content} onExampleClick={onExampleClick} />;
+    return (
+      <ErrorArtifact
+        content={message.content}
+        onExampleClick={onExampleClick}
+      />
+    );
   }
 
   if (dataType === "explanation" && message.data?.explanation) {
@@ -968,7 +1078,14 @@ function ArtifactBody({
     return <DraftArtifact data={message.data.draft} />;
   }
   if (dataType === "actions" && message.data?.actionProposals) {
-    return <ActionArtifact data={message.data.actionProposals} />;
+    return (
+      <ActionArtifact
+        data={message.data.actionProposals}
+        onExecute={(proposalId, sessionId) =>
+          confirmProposal(proposalId, sessionId)
+        }
+      />
+    );
   }
   if (dataType === "collection" && message.data?.collection) {
     return (
@@ -982,19 +1099,15 @@ function ArtifactBody({
     return <ClarificationArtifact data={message.data.clarification} />;
   }
   if (dataType === "proposal" && message.data?.proposal) {
-    // V3 execution proposals
-    // TODO: Wire onConfirm and onCancel handlers from parent (useAgentState)
-    // For now, using placeholder handlers
     return (
       <ProposalArtifact
         data={message.data.proposal}
         onConfirm={async (proposalId) => {
-          console.log("TODO: Confirm proposal", proposalId);
-          // Will be wired in useAgentState to call confirmProposal API
+          const sessionId = message.data!.proposal!.sessionId;
+          return confirmProposal(proposalId, sessionId);
         }}
-        onCancel={(proposalId) => {
-          console.log("TODO: Cancel proposal", proposalId);
-          // Will be wired in useAgentState to remove from UI
+        onCancel={() => {
+          // Cancel is UI-only — proposal expires server-side after 5 minutes
         }}
       />
     );
@@ -1159,14 +1272,8 @@ function getWorkSteps(intent?: string): string[] {
   }
 
   if (n === "COMMAND" || n === "FOLLOW_UP") {
-    return [
-      "Processing command",
-      "Executing",
-    ];
+    return ["Processing command", "Executing"];
   }
 
-  return [
-    "Request classified",
-    "Preparing response",
-  ];
+  return ["Request classified", "Preparing response"];
 }

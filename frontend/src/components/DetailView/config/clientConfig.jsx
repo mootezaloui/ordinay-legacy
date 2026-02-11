@@ -120,8 +120,6 @@ export const createClientConfig = (t) => {
       if (contextData?.deleteClient) {
         // Use DataContext to delete (this persists to localStorage)
         contextData.deleteClient(numericId);
-      } else {
-        console.log("Deleting client:", numericId);
       }
     },
 

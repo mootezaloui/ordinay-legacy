@@ -54,7 +54,11 @@ export const notificationScheduleRules = {
     // Check dossier status
     checkTimes: ["17:00"], // End of day
     triggers: [
-      { type: "statusUpdate", condition: "daysWithoutUpdate", value: [7, 14, 30] },
+      {
+        type: "statusUpdate",
+        condition: "daysWithoutUpdate",
+        value: [7, 14, 30],
+      },
       { type: "review", condition: "daysOpen", value: [30, 60, 90] },
     ],
   },
@@ -64,20 +68,25 @@ export const notificationScheduleRules = {
  * Get notification schedule for a specific entity type and date
  * This simulates what a cron job or scheduler would do
  */
-export function getScheduledNotificationsForDate(entityType, date = new Date()) {
+export function getScheduledNotificationsForDate(
+  entityType,
+  date = new Date(),
+) {
   const schedule = notificationScheduleRules[entityType];
   if (!schedule) return [];
 
-  const currentTime = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  const currentTime = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 
   // Check if current time matches any check time
-  const shouldCheck = schedule.checkTimes.some(checkTime => {
-    const [checkHour, checkMinute] = checkTime.split(':').map(Number);
-    const [currentHour, currentMinute] = currentTime.split(':').map(Number);
+  const shouldCheck = schedule.checkTimes.some((checkTime) => {
+    const [checkHour, checkMinute] = checkTime.split(":").map(Number);
+    const [currentHour, currentMinute] = currentTime.split(":").map(Number);
 
     // Allow 5 minute window
-    return Math.abs(checkHour - currentHour) === 0 &&
-           Math.abs(checkMinute - currentMinute) <= 5;
+    return (
+      Math.abs(checkHour - currentHour) === 0 &&
+      Math.abs(checkMinute - currentMinute) <= 5
+    );
   });
 
   if (!shouldCheck) return [];
@@ -100,27 +109,31 @@ export function getSimulatedScheduledNotifications() {
  */
 export function markNotificationAsSent(notificationId) {
   // In production, this would update the database
-  console.log(`Notification ${notificationId} marked as sent`);
 }
 
 /**
  * Get pending notifications (not yet sent)
  */
 export function getPendingNotifications(scheduledNotifications) {
-  return scheduledNotifications.filter(n => !n.sent);
+  return scheduledNotifications.filter((n) => !n.sent);
 }
 
 /**
  * Get notifications due now
  */
-export function getNotificationsDueNow(scheduledNotifications, currentTime = new Date()) {
+export function getNotificationsDueNow(
+  scheduledNotifications,
+  currentTime = new Date(),
+) {
   const now = currentTime.toISOString();
-  const currentDateTimeStr = now.split('.')[0]; // Remove milliseconds
+  const currentDateTimeStr = now.split(".")[0]; // Remove milliseconds
 
-  return scheduledNotifications.filter(n => {
+  return scheduledNotifications.filter((n) => {
     if (n.sent) return false;
 
-    const scheduledDateTime = new Date(n.scheduledFor.replace(' ', 'T')).toISOString().split('.')[0];
+    const scheduledDateTime = new Date(n.scheduledFor.replace(" ", "T"))
+      .toISOString()
+      .split(".")[0];
     return scheduledDateTime <= currentDateTimeStr;
   });
 }
@@ -236,10 +249,16 @@ export function updateNotificationPreferences(userId, preferences) {
   const merged = mergePreferences(notificationFrequencySettings, preferences);
   try {
     if (typeof window !== "undefined") {
-      window.localStorage.setItem(NOTIFICATION_PREF_KEY, JSON.stringify(merged));
+      window.localStorage.setItem(
+        NOTIFICATION_PREF_KEY,
+        JSON.stringify(merged),
+      );
     }
   } catch (error) {
-    console.warn("[scheduledNotifications] Failed to persist preferences", error);
+    console.warn(
+      "[scheduledNotifications] Failed to persist preferences",
+      error,
+    );
   }
   return merged;
 }

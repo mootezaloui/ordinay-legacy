@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Zap, CheckCircle2, XCircle, Clock, AlertCircle } from "lucide-react";
-import type { ProposalOutput } from "../../../services/api/agent";
+import { Zap, CheckCircle2, XCircle, Clock, AlertCircle, Trash2, Link2, Unlink } from "lucide-react";
+import type { ProposalOutput, ExecutionResult } from "../../../services/api/agent";
 
 interface ProposalArtifactProps {
   data: ProposalOutput;
-  onConfirm: (proposalId: string) => Promise<void>;
+  onConfirm: (proposalId: string) => Promise<ExecutionResult>;
   onCancel: (proposalId: string) => void;
 }
 
@@ -13,6 +13,7 @@ type ProposalStatus = "pending" | "confirming" | "confirmed" | "cancelled" | "fa
 interface ProposalState {
   status: ProposalStatus;
   error?: string;
+  executionResult?: ExecutionResult;
 }
 
 /**
@@ -72,6 +73,21 @@ function renderOperationDetails(proposal: any): JSX.Element {
     );
   }
 
+  // DELETE_ENTITY: Show delete impact
+  if (actionType === "DELETE_ENTITY" && params) {
+    return (
+      <div className="operation-details">
+        <div className="operation-type operation-type-delete">
+          <Trash2 className="w-4 h-4 inline-block mr-1" />
+          Delete {params.entityType} #{params.entityId}
+        </div>
+        <div className="delete-impact text-xs text-red-600 dark:text-red-400 mt-1">
+          Soft-delete — record will be marked as deleted but can be restored
+        </div>
+      </div>
+    );
+  }
+
   // ATTACH_TO_ENTITY: Show attachment details
   if (actionType === "ATTACH_TO_ENTITY" && params) {
     return (
@@ -94,11 +110,21 @@ function renderOperationDetails(proposal: any): JSX.Element {
 
   // LINK_ENTITIES: Show relationship change
   if (actionType === "LINK_ENTITIES" && params) {
+    const isRemove = params.mode === "remove";
+    const LinkIcon = isRemove ? Unlink : Link2;
     return (
       <div className="operation-details">
         <div className="operation-type">
-          {params.mode === "add" ? "Link" : "Unlink"} {params.from?.type} #{params.from?.id} {params.mode === "add" ? "to" : "from"} {params.to?.type} #{params.to?.id}
+          <LinkIcon className="w-4 h-4 inline-block mr-1" />
+          {isRemove ? "Unlink" : "Link"} {params.sourceType} #{params.sourceId}
+          {isRemove ? " from " : " to "}
+          {params.targetType} #{params.targetId}
         </div>
+        {params.linkField && (
+          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            via {params.linkField}
+          </div>
+        )}
       </div>
     );
   }
@@ -141,11 +167,19 @@ export function ProposalArtifact({ data, onConfirm, onCancel }: ProposalArtifact
     }));
 
     try {
-      await onConfirm(proposalId);
-      setProposalStates((prev) => ({
-        ...prev,
-        [proposalId]: { status: "confirmed" },
-      }));
+      const execResult = await onConfirm(proposalId);
+      if (execResult.status === "success") {
+        setProposalStates((prev) => ({
+          ...prev,
+          [proposalId]: { status: "confirmed", executionResult: execResult },
+        }));
+      } else {
+        const safeMsg = execResult.error?.safeMessage || execResult.error?.message || "Execution failed";
+        setProposalStates((prev) => ({
+          ...prev,
+          [proposalId]: { status: "failed", error: safeMsg, executionResult: execResult },
+        }));
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       setProposalStates((prev) => ({
@@ -240,9 +274,23 @@ export function ProposalArtifact({ data, onConfirm, onCancel }: ProposalArtifact
 
               {/* Status indicators */}
               {isConfirmed && (
-                <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400 mb-3">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Confirmed and executed</span>
+                <div className="execution-result-success mb-3">
+                  <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Confirmed and executed</span>
+                  </div>
+                  {state.executionResult?.executedActions?.map((ea, i) => (
+                    <div key={i} className="text-xs text-green-600 dark:text-green-500 mt-1 ml-6">
+                      {ea.actionType} completed at {new Date(ea.executedAt).toLocaleTimeString()}
+                    </div>
+                  ))}
+                  {state.executionResult?.audit?.executedAt && (
+                    <div className="text-xs text-gray-500 dark:text-gray-500 mt-1 ml-6">
+                      Audit: {state.executionResult.audit.sessionId || proposal.proposalId}
+                      {" • "}
+                      {new Date(state.executionResult.audit.executedAt).toLocaleString()}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -254,9 +302,17 @@ export function ProposalArtifact({ data, onConfirm, onCancel }: ProposalArtifact
               )}
 
               {isFailed && (
-                <div className="flex items-center gap-2 text-sm text-red-700 dark:text-red-400 mb-3">
-                  <AlertCircle className="w-4 h-4" />
-                  <span>{state.error || "Execution failed"}</span>
+                <div className="execution-result-failure mb-3">
+                  <div className="flex items-center gap-2 text-sm text-red-700 dark:text-red-400">
+                    <AlertCircle className="w-4 h-4" />
+                    <span>{state.error || "Execution failed"}</span>
+                  </div>
+                  {state.executionResult?.error?.code && (
+                    <div className="text-xs text-red-500 dark:text-red-400 mt-1 ml-6">
+                      Error code: {state.executionResult.error.code}
+                      {state.executionResult.error.requiresReproposal && " — please retry"}
+                    </div>
+                  )}
                 </div>
               )}
 

@@ -117,8 +117,6 @@ export const createSessionConfig = (t) => ({
     if (contextData?.updateSession) {
       // Use DataContext to delete (this persists to localStorage)
       contextData.deleteSession(numericId);
-    } else {
-      console.log("Deleting session:", numericId);
     }
   },
 

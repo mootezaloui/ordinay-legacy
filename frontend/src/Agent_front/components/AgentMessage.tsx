@@ -34,7 +34,11 @@ interface AgentMessageProps {
   isLastUserMessage?: boolean;
 }
 
-export function AgentMessage({ message, getRelativeTime, isLastUserMessage = false }: AgentMessageProps) {
+export function AgentMessage({
+  message,
+  getRelativeTime,
+  isLastUserMessage = false,
+}: AgentMessageProps) {
   const isUser = message.role === "user";
   const isStreaming = message.status === "sending";
   const isError = message.status === "error";
@@ -96,15 +100,19 @@ export function AgentMessage({ message, getRelativeTime, isLastUserMessage = fal
 
       if (isElectron() && backendConfig?.useIPC) {
         // Use IPC transport
-        const ipcResponse = await window.electronAPI!.apiRequest('POST', '/agent/edit', {
-          message: editContent.trim(),
-          sessionId: activeSessionId,
-          userId: 'default', // TODO: Get from auth context
-        });
+        const ipcResponse = await window.electronAPI!.apiRequest(
+          "POST",
+          "/agent/edit",
+          {
+            message: editContent.trim(),
+            sessionId: activeSessionId,
+            userId: "default", // TODO: Get from auth context
+          },
+        );
 
         // IPC response format: { status: 200, data: { status: 'ok', ... } }
-        if (ipcResponse.status !== 200 || ipcResponse.data?.status !== 'ok') {
-          console.error('[Edit] Failed to edit message:', ipcResponse);
+        if (ipcResponse.status !== 200 || ipcResponse.data?.status !== "ok") {
+          console.error("[Edit] Failed to edit message:", ipcResponse);
           // TODO: Show error to user
           return;
         }
@@ -114,18 +122,18 @@ export function AgentMessage({ message, getRelativeTime, isLastUserMessage = fal
         // Use HTTP transport
         const apiBase = getApiBase();
         const response = await fetch(`${apiBase}/agent/edit`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             message: editContent.trim(),
             sessionId: activeSessionId,
-            userId: 'default', // TODO: Get from auth context
+            userId: "default", // TODO: Get from auth context
           }),
         });
 
         if (!response.ok) {
           const error = await response.json();
-          console.error('[Edit] Failed to edit message:', error);
+          console.error("[Edit] Failed to edit message:", error);
           // TODO: Show error to user
           return;
         }
@@ -133,18 +141,16 @@ export function AgentMessage({ message, getRelativeTime, isLastUserMessage = fal
         result = await response.json();
       }
 
-      console.log('[Edit] Message edited successfully:', result);
-
       setIsEditing(false);
 
       // Trigger new agent stream with edited message
       // editedMessageId triggers automatic removal of ALL assistant messages after it
       await startAgentStream(editContent.trim(), {
         sessionId: activeSessionId,
-        editedMessageId: message.id
+        editedMessageId: message.id,
       });
     } catch (err) {
-      console.error('[Edit] Error editing message:', err);
+      console.error("[Edit] Error editing message:", err);
       // TODO: Show error to user
     }
   };

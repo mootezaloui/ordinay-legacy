@@ -231,7 +231,6 @@ export default function Clients() {
 
     if (!validationResult.allowed) {
       // Show blocker modal
-      console.log('[Clients] Blocked client:', client);
       setValidationResult(validationResult);
       setBlockedClient(client);
       setBlockedAction('changeStatus');

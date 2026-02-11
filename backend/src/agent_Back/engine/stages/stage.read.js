@@ -445,6 +445,28 @@ async function _executeReadIntent(
       intent: "READ_DATA",
     });
 
+    // Run plan analysis for dossiers (automatic state analysis)
+    let planAnalysis = null;
+    if (entityType === 'dossier' && state.data?.id && readOutcome === 'success') {
+      try {
+        const analyzeEntityStateTool = this.toolRegistry.get('analyzeEntityState');
+        if (analyzeEntityStateTool) {
+          planAnalysis = await analyzeEntityStateTool.handler({
+            entityType: 'dossier',
+            entityId: state.data.id,
+          });
+        }
+      } catch (err) {
+        this.ledger.record({
+          type: 'plan_analysis_error',
+          entityType,
+          entityId: state.data?.id,
+          error: err.message,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    }
+
     return {
       intent: "READ_DATA",
       agentVersion: policy.version,
@@ -455,6 +477,7 @@ async function _executeReadIntent(
       readOutcome,
       contextPromotion,
       workSnapshotEvent: state.workSnapshotEvent,
+      planAnalysis,
     };
   } catch (err) {
     this.ledger.record({

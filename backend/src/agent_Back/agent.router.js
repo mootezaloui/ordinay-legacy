@@ -2,28 +2,34 @@
 
 const express = require("express");
 const AgentEngine = require("./agent.engine");
-const classifyIntent = require("./intent.classifier");
-const {
-  getAvailableCommands,
-  isSlashCommand,
-  parseSlashCommand,
-  detectReadIntent,
-  detectFollowUp,
-} = require("./intent.classifier");
-const { resolveInteractionPosture } = require("./posture.resolver");
-const { INTENTS } = require("./intents");
-const {
-  streamChatWithCallbacks,
-  streamIntentFramingMessage,
-} = require("./llm.client");
+const { getAvailableCommands } = require("./intent.classifier");
+const { streamIntentFramingMessage } = require("./llm.client");
 const { streamCommentary } = require("./commentary.generator");
 
 const router = express.Router();
 const agentEngine = new AgentEngine();
 
 // ============================================================================
-// Status Message Helpers — Deterministic action descriptions
+// Unified SSE Event Lifecycle
 // ============================================================================
+/**
+ * CRITICAL: SSE Event Contract
+ *
+ * Event sequence: start → intent → artifact → commentary → done
+ *
+ * Guarantees:
+ * - `done` is ALWAYS emitted (even on error)
+ * - `error` always terminates with `done`
+ * - No artifact suppression based on posture
+ * - Single state machine for all streams
+ *
+ * Events:
+ * - start: { intent: "PENDING", agentVersion }
+ * - intent: { message, chunks } (streamed)
+ * - artifact: { output, intent }
+ * - commentary: { message, chunks, signals } (streamed)
+ * - done: { status: "success"|"error", error? }
+ */
 
 /**
  * Maps intent to status action text.
@@ -155,14 +161,9 @@ function deriveEntityLabel(
   intent,
   followUpIntent,
   contextSnapshot,
-  commandInfo,
 ) {
   if (followUpIntent?.entityType) {
     return formatEntityLabel(followUpIntent.entityType);
-  }
-
-  if (commandInfo?.entityLabel) {
-    return commandInfo.entityLabel;
   }
 
   const normalized = (intent || "").toUpperCase();
@@ -231,7 +232,6 @@ function buildIntentFramingPayload({
   readIntent,
   followUpIntent,
   contextSnapshot,
-  commandInfo,
 }) {
   if (!intent) return null;
 
@@ -240,7 +240,6 @@ function buildIntentFramingPayload({
     intent,
     followUpIntent,
     contextSnapshot,
-    commandInfo,
   );
   const scope = deriveScope(
     intent,
@@ -253,70 +252,27 @@ function buildIntentFramingPayload({
   return { intentType, entity, scope };
 }
 
-function normalizeCategoryLabel(category) {
-  if (!category) return null;
-  const normalized = String(category).toLowerCase();
-  if (normalized === "accounting") return "financial entry";
-  if (normalized === "personal_tasks") return "personal task";
-  if (normalized === "history") return "history entry";
-  if (ENTITY_LABELS[normalized]) return ENTITY_LABELS[normalized];
-  if (normalized.endsWith("s")) return normalized.slice(0, -1);
-  return normalized.replace(/_/g, " ");
-}
-
-function buildIntentFramingFromCommand(parsedCommand) {
-  if (!parsedCommand || !parsedCommand.valid || !parsedCommand.toolMapping)
-    return null;
-  if (parsedCommand.commandKey === "help") return null;
-
-  const requiresArg = !!parsedCommand.toolMapping.params?.requiresArg;
-  const entityLabel = normalizeCategoryLabel(
-    parsedCommand.toolMapping.category,
-  );
-  if (!entityLabel) return null;
-
-  return {
-    intentType: requiresArg ? "read" : "list",
-    entity: entityLabel,
-    scope: requiresArg ? "single" : "multiple",
-  };
-}
-
-async function sendIntentFramingIfNeeded(sendEvent, payload, signal, aborted) {
+/**
+ * Stream intent event with LLM-generated message.
+ * Unified event name: `intent`
+ *
+ * @param {Function} sendEvent - SSE event sender
+ * @param {Object} payload - Intent payload { intentType, entity, scope }
+ * @param {AbortSignal} signal - Abort signal
+ * @param {boolean} aborted - Abort flag
+ */
+async function streamIntentEvent(sendEvent, payload, signal, aborted) {
   if (aborted) return;
 
-  const signalPayload = payload
-    ? {
-        type: "INTENT_FRAMING",
-        action: payload.intentType,
-        entity: payload.entity,
-        scope: payload.scope,
-      }
-    : null;
-
-  // Use streaming for real-time responsiveness - LLM generates the message
   return new Promise((resolve) => {
-    let hasContent = false;
-    let fullMessage = "";
-
-    console.log(
-      "[Intent Framing] Starting LLM generation with payload:",
-      JSON.stringify(payload),
-    );
+    let chunks = [];
 
     streamIntentFramingMessage(
       payload || {},
       {
         onChunk: (chunk) => {
           if (aborted) return;
-          if (!hasContent) {
-            hasContent = true;
-            console.log(
-              "[Intent Framing] First chunk received, streaming started",
-            );
-          }
-          fullMessage += chunk;
-          sendEvent("intent_framing_chunk", { chunk });
+          chunks.push(chunk);
         },
         onDone: (message) => {
           if (aborted) {
@@ -324,31 +280,19 @@ async function sendIntentFramingIfNeeded(sendEvent, payload, signal, aborted) {
             return;
           }
 
-          console.log(
-            "[Intent Framing] LLM generation complete, message length:",
-            fullMessage.length,
-          );
-
-          // Only send if LLM produced content - no hardcoded fallbacks
-          if (fullMessage) {
-            sendEvent("intent_framing", {
-              message: fullMessage,
-              messageType: INTENT_FRAMING_MESSAGE_TYPE,
-              signal: signalPayload,
+          // Send unified `intent` event (not `intent_framing`)
+          if (message) {
+            sendEvent("intent", {
+              message,
+              action: payload?.intentType || "unknown",
+              entity: payload?.entity || null,
+              scope: payload?.scope || null,
             });
-          } else {
-            console.log(
-              "[Intent Framing] LLM produced no content, skipping intent framing",
-            );
           }
           resolve();
         },
         onError: (error) => {
-          // Log error but don't send hardcoded fallback - let the artifact speak for itself
-          console.warn(
-            "[Intent Framing] LLM error, skipping intent framing:",
-            error,
-          );
+          console.warn("[SSE] Intent generation failed (non-blocking):", error);
           resolve();
         },
       },
@@ -357,56 +301,28 @@ async function sendIntentFramingIfNeeded(sendEvent, payload, signal, aborted) {
   });
 }
 
-function normalizeResultEnvelopeOutput(result) {
-  const output = result?.output;
-  if (!output || typeof output !== "object") {
-    return null;
-  }
-
-  if (output.type === "chat") {
-    return output;
-  }
-
-  // ARTIFACT JUSTIFICATION: convert low-value artifacts into chat result envelopes.
-  const artifactHasValue = checkArtifactValue(output);
-  if (!artifactHasValue.hasValue) {
-    console.log(
-      "[Artifact Justification] Converting low-value artifact to chat envelope:",
-      artifactHasValue.reason,
-    );
-    return {
-      type: "chat",
-      message:
-        artifactHasValue.textAlternative ||
-        "I understand your request, but I don't have specific information to show right now.",
-      timestamp: new Date().toISOString(),
-      source: "fallback",
-    };
-  }
-
-  return output;
-}
-
 /**
- * Send unified result envelope.
- * INVARIANT: successful turns emit exactly one `result` envelope.
+ * Send artifact event.
+ * Unified event name: `artifact` (not `result`)
+ * No suppression - all artifacts are sent.
  *
  * @param {Function} sendEvent - SSE event sender
  * @param {Object} result - Agent result from engine
  * @param {boolean} aborted - Whether connection was aborted
- * @returns {boolean} True when a result envelope was emitted
+ * @returns {boolean} True when artifact was emitted
  */
-function sendResultWithCompletionGuarantee(sendEvent, result, aborted) {
+function sendArtifactEvent(sendEvent, result, aborted) {
   if (aborted) return false;
 
-  const normalizedOutput = normalizeResultEnvelopeOutput(result);
-  if (!normalizedOutput) {
-    console.warn("[Turn Completion] Missing output envelope in result");
+  const output = result?.output;
+  if (!output || typeof output !== "object") {
+    console.warn("[SSE] No output in result");
     return false;
   }
 
-  sendEvent("result", {
-    output: normalizedOutput,
+  // Send artifact without suppression
+  sendEvent("artifact", {
+    output,
     intent: result.intent,
     contextLifecycle: result?.contextLifecycle || null,
   });
@@ -414,110 +330,9 @@ function sendResultWithCompletionGuarantee(sendEvent, result, aborted) {
 }
 
 /**
- * Check if an artifact adds value and should be shown.
- * Artifacts are optional - they should only appear when they provide
- * information that can't be conveyed in text alone.
- *
- * @param {Object} output - The artifact output
- * @returns {Object} { hasValue: boolean, reason?: string, textAlternative?: string }
- */
-function checkArtifactValue(output) {
-  const type = output?.type;
-
-  // Collection artifacts: only show if they contain items
-  if (type === "collection") {
-    const items = output.items || [];
-    if (items.length === 0) {
-      return {
-        hasValue: false,
-        reason: "empty_collection",
-        textAlternative: output.summary || "No items found matching your criteria.",
-      };
-    }
-    return { hasValue: true };
-  }
-
-  // Explanation artifacts: only show if they contain real system data
-  if (type === "explanation") {
-    const facts = output.facts;
-    const details = facts?.details || [];
-    const summary = facts?.summary || "";
-
-    // Empty or placeholder explanations should be suppressed
-    if (details.length === 0 && !summary) {
-      return {
-        hasValue: false,
-        reason: "empty_explanation",
-        textAlternative: "I don't have specific information about that at the moment.",
-      };
-    }
-
-    // Generic explanations (no entity ID or system context) should be text-only
-    const entityId = output.entityId || "";
-    if (!entityId || entityId === "pending_clarification" || entityId === "query") {
-      return {
-        hasValue: false,
-        reason: "generic_explanation",
-        textAlternative: summary || "Let me explain that for you.",
-      };
-    }
-
-    return { hasValue: true };
-  }
-
-  // Clarification artifacts: always show (they guide the user)
-  if (type === "clarification") {
-    return { hasValue: true };
-  }
-
-  // Risk analysis artifacts: only show if risks were identified
-  if (type === "operational_risk_analysis") {
-    const risks = output.risks || [];
-    if (risks.length === 0) {
-      return {
-        hasValue: false,
-        reason: "no_risks",
-        textAlternative: output.summary || "No significant operational risks were identified.",
-      };
-    }
-    return { hasValue: true };
-  }
-
-  // Draft artifacts: always show (they contain generated content)
-  if (["INVITATION", "CLIENT_EMAIL", "HEARING_SUMMARY", "INTERNAL_NOTE"].includes(type)) {
-    const sections = output.sections || {};
-    const body = sections.body || "";
-    if (!body || body.trim().length === 0) {
-      return {
-        hasValue: false,
-        reason: "empty_draft",
-        textAlternative: "I wasn't able to generate a draft at this time.",
-      };
-    }
-    return { hasValue: true };
-  }
-
-  // Action plan artifacts: only show if actions exist
-  if (type === "action_plan") {
-    const actions = output.actions || [];
-    if (actions.length === 0) {
-      return {
-        hasValue: false,
-        reason: "no_actions",
-        textAlternative: "No specific actions are recommended at this time.",
-      };
-    }
-    return { hasValue: true };
-  }
-
-  // Unknown artifact types: show by default (conservative)
-  return { hasValue: true };
-}
-
-/**
- * Generate and send commentary for an artifact with streaming.
- * This is called AFTER the artifact is sent, BEFORE 'done'.
- * Commentary failures NEVER block the artifact.
+ * Stream commentary event with LLM-generated commentary.
+ * Unified event name: `commentary`
+ * Mandatory for all artifacts except chat.
  *
  * @param {Function} sendEvent - SSE event sender
  * @param {Object} result - Agent result containing output
@@ -525,31 +340,25 @@ function checkArtifactValue(output) {
  * @param {boolean} aborted - Whether connection was aborted
  * @param {AbortSignal} signal - Abort signal for cancellation
  */
-async function sendCommentaryIfNeeded(
-  sendEvent,
-  result,
-  context,
-  aborted,
-  signal,
-) {
+async function streamCommentaryEvent(sendEvent, result, context, aborted, signal) {
   if (aborted) return;
 
-  // COMMENTARY IS MANDATORY FOR ALL INTERACTIONS
-  // Only skip for chat (already conversational)
+  // Skip commentary for chat (already conversational)
   const artifactType = result?.output?.type;
   if (!artifactType || artifactType === "chat") return;
+
+  // Get conversation history for context-aware commentary
+  const llmContext =
+    typeof agentEngine.contextStore?.getContextForLLMInjection === "function"
+      ? agentEngine.contextStore.getContextForLLMInjection(context)
+      : {};
 
   const resultCount =
     typeof result?.readMeta?.count === "number"
       ? result.readMeta.count
       : undefined;
 
-  // NEW: Get conversation history for LLM injection (length-based compaction support)
-  const llmContext =
-    typeof agentEngine.contextStore?.getContextForLLMInjection === "function"
-      ? agentEngine.contextStore.getContextForLLMInjection(context)
-      : {};
-
+  // Build commentary context with intent and conversation history
   // CRITICAL: Include intent for commentary mode derivation
   // The commentary generator uses intent to determine REPORTING vs INTERPRETIVE vs GUIDANCE mode
   const commentaryContext = {
@@ -604,7 +413,7 @@ async function sendCommentaryIfNeeded(
         onChunk: (chunk) => {
           if (aborted) return;
           hasContent = true;
-          sendEvent("commentary_chunk", { chunk });
+          // Unified event: commentary with chunks (no separate commentary_chunk)
         },
         onDone: (commentaryResult) => {
           if (aborted) {
@@ -612,27 +421,15 @@ async function sendCommentaryIfNeeded(
             return;
           }
 
-          // Send final commentary message (for clients that don't support streaming)
+          // Send unified commentary event
           const hasSignals =
             Array.isArray(commentaryResult?.signals) &&
             commentaryResult.signals.length > 0;
           if (commentaryResult?.commentary || hasSignals) {
-            console.log(
-              "[SSE] Sending commentary, source:",
-              commentaryResult.source,
-            );
             sendEvent("commentary", {
               message: commentaryResult.commentary || "",
-              source: commentaryResult.source,
               signals: commentaryResult.signals || [],
             });
-          } else {
-            console.log(
-              "[SSE] No commentary generated, source:",
-              commentaryResult?.source,
-              "reason:",
-              commentaryResult?.reason,
-            );
           }
           resolve();
         },
@@ -963,13 +760,13 @@ router.post("/agent/stream", async (req, res) => {
   });
 
   // TURN COMPLETION INVARIANT: Track terminal lifecycle envelopes
-  let hasResultBeenSent = false;
+  let hasArtifactBeenSent = false;
   let hasErrorBeenSent = false;
   let hasDoneBeenSent = false;
   const trackingSendEvent = (event, data) => {
     sendEvent(event, data);
-    if (event === "result") {
-      hasResultBeenSent = true;
+    if (event === "artifact") {
+      hasArtifactBeenSent = true;
     }
     if (event === "error") {
       hasErrorBeenSent = true;
@@ -995,14 +792,14 @@ router.post("/agent/stream", async (req, res) => {
     });
   };
 
-  // TURN COMPLETION INVARIANT: Every turn ends with result OR error before done.
+  // TURN COMPLETION INVARIANT: Every turn ends with artifact OR error before done.
   const sendDoneWithCompletionGuarantee = () => {
     if (aborted) return;
-    if (!hasResultBeenSent && !hasErrorBeenSent) {
-      console.warn("[Turn Completion] Missing result envelope before done");
+    if (!hasArtifactBeenSent && !hasErrorBeenSent) {
+      console.warn("[Turn Completion] Missing artifact envelope before done");
       sendErrorEnvelope(
-        "Stream completed without result envelope",
-        "PROTOCOL_NO_RESULT",
+        "Stream completed without artifact envelope",
+        "PROTOCOL_NO_ARTIFACT",
       );
     }
     sendDoneEnvelope(hasErrorBeenSent ? "error" : "success");
@@ -1044,14 +841,9 @@ router.post("/agent/stream", async (req, res) => {
       ? { ...unifiedResult, contextLifecycle }
       : unifiedResult;
 
-    if (contextLifecycle) {
-      trackingSendEvent("status", {
-        action: getLifecycleStatusAction(contextLifecycle),
-        phase: "context_lifecycle",
-        contextLifecycle,
-      });
-    }
+    // Unified lifecycle: start → intent → artifact → commentary → done
 
+    // Stream intent event
     const contextSnapshot = agentEngine.contextStore.get(requestContext);
     const framingPayload = buildIntentFramingPayload({
       intent: unifiedResultWithLifecycle.intent,
@@ -1065,7 +857,7 @@ router.post("/agent/stream", async (req, res) => {
         framingPayload,
       )
     ) {
-      await sendIntentFramingIfNeeded(
+      await streamIntentEvent(
         trackingSendEvent,
         framingPayload,
         abortController.signal,
@@ -1073,25 +865,19 @@ router.post("/agent/stream", async (req, res) => {
       );
     }
 
-    trackingSendEvent("status", {
-      action: getStatusAction(unifiedResultWithLifecycle.intent, "interpreting"),
-      phase: "interpreting",
-    });
-    const sentResult = sendResultWithCompletionGuarantee(
+    // Send artifact event
+    const sentArtifact = sendArtifactEvent(
       trackingSendEvent,
       unifiedResultWithLifecycle,
       aborted,
     );
-    if (!sentResult) {
+    if (!sentArtifact) {
       sendErrorEnvelope("Agent response did not include valid output", "INVALID_OUTPUT");
     }
 
-    if (sentResult) {
-      trackingSendEvent("status", {
-        action: getStatusAction(unifiedResultWithLifecycle.intent, "commentary"),
-        phase: "commentary",
-      });
-      await sendCommentaryIfNeeded(
+    // Stream commentary event
+    if (sentArtifact) {
+      await streamCommentaryEvent(
         trackingSendEvent,
         unifiedResultWithLifecycle,
         requestContext,
@@ -1100,597 +886,8 @@ router.post("/agent/stream", async (req, res) => {
       );
     }
 
+    // Done (always sent)
     sendDoneWithCompletionGuarantee();
-    res.end();
-    return;
-
-    // Legacy stream gating path retained for reference only.
-    // It is explicitly disabled to keep turn semantics endpoint-independent.
-    if (false) {
-    // ========== POSTURE RESOLUTION GATE (PRIMARY CONTROL PLANE) ==========
-    // CRITICAL: Resolve interaction posture BEFORE any other gates
-    // Posture determines artifact requirements, context scope, streaming behavior
-    const posture = await resolveInteractionPosture(message, requestContext);
-    console.log(
-      `[Posture] Resolved: ${posture.mode} (confidence: ${posture.confidence}, signals: ${posture.signals.join(", ")})`,
-    );
-    trackingSendEvent("posture_resolved", {
-      posture: posture.mode,
-      confidence: posture.confidence,
-      signals: posture.signals,
-    });
-    // ====================================================================
-
-    // Handle structured follow-up intents first (bypass NLP/LLM entirely)
-    if (followUpIntent) {
-      trackingSendEvent("start", {
-        intent: followUpIntent.intent,
-        agentVersion,
-        isFollowUpIntent: true,
-      });
-      const framingPayload = buildIntentFramingPayload({
-        intent: followUpIntent.intent,
-        followUpIntent,
-      });
-      if (framingPayload) {
-        await sendIntentFramingIfNeeded(
-          trackingSendEvent,
-          framingPayload,
-          abortController.signal,
-          aborted,
-        );
-      }
-      // Status: fetching data
-      trackingSendEvent("status", {
-        action: getStatusAction(followUpIntent.intent, "fetching"),
-        phase: "fetching",
-      });
-      const result = await agentEngine.run({
-        message,
-        context: requestContext,
-        agentVersion,
-        reasoner: "rule",
-        followUpIntent,
-        documentContext,
-        posture,
-      });
-      // Status: interpreting (brief)
-      trackingSendEvent("status", {
-        action: getStatusAction(followUpIntent.intent, "interpreting"),
-        phase: "interpreting",
-      });
-      sendResultWithCompletionGuarantee(trackingSendEvent, result, aborted, posture);
-      // Generate conversational commentary AFTER artifact (non-blocking)
-      trackingSendEvent("status", {
-        action: getStatusAction(followUpIntent.intent, "commentary"),
-        phase: "commentary",
-      });
-      await sendCommentaryIfNeeded(
-        trackingSendEvent,
-        result,
-        context,
-        aborted,
-        abortController.signal,
-      );
-      sendDoneWithCompletionGuarantee();
-      res.end();
-      return;
-    }
-
-    // Handle slash commands first - bypass LLM entirely
-    // Only fire for Work/Inspection postures (skip for Assistant)
-    if (isSlashCommand(message) && posture.mode !== 'ASSISTANT') {
-      trackingSendEvent("start", { intent: "COMMAND", agentVersion, isCommand: true });
-      const parsedCommand = parseSlashCommand(message);
-      const framingPayload = buildIntentFramingFromCommand(parsedCommand);
-      if (framingPayload) {
-        await sendIntentFramingIfNeeded(
-          trackingSendEvent,
-          framingPayload,
-          abortController.signal,
-          aborted,
-        );
-      }
-      // Status: executing command
-      trackingSendEvent("status", { action: "Executing command…", phase: "executing" });
-      const result = await agentEngine.run({
-        message,
-        context: requestContext,
-        agentVersion,
-        reasoner: "rule",
-        documentContext,
-        posture,
-      });
-      sendResultWithCompletionGuarantee(trackingSendEvent, result, aborted, posture);
-      // Generate conversational commentary AFTER artifact (non-blocking)
-      await sendCommentaryIfNeeded(
-        trackingSendEvent,
-        result,
-        context,
-        aborted,
-        abortController.signal,
-      );
-      sendDoneWithCompletionGuarantee();
-      res.end();
-      return;
-    }
-
-    // ========== FOLLOW-UP INTENT GATE ==========
-    // CRITICAL: Must run BEFORE intent classification to prevent fallthrough to generic chat
-    // If a follow-up is detected, route through agentEngine.run() which has proper handling
-    const followUpDetection = detectFollowUp(message, requestContext);
-    if (followUpDetection && followUpDetection.isFollowUp) {
-      console.log(
-        "[SSE] Follow-up detected:",
-        followUpDetection.type,
-        "confidence:",
-        followUpDetection.confidence,
-      );
-      const contextSnapshot = agentEngine.contextStore.get(requestContext);
-      trackingSendEvent("start", {
-        intent: "FOLLOW_UP",
-        agentVersion,
-        isFollowUp: true,
-        followUpType: followUpDetection.type,
-      });
-      // Use 'FOLLOW_UP' as intent fallback when lastIntent is not available
-      const framingPayload = buildIntentFramingPayload({
-        intent: contextSnapshot?.lastIntent || "FOLLOW_UP",
-        contextSnapshot,
-      });
-      // Always send intent framing for follow-ups to maintain conversational flow
-      await sendIntentFramingIfNeeded(
-        trackingSendEvent,
-        framingPayload,
-        abortController.signal,
-        aborted,
-      );
-      // Status: processing follow-up
-      trackingSendEvent("status", {
-        action: "Processing follow-up…",
-        phase: "fetching",
-      });
-      // Route through agentEngine.run() which has the follow-up resolution logic
-      const result = await agentEngine.run({
-        message,
-        context: requestContext,
-        agentVersion,
-        reasoner: "rule",
-        documentContext,
-        posture,
-      });
-      trackingSendEvent("status", {
-        action: getStatusAction(result.intent, "interpreting"),
-        phase: "interpreting",
-      });
-      sendResultWithCompletionGuarantee(trackingSendEvent, result, aborted, posture);
-      // Generate conversational commentary AFTER artifact (non-blocking)
-      trackingSendEvent("status", {
-        action: getStatusAction(result.intent, "commentary"),
-        phase: "commentary",
-      });
-      await sendCommentaryIfNeeded(
-        trackingSendEvent,
-        result,
-        context,
-        aborted,
-        abortController.signal,
-      );
-      sendDoneWithCompletionGuarantee();
-      res.end();
-      return;
-    }
-    // ========== END FOLLOW-UP INTENT GATE ==========
-
-    // READ INTENT GATE - check for data requests BEFORE LLM classification
-    // Only fire for Work/Inspection postures (skip for Assistant)
-    const readIntent = posture.mode !== 'ASSISTANT' ? detectReadIntent(message, requestContext) : null;
-    if (readIntent && readIntent.requiresLocalData) {
-      trackingSendEvent("start", {
-        intent: readIntent.intent,
-        agentVersion,
-        isReadIntent: true,
-      });
-      const framingPayload = buildIntentFramingPayload({
-        intent: readIntent.intent,
-        readIntent,
-      });
-      if (framingPayload) {
-        await sendIntentFramingIfNeeded(
-          trackingSendEvent,
-          framingPayload,
-          abortController.signal,
-          aborted,
-        );
-      }
-      // Status: fetching data
-      trackingSendEvent("status", {
-        action: getStatusAction(readIntent.intent, "fetching"),
-        phase: "fetching",
-      });
-      const result = await agentEngine.run({
-        message,
-        context: requestContext,
-        agentVersion,
-        reasoner: "rule",
-        documentContext,
-        posture,
-      });
-      // Status: interpreting
-      trackingSendEvent("status", {
-        action: getStatusAction(readIntent.intent, "interpreting"),
-        phase: "interpreting",
-      });
-      sendResultWithCompletionGuarantee(trackingSendEvent, result, aborted, posture);
-      // Generate conversational commentary AFTER artifact (non-blocking)
-      trackingSendEvent("status", {
-        action: getStatusAction(readIntent.intent, "commentary"),
-        phase: "commentary",
-      });
-      await sendCommentaryIfNeeded(
-        trackingSendEvent,
-        result,
-        context,
-        aborted,
-        abortController.signal,
-      );
-      sendDoneWithCompletionGuarantee();
-      res.end();
-      return;
-    }
-
-    // Classify intent for non-command, non-data messages
-    const intent = await classifyIntent(message, requestContext);
-
-    // Send start event with intent
-    trackingSendEvent("start", { intent, agentVersion });
-
-    // ========== STREAMING DRAFT GENERATION ==========
-    // For DRAFT_* intents, stream the content generation like GENERAL_CHAT
-    // Intent framing is sent first, then content streams token-by-token from LLM
-    const streamingIntents = [
-      INTENTS.DRAFT_INVITATION,
-      INTENTS.DRAFT_CLIENT_EMAIL,
-    ];
-
-    if (streamingIntents.includes(intent)) {
-      // Send intent framing first (acknowledges the task)
-      const framingPayload = buildIntentFramingPayload({ intent });
-      if (framingPayload) {
-        await sendIntentFramingIfNeeded(
-          trackingSendEvent,
-          framingPayload,
-          abortController.signal,
-          aborted,
-        );
-      }
-
-      // Status: generating
-      trackingSendEvent("status", {
-        action: "Generating draft…",
-        phase: "generating",
-      });
-
-      // Stream the draft content from LLM
-      console.log("[Streaming Draft] Starting streaming generation for intent:", intent);
-      let fullContent = "";
-
-      await streamChatWithCallbacks(
-        message,
-        {
-          onChunk: (content) => {
-            if (aborted) return;
-            fullContent += content;
-            trackingSendEvent("chunk", { content });
-          },
-          onDone: () => {
-            if (aborted) return;
-            console.log("[Streaming Draft] Generation complete, length:", fullContent.length);
-          },
-          onError: (error) => {
-            if (aborted) return;
-            console.log("[Streaming Draft] Error:", error);
-            trackingSendEvent("error", { error });
-          },
-          onCancelled: () => {
-            console.log("[Streaming Draft] Cancelled");
-            trackingSendEvent("cancelled", {});
-          },
-        },
-        abortController.signal,
-      );
-
-      // Generate conversational commentary AFTER streaming (optional)
-      trackingSendEvent("status", {
-        action: "Finalizing…",
-        phase: "commentary",
-      });
-
-      // Create a result object for commentary generation
-      const draftResult = {
-        intent,
-        output: {
-          type: "chat",
-          message: fullContent,
-          timestamp: new Date().toISOString(),
-        },
-      };
-
-      await sendCommentaryIfNeeded(
-        trackingSendEvent,
-        draftResult,
-        context,
-        aborted,
-        abortController.signal,
-      );
-
-      sendDoneWithCompletionGuarantee();
-      res.end();
-      return;
-    }
-    // ========== END STREAMING DRAFT GENERATION ==========
-
-    // For other non-GENERAL_CHAT intents, use batch processing
-    if (intent !== INTENTS.GENERAL_CHAT) {
-      const framingPayload = buildIntentFramingPayload({ intent });
-      if (framingPayload) {
-        await sendIntentFramingIfNeeded(
-          trackingSendEvent,
-          framingPayload,
-          abortController.signal,
-          aborted,
-        );
-      }
-      // Status: processing non-chat intent
-      trackingSendEvent("status", {
-        action: getStatusAction(intent, "analyzing"),
-        phase: "analyzing",
-      });
-      // For non-chat intents, fall back to regular processing
-      const result = await agentEngine.run({
-        message,
-        context: requestContext,
-        agentVersion,
-        reasoner: "rule",
-        documentContext,
-        posture,
-      });
-      sendResultWithCompletionGuarantee(trackingSendEvent, result, aborted, posture);
-      // Generate conversational commentary AFTER artifact (non-blocking)
-      trackingSendEvent("status", {
-        action: getStatusAction(intent, "commentary"),
-        phase: "commentary",
-      });
-      await sendCommentaryIfNeeded(
-        trackingSendEvent,
-        result,
-        context,
-        aborted,
-        abortController.signal,
-      );
-      sendDoneWithCompletionGuarantee();
-      res.end();
-      return;
-    }
-
-    // ========== FINAL SAFETY GUARD ==========
-    // CRITICAL: If we reach here with a message that looks like a data request,
-    // it means the READ intent gate missed it. Route through agentEngine instead.
-    // This prevents LLM from asking "Could you provide more context?" after retrieving data.
-
-    // DOMAIN LANGUAGE DECOUPLING: Don't trigger on generic domain usage
-    const isGenericDomainUsage =
-      /\b(a|an)\s+(sample|example|template|draft|generic|simple|professional|formal)\s+(email|letter|message|document|invitation|cover\s+letter)\b/i.test(message) ||
-      /\b(sample|example|template|generic)\s+(of|for)\s+(a|an)\b/i.test(message) ||
-      /\bhow\s+to\s+(write|draft|compose|structure)\s+(a|an)\b/i.test(message);
-
-    // Safety guard: Only fire for Work/Inspection postures (skip for Assistant)
-    const looksLikeDataRequest =
-      posture.mode !== 'ASSISTANT' &&
-      !isGenericDomainUsage &&
-      /\b(client|clients|dossier|dossiers|task|tasks|session|sessions)\b/i.test(
-        message,
-      );
-    if (looksLikeDataRequest) {
-      console.log(
-        "[SSE] Safety guard triggered: message contains entity keywords but reached LLM path",
-      );
-      trackingSendEvent("start", {
-        intent: "SAFETY_GUARD",
-        agentVersion,
-        isSafetyGuard: true,
-      });
-      const safetyReadIntent = detectReadIntent(message, requestContext);
-      const framingPayload = buildIntentFramingPayload({
-        intent: safetyReadIntent?.intent,
-        readIntent: safetyReadIntent,
-      });
-      if (framingPayload) {
-        await sendIntentFramingIfNeeded(
-          trackingSendEvent,
-          framingPayload,
-          abortController.signal,
-          aborted,
-        );
-      }
-      // Status: safety guard triggered, fetching
-      trackingSendEvent("status", { action: "Retrieving data…", phase: "fetching" });
-      const result = await agentEngine.run({
-        message,
-        context: requestContext,
-        agentVersion,
-        reasoner: "rule",
-        documentContext,
-        posture,
-      });
-      trackingSendEvent("status", {
-        action: "Building interpretation…",
-        phase: "interpreting",
-      });
-      sendResultWithCompletionGuarantee(trackingSendEvent, result, aborted, posture);
-      // Generate conversational commentary AFTER artifact (non-blocking)
-      trackingSendEvent("status", {
-        action: "Preparing response…",
-        phase: "commentary",
-      });
-      await sendCommentaryIfNeeded(
-        trackingSendEvent,
-        result,
-        context,
-        aborted,
-        abortController.signal,
-      );
-      sendDoneWithCompletionGuarantee();
-      res.end();
-      return;
-    }
-    // ========== END SAFETY GUARD ==========
-
-    // ========== GENERAL_CHAT STREAMING WITH INTENT FRAMING ==========
-    // Send intent framing for GENERAL_CHAT (acknowledges the request)
-    const chatFramingPayload = buildIntentFramingPayload({ intent: INTENTS.GENERAL_CHAT });
-    if (chatFramingPayload) {
-      await sendIntentFramingIfNeeded(
-        trackingSendEvent,
-        chatFramingPayload,
-        abortController.signal,
-        aborted,
-      );
-    }
-
-    // Stream the chat response using callback-based approach
-    console.log("[SSE] Starting stream from Ollama...");
-
-    // ========== DOCUMENT-AUGMENTED CHAT ==========
-    // If documents are attached to this session, inject their text into the prompt
-    // so the LLM can reason about them (summarize, analyze, answer questions).
-    let augmentedMessage = message;
-    if (
-      documentContext &&
-      documentContext.documents &&
-      documentContext.documents.length > 0
-    ) {
-      const docSections = documentContext.documents
-        .filter((d) => d.has_text && d.text)
-        .map((d, i) => {
-          const truncatedText =
-            d.text.length > 8000
-              ? d.text.slice(0, 8000) + "\n\n[Document text truncated]"
-              : d.text;
-          return `--- Document ${i + 1}: "${d.title || d.original_filename}" (${d.mime_type || "unknown type"}) ---\n${truncatedText}`;
-        });
-
-      const processingDocs = documentContext.documents.filter(
-        (d) => d.text_status === "processing",
-      );
-      const unreadableDocs = documentContext.documents.filter(
-        (d) => d.text_status === "unreadable",
-      );
-
-      if (docSections.length > 0) {
-        augmentedMessage =
-          `The user has attached ${documentContext.totalDocuments} document(s) to this conversation.\n\n` +
-          docSections.join("\n\n") +
-          (processingDocs.length > 0
-            ? `\n\n[Note: ${processingDocs.length} document(s) are still being processed and their text is not yet available.]`
-            : "") +
-          (unreadableDocs.length > 0
-            ? `\n\n[Note: ${unreadableDocs.length} document(s) could not be read.]`
-            : "") +
-          `\n\nUser question: ${message}`;
-      } else if (processingDocs.length > 0) {
-        augmentedMessage = `The user attached ${processingDocs.length} document(s), but they are still being processed. Please let the user know their documents are being processed and to try again shortly.\n\nUser question: ${message}`;
-      } else if (unreadableDocs.length > 0) {
-        augmentedMessage = `The user attached ${unreadableDocs.length} document(s), but they could not be read (extraction failed). Please acknowledge this.\n\nUser question: ${message}`;
-      }
-      console.log(
-        "[SSE] Document-augmented message length:",
-        augmentedMessage.length,
-      );
-    }
-
-    // Send immediate heartbeat to keep connection alive
-    res.write(": waiting for LLM\n\n");
-
-    // Send heartbeat every 500ms while waiting for Ollama
-    const heartbeatInterval = setInterval(() => {
-      if (!aborted) {
-        res.write(": heartbeat\n\n");
-        console.log("[SSE] Heartbeat sent");
-      }
-    }, 500);
-
-    let fullContent = "";
-
-    await streamChatWithCallbacks(
-      augmentedMessage,
-      {
-        onChunk: (content) => {
-          console.log(
-            "[SSE] onChunk called, aborted:",
-            aborted,
-            "content:",
-            content?.slice(0, 10),
-          );
-          if (aborted) {
-            console.log("[SSE] Skipping chunk because aborted");
-            return;
-          }
-          try {
-            fullContent += content;
-            trackingSendEvent("chunk", { content });
-          } catch (err) {
-            console.log("[SSE] Error in onChunk:", err.message);
-          }
-        },
-        onDone: async () => {
-          if (aborted) return;
-          console.log(
-            "[SSE] Stream complete, fullContent length:",
-            fullContent.length,
-          );
-
-          // Generate conversational commentary AFTER streaming
-          trackingSendEvent("status", {
-            action: "Finalizing…",
-            phase: "commentary",
-          });
-
-          // Create a result object for commentary generation
-          const chatResult = {
-            intent: INTENTS.GENERAL_CHAT,
-            output: {
-              type: "chat",
-              message: fullContent,
-              timestamp: new Date().toISOString(),
-            },
-          };
-
-          await sendCommentaryIfNeeded(
-            trackingSendEvent,
-            chatResult,
-            context,
-            aborted,
-            abortController.signal,
-          );
-
-          sendDoneWithCompletionGuarantee();
-        },
-        onError: (error) => {
-          if (aborted) return;
-          console.log("[SSE] Stream error:", error);
-          trackingSendEvent("error", { error });
-        },
-        onCancelled: () => {
-          console.log("[SSE] Stream cancelled");
-          trackingSendEvent("cancelled", {});
-        },
-      },
-      abortController.signal,
-    );
-
-    clearInterval(heartbeatInterval);
-    }
   } catch (err) {
     if (!aborted) {
       sendErrorEnvelope(err.message || "Unknown error", "STREAM_EXCEPTION");

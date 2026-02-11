@@ -45,6 +45,7 @@ async function executeToolV2(toolName, params, policy, context = {}) {
     toolName,
     policy,
     context,
+    params,
   });
 
   if (!permission.permitted) {

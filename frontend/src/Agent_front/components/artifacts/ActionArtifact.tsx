@@ -9,8 +9,9 @@ import {
   X,
   ChevronRight,
   Clock,
+  AlertCircle,
 } from "lucide-react";
-import type { ActionProposal } from "../../../services/api/agent";
+import type { ActionProposal, ExecutionResult } from "../../../services/api/agent";
 
 interface ActionArtifactProps {
   data: ActionProposal[];
@@ -18,13 +19,21 @@ interface ActionArtifactProps {
   onReject?: (proposalId: string) => void;
   onApproveAll?: () => void;
   onCancelAll?: () => void;
+  onExecute?: (proposalId: string, sessionId: string) => Promise<ExecutionResult>;
 }
 
-type ActionStatus = "pending" | "approved" | "rejected" | "executing" | "completed";
+type ActionStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "executing"
+  | "completed"
+  | "failed";
 
 interface ActionState {
   status: ActionStatus;
   timestamp?: Date;
+  executionResult?: ExecutionResult;
 }
 
 /**
@@ -42,16 +51,19 @@ export function ActionArtifact({
   onReject,
   onApproveAll,
   onCancelAll,
+  onExecute,
 }: ActionArtifactProps) {
   // Track state for each action
-  const [actionStates, setActionStates] = useState<Record<string, ActionState>>(() => {
-    const initial: Record<string, ActionState> = {};
-    data.forEach((action, idx) => {
-      const id = action.proposalId || `action-${idx}`;
-      initial[id] = { status: "pending" };
-    });
-    return initial;
-  });
+  const [actionStates, setActionStates] = useState<Record<string, ActionState>>(
+    () => {
+      const initial: Record<string, ActionState> = {};
+      data.forEach((action, idx) => {
+        const id = action.proposalId || `action-${idx}`;
+        initial[id] = { status: "pending" };
+      });
+      return initial;
+    },
+  );
 
   // Count actions by status
   const statusCounts = Object.values(actionStates).reduce(
@@ -59,14 +71,18 @@ export function ActionArtifact({
       acc[state.status] = (acc[state.status] || 0) + 1;
       return acc;
     },
-    {} as Record<ActionStatus, number>
+    {} as Record<ActionStatus, number>,
   );
 
   const pendingCount = statusCounts.pending || 0;
   const approvedCount = statusCounts.approved || 0;
   const rejectedCount = statusCounts.rejected || 0;
+  const executingCount = statusCounts.executing || 0;
+  const completedCount = statusCounts.completed || 0;
+  const failedCount = statusCounts.failed || 0;
   const hasDecisions = approvedCount > 0 || rejectedCount > 0;
-  const allDecided = pendingCount === 0;
+  const allDecided = pendingCount === 0 && executingCount === 0;
+  const allExecuted = completedCount + failedCount + rejectedCount === data.length;
   const requiresConfirmation = data.some((a) => a.requiresConfirmation);
 
   // Handle individual action approval
@@ -111,6 +127,50 @@ export function ActionArtifact({
     });
     setActionStates(newStates);
     onCancelAll?.();
+  };
+
+  // Handle execute all approved actions sequentially
+  const handleExecuteAll = async () => {
+    if (!onExecute) return;
+
+    const approvedActions = data.filter((action, idx) => {
+      const id = action.proposalId || `action-${idx}`;
+      return actionStates[id].status === "approved";
+    });
+
+    for (const action of approvedActions) {
+      const id = action.proposalId || "";
+      const sessionId = action.sessionId || "";
+
+      setActionStates((prev) => ({
+        ...prev,
+        [id]: { ...prev[id], status: "executing" },
+      }));
+
+      try {
+        const result = await onExecute(id, sessionId);
+        if (result.status === "success") {
+          setActionStates((prev) => ({
+            ...prev,
+            [id]: { status: "completed", timestamp: new Date(), executionResult: result },
+          }));
+        } else {
+          setActionStates((prev) => ({
+            ...prev,
+            [id]: {
+              status: "failed",
+              timestamp: new Date(),
+              executionResult: result,
+            },
+          }));
+        }
+      } catch {
+        setActionStates((prev) => ({
+          ...prev,
+          [id]: { status: "failed", timestamp: new Date() },
+        }));
+      }
+    }
   };
 
   return (
@@ -162,6 +222,9 @@ export function ActionArtifact({
           const isApproved = state.status === "approved";
           const isRejected = state.status === "rejected";
           const isPending = state.status === "pending";
+          const isExecuting = state.status === "executing";
+          const isCompleted = state.status === "completed";
+          const isFailed = state.status === "failed";
 
           return (
             <div
@@ -174,14 +237,26 @@ export function ActionArtifact({
                 {/* Step number / status icon */}
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    isApproved
+                    isCompleted
                       ? "bg-emerald-100 dark:bg-emerald-900/30"
-                      : isRejected
+                      : isFailed
                         ? "bg-red-100 dark:bg-red-900/30"
-                        : "bg-slate-100 dark:bg-slate-800"
+                        : isExecuting
+                          ? "bg-violet-100 dark:bg-violet-900/30"
+                          : isApproved
+                            ? "bg-emerald-100 dark:bg-emerald-900/30"
+                            : isRejected
+                              ? "bg-red-100 dark:bg-red-900/30"
+                              : "bg-slate-100 dark:bg-slate-800"
                   }`}
                 >
-                  {isApproved ? (
+                  {isCompleted ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  ) : isFailed ? (
+                    <AlertCircle className="w-4 h-4 text-red-500 dark:text-red-400" />
+                  ) : isExecuting ? (
+                    <Clock className="w-4 h-4 text-violet-500 dark:text-violet-400 animate-pulse" />
+                  ) : isApproved ? (
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   ) : isRejected ? (
                     <XCircle className="w-4 h-4 text-red-500 dark:text-red-400" />
@@ -231,7 +306,48 @@ export function ActionArtifact({
                             Rejected
                           </span>
                         )}
+                        {isExecuting && (
+                          <span className="text-xs text-violet-600 dark:text-violet-400 flex items-center gap-1">
+                            <Clock className="w-3 h-3 animate-pulse" />
+                            Executing...
+                          </span>
+                        )}
+                        {isCompleted && (
+                          <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Executed
+                          </span>
+                        )}
+                        {isFailed && (
+                          <span className="text-xs text-red-500 dark:text-red-400 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" />
+                            {state.executionResult?.error?.safeMessage || "Execution failed"}
+                          </span>
+                        )}
                       </div>
+                      {/* Execution result details */}
+                      {isCompleted && state.executionResult && (
+                        <div className="execution-result-success mt-2">
+                          {state.executionResult.executedActions?.map((ea, i) => (
+                            <div key={i} className="text-xs text-green-600 dark:text-green-500">
+                              {ea.actionType} completed at {new Date(ea.executedAt).toLocaleTimeString()}
+                            </div>
+                          ))}
+                          {state.executionResult.audit?.executedAt && (
+                            <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                              Audit: {state.executionResult.audit.sessionId || action.proposalId}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {isFailed && state.executionResult?.error && (
+                        <div className="execution-result-failure mt-2">
+                          <div className="text-xs text-red-500 dark:text-red-400">
+                            {state.executionResult.error.code}
+                            {state.executionResult.error.requiresReproposal && " — please retry"}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Action buttons */}
@@ -284,9 +400,7 @@ export function ActionArtifact({
                 {approvedCount !== 1 ? "s" : ""}
               </span>
             ) : (
-              <span>
-                Review each action before confirming
-              </span>
+              <span>Review each action before confirming</span>
             )}
           </div>
           <div className="agent-confirmation-actions">
@@ -309,17 +423,15 @@ export function ActionArtifact({
                 Reset
               </button>
             )}
-            {allDecided && approvedCount > 0 && (
+            {allDecided && approvedCount > 0 && !allExecuted && (
               <button
                 type="button"
-                onClick={() => {
-                  // Execute approved actions
-                  console.log("Executing approved actions");
-                }}
+                onClick={handleExecuteAll}
+                disabled={!onExecute || executingCount > 0}
                 className="agent-btn-confirm-all"
               >
                 <ShieldCheck className="w-4 h-4" />
-                Execute Actions
+                {executingCount > 0 ? "Executing..." : "Execute Actions"}
               </button>
             )}
           </div>

@@ -46,14 +46,19 @@ const findBlockingDependenciesTool = require('./analysis/findBlockingDependencie
 const scanOperationalRisksTool = require('./analysis/scanOperationalRisks.tool');
 
 // DRAFT tools
-const draftInvitationTool = require('./draft/draftInvitation.tool');
-const draftClientEmailTool = require('./draft/draftClientEmail.tool');
-const draftHearingSummaryTool = require('./draft/draftHearingSummary.tool');
+const genericDraftTool = require('./draft/genericDraft.tool');
+
+// PLAN tools
+const detectPrioritySignalsTool = require('./plan/detectPrioritySignals.tool');
+const analyzeEntityStateTool = require('./plan/analyzeEntityState.tool');
+const buildActionPlanTool = require('./plan/buildActionPlan.tool');
+const summarizeEntityProgressTool = require('./plan/summarizeEntityProgress.tool');
 
 // RESEARCH tools
 const compileDossierResearchTool = require('./research/compileDossierResearch.tool');
 
 // EXECUTE tools
+const universalMutationTool = require('./execute/universalMutation.tool');
 const createTaskTool = require('./execute/createTask.tool');
 const updateTaskTool = require('./execute/updateTask.tool');
 const addNoteTool = require('./execute/addNote.tool');
@@ -106,14 +111,19 @@ function initializeToolRegistry() {
   registry.register(scanOperationalRisksTool);
 
   // Register DRAFT tools
-  registry.register(draftInvitationTool);
-  registry.register(draftClientEmailTool);
-  registry.register(draftHearingSummaryTool);
+  registry.register(genericDraftTool);
+
+  // Register PLAN tools
+  registry.register(detectPrioritySignalsTool);
+  registry.register(analyzeEntityStateTool);
+  registry.register(buildActionPlanTool);
+  registry.register(summarizeEntityProgressTool);
 
   // Register RESEARCH tools
   registry.register(compileDossierResearchTool);
 
   // Register EXECUTE tools
+  registry.register(universalMutationTool);
   registry.register(createTaskTool);
   registry.register(updateTaskTool);
   registry.register(addNoteTool);

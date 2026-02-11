@@ -63,7 +63,6 @@ export default function SignUp() {
 
     // Simulate API call
     setTimeout(() => {
-      console.log("Sign up data:", formData);
       // Success - navigate to login
       navigate("/login");
     }, 1500);

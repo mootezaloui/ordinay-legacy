@@ -90,7 +90,6 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
       }
 
       // TODO: Save to backend
-      console.log(isEdit ? "Updating item:" : "Adding new item:", newItem);
       await new Promise(resolve => setTimeout(resolve, 500));
 
       setIsAddModalOpen(false);
@@ -142,7 +141,6 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
       }
 
       // TODO: Delete from backend
-      console.log("Deleting item:", itemId);
     }
   };
 

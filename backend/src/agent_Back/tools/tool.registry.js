@@ -18,6 +18,7 @@ const TOOL_CATEGORIES = Object.freeze({
   READ: 'read',
   ANALYSIS: 'analysis',
   DRAFT: 'draft',
+  PLAN: 'plan',
   EXECUTE: 'execute',
   RESEARCH: 'research',
   EXTERNAL: 'external',
@@ -215,6 +216,10 @@ class ToolRegistry {
 
     if (def.category === TOOL_CATEGORIES.DRAFT && def.sideEffects === true) {
       throw new Error('DRAFT tools must not have side effects');
+    }
+
+    if (def.category === TOOL_CATEGORIES.PLAN && def.sideEffects === true) {
+      throw new Error('PLAN tools must not have side effects');
     }
 
     if (def.category === TOOL_CATEGORIES.EXECUTE && def.sideEffects === false) {

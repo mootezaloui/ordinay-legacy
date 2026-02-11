@@ -331,13 +331,9 @@ class RuleReasoner extends BaseReasoner {
   }
 
   async draft({ context = {}, draftType = "generic" }) {
-    if (draftType === "invitation") {
-      return this._draftInvitation(context);
-    }
-    if (draftType === "client_email") {
-      return this._draftClientEmail(context);
-    }
-    throw this._error(`Unsupported draft type: ${draftType}`, 400);
+    // Deprecated: Use genericDraft tool instead
+    // This method is kept for backward compatibility only
+    throw this._error(`Draft generation via rule reasoner is deprecated. Use genericDraft tool instead.`, 400);
   }
 
   async analyzeRisks({ context = {} }) {
@@ -410,113 +406,6 @@ class RuleReasoner extends BaseReasoner {
     };
   }
 
-  _draftInvitation(context) {
-    const eventName = this._requireString(context.eventName, "eventName");
-    const eventDate = this._requireString(context.eventDate, "eventDate");
-    const location = this._requireString(context.location, "location");
-    const recipientName = this._requireString(
-      context.recipientName,
-      "recipientName",
-    );
-    const senderName = this._requireString(context.senderName, "senderName");
-    const audience = this._stringOrDefault(context.audience, "client");
-    const timestamp = this._now();
-
-    const subject = `Invitation: ${eventName}`;
-    const body = [
-      `Dear ${recipientName},`,
-      "",
-      `You are invited to ${eventName} on ${eventDate} at ${location}.`,
-      `Purpose: ${this._stringOrDefault(context.purpose, "Review current matter status and next decisions.")}`,
-      `Requested preparation: ${this._stringOrDefault(
-        context.preparation,
-        "Review relevant documents and confirm availability.",
-      )}`,
-      "",
-      "Please confirm attendance and advise of any constraints.",
-      "",
-      `Regards,`,
-      senderName,
-    ].join("\n");
-
-    return {
-      type: "draft",
-      draftType: "invitation",
-      subject,
-      body,
-      audience,
-      tone: "formal",
-      sensitivity: "medium",
-      placeholders: [
-        "{{recipient_name}}",
-        "{{event_datetime}}",
-        "{{location}}",
-        "{{response_deadline}}",
-      ],
-      assumptions: this._collectAssumptions(context),
-      contextReferences: this._collectContextReferences(context),
-      timestamp,
-      source: "rule-based",
-      status: "draft",
-      requires_validation: true,
-    };
-  }
-
-  _draftClientEmail(context) {
-    const lawsuitId = this._requireString(context.lawsuitId, "lawsuitId");
-    const updateSummary = this._requireString(
-      context.updateSummary,
-      "updateSummary",
-    );
-    const recipientName = this._requireString(
-      context.recipientName,
-      "recipientName",
-    );
-    const senderName = this._requireString(context.senderName, "senderName");
-    const audience = this._stringOrDefault(context.audience, "client");
-    const timestamp = this._now();
-
-    const subject = `Lawsuit ${lawsuitId} - Client Update`;
-    const body = [
-      `Dear ${recipientName},`,
-      "",
-      `We are providing an update on lawsuit ${lawsuitId}.`,
-      `Summary: ${updateSummary}`,
-      `Open items: ${this._stringOrDefault(
-        context.openItems,
-        "Please confirm if any additional documents or clarifications are needed.",
-      )}`,
-      "",
-      "No commitments or filings have been executed with this communication.",
-      "",
-      `Regards,`,
-      senderName,
-    ].join("\n");
-
-    return {
-      type: "draft",
-      draftType: "client_email",
-      subject,
-      body,
-      audience,
-      tone: "formal",
-      sensitivity: "medium",
-      placeholders: [
-        "{{recipient_name}}",
-        "{{lawsuit_reference}}",
-        "{{meeting_time}}",
-      ],
-      assumptions: this._collectAssumptions(context),
-      contextReferences: this._collectContextReferences({
-        ...context,
-        lawsuitId,
-      }),
-      timestamp,
-      source: "rule-based",
-      status: "draft",
-      requires_validation: true,
-    };
-  }
 
   _buildSources(entityId, context) {
     const sources = [

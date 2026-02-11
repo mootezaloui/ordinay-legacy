@@ -54,7 +54,7 @@ const mapBackendEventToFrontend = (event) => {
     } catch (err) {
       console.warn(
         "[historyService] Failed to parse changed_fields",
-        event.changed_fields
+        event.changed_fields,
       );
       metadata = {};
     }
@@ -94,7 +94,7 @@ export const logHistoryEvent = async ({
 }) => {
   if (!entityType || !entityId || !eventType || !label) {
     console.warn(
-      "[historyService] Missing required parameters for history event"
+      "[historyService] Missing required parameters for history event",
     );
     return null;
   }
@@ -127,7 +127,7 @@ export const getEntityHistory = async (entityType, entityId) => {
   try {
     const normalizedType = normalizeEntityType(entityType);
     const events = await apiClient.get(
-      `/history?entity_type=${normalizedType}&entity_id=${entityId}`
+      `/history?entity_type=${normalizedType}&entity_id=${entityId}`,
     );
 
     // Map backend events to frontend format
@@ -135,7 +135,7 @@ export const getEntityHistory = async (entityType, entityId) => {
 
     // Return sorted newest first
     return mappedEvents.sort(
-      (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
+      (a, b) => new Date(b.timestamp) - new Date(a.timestamp),
     );
   } catch (error) {
     console.error("[historyService] Failed to fetch history", error);
@@ -154,12 +154,7 @@ export const deleteEntityHistory = async (entityType, entityId) => {
   try {
     const normalizedType = normalizeEntityType(entityType);
     const result = await apiClient.delete(
-      `/history/entity?entity_type=${normalizedType}&entity_id=${entityId}`
-    );
-    console.log(
-      `[historyService] Deleted ${
-        result.deletedCount || 0
-      } history entries for ${entityType} ${entityId}`
+      `/history/entity?entity_type=${normalizedType}&entity_id=${entityId}`,
     );
     return result.deletedCount || 0;
   } catch (error) {
@@ -176,7 +171,7 @@ export const deleteEntityHistory = async (entityType, entityId) => {
  */
 export const clearEntityHistory = async (entityType, entityId) => {
   console.warn(
-    "[historyService] clearEntityHistory is deprecated - use deleteEntityHistory instead"
+    "[historyService] clearEntityHistory is deprecated - use deleteEntityHistory instead",
   );
   return deleteEntityHistory(entityType, entityId);
 };
@@ -184,7 +179,12 @@ export const clearEntityHistory = async (entityType, entityId) => {
 /**
  * Helper: Log entity creation
  */
-export const logEntityCreation = (entityType, entityId, entityName = null, actor = null) => {
+export const logEntityCreation = (
+  entityType,
+  entityId,
+  entityName = null,
+  actor = null,
+) => {
   const t = (key, options) => i18nInstance.t(`common:${key}`, options);
 
   return logHistoryEvent({
@@ -192,7 +192,9 @@ export const logEntityCreation = (entityType, entityId, entityName = null, actor
     entityId,
     eventType: EVENT_TYPES.LIFECYCLE,
     label: t("detail.history.labels.creation"),
-    details: entityName ? t("detail.history.labels.entityAdded", { name: entityName }) : t("detail.history.labels.entityCreated"),
+    details: entityName
+      ? t("detail.history.labels.entityAdded", { name: entityName })
+      : t("detail.history.labels.entityCreated"),
     metadata: { action: "created" },
     actor,
   });
@@ -207,7 +209,7 @@ export const logStatusChange = (
   oldStatus,
   newStatus,
   reason = null,
-  actor = null
+  actor = null,
 ) => {
   const t = (key, options) => i18nInstance.t(`common:${key}`, options);
 
@@ -230,7 +232,7 @@ export const logAssignment = (
   entityId,
   assignedTo,
   previousAssignee = null,
-  actor = null
+  actor = null,
 ) => {
   const t = (key, options) => i18nInstance.t(`common:${key}`, options);
 
@@ -259,7 +261,7 @@ export const logLifecycleChange = (
   entityId,
   action,
   reason = null,
-  actor = null
+  actor = null,
 ) => {
   const t = (key, options) => i18nInstance.t(`common:${key}`, options);
 
@@ -293,7 +295,7 @@ export const logFinancialAction = (
   actionType,
   amount,
   description = null,
-  actor = null
+  actor = null,
 ) => {
   const t = (key, options) => i18nInstance.t(`common:${key}`, options);
 
@@ -308,7 +310,8 @@ export const logFinancialAction = (
     entityId,
     eventType: EVENT_TYPES.FINANCE,
     label: labelMap[actionType] ? t(labelMap[actionType]) : actionType,
-    details: description || t("detail.history.labels.finance.amount", { amount }),
+    details:
+      description || t("detail.history.labels.finance.amount", { amount }),
     metadata: { actionType, amount },
     actor,
   });
@@ -322,7 +325,7 @@ export const logDomainRuleConfirmation = (
   entityId,
   ruleDescription,
   confirmed = true,
-  actor = null
+  actor = null,
 ) => {
   const t = (key, options) => i18nInstance.t(`common:${key}`, options);
 
@@ -330,7 +333,9 @@ export const logDomainRuleConfirmation = (
     entityType,
     entityId,
     eventType: EVENT_TYPES.SYSTEM,
-    label: confirmed ? t("detail.history.labels.domainRule.confirmed") : t("detail.history.labels.domainRule.rejected"),
+    label: confirmed
+      ? t("detail.history.labels.domainRule.confirmed")
+      : t("detail.history.labels.domainRule.rejected"),
     details: ruleDescription,
     metadata: { confirmed, ruleType: "domain" },
     actor,
@@ -345,7 +350,7 @@ export const logRelationalImpact = (
   entityId,
   impactDescription,
   confirmed = true,
-  actor = null
+  actor = null,
 ) => {
   const t = (key, options) => i18nInstance.t(`common:${key}`, options);
 

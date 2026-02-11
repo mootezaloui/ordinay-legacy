@@ -326,7 +326,6 @@ export default function Officers() {
 
       // CRITICAL: Force page reload to clear any cached mission data
       // This ensures no orphaned missions remain visible in dossier/lawsuit views
-      console.log('[Officers.handleForceDelete] Reloading page to clear cached data...');
       setTimeout(() => {
         window.location.reload();
       }, 1500); // Give user time to see success toast

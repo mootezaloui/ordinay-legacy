@@ -94,8 +94,6 @@ export const createOfficerConfig = (t) => ({
     const hasOnlyRelationalFields = Object.keys(data).every(key => relationalFields.includes(key));
 
     if (hasOnlyRelationalFields) {
-      console.log('[officerConfig.updateData] BLOCKED: Attempted to update officer with only relational fields:', Object.keys(data));
-      console.log('[officerConfig.updateData] Relational data changes are handled by their respective entities (missions/lawsuits/dossiers)');
       // These updates are safe to ignore - the relational data is managed by the mission/lawsuit/dossier services
       return;
     }
@@ -113,7 +111,6 @@ export const createOfficerConfig = (t) => ({
     }
 
     if (!hasOfficerFields) {
-      console.log('[officerConfig.updateData] No Bailiff fields to update, skipping');
       return;
     }
 
@@ -138,8 +135,6 @@ export const createOfficerConfig = (t) => ({
     if (contextData?.deleteOfficer) {
       // Use DataContext to delete (this persists to localStorage)
       contextData.deleteOfficer(numericId);
-    } else {
-      console.log("Deleting officer:", numericId);
     }
   },
 

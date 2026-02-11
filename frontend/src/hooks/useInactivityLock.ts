@@ -31,7 +31,6 @@ export const useInactivityLock = () => {
 
       // Set new timeout
       timeoutRef.current = window.setTimeout(() => {
-        console.log('[InactivityLock] Timeout reached, locking workspace');
         lock();
       }, timeoutMs);
     };
@@ -75,7 +74,6 @@ export const useInactivityLock = () => {
 
         // If elapsed time exceeds timeout, lock immediately
         if (elapsed >= timeoutMs) {
-          console.log('[InactivityLock] Inactive while hidden, locking workspace');
           lock();
         }
       }

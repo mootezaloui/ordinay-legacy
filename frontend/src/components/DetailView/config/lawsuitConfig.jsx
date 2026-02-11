@@ -35,20 +35,16 @@ export const createLawsuitConfig = (t) => {
 
     // Data fetching
     fetchData: async (id, contextData = null) => {
-      console.log('[lawsuitConfig] fetchData called with id:', id);
       const numericId = parseInt(id);
 
       let lawsuitData;
       if (contextData?.lawsuits) {
         // Use contextData.lawsuits from DataContext (this is the live data)
-        console.log('[lawsuitConfig] Using contextData.lawsuits');
         lawsuitData = contextData.lawsuits.find(c => c.id === numericId);
       } else {
         // Fallback to null (static data)
-        console.log('[lawsuitConfig] null keys:', Object.keys(null));
         lawsuitData = null[numericId];
       }
-      console.log('[lawsuitConfig] Found lawsuit:', lawsuitData);
       if (!lawsuitData) return null;
 
       // ✅ Always resolve dossier from dossierId using latest context data
@@ -82,7 +78,6 @@ export const createLawsuitConfig = (t) => {
       try {
         const documentService = (await import("../../../services/documentService")).default;
         documents = await documentService.getEntityDocuments("lawsuit", numericId);
-        console.log('[lawsuitConfig] Loaded documents:', documents);
       } catch (err) {
         console.error('[lawsuitConfig] Failed to load documents:', err);
       }
@@ -141,8 +136,6 @@ export const createLawsuitConfig = (t) => {
       if (contextData?.deleteLawsuit) {
         // Use DataContext to delete (this persists to localStorage)
         contextData.deleteLawsuit(numericId);
-      } else {
-        console.log("Deleting lawsuit:", numericId);
       }
     },
 

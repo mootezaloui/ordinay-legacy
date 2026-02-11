@@ -57,7 +57,7 @@ export function shouldPromptClientNotification(
   action,
   context = {},
   entities = {},
-  notificationPrefs = null
+  notificationPrefs = null,
 ) {
   // Check global email notification preference
   if (notificationPrefs?.clientEmails?.enabled === false) {
@@ -577,12 +577,6 @@ export function generateClientEmail(eventType, eventData) {
  * @returns {Promise<boolean>} Success status
  */
 export async function sendEmailNotification(email) {
-  console.log("📧 CLIENT EMAIL NOTIFICATION (mailto)");
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log(`To: ${email.clientEmail}`);
-  console.log(`Subject: ${email.subject}`);
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-
   try {
     // Build mailto: URL with encoded parameters
     const mailtoUrl = `mailto:${encodeURIComponent(email.clientEmail)}?subject=${encodeURIComponent(email.subject)}&body=${encodeURIComponent(email.body)}`;
@@ -595,7 +589,6 @@ export async function sendEmailNotification(email) {
       window.location.href = mailtoUrl;
     }
 
-    console.log("✅ Email client opened");
     return true;
   } catch (error) {
     console.error("❌ Error opening email client:", error);
@@ -611,7 +604,6 @@ export async function sendEmailNotification(email) {
  */
 export async function sendMobileNotification(notification) {
   // FUTURE IMPLEMENTATION
-  console.log("📱 MOBILE NOTIFICATION (Future feature)", notification);
   return Promise.resolve(true);
 }
 
@@ -623,7 +615,6 @@ export async function sendMobileNotification(notification) {
  */
 export async function sendInAppNotification(notification) {
   // FUTURE IMPLEMENTATION
-  console.log("🔔 IN-APP NOTIFICATION (Future feature)", notification);
   return Promise.resolve(true);
 }
 

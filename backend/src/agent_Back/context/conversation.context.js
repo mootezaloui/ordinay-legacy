@@ -119,15 +119,14 @@ class ConversationContextStore {
   }
 
   /**
-   * Check if context is still valid (not expired)
+   * DEPRECATED: TTL-based validation removed.
+   * Context is now session-bound and persists until explicit clear.
    *
    * @param {Object} context - Stored context object
-   * @returns {boolean} True if context is valid
+   * @returns {boolean} Always returns true (no TTL check)
    */
   _isValid(context) {
-    if (!context || !context.updatedAt) return false;
-    const age = Date.now() - new Date(context.updatedAt).getTime();
-    return age < this._ttlMs;
+    return Boolean(context && context.updatedAt);
   }
 
   /**
@@ -163,19 +162,9 @@ class ConversationContextStore {
       };
     }
 
-    // LEGACY: Fall back to old map-based storage (with TTL validation)
+    // LEGACY: Fall back to old map-based storage (NO TTL validation)
     const context = this._contexts.get(conversationId);
     if (!context) return null;
-    if (!this._isValid(context)) {
-      this._contexts.delete(conversationId);
-      this._recordLifecycleEvent(conversationId, {
-        type: 'expired',
-        reason: 'ttl_expired',
-        previousUpdatedAt: context.updatedAt || null,
-        ttlMs: this._ttlMs,
-      });
-      return null;
-    }
 
     return { ...context };
   }
@@ -471,22 +460,12 @@ class ConversationContextStore {
   }
 
   /**
-   * Clean up expired contexts (housekeeping)
-   * Call periodically to prevent memory leaks
+   * DEPRECATED: TTL-based cleanup removed.
+   * Context is now session-bound and persists until explicit clear.
+   * This method is kept for backward compatibility but does nothing.
    */
   cleanup() {
-    const now = Date.now();
-    for (const [id, context] of this._contexts.entries()) {
-      if (!this._isValid(context)) {
-        this._contexts.delete(id);
-        this._recordLifecycleEvent(id, {
-          type: 'expired',
-          reason: 'ttl_cleanup',
-          previousUpdatedAt: context.updatedAt || null,
-          ttlMs: this._ttlMs,
-        });
-      }
-    }
+    // No-op: contexts persist until explicit clear
   }
 
   consumeLifecycleEvent(requestContext) {

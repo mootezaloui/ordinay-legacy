@@ -86,6 +86,9 @@ async function confirmProposal({ proposalId, sessionId, userId }) {
   let result;
 
   try {
+    // Capture before-state for diff ledgering
+    const beforeSnapshot = proposal.snapshot ? { ...proposal.snapshot } : null;
+
     // Dispatch to universal operation handlers based on action type
     switch (proposal.actionType) {
       case 'CREATE_ENTITY':
@@ -93,6 +96,9 @@ async function confirmProposal({ proposalId, sessionId, userId }) {
         break;
       case 'UPDATE_ENTITY':
         result = await universalOps.executeUpdateEntity(proposal.params, { userId, sessionId });
+        break;
+      case 'DELETE_ENTITY':
+        result = await universalOps.executeDeleteEntity(proposal.params, { userId, sessionId });
         break;
       case 'LINK_ENTITIES':
         result = await universalOps.executeLinkEntities(proposal.params, { userId, sessionId });
@@ -119,6 +125,16 @@ async function confirmProposal({ proposalId, sessionId, userId }) {
         result = await tool.handler(proposal.params, { userId, sessionId });
     }
 
+    // Compute after-state for diff ledgering
+    let afterHash = null;
+    if (beforeSnapshot && beforeSnapshot.scope && beforeSnapshot.scopeId) {
+      try {
+        afterHash = await this._computeSnapshotHash(beforeSnapshot);
+      } catch (_) {
+        afterHash = 'sha256:null';
+      }
+    }
+
     const executionResult = {
       type: "execution_result",
       proposalId,
@@ -130,6 +146,14 @@ async function confirmProposal({ proposalId, sessionId, userId }) {
           executedAt: new Date().toISOString(),
         },
       ],
+      artifact: {
+        proposalId,
+        operation: proposal.actionType,
+        params: proposal.params,
+        result,
+        posture: proposal.posture,
+        version: proposal.version,
+      },
       audit: {
         userId,
         sessionId,
@@ -139,6 +163,10 @@ async function confirmProposal({ proposalId, sessionId, userId }) {
           actual: currentHash,
           matched: true,
         },
+        diff: {
+          before: beforeSnapshot ? { hash: beforeSnapshot.hash } : null,
+          after: afterHash ? { hash: afterHash } : null,
+        },
       },
     };
 
@@ -146,13 +174,18 @@ async function confirmProposal({ proposalId, sessionId, userId }) {
     stored.proposal = { ...proposal, status: ACTION_STATUS.EXECUTED };
     stored.executionResult = executionResult;
 
-    // Log to ledger
+    // Log to ledger with before/after diffs
     this.ledger.record({
       type: "proposal_executed",
       proposalId,
       actionType: proposal.actionType,
       userId,
       sessionId,
+      diff: {
+        before: beforeSnapshot ? { hash: beforeSnapshot.hash, scope: beforeSnapshot.scope, scopeId: beforeSnapshot.scopeId } : null,
+        after: afterHash ? { hash: afterHash, scope: beforeSnapshot.scope, scopeId: beforeSnapshot.scopeId } : null,
+        params: proposal.params,
+      },
       timestamp: new Date().toISOString(),
     });
 
@@ -205,11 +238,13 @@ function storeProposal(proposal, contextSnapshot = {}) {
     proposalStore.delete(proposal.proposalId);
   }, 300000);
 
-  // Log to ledger
+  // Log to ledger with snapshot state at proposal time
   this.ledger.record({
     type: "proposal_stored",
     proposalId: proposal.proposalId,
     actionType: proposal.actionType,
+    snapshot: proposal.snapshot ? { hash: proposal.snapshot.hash, scope: proposal.snapshot.scope, scopeId: proposal.snapshot.scopeId } : null,
+    params: proposal.params,
     expiresAt: expiresAt.toISOString(),
     timestamp: new Date().toISOString(),
   });

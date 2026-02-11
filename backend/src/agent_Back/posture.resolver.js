@@ -160,7 +160,8 @@ User message: "${message}"
 
 Reply with ONLY the posture name in ALL CAPS: ASSISTANT, WORK, or INSPECTION.`;
 
-    const response = await classifyIntentWithLLM(prompt);
+    const postureValues = Object.values(POSTURES);
+    const response = await classifyIntentWithLLM(null, { customPrompt: prompt, validationList: postureValues });
     const mode = response?.trim().toUpperCase();
 
     if (Object.values(POSTURES).includes(mode)) {

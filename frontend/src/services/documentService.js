@@ -106,7 +106,9 @@ class DocumentService {
     } else if (entityType === "officer") {
       entityField = "officer_id";
       directoryType = "officer";
-    } else if (["client", "dossier", "mission", "task", "session"].includes(entityType)) {
+    } else if (
+      ["client", "dossier", "mission", "task", "session"].includes(entityType)
+    ) {
       entityField = `${entityType}_id`;
       directoryType = entityType;
     } else {
@@ -119,7 +121,6 @@ class DocumentService {
       payload.file_path = payload.file_path.replace("proces/", "case/");
     }
 
-    console.debug("[DocumentService] Upload document payload:", payload);
     return apiClient.post("/documents", payload);
   }
 
@@ -156,7 +157,13 @@ class DocumentService {
    * @param {string} category - User-defined category
    * @returns {Promise<Object>} Result with document or error
    */
-  async uploadDocument(file, entityType, entityId, category = "", options = {}) {
+  async uploadDocument(
+    file,
+    entityType,
+    entityId,
+    category = "",
+    options = {},
+  ) {
     try {
       if (isLicenseLocked()) {
         return { success: false, error: "License inactive" };
@@ -229,11 +236,20 @@ class DocumentService {
    * @param {string} category - User-defined category
    * @returns {Promise<Object>} Results
    */
-  async uploadMultipleDocuments(files, entityType, entityId, category = "", options = {}) {
+  async uploadMultipleDocuments(
+    files,
+    entityType,
+    entityId,
+    category = "",
+    options = {},
+  ) {
     if (isLicenseLocked()) {
       return {
         successful: [],
-        failed: files.map((file) => ({ file: file.name, error: "License inactive" })),
+        failed: files.map((file) => ({
+          file: file.name,
+          error: "License inactive",
+        })),
       };
     }
     const results = {
@@ -280,7 +296,9 @@ class DocumentService {
       } else {
         entityField = `${entityType}_id`;
       }
-      const backendDocs = await apiClient.get(`/documents?${entityField}=${entityId}`);
+      const backendDocs = await apiClient.get(
+        `/documents?${entityField}=${entityId}`,
+      );
 
       // Transform backend documents to frontend format
       return backendDocs.map((doc) => this.transformBackendDocument(doc));
@@ -296,25 +314,25 @@ class DocumentService {
    */
   transformBackendDocument(backendDoc) {
     const extension = backendDoc.title.split(".").pop() || "";
-      return {
-        id: backendDoc.id.toString(),
-        name: backendDoc.title,
-        type: extension.toLowerCase(),
-        category: getCategoryFromType(extension),
-        sizeBytes: backendDoc.size_bytes || 0,
-        size: formatFileSize(backendDoc.size_bytes || 0),
-        uploadDate: backendDoc.uploaded_at || backendDoc.created_at,
-        modifiedDate: backendDoc.updated_at,
-        storagePath: backendDoc.file_path,
-        mimeType: backendDoc.mime_type,
-        textStatus: backendDoc.text_status || backendDoc.status || null,
-        textSource: backendDoc.text_source || backendDoc.source || null,
-        textFailureReason:
-          backendDoc.text_failure_reason || backendDoc.failure_reason || null,
-        // Note: backend doesn't store these, but UI may expect them
-        metadata: {
-          isDeleted: !!backendDoc.deleted_at,
-          deletedDate: backendDoc.deleted_at,
+    return {
+      id: backendDoc.id.toString(),
+      name: backendDoc.title,
+      type: extension.toLowerCase(),
+      category: getCategoryFromType(extension),
+      sizeBytes: backendDoc.size_bytes || 0,
+      size: formatFileSize(backendDoc.size_bytes || 0),
+      uploadDate: backendDoc.uploaded_at || backendDoc.created_at,
+      modifiedDate: backendDoc.updated_at,
+      storagePath: backendDoc.file_path,
+      mimeType: backendDoc.mime_type,
+      textStatus: backendDoc.text_status || backendDoc.status || null,
+      textSource: backendDoc.text_source || backendDoc.source || null,
+      textFailureReason:
+        backendDoc.text_failure_reason || backendDoc.failure_reason || null,
+      // Note: backend doesn't store these, but UI may expect them
+      metadata: {
+        isDeleted: !!backendDoc.deleted_at,
+        deletedDate: backendDoc.deleted_at,
       },
     };
   }
@@ -450,9 +468,7 @@ class DocumentService {
       }
 
       if (isElectron() && window.electronAPI?.openFile) {
-        const result = await window.electronAPI.openFile(
-          document.storagePath,
-        );
+        const result = await window.electronAPI.openFile(document.storagePath);
         if (!result?.ok) {
           throw new Error(result?.error || "Open failed");
         }
@@ -632,5 +648,3 @@ class DocumentService {
 // Export singleton instance
 const documentService = new DocumentService();
 export default documentService;
-
-

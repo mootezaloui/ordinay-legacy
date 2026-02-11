@@ -15,7 +15,10 @@ import { TutorialProvider } from "./contexts/TutorialContext";
 import { LicenseProvider } from "./contexts/LicenseContext";
 import { ReferralProvider } from "./contexts/ReferralContext";
 import "@fortawesome/fontawesome-free/css/all.min.css";
-import { NotificationDataBridge, NotificationProvider } from "./contexts/NotificationContext";
+import {
+  NotificationDataBridge,
+  NotificationProvider,
+} from "./contexts/NotificationContext";
 import AlertBanner from "./components/notifications/AlertBanner";
 import { SettingsProvider } from "./contexts/SettingsContext";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -37,7 +40,6 @@ if (window.electronAPI) {
 async function bootstrap() {
   try {
     await initializeApiConfig();
-    console.log("[Ordinay] API configuration initialized");
   } catch (error) {
     console.error("[Ordinay] Failed to initialize API config:", error);
     // Continue anyway - will use fallback URL
@@ -84,7 +86,7 @@ async function bootstrap() {
           </LockProvider>
         </SetupProvider>
       </ErrorBoundary>
-    </StrictMode>
+    </StrictMode>,
   );
 }
 

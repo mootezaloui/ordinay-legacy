@@ -254,7 +254,6 @@ export default function FormModal({
       if (!reference || reference.trim() === "") {
         reference = generateEntityReference(entityType, entities);
         formData[referenceField] = reference;
-        console.log(`✅ Auto-generated reference for ${entityType}:`, reference);
       } else {
         // Normalize user input (uppercase + trim)
         reference = normalizeReference(reference, entityType);
@@ -411,7 +410,6 @@ export default function FormModal({
       });
 
       if (result.success) {
-        console.log('✅ Client notification sent successfully');
       } else {
         console.error('❌ Failed to send client notification');
       }
@@ -429,7 +427,6 @@ export default function FormModal({
    * 📧 Handle closing notification prompt without sending
    */
   const handleCloseNotificationPrompt = () => {
-    console.log('ℹ️ User chose not to notify client');
     setPendingNotification(null); // clear any stashed notification
     setNotificationPrompt({ isOpen: false, eventType: null, eventData: null });
     onClose();

@@ -479,16 +479,12 @@ export function DataProvider({ children }) {
       setLoading(true);
       setLoadError(null);
       try {
-        console.log("[DataContext] Starting PARALLEL data load...");
-
         // WAVE 1: Independent entities (load in parallel)
-        console.log("[DataContext] Wave 1: Fetching clients, officers, personal-tasks in parallel...");
         const [apiClients, apiOfficers, apiPersonalTasks] = await Promise.all([
           apiClient.get("/clients"),
           apiClient.get("/officers"),
           apiClient.get("/personal-tasks"),
         ]);
-        console.log("[DataContext] Wave 1 complete");
 
         const clientsAdapted = apiClients.map(adaptClient);
         const clientsById = Object.fromEntries(clientsAdapted.map((c) => [c.id, c]));
@@ -497,12 +493,10 @@ export function DataProvider({ children }) {
         const personalTasksAdapted = apiPersonalTasks.map(adaptPersonalTask);
 
         // WAVE 2: Entities depending on clients (load in parallel)
-        console.log("[DataContext] Wave 2: Fetching dossiers, lawsuits in parallel...");
         const [apiDossiers, apiLawsuits] = await Promise.all([
           apiClient.get("/dossiers"),
           apiClient.get("/lawsuits"),
         ]);
-        console.log("[DataContext] Wave 2 complete");
 
         const dossiersAdapted = apiDossiers.map((d) => adaptDossier(d, clientsById));
         const dossiersById = Object.fromEntries(dossiersAdapted.map((d) => [d.id, d]));
@@ -510,7 +504,6 @@ export function DataProvider({ children }) {
         const lawsuitsById = Object.fromEntries(lawsuitsAdapted.map((c) => [c.id, c]));
 
         // WAVE 3: Entities depending on dossiers/lawsuits (load in parallel)
-        console.log("[DataContext] Wave 3: Fetching tasks, sessions, missions, financial, history in parallel...");
         const [apiTasks, apiSessions, apiMissions, apiFinancial, apiHistoryClients] = await Promise.all([
           apiClient.get("/tasks"),
           apiClient.get("/sessions"),
@@ -518,7 +511,6 @@ export function DataProvider({ children }) {
           apiClient.get("/financial"),
           apiClient.get("/history?entity_type=client"),
         ]);
-        console.log("[DataContext] Wave 3 complete - all API calls finished!");
 
         const tasksAdapted = apiTasks.map((t) => adaptTask(t, dossiersById, lawsuitsById));
         const sessionsAdapted = apiSessions.map((s) => adaptSession(s, dossiersById, lawsuitsById));
@@ -593,8 +585,6 @@ export function DataProvider({ children }) {
 
         if (cancelled) return;
 
-        console.log("[DataContext] All API calls successful, updating state...");
-        console.log("[DataContext] Setting clients:", clientsWithTimeline?.length);
         setClients(clientsWithTimeline);
         setDossiers(dossiersWithMissions);
         setLawsuits(lawsuitsWithMissions);
@@ -612,7 +602,6 @@ export function DataProvider({ children }) {
         saveToStorage("personalTasks", personalTasksAdapted);
         saveToStorage("missions", missionsWithOfficer);
         saveToStorage("officers", officersWithMissions);
-        console.log("[DataContext] State update complete!");
         saveToStorage("financial", financialAdapted);
         setIntegrityIssues(issues);
         setReconciled(true);
@@ -695,8 +684,6 @@ export function DataProvider({ children }) {
     }, integrityIssues);
     if (!validation.ok) return validation;
 
-    console.log('[DataContext.updateClient] Updating client ID:', id, 'with:', updates);
-
     const payload = {
       name: updates.name,
       email: updates.email,
@@ -761,8 +748,6 @@ export function DataProvider({ children }) {
     }, integrityIssues);
     if (!validation.ok) return validation;
 
-    console.log('[DataContext.deleteClient] Deleting client ID:', id);
-
     await apiClient.delete(`/clients/${id}`);
 
     // Delete history for this client
@@ -786,8 +771,6 @@ export function DataProvider({ children }) {
     if (blockWrite("delete client cascade")) {
       return { ok: false, result: { message: "License inactive" } };
     }
-    console.log('[DataContext.deleteClientCascade] Force deleting client and all related entities:', id);
-
     try {
       // Find all related dossiers
       const clientDossiers = dossiers.filter(d => String(d.clientId) === String(id));
@@ -820,7 +803,6 @@ export function DataProvider({ children }) {
       const prev = clients.find((c) => c.id === id);
       logDeletionHistory("client", prev, actorName);
 
-      console.log('[DataContext.deleteClientCascade] Successfully deleted client and all related entities');
       return { ok: true, result: { message: 'Client and all child entities deleted successfully' } };
     } catch (error) {
       console.error('[DataContext.deleteClientCascade] Error during cascade delete:', error);
@@ -882,8 +864,6 @@ export function DataProvider({ children }) {
     const prev = dossiers.find((d) => d.id === id);
     const validation = validateMutation("dossier", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues, skipConfirmation);
     if (!validation.ok) return validation;
-
-    console.log('[DataContext.updateDossier] Updating dossier ID:', id, 'with:', updates);
 
     // 🚨 CRITICAL FIX: Build payload with ONLY the fields present in updates (PATCH semantics)
     const payload = {};
@@ -956,8 +936,6 @@ export function DataProvider({ children }) {
       return validation;
     }
 
-    console.log('[DataContext.updateDossier] Sending PATCH payload:', payload);
-
     const updated = await apiClient.put(`/dossiers/${id}`, payload);
     const clientsById = Object.fromEntries(clients.map((c) => [c.id, c]));
     const adapted = adaptDossier(updated, clientsById);
@@ -986,8 +964,6 @@ export function DataProvider({ children }) {
     }, integrityIssues);
     if (!validation.ok) return validation;
 
-    console.log('[DataContext.deleteDossier] Deleting dossier ID:', id);
-
     await apiClient.delete(`/dossiers/${id}`);
 
     // Delete history for this dossier
@@ -1011,8 +987,6 @@ export function DataProvider({ children }) {
     if (blockWrite("delete dossier cascade")) {
       return { ok: false, result: { message: "License inactive" } };
     }
-    console.log('[DataContext.deleteDossierCascade] Force deleting dossier and all related entities:', id);
-
     try {
       // Find all related lawsuits
       const dossierLawsuits = lawsuits.filter(lawsuit => String(lawsuit.dossierId) === String(id));
@@ -1024,11 +998,11 @@ export function DataProvider({ children }) {
 
       // Find and delete all missions for this dossier
       const dossierMissions = missions.filter(m => String(m.dossierId) === String(id));
-        for (const mission of dossierMissions) {
-          await deleteMissionCascade(mission.id);
-          // Delete history for each mission
-          await deleteEntityHistory('mission', mission.id);
-        }
+      for (const mission of dossierMissions) {
+        await deleteMissionCascade(mission.id);
+        // Delete history for each mission
+        await deleteEntityHistory('mission', mission.id);
+      }
 
       // Find and delete all tasks for this dossier
       const dossierTasks = tasks.filter(t => t.parentType === 'dossier' && String(t.dossierId) === String(id));
@@ -1047,10 +1021,10 @@ export function DataProvider({ children }) {
       }
 
       // Find and delete all financial entries for this dossier
-        const dossierFinancials = financialEntries.filter(e => String(e.dossierId) === String(id)
-          && !e.missionId
-          && !e.lawsuitId
-          && !e.taskId);
+      const dossierFinancials = financialEntries.filter(e => String(e.dossierId) === String(id)
+        && !e.missionId
+        && !e.lawsuitId
+        && !e.taskId);
       for (const entry of dossierFinancials) {
         await deleteFinancialEntry(entry.id);
         // Delete history for each financial entry
@@ -1072,7 +1046,6 @@ export function DataProvider({ children }) {
       const prev = dossiers.find((d) => d.id === id);
       logDeletionHistory("dossier", prev, actorName);
 
-      console.log('[DataContext.deleteDossierCascade] Successfully deleted dossier and all related entities');
       return { ok: true, result: { message: 'Dossier and all related entities deleted successfully' } };
     } catch (error) {
       console.error('[DataContext.deleteDossierCascade] Error during cascade delete:', error);
@@ -1105,11 +1078,11 @@ export function DataProvider({ children }) {
       adversary_party: emptyToNull(lawsuitItem.adversaryParty || lawsuitItem.adversary_party),
       adversary_name: emptyToNull(
         lawsuitItem.adversaryName ||
-          lawsuitItem.adversary_name ||
-          lawsuitItem.adversaryParty ||
-          lawsuitItem.adversary_party ||
-          lawsuitItem.adversaire ||
-          lawsuitItem.adversary
+        lawsuitItem.adversary_name ||
+        lawsuitItem.adversaryParty ||
+        lawsuitItem.adversary_party ||
+        lawsuitItem.adversaire ||
+        lawsuitItem.adversary
       ),
       adversary_lawyer: emptyToNull(lawsuitItem.adversaryLawyer || lawsuitItem.adversary_lawyer),
       court: emptyToNull(lawsuitItem.court),
@@ -1163,8 +1136,6 @@ export function DataProvider({ children }) {
     const validation = validateMutation("lawsuit", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues);
     if (!validation.ok) return validation;
 
-    console.log('[DataContext.updateLawsuit] Updating lawsuit ID:', id, 'with:', updates);
-
     const emptyToNull = (value) => (value === "" || value === undefined) ? null : value;
 
     const payload = {};
@@ -1195,11 +1166,11 @@ export function DataProvider({ children }) {
     ) {
       payload.adversary_name = emptyToNull(
         updates.adversaryName ||
-          updates.adversary_name ||
-          updates.adversaryParty ||
-          updates.adversary_party ||
-          updates.adversaire ||
-          updates.adversary
+        updates.adversary_name ||
+        updates.adversaryParty ||
+        updates.adversary_party ||
+        updates.adversaire ||
+        updates.adversary
       );
     }
     if (updates.adversaryLawyer !== undefined || updates.adversary_lawyer !== undefined) {
@@ -1287,8 +1258,6 @@ export function DataProvider({ children }) {
     }, integrityIssues);
     if (!validation.ok) return validation;
 
-    console.log('[DataContext.deleteLawsuit] Deleting lawsuit ID:', id);
-
     await apiClient.delete(`/lawsuits/${id}`);
 
     // Delete history for this lawsuit
@@ -1312,8 +1281,6 @@ export function DataProvider({ children }) {
     if (blockWrite("delete lawsuit cascade")) {
       return { ok: false, result: { message: "License inactive" } };
     }
-    console.log('[DataContext.deleteLawsuitCascade] Force deleting lawsuit and all related entities:', id);
-
     try {
       // Find and delete all missions for this lawsuit
       const lawsuitMissions = missions.filter(m => String(m.lawsuitId) === String(id));
@@ -1354,7 +1321,6 @@ export function DataProvider({ children }) {
       const prev = lawsuits.find((c) => c.id === id);
       logDeletionHistory("lawsuit", prev, actorName);
 
-      console.log('[DataContext.deleteLawsuitCascade] Successfully deleted lawsuit and all related entities');
       return { ok: true, result: { message: 'Case and all related entities deleted successfully' } };
     } catch (error) {
       console.error('[DataContext.deleteLawsuitCascade] Error during cascade delete:', error);
@@ -1375,8 +1341,6 @@ export function DataProvider({ children }) {
     if (!validation.ok) return validation;
 
     const emptyToNull = (value) => (value === "" || value === undefined ? null : value);
-
-    console.log('[DataContext.addSession] Incoming sessionItem:', sessionItem);
 
     const normalizeTxt = (val) =>
       (val || "")
@@ -1439,8 +1403,6 @@ export function DataProvider({ children }) {
       payload.dossier_id = dossierId;
     }
 
-    console.log('[DataContext.addSession] Sending payload:', payload);
-
     const created = await apiClient.post("/sessions", payload);
     const dossiersById = Object.fromEntries(dossiers.map((d) => [d.id, d]));
     const lawsuitsById = Object.fromEntries(lawsuits.map((c) => [c.id, c]));
@@ -1464,8 +1426,6 @@ export function DataProvider({ children }) {
     const prev = sessions.find((s) => s.id === id);
     const validation = validateMutation("session", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues, skipConfirmation);
     if (!validation.ok) return validation;
-
-    console.log('[DataContext.updateSession] Updating session ID:', id, 'with:', updates);
 
     const emptyToNull = (value) => (value === "" || value === undefined ? null : value);
 
@@ -1624,8 +1584,6 @@ export function DataProvider({ children }) {
     }, integrityIssues);
     if (!validation.ok) return validation;
 
-    console.log('[DataContext.deleteSession] Deleting session ID:', id);
-
     await apiClient.delete(`/sessions/${id}`);
 
     // Delete history for this session
@@ -1675,8 +1633,6 @@ export function DataProvider({ children }) {
 
     const emptyToNull = (value) => (value === "" || value === undefined ? null : value);
 
-    console.log('[DataContext.addTask] Incoming taskItem:', taskItem);
-
     const payload = {
       title: taskItem.title || "Nouvelle tâche",
       description: emptyToNull(taskItem.description),
@@ -1720,8 +1676,6 @@ export function DataProvider({ children }) {
     const prev = tasks.find((t) => t.id === id);
     const validation = validateMutation("task", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues, skipConfirmation);
     if (!validation.ok) return validation;
-
-    console.log('[DataContext.updateTask] Updating task ID:', id, 'with:', updates);
 
     const emptyToNull = (value) => (value === "" || value === undefined) ? null : value;
 
@@ -1839,8 +1793,6 @@ export function DataProvider({ children }) {
     }, integrityIssues);
     if (!validation.ok) return validation;
 
-    console.log('[DataContext.deleteTask] Deleting task ID:', id);
-
     await apiClient.delete(`/tasks/${id}`);
 
     // Delete history for this task
@@ -1887,8 +1839,6 @@ export function DataProvider({ children }) {
     if (!validation.ok) return validation;
 
     const emptyToNull = (value) => (value === "" || value === undefined ? null : value);
-
-    console.log('[DataContext.addPersonalTask] Incoming task:', task);
 
     // Map status from French to English (case-insensitive)
     const normalizeStatus = (status) => {
@@ -1965,8 +1915,6 @@ export function DataProvider({ children }) {
       notes: notesToBackendFormat(task.notes ?? []),
     };
 
-    console.log('[DataContext.addPersonalTask] Sending payload:', payload);
-
     const created = await apiClient.post("/personal-tasks", payload);
     const adapted = adaptPersonalTask(created);
 
@@ -1987,8 +1935,6 @@ export function DataProvider({ children }) {
     const prev = personalTasks.find((t) => t.id === id);
     const validation = validateMutation("personalTask", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues);
     if (!validation.ok) return validation;
-
-    console.log('[DataContext.updatePersonalTask] Updating personal task ID:', id, 'with:', updates);
 
     const emptyToNull = (value) => (value === "" || value === undefined) ? null : value;
 
@@ -2105,8 +2051,6 @@ export function DataProvider({ children }) {
     }, integrityIssues);
     if (!validation.ok) return validation;
 
-    console.log('[DataContext.deletePersonalTask] Deleting personal task ID:', id);
-
     await apiClient.delete(`/personal-tasks/${id}`);
 
     setPersonalTasks((prev) => {
@@ -2133,8 +2077,6 @@ export function DataProvider({ children }) {
 
     const emptyToNull = (value) => (value === "" || value === undefined ? null : value);
 
-    console.log('[DataContext.addOfficer] Incoming officer:', officer);
-
     // Normalize status to match database constraint: 'active','busy','inActive'
     const normalizeOfficerStatus = (status) => {
       const normalized = (status || "").toLowerCase().trim();
@@ -2158,8 +2100,6 @@ export function DataProvider({ children }) {
       notes: notesToBackendFormat(officer.notes ?? []),
     };
 
-    console.log('[DataContext.addOfficer] Sending payload:', payload);
-
     const created = await apiClient.post("/officers", payload);
     const adapted = adaptOfficer(created);
 
@@ -2180,8 +2120,6 @@ export function DataProvider({ children }) {
     const prev = officers.find((o) => o.id === id);
     const validation = validateMutation("officer", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues);
     if (!validation.ok) return validation;
-
-    console.log('[DataContext.updateOfficer] Updating officer ID:', id, 'with:', updates);
 
     const emptyToNull = (value) => (value === "" || value === undefined) ? null : value;
 
@@ -2235,8 +2173,6 @@ export function DataProvider({ children }) {
       return validation;
     }
 
-    console.log('[DataContext.updateOfficer] Sending PATCH payload:', payload);
-
     const updated = await apiClient.put(`/officers/${id}`, payload);
     const adapted = adaptOfficer(updated);
 
@@ -2264,8 +2200,6 @@ export function DataProvider({ children }) {
     }, integrityIssues);
     if (!validation.ok) return validation;
 
-    console.log('[DataContext.deleteOfficer] Deleting officer ID:', id);
-
     await apiClient.delete(`/officers/${id}`);
 
     setOfficers((prev) => {
@@ -2289,16 +2223,11 @@ export function DataProvider({ children }) {
     if (blockWrite("delete officer cascade")) {
       return { ok: false, result: { message: "License inactive" } };
     }
-    console.log('[DataContext.deleteOfficerCascade] Force deleting officer and all related entities:', id);
-
     try {
       // Find all missions for this officer (use String comparison for type safety)
       const officerMissions = missions.filter(m => String(m.officerId) === String(id));
-      console.log(`[DataContext.deleteOfficerCascade] Found ${officerMissions.length} missions to delete:`, officerMissions.map(m => m.id));
-
       // Delete each mission (which will cascade delete their financial entries and history)
       for (const mission of officerMissions) {
-        console.log(`[DataContext.deleteOfficerCascade] Deleting mission ${mission.id}...`);
         const result = await deleteMissionCascade(mission.id);
 
         // CRITICAL: If mission deletion fails, abort the entire cascade
@@ -2306,7 +2235,6 @@ export function DataProvider({ children }) {
           console.error(`[DataContext.deleteOfficerCascade] Failed to delete mission ${mission.id}:`, result);
           throw new Error(`Failed to delete mission ${mission.id}. Aborting officer cascade delete to prevent orphaned missions.`);
         }
-        console.log(`[DataContext.deleteOfficerCascade] Successfully deleted mission ${mission.id}`);
       }
 
       // Delete any direct financial entries linked to this officer (if any)
@@ -2314,13 +2242,11 @@ export function DataProvider({ children }) {
         (entry) => String(entry.officerId) === String(id) && entry.scope === 'client'
       );
 
-      console.log(`[DataContext.deleteOfficerCascade] Found ${directFinancialEntries.length} direct financial entries to delete`);
       for (const entry of directFinancialEntries) {
         await deleteFinancialEntry(entry.id);
       }
 
       // Finally, delete the officer itself from backend
-      console.log(`[DataContext.deleteOfficerCascade] Deleting officer ${id} from backend...`);
       await apiClient.delete(`/officers/${id}`);
 
       // Update frontend state
@@ -2333,7 +2259,6 @@ export function DataProvider({ children }) {
       const prev = officers.find((o) => o.id === id);
       logDeletionHistory("officer", prev, actorName);
 
-      console.log('[DataContext.deleteOfficerCascade] Successfully deleted officer and all related entities');
       return { ok: true, result: { message: 'Officer and all child entities deleted successfully' } };
     } catch (error) {
       console.error('[DataContext.deleteOfficerCascade] CRITICAL ERROR during cascade delete:', error);
@@ -2355,8 +2280,6 @@ export function DataProvider({ children }) {
     if (!validation.ok) return validation;
 
     const emptyToNull = (value) => (value === "" || value === undefined ? null : value);
-
-    console.log('[DataContext.addMission] Incoming mission:', mission);
 
     // Determine which entity to link based on entityType or which ID is provided
     const entityType = mission.entityType;
@@ -2419,8 +2342,6 @@ export function DataProvider({ children }) {
       officer_id: emptyToNull(mission.officerId || mission.officer_id),
       reference: emptyToNull(mission.missionNumber || mission.reference),
     };
-
-    console.log('[DataContext.addMission] Sending payload:', payload);
 
     const created = await apiClient.post("/missions", payload);
     const dossiersById = Object.fromEntries(dossiers.map((d) => [d.id, d]));
@@ -2521,8 +2442,6 @@ export function DataProvider({ children }) {
     const prev = missions.find((m) => m.id === id);
     const validation = validateMutation("mission", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues, skipConfirmation);
     if (!validation.ok) return validation;
-
-    console.log('[DataContext.updateMission] Updating mission ID:', id, 'with:', updates);
 
     const emptyToNull = (value) => (value === "" || value === undefined) ? null : value;
 
@@ -2662,8 +2581,6 @@ export function DataProvider({ children }) {
     );
     if (!validation.ok) return validation;
 
-    console.log("[DataContext.updateMissionStatus] Updating mission ID:", id, "to:", status);
-
     const payload = { status };
     const updated = await apiClient.put(`/missions/${id}`, payload);
     const dossiersById = Object.fromEntries(dossiers.map((d) => [d.id, d]));
@@ -2744,8 +2661,6 @@ export function DataProvider({ children }) {
     }, integrityIssues);
     if (!validation.ok) return validation;
 
-    console.log('[DataContext.deleteMission] Deleting mission ID:', id);
-
     await apiClient.delete(`/missions/${id}`);
 
     setMissions((prev) => {
@@ -2814,8 +2729,6 @@ export function DataProvider({ children }) {
     if (blockWrite("delete mission cascade")) {
       return { ok: false, result: { message: "License inactive" } };
     }
-    console.log('[DataContext.deleteMissionCascade] Force deleting mission and all related entities:', id);
-
     try {
       // Find all financial entries for this mission
       const missionFinancials = financialEntries.filter(e => String(e.missionId) === String(id));
@@ -2905,7 +2818,6 @@ export function DataProvider({ children }) {
         });
       }
 
-      console.log('[DataContext.deleteMissionCascade] Successfully deleted mission and all related entities');
       return { ok: true, result: { message: 'Mission and all related entities deleted successfully' } };
     } catch (error) {
       console.error('[DataContext.deleteMissionCascade] Error during cascade delete:', error);
@@ -2922,9 +2834,8 @@ export function DataProvider({ children }) {
     const entryDesc =
       entry.title ||
       entry.description ||
-      `${entry.type || entry.entryType || entry.entry_type || "Entry"}${
-        amountLabel ? ` - ${amountLabel}` : ""
-      }`.trim();
+      `${entry.type || entry.entryType || entry.entry_type || "Entry"}${amountLabel ? ` - ${amountLabel}` : ""
+        }`.trim();
     const baseLabel = entryDesc ? `${actionLabel}: ${entryDesc}` : actionLabel;
     const loggedTargets = new Set();
     const logTarget = (entityType, entityId, label = baseLabel, metadata = {}) => {
@@ -3056,8 +2967,6 @@ export function DataProvider({ children }) {
 
     const emptyToNull = (value) => (value === "" || value === undefined ? null : value);
 
-    console.log('[DataContext.addFinancialEntry] Incoming entry:', entry);
-
     // Map status from French to English
     const statusMap = {
       "Brouillon": "pending",
@@ -3097,8 +3006,6 @@ export function DataProvider({ children }) {
       description: emptyToNull(entry.description),
       reference: emptyToNull(entry.reference),
     };
-
-    console.log('[DataContext.addFinancialEntry] Sending payload:', payload);
 
     const created = await apiClient.post("/financial", payload);
     const clientsById = Object.fromEntries(clients.map((c) => [c.id, c]));
@@ -3143,8 +3050,6 @@ export function DataProvider({ children }) {
       entities,
     }, integrityIssues);
     if (!validation.ok) return validation;
-
-    console.log('[DataContext.updateFinancialEntry] Updating financial entry ID:', id, 'with:', updates);
 
     const payload = {
       client_id: updates.clientId,
@@ -3205,8 +3110,6 @@ export function DataProvider({ children }) {
     }, integrityIssues, skipConfirmation);
     if (!validation.ok) return validation;
 
-    console.log("[DataContext.updateFinancialEntryStatus] Updating financial entry ID:", id, "to:", status);
-
     const payload = {
       status,
       ...(updates.paidAt ? { paid_at: updates.paidAt } : {}),
@@ -3253,8 +3156,6 @@ export function DataProvider({ children }) {
       entities,
     }, integrityIssues, skipConfirmation);
     if (!validation.ok) return validation;
-
-    console.log('[DataContext.deleteFinancialEntry] Deleting financial entry ID:', id);
 
     try {
       await apiClient.delete(`/financial/${id}`);

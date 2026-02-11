@@ -31,9 +31,8 @@ function _deriveExecutionMode(intent, policy) {
     intent === INTENTS.DRAFT_INVITATION ||
     intent === INTENTS.DRAFT_CLIENT_EMAIL
   ) {
-    return policy.allowExecution
-      ? EXECUTION_MODE.execute
-      : EXECUTION_MODE.research;
+    // Use genericDraft tool instead of reasoner
+    return EXECUTION_MODE.research;
   }
 
   if (intent === INTENTS.PROPOSE_ACTIONS) {

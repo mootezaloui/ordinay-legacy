@@ -476,8 +476,6 @@ export default function AggregatedRelatedTab({
       if (onItemsChange && tabConfig?.itemsKey) {
         onItemsChange(tabConfig.itemsKey, updatedItems);
       }
-
-      console.log("Adding new item:", newItem);
       await new Promise(resolve => setTimeout(resolve, 500));
 
       setIsAddModalOpen(false);
@@ -536,8 +534,6 @@ export default function AggregatedRelatedTab({
         default:
           break;
       }
-
-      console.log("Deleting item:", itemId);
     }
   };
 

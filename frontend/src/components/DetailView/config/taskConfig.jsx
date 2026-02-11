@@ -161,8 +161,6 @@ export const createTaskConfig = (t) => {
       if (contextData?.deleteTask) {
         // Use DataContext to delete (this persists to localStorage)
         contextData.deleteTask(numericId);
-      } else {
-        console.log("Deleting task:", numericId);
       }
     },
 
