@@ -180,6 +180,7 @@ function _updateConversationContext(requestContext, query, result, source, postu
     query,
     source,
     workSnapshotEvent,
+    lastOutput: output, // Save output for pending resolution detection
   }, posture);
 
   this.ledger.record({

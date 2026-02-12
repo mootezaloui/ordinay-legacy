@@ -394,6 +394,12 @@ export function useAgentState() {
       },
       scope: followUp.scope || {},
       filters: followUp.filters,
+
+      // Context resolution fields (for RESOLVE_CONTEXT_AND_CONTINUE)
+      originalIntent: followUp.originalIntent,
+      originalDraftType: followUp.originalDraftType,
+      originalMessage: followUp.originalMessage,
+      resolvedEntity: followUp.resolvedEntity,
     }),
     []
   );
@@ -673,6 +679,9 @@ export function useAgentState() {
             streamedContent = "";
           } else if (output.type === "collection") {
             agentData = { type: "collection", collection: output as CollectionOutput };
+            streamedContent = "";
+          } else if (output.type === "context_suggestion") {
+            agentData = { type: "context_suggestion", contextSuggestion: output as import("../../services/api/agent").ContextSuggestionOutput };
             streamedContent = "";
           } else if (output.type === "proposal") {
             agentData = { type: "proposal", proposal: output };
@@ -1022,6 +1031,9 @@ export function useAgentState() {
             streamedContent = "";
           } else if (output.type === "collection") {
             agentData = { type: "collection", collection: output as CollectionOutput };
+            streamedContent = "";
+          } else if (output.type === "context_suggestion") {
+            agentData = { type: "context_suggestion", contextSuggestion: output as import("../../services/api/agent").ContextSuggestionOutput };
             streamedContent = "";
           } else if (output.type === "proposal") {
             agentData = { type: "proposal", proposal: output };
@@ -1374,6 +1386,9 @@ export function useAgentState() {
             streamedContent = "";
           } else if (output.type === "collection") {
             agentData = { type: "collection", collection: output as CollectionOutput };
+            streamedContent = "";
+          } else if (output.type === "context_suggestion") {
+            agentData = { type: "context_suggestion", contextSuggestion: output as import("../../services/api/agent").ContextSuggestionOutput };
             streamedContent = "";
           } else if (output.type === "proposal") {
             agentData = { type: "proposal", proposal: output };

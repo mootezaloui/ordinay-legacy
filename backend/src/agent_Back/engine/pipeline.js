@@ -24,6 +24,7 @@ const {
   formatEntityTypeLabel,
 } = require("../utils/entityDisplay");
 const { resolveInteractionPosture, POSTURES } = require("../posture.resolver");
+const { getContextSuggestions } = require("./stages/stage.contextSuggest");
 
 const EXTERNAL_SEARCH_INTENTS = new Set([
   READ_INTENTS.WEB_SEARCH,
@@ -127,6 +128,83 @@ function buildWorkSnapshotRefreshReadIntent(message, context, contextStore) {
       },
     ],
     filters: { _snapshotRefresh: true },
+  };
+}
+
+function buildResolutionScope(entityType, entityId) {
+  const id = Number(entityId);
+  if (!Number.isFinite(id) || id <= 0) return {};
+  const map = {
+    client: "clientId",
+    dossier: "dossierId",
+    lawsuit: "lawsuitId",
+    session: "sessionId",
+    task: "taskId",
+    mission: "missionId",
+    personal_task: "personalTaskId",
+    financial_entry: "financialEntryId",
+  };
+  const key = map[String(entityType || "").toLowerCase()];
+  if (!key) return {};
+  return { [key]: id };
+}
+
+function buildResolutionContextSuggestion({
+  entityType,
+  candidates = [],
+  originalIntent,
+  originalDraftType,
+  originalMessage,
+  reason = "multiple_matches",
+  message,
+}) {
+  const normalizedEntityType = String(entityType || "entity").toLowerCase();
+  const safeCandidates = Array.isArray(candidates) ? candidates : [];
+  return {
+    type: "context_suggestion",
+    message:
+      message ||
+      `I found multiple ${normalizedEntityType} options that might match your request:`,
+    entityType: normalizedEntityType,
+    reason,
+    originalIntent,
+    originalDraftType,
+    originalMessage,
+    suggestions: safeCandidates.slice(0, 5).map((candidate) => {
+      const candidateType = String(
+        candidate?.entityType || normalizedEntityType,
+      ).toLowerCase();
+      const candidateId = candidate?.entityId ?? candidate?.id;
+      const label =
+        candidate?.label ||
+        candidate?.name ||
+        candidate?.title ||
+        `${candidateType} #${candidateId}`;
+      return {
+        id: `${candidateType}-${candidateId}`,
+        entityType: candidateType,
+        entityId: candidateId,
+        label,
+        subtitle: null,
+        metadata:
+          candidate?.signal
+            ? { signal: candidate.signal }
+            : candidate?.score
+              ? { score: Number(candidate.score.toFixed ? candidate.score.toFixed(2) : candidate.score) }
+              : {},
+        intent: "RESOLVE_CONTEXT_AND_CONTINUE",
+        scope: buildResolutionScope(candidateType, candidateId),
+        resolveContext: {
+          originalIntent,
+          originalDraftType,
+        },
+      };
+    }),
+    timestamp: new Date().toISOString(),
+    confidence: 0.6,
+    source: "rule-based",
+    allowManualInput: true,
+    manualInputHint: `Type the ${normalizedEntityType} name manually if it is not listed.`,
   };
 }
 
@@ -416,9 +494,220 @@ async function run({
     timings: {},
   };
 
+  const resumeResolvedContext = async ({
+    originalIntent,
+    originalDraftType,
+    originalMessage,
+    resolvedEntity,
+    baseContext,
+  }) => {
+    const scope = buildResolutionScope(resolvedEntity.type, resolvedEntity.id);
+    const enrichedContext = {
+      ...(baseContext || {}),
+      resolvedEntity,
+      ...scope,
+      _resolvedFromSuggestion: true,
+    };
+
+    if (originalIntent && String(originalIntent).startsWith("DRAFT_")) {
+      engineContext.intent = originalIntent;
+      this.ledger.record({
+        type: "context_resolved_draft_resume",
+        originalIntent,
+        originalDraftType,
+        resolvedEntity,
+        timestamp: new Date().toISOString(),
+      });
+
+      const draftResult = await this._executeDraftIntent(
+        {
+          intent: originalIntent,
+          draftType: originalDraftType,
+          entityHints: [],
+        },
+        originalMessage || normalizedMessage,
+        enrichedContext,
+        policy,
+        engineContext,
+      );
+
+      this._updateConversationContext(
+        enrichedContext,
+        originalMessage || normalizedMessage,
+        draftResult,
+        CONTEXT_SOURCES.DRAFT_INTENT,
+        engineContext.posture,
+      );
+
+      return {
+        ...draftResult,
+        posture: engineContext.posture,
+        postureAuthority: engineContext.postureAuthority,
+      };
+    }
+
+    throw new Error(`Cannot resume intent: ${originalIntent}`);
+  };
+
+  const runResolutionMode = async ({
+    entityType,
+    identifier,
+    mode,
+    originalIntent,
+    originalDraftType,
+    originalMessage,
+    source = "manual_input",
+  }) => {
+    this.ledger.record({
+      type: "pending_resolution_attempt",
+      source,
+      entityType,
+      mode,
+      identifier: String(identifier || ""),
+      originalIntent: originalIntent || null,
+      timestamp: new Date().toISOString(),
+    });
+
+    const resolution = await this.resolveEntity(
+      {
+        entityType,
+        identifier,
+        mode,
+      },
+      policy,
+    );
+
+    if (resolution.found && resolution.entityId) {
+      return await resumeResolvedContext({
+        originalIntent,
+        originalDraftType,
+        originalMessage,
+        resolvedEntity: {
+          type: resolution.entityType || entityType,
+          id: resolution.entityId,
+          label: resolution.entityLabel || `${resolution.entityType} #${resolution.entityId}`,
+        },
+        baseContext: turnContext,
+      });
+    }
+
+    if (resolution.reason === "ambiguous") {
+      return {
+        intent: originalIntent || "RESOLUTION_PENDING",
+        agentVersion: policy.version,
+        reasoner: "pending-resolution",
+        output: buildResolutionContextSuggestion({
+          entityType,
+          candidates: resolution.candidates || [],
+          originalIntent,
+          originalDraftType,
+          originalMessage,
+          reason: "multiple_matches",
+        }),
+        needsClarification: true,
+        resolutionMode: true,
+        posture: engineContext.posture,
+        postureAuthority: engineContext.postureAuthority,
+      };
+    }
+
+    const narrowed = await getContextSuggestions.call(
+      this,
+      originalIntent || "RESOLUTION_PENDING",
+      [entityType],
+      {
+        userMessage: String(identifier || ""),
+        requestContext: turnContext,
+        policy,
+      },
+    );
+
+    if (Array.isArray(narrowed) && narrowed.length > 0) {
+      return {
+        intent: originalIntent || "RESOLUTION_PENDING",
+        agentVersion: policy.version,
+        reasoner: "pending-resolution",
+        output: buildResolutionContextSuggestion({
+          entityType,
+          candidates: narrowed,
+          originalIntent,
+          originalDraftType,
+          originalMessage,
+          reason: "missing_context",
+          message: `No exact ${entityType} found for "${identifier}". Here are close matches:`,
+        }),
+        needsClarification: true,
+        resolutionMode: true,
+        posture: engineContext.posture,
+        postureAuthority: engineContext.postureAuthority,
+      };
+    }
+
+    return {
+      intent: originalIntent || "RESOLUTION_PENDING",
+      agentVersion: policy.version,
+      reasoner: "pending-resolution",
+      output: {
+        type: "explanation",
+        entityId: "not_found",
+        entityType: "query",
+        summary: `No ${entityType} found matching "${identifier}". Please check spelling or enter a different name.`,
+        details: [],
+        timestamp: new Date().toISOString(),
+        confidence: 0,
+        sources: [{ sourceType: "system", reference: "entity-resolution" }],
+        status: "pending_clarification",
+        source: "pending-resolution",
+        requires_validation: false,
+      },
+      needsClarification: true,
+      resolutionMode: true,
+      posture: engineContext.posture,
+      postureAuthority: engineContext.postureAuthority,
+    };
+  };
+
+  const lastOutput = conversationContextSnapshot?.lastOutput || null;
+  const isPendingResolution =
+    !hasFollowUpIntent &&
+    lastOutput?.type === "context_suggestion" &&
+    lastOutput?.originalIntent &&
+    lastOutput?.entityType;
+
+  if (isPendingResolution) {
+    console.log(
+      "[Pipeline][ResolutionMode] Manual input payload:",
+      JSON.stringify(
+        {
+          message: normalizedMessage,
+          originalIntent: lastOutput.originalIntent,
+          originalDraftType: lastOutput.originalDraftType || null,
+          entityType: lastOutput.entityType,
+          source: "typed_name",
+        },
+        null,
+        2,
+      ),
+    );
+
+    return await runResolutionMode({
+      entityType: lastOutput.entityType,
+      identifier: normalizedMessage,
+      mode: "name",
+      originalIntent: lastOutput.originalIntent,
+      originalDraftType: lastOutput.originalDraftType,
+      originalMessage: lastOutput.originalMessage || normalizedMessage,
+      source: "manual_input",
+    });
+  }
+
   // ========== FOLLOW-UP INTENT (STRUCTURED) ==========
   if (hasFollowUpIntent) {
-    if (!governedPosture) {
+    const isResolutionFollowUp =
+      followUpIntent?.intent === "RESOLVE_CONTEXT_AND_CONTINUE" ||
+      followUpIntent?.intent === "RESOLVE_CONTEXT_NAME_INPUT";
+
+    if (!governedPosture && !isResolutionFollowUp) {
       return {
         intent: "FOLLOW_UP_CLARIFICATION",
         agentVersion: policy.version,
@@ -445,6 +734,53 @@ async function run({
         needsUserInput: true,
       };
     }
+
+    // ========== RESOLUTION FOLLOW-UPS ==========
+    if (followUpIntent?.intent === "RESOLVE_CONTEXT_AND_CONTINUE") {
+      console.log(
+        "[DEBUG] RESOLVE_CONTEXT_AND_CONTINUE received:",
+        JSON.stringify(followUpIntent, null, 2),
+      );
+      const {
+        originalIntent,
+        originalDraftType,
+        resolvedEntity,
+        entityType,
+        entityId,
+        originalMessage,
+      } = followUpIntent;
+      return await runResolutionMode({
+        entityType: resolvedEntity?.type || entityType,
+        identifier: resolvedEntity?.id || entityId,
+        mode: "id",
+        originalIntent,
+        originalDraftType,
+        originalMessage: originalMessage || normalizedMessage,
+        source: "suggestion_click",
+      });
+    }
+
+    if (followUpIntent?.intent === "RESOLVE_CONTEXT_NAME_INPUT") {
+      const {
+        originalIntent,
+        originalDraftType,
+        originalMessage,
+        entityType,
+        name,
+        identifier,
+      } = followUpIntent;
+      return await runResolutionMode({
+        entityType,
+        identifier: name || identifier || normalizedMessage,
+        mode: "name",
+        originalIntent,
+        originalDraftType,
+        originalMessage: originalMessage || normalizedMessage,
+        source: "follow_up_name_input",
+      });
+    }
+    // ========== END RESOLUTION FOLLOW-UPS ==========
+
     this._ensureTurnGateAllowed(policy, {
       gate: "structured_follow_up",
       intent: followUpIntent?.intent || null,

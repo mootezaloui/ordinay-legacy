@@ -441,7 +441,10 @@ async function _executeReadIntent(
       readOutcome,
       relatedSummary: state.relatedSummary,
     });
-    this._validateContract("explanation", explanationOutput, {
+
+    // Validate based on actual output type (clean contract)
+    const contractType = explanationOutput.type === "context_suggestion" ? "context_suggestion" : "explanation";
+    this._validateContract(contractType, explanationOutput, {
       intent: "READ_DATA",
     });
 

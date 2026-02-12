@@ -4,7 +4,6 @@ const { INTENT_LIST } = require("../intents");
 const {
   INTENT_CLASSIFICATION_PROMPT,
   CHAT_SYSTEM_PROMPT,
-  INTENT_FRAMING_PROMPT,
   DOCUMENT_RELEVANCE_PROMPT,
   DOCUMENT_SUMMARY_PROMPT,
   UNGOVERNED_MODE_DECISION_PROMPT,
@@ -272,10 +271,117 @@ async function generateChatResponse(message) {
   }
 }
 
-function buildIntentFramingPrompt(intentType, entity, scope) {
-  return INTENT_FRAMING_PROMPT.replace("{{intentType}}", intentType)
-    .replace("{{entity}}", entity)
-    .replace("{{scope}}", scope);
+function buildMissingEntityQuestion(missingEntities = []) {
+  const normalized = Array.from(
+    new Set(
+      (Array.isArray(missingEntities) ? missingEntities : [])
+        .map((entity) => String(entity || "").toLowerCase().trim())
+        .filter(Boolean),
+    ),
+  );
+  const hasClient = normalized.includes("client");
+  const hasDossier = normalized.includes("dossier");
+  const hasSession = normalized.includes("session");
+
+  if (!hasClient && !hasDossier && !hasSession) return null;
+  if (hasSession && hasDossier && !hasClient) {
+    return "Which session or dossier does this pertain to?";
+  }
+  if (hasClient && hasDossier && hasSession) {
+    return "Please specify the client, session, or dossier.";
+  }
+  if (hasClient && hasDossier) {
+    return "Which client or dossier does this pertain to?";
+  }
+  if (hasClient && hasSession) {
+    return "Which client or session does this pertain to?";
+  }
+  if (hasClient) return "Which client should this be for?";
+  if (hasSession) return "Which session does this pertain to?";
+  return "Which dossier does this pertain to?";
+}
+
+function buildIntentFramingPrompt(intentType, userMessage, missingEntities = []) {
+  const normalizedIntent = String(intentType || "UNCERTAIN").toUpperCase();
+  const message = String(userMessage || "").trim() || "(empty user request)";
+  const missingQuestion = buildMissingEntityQuestion(missingEntities);
+  const missingInstruction = missingQuestion
+    ? `A required entity is missing. End with this exact question: "${missingQuestion}".`
+    : "No entities are missing. Do not ask a clarification question.";
+
+  const baseRules = `You are Ordinay Assistant.
+Generate only an intent-framing response for the request below.
+
+User request:
+"${message}"
+
+Rules:
+- Output 1-3 short professional sentences.
+- Keep wording minimal and action-focused.
+- Mirror the user's action verb when possible (for example: write, draft, search, summarize, review).
+- Do not rewrite the meaning of the user's request.
+- No coaching, no motivation, no workflow explanations, no generic advice.
+- No tool/internal process references.
+- No hallucinated details.
+- ${missingInstruction}`;
+
+  switch (normalizedIntent) {
+    case "DRAFT":
+      return `${baseRules}
+
+Intent category: DRAFT
+Start with a direct draft action, such as:
+- "Understood. I will draft ..."
+- "Understood. I will prepare ..."
+If needed, include one minimal clarification question as instructed above.
+
+Return only the final message.`;
+    case "READ":
+      return `${baseRules}
+
+Intent category: READ
+Start with a direct read/review action, such as:
+- "Understood. I will review ..."
+- "Understood. I will retrieve ..."
+If needed, include one minimal clarification question as instructed above.
+
+Return only the final message.`;
+    case "SEARCH":
+      return `${baseRules}
+
+Intent category: SEARCH
+Start with a direct search action, such as:
+- "Understood. I will search the web ..."
+- "Understood. I will gather search results ..."
+If needed, include one minimal clarification question as instructed above.
+
+Return only the final message.`;
+    case "REVIEW":
+      return `${baseRules}
+
+Intent category: REVIEW
+Start with a direct review action:
+- "Understood. I will review and analyze ..."
+If needed, include one minimal clarification question as instructed above.
+
+Return only the final message.`;
+    case "PRIORITIZE":
+      return `${baseRules}
+
+Intent category: PRIORITIZE
+Start with a direct prioritization action:
+- "Understood. I will suggest a prioritization ..."
+If needed, include one minimal clarification question as instructed above.
+
+Return only the final message.`;
+    default:
+      return `${baseRules}
+
+Intent category: UNCERTAIN
+The intent is ambiguous between READ and DRAFT.
+Return exactly this single question:
+"Are you asking me to review or to draft a document?"`;
+  }
 }
 
 async function consumeOllamaJsonlStream(response, handlers) {
@@ -365,16 +471,20 @@ async function requestIntentFraming(prompt, signal) {
 }
 
 async function generateIntentFramingMessage(
-  { intentType, entity, scope },
+  { intentType, userMessage, missingEntities = [] },
   signal,
 ) {
-  if (!intentType || !entity || !scope) return null;
+  if (!intentType || !String(userMessage || "").trim()) return null;
 
-  const basePrompt = buildIntentFramingPrompt(intentType, entity, scope);
+  const basePrompt = buildIntentFramingPrompt(
+    intentType,
+    userMessage,
+    missingEntities,
+  );
   const first = await requestIntentFraming(basePrompt, signal);
   if (first) return first;
 
-  const retryPrompt = `${basePrompt}\n\nReturn exactly one short sentence.`;
+  const retryPrompt = `${basePrompt}\n\nReturn exactly one short, minimal message.`;
   return await requestIntentFraming(retryPrompt, signal);
 }
 
@@ -382,22 +492,22 @@ async function generateIntentFramingMessage(
  * Stream intent framing message with callbacks
  * Provides real-time streaming for immediate responsiveness
  *
- * @param {Object} payload - { intentType, entity, scope }
+ * @param {Object} payload - { intentType, userMessage, missingEntities }
  * @param {Object} callbacks - { onChunk, onDone, onError }
  * @param {AbortSignal} signal - Optional abort signal
  */
 async function streamIntentFramingMessage(
-  { intentType, entity, scope },
+  { intentType, userMessage, missingEntities = [] },
   callbacks,
   signal,
 ) {
   console.log("[Intent Framing LLM] Called with:", {
     intentType,
-    entity,
-    scope,
+    hasUserMessage: Boolean(String(userMessage || "").trim()),
+    missingEntities,
   });
 
-  if (!intentType || !entity || !scope) {
+  if (!intentType || !String(userMessage || "").trim()) {
     console.log("[Intent Framing LLM] Missing required params, skipping");
     callbacks.onDone?.("");
     return;
@@ -405,14 +515,18 @@ async function streamIntentFramingMessage(
 
   if (!OLLAMA_STREAMING) {
     const message = await generateIntentFramingMessage(
-      { intentType, entity, scope },
+      { intentType, userMessage, missingEntities },
       signal,
     );
     callbacks.onDone?.(message || "");
     return;
   }
 
-  const prompt = buildIntentFramingPrompt(intentType, entity, scope);
+  const prompt = buildIntentFramingPrompt(
+    intentType,
+    userMessage,
+    missingEntities,
+  );
   console.log(
     "[Intent Framing LLM] Starting stream request to:",
     `${LLM_BASE_URL}/api/generate`,
@@ -978,6 +1092,7 @@ module.exports = {
   LLM_MODEL,
   OLLAMA_STREAMING,
   CHAT_SYSTEM_PROMPT,
+  buildIntentFramingPrompt,
   generateIntentFramingMessage,
   streamIntentFramingMessage,
   selectRelevantDocuments,

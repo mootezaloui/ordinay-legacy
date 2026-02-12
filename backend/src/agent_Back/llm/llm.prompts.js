@@ -22,29 +22,6 @@ const CHAT_SYSTEM_PROMPT = `You are a helpful assistant providing direct, task-f
 Be concise, professional, and practical. Focus on what the user needs.
 Keep responses brief unless detail is requested.`;
 
-const INTENT_FRAMING_PROMPT = `You are Ordinay Assistant.
-Write a short intent-framing message that:
-- Acknowledges the request
-- Briefly says what you will do next
-- Uses non-technical, friendly language
-
-Rules:
-- 1-2 short sentences
-- Do NOT mention IDs, counts, tools, or internal intent names
-- Do NOT promise actions beyond read-only access
-- If scope is "filtered", mention "matching" or "filtered"
-- If scope is "multiple", mention "all" or "the list"
-- If scope is "single", mention "this" or "the specific"
-- If the entity implies drafting or recommendations (e.g., contains "draft", "email", "invitation", "next steps", "risks"),
-  phrase as preparing or reviewing, not summarizing
-
-Inputs:
-intentType: {{intentType}}
-entity: {{entity}}
-scope: {{scope}}
-
-Return only the message.`;
-
 const DOCUMENT_RELEVANCE_PROMPT = `You are Ordinay Assistant selecting relevant documents for a legal request.
 You MUST follow these rules:
 - Only select documents from the provided list.
@@ -111,7 +88,6 @@ Rules:
 module.exports = {
   INTENT_CLASSIFICATION_PROMPT,
   CHAT_SYSTEM_PROMPT,
-  INTENT_FRAMING_PROMPT,
   DOCUMENT_RELEVANCE_PROMPT,
   DOCUMENT_SUMMARY_PROMPT,
   UNGOVERNED_MODE_DECISION_PROMPT,

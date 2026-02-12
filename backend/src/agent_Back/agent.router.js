@@ -93,171 +93,83 @@ function getStatusAction(intent, phase = "processing") {
 
 const INTENT_FRAMING_MESSAGE_TYPE = "AGENT_INTENT_MESSAGE";
 
-const ENTITY_LABELS = Object.freeze({
-  client: "client",
-  dossier: "dossier",
-  lawsuit: "lawsuit",
-  session: "session",
-  task: "task",
-  personal_task: "personal task",
-  mission: "mission",
-  officer: "officer",
-  financial_entry: "financial entry",
-  notification: "notification",
-  history_event: "history entry",
-});
-
-function hasNonEmptyFilters(filters) {
-  if (!filters || typeof filters !== "object") return false;
-  return Object.values(filters).some(
-    (value) =>
-      value !== null && value !== undefined && value !== "" && value !== false,
-  );
-}
-
-function formatEntityLabel(entityType) {
-  if (!entityType) return null;
-  const normalized = String(entityType).toLowerCase();
-  return ENTITY_LABELS[normalized] || normalized.replace(/_/g, " ");
-}
-
 function deriveIntentType(intent, contextSnapshot) {
   const source = (intent || contextSnapshot?.lastIntent || "").toUpperCase();
-  if (!source) return null;
-
-  if (source.includes("LIST")) return "list";
-  if (source.includes("SUMMARIZE")) return "summarize";
-  if (source.includes("READ") || source.includes("EXPLAIN")) return "read";
+  if (!source) return "UNCERTAIN";
 
   if (
-    source.includes("ANALYZE") ||
-    source.includes("RISK") ||
-    source.includes("PROPOSE") ||
-    source.includes("DRAFT")
+    source.includes("SEARCH_WEB") ||
+    source.includes("SEARCH_DEEP_WEB") ||
+    source.includes("WEB_SEARCH") ||
+    source.includes("DEEP_SEARCH")
   ) {
-    return "summarize";
+    return "SEARCH";
+  }
+  if (source.includes("DRAFT")) return "DRAFT";
+  if (source.includes("ANALYZE") || source.includes("RISK")) return "REVIEW";
+  if (source.includes("PROPOSE") || source.includes("ACTION"))
+    return "PRIORITIZE";
+  if (
+    source.includes("LIST") ||
+    source.includes("SUMMARIZE") ||
+    source.includes("READ") ||
+    source.includes("EXPLAIN")
+  ) {
+    return "READ";
   }
 
-  // Handle follow-up and command intents - derive from context if available
   if (
     source === "FOLLOW_UP" ||
     source === "COMMAND" ||
     source === "SAFETY_GUARD"
   ) {
     const lastIntent = (contextSnapshot?.lastIntent || "").toUpperCase();
-    if (lastIntent.includes("LIST")) return "list";
-    if (lastIntent.includes("SUMMARIZE")) return "summarize";
-    if (lastIntent.includes("READ") || lastIntent.includes("EXPLAIN"))
-      return "read";
-    // Default to 'read' for follow-ups (reviewing specific data)
-    return "read";
+    return deriveIntentType(lastIntent, null);
   }
 
-  // GENERAL_CHAT gets 'answer' type for conversational requests
-  if (source === "GENERAL_CHAT") {
-    return "answer";
-  }
-
-  // Fallback: any data retrieval intent gets 'read' type
-  return "read";
+  return "UNCERTAIN";
 }
 
-function deriveEntityLabel(
-  intent,
-  followUpIntent,
-  contextSnapshot,
-) {
-  if (followUpIntent?.entityType) {
-    return formatEntityLabel(followUpIntent.entityType);
-  }
+function inferMissingEntities({ output, userMessage }) {
+  const missing = new Set();
+  const summary = String(output?.summary || "").toLowerCase();
+  const details = Array.isArray(output?.details)
+    ? output.details.map((line) => String(line || "").toLowerCase()).join(" ")
+    : "";
+  const user = String(userMessage || "").toLowerCase();
+  const combined = `${summary} ${details} ${user}`;
 
-  const normalized = (intent || "").toUpperCase();
-  if (normalized.includes("DRAFT_INVITATION")) return "invitation draft";
-  if (normalized.includes("DRAFT_CLIENT_EMAIL")) return "client email";
-  if (normalized.includes("ANALYZE_OPERATIONAL_RISKS"))
-    return "operational risks";
-  if (normalized.includes("PROPOSE_ACTIONS")) return "next steps";
-  if (normalized.includes("SEARCH_WEB")) return "web sources";
-  if (normalized.includes("SEARCH_DEEP_WEB")) return "legal sources";
-  if (normalized.includes("WEB_SEARCH")) return "web sources";
-  if (normalized.includes("DEEP_SEARCH")) return "legal sources";
-  if (normalized.includes("CLIENT")) return "client";
-  if (normalized.includes("DOSSIER")) return "dossier";
-  if (normalized.includes("LAWSUIT")) return "lawsuit";
-  if (normalized.includes("SESSION")) return "session";
-  if (normalized.includes("PERSONAL_TASK")) return "personal task";
-  if (normalized.includes("TASK")) return "task";
-  if (normalized.includes("MISSION")) return "mission";
-  if (normalized.includes("OFFICER")) return "officer";
-  if (normalized.includes("FINANCIAL")) return "financial entry";
-  if (normalized.includes("NOTIFICATION")) return "notification";
-  if (normalized.includes("HISTORY")) return "history entry";
+  if (/\bclient\b/.test(combined)) missing.add("client");
+  if (/\bdossier\b/.test(combined)) missing.add("dossier");
+  if (/\bsession\b|\bhearing\b/.test(combined)) missing.add("session");
 
-  if (contextSnapshot?.activeEntityType) {
-    return formatEntityLabel(contextSnapshot.activeEntityType);
-  }
-  if (contextSnapshot?.lastEntityType) {
-    return formatEntityLabel(contextSnapshot.lastEntityType);
-  }
-
-  // GENERAL_CHAT gets 'request' as entity label
-  if (normalized === "GENERAL_CHAT") {
-    return "request";
-  }
-
-  return null;
-}
-
-function deriveScope(intent, readIntent, followUpIntent, contextSnapshot) {
-  const source = (intent || contextSnapshot?.lastIntent || "").toUpperCase();
-  const hasFilters =
-    hasNonEmptyFilters(readIntent?.filters) ||
-    hasNonEmptyFilters(followUpIntent?.filters) ||
-    hasNonEmptyFilters(contextSnapshot?.lastResultSummary?.filters);
-
-  if (hasFilters) return "filtered";
-  if (source.includes("LIST")) return "multiple";
-  if (source.includes("SUMMARIZE") && readIntent?.aggregateSummary)
-    return "multiple";
-  if (followUpIntent?.entityId) return "single";
-  if (
-    source.includes("READ") ||
-    source.includes("EXPLAIN") ||
-    source.includes("SUMMARIZE")
-  )
-    return "single";
-  if (
-    source.includes("DRAFT") ||
-    source.includes("ANALYZE") ||
-    source.includes("PROPOSE")
-  )
-    return "single";
-  return "multiple";
+  return Array.from(missing);
 }
 
 function buildIntentFramingPayload({
   intent,
-  readIntent,
-  followUpIntent,
+  userMessage,
+  result,
   contextSnapshot,
 }) {
   if (!intent) return null;
 
   const intentType = deriveIntentType(intent, contextSnapshot);
-  const entity = deriveEntityLabel(
-    intent,
-    followUpIntent,
-    contextSnapshot,
-  );
-  const scope = deriveScope(
-    intent,
-    readIntent,
-    followUpIntent,
-    contextSnapshot,
-  );
+  if (!intentType) return null;
 
-  if (!intentType || !entity || !scope) return null;
-  return { intentType, entity, scope };
+  const output = result?.output || {};
+  const needsClarification =
+    result?.needsClarification === true ||
+    String(output?.status || "").toLowerCase() === "pending_clarification";
+  const missingEntities = needsClarification
+    ? inferMissingEntities({ output, userMessage })
+    : [];
+
+  return {
+    intentType,
+    userMessage: String(userMessage || "").trim(),
+    missingEntities,
+  };
 }
 
 /**
@@ -265,7 +177,7 @@ function buildIntentFramingPayload({
  * Unified event name: `intent`
  *
  * @param {Function} sendEvent - SSE event sender
- * @param {Object} payload - Intent payload { intentType, entity, scope }
+ * @param {Object} payload - Intent payload { intentType, userMessage, missingEntities }
  * @param {AbortSignal} signal - Abort signal
  * @param {boolean} aborted - Abort flag
  */
@@ -307,8 +219,9 @@ async function streamIntentEvent(
             sendEvent("intent", {
               message: finalMessage,
               action: payload?.intentType || "unknown",
-              entity: payload?.entity || null,
-              scope: payload?.scope || null,
+              missingEntities: Array.isArray(payload?.missingEntities)
+                ? payload.missingEntities
+                : [],
             });
           }
           console.log(
@@ -493,13 +406,17 @@ async function streamCommentaryEvent(
 ) {
   if (aborted) return;
 
-  // Skip commentary for chat and external search artifacts.
+  // Skip commentary for chat, external search, and context suggestion artifacts.
   const artifactType = result?.output?.type;
+  const outputStatus = String(result?.output?.status || "").toLowerCase();
   if (
     !artifactType ||
     artifactType === "chat" ||
     artifactType === "web_search_results" ||
-    artifactType === "web_deep_search_results"
+    artifactType === "web_deep_search_results" ||
+    artifactType === "context_suggestion" ||
+    outputStatus === "error" ||
+    result?.resolutionMode === true
   ) {
     if (
       artifactType === "web_search_results" ||
@@ -508,6 +425,24 @@ async function streamCommentaryEvent(
       console.log(
         "[SearchFlow] Commentary skipped for external search artifact",
         JSON.stringify({ artifactType }),
+      );
+    }
+    if (artifactType === "context_suggestion") {
+      console.log(
+        "[Commentary] Skipped for context suggestion (no advice during ambiguity resolution)",
+        JSON.stringify({ artifactType }),
+      );
+    }
+    if (result?.resolutionMode === true) {
+      console.log(
+        "[Commentary] Skipped for pending resolution mode",
+        JSON.stringify({ artifactType, reasoner: result?.reasoner || null }),
+      );
+    }
+    if (outputStatus === "error") {
+      console.log(
+        "[Commentary] Skipped for error output",
+        JSON.stringify({ artifactType, outputStatus }),
       );
     }
     return;
@@ -712,9 +647,14 @@ function isExternalSearchArtifact(result) {
 
 function shouldSendIntentFraming(result, requestContext, framingPayload) {
   if (!framingPayload) return false;
+  if (result?.resolutionMode === true) return false;
 
   // INTENT FRAMING IS MANDATORY FOR ALL INTERACTIONS
   // Only suppress for explicitly conversational types (chat is already conversational)
+  const outputStatus = String(result?.output?.status || "").toLowerCase();
+  if (outputStatus === "error") {
+    return false;
+  }
   const outputType = String(result?.output?.type || "").toLowerCase();
   if (outputType === "chat") {
     return false;
@@ -1066,7 +1006,8 @@ router.post("/agent/stream", async (req, res) => {
     const contextSnapshot = agentEngine.contextStore.get(requestContext);
     const framingPayload = buildIntentFramingPayload({
       intent: unifiedResultWithLifecycle.intent,
-      followUpIntent,
+      userMessage: effectiveMessage,
+      result: unifiedResultWithLifecycle,
       contextSnapshot,
     });
     if (

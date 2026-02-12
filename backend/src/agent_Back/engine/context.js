@@ -2,224 +2,367 @@
 
 const { DATA_REQUIREMENTS } = require("../intent.classifier");
 
-async function _resolveEntity(hint, policy) {
-  const { type, nameHint, reference } = hint;
+const ENTITY_RESOLUTION_CONFIG = Object.freeze({
+  client: {
+    label: "client",
+    listTool: "listClients",
+    listKey: "clients",
+    idTool: "getClient",
+    idParam: "clientId",
+    idResultKey: "client",
+    labelFields: ["name", "email", "company"],
+  },
+  dossier: {
+    label: "dossier",
+    listTool: "listDossiers",
+    listKey: "dossiers",
+    idTool: "getDossier",
+    idParam: "dossierId",
+    idResultKey: "dossier",
+    labelFields: ["reference", "title", "description", "phase"],
+    referenceTool: "getDossierByReference",
+    referenceParam: "reference",
+    referenceResultKey: "dossier",
+  },
+  session: {
+    label: "session",
+    listTool: "listSessions",
+    listKey: "sessions",
+    idTool: "getSession",
+    idParam: "sessionId",
+    idResultKey: "session",
+    labelFields: ["title", "session_type", "location"],
+  },
+  lawsuit: {
+    label: "lawsuit",
+    listTool: "listLawsuits",
+    listKey: "lawsuits",
+    idTool: "getLawsuit",
+    idParam: "lawsuitId",
+    idResultKey: "lawsuit",
+    labelFields: ["title", "case_number", "description"],
+  },
+  task: {
+    label: "task",
+    listTool: "listTasks",
+    listKey: "tasks",
+    idTool: "getTask",
+    idParam: "taskId",
+    idResultKey: "task",
+    labelFields: ["title", "description", "status"],
+  },
+  personal_task: {
+    label: "personal task",
+    listTool: "listPersonalTasks",
+    listKey: "personalTasks",
+    idTool: "getPersonalTask",
+    idParam: "personalTaskId",
+    idResultKey: "personalTask",
+    labelFields: ["title", "description", "status"],
+  },
+  mission: {
+    label: "mission",
+    listTool: "listMissions",
+    listKey: "missions",
+    idTool: "getMission",
+    idParam: "missionId",
+    idResultKey: "mission",
+    labelFields: ["title", "description", "status"],
+  },
+  financial_entry: {
+    label: "financial entry",
+    listTool: "listFinancialEntries",
+    listKey: "financialEntries",
+    idTool: "getFinancialEntry",
+    idParam: "financialEntryId",
+    idResultKey: "financialEntry",
+    labelFields: ["title", "reference", "entry_type"],
+  },
+  notification: {
+    label: "notification",
+    listTool: "listNotifications",
+    listKey: "notifications",
+    idTool: "getNotification",
+    idParam: "notificationId",
+    idResultKey: "notification",
+    labelFields: ["template_key", "title", "description"],
+  },
+  history_event: {
+    label: "history event",
+    listTool: "listHistoryEvents",
+    listKey: "historyEvents",
+    idTool: "getHistoryEvent",
+    idParam: "historyEventId",
+    idResultKey: "historyEvent",
+    labelFields: ["action", "description", "entity_type"],
+  },
+});
 
-  const resolveFromList = async ({
-    toolName,
-    listKey,
-    query,
-    label,
-    nameField,
-  }) => {
-    const result = await this._callReadTool(
-      toolName,
-      { query, limit: 10 },
-      policy,
-    );
-    const items = result?.[listKey] || [];
-    if (items.length === 0) {
+function normalizeEntityType(value) {
+  if (!value) return null;
+  const normalized = String(value).trim().toLowerCase();
+  const map = {
+    case: "lawsuit",
+    lawsuit: "lawsuit",
+    client: "client",
+    dossier: "dossier",
+    session: "session",
+    hearing: "session",
+    task: "task",
+    personal_task: "personal_task",
+    personaltask: "personal_task",
+    "personal task": "personal_task",
+    mission: "mission",
+    financial_entry: "financial_entry",
+    financialentry: "financial_entry",
+    "financial entry": "financial_entry",
+    notification: "notification",
+    history_event: "history_event",
+    historyevent: "history_event",
+    "history event": "history_event",
+  };
+  return map[normalized] || normalized;
+}
+
+function normalizeForMatch(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function tokenize(value) {
+  return normalizeForMatch(value)
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length >= 2);
+}
+
+function similarityScore(query, candidateText) {
+  const q = normalizeForMatch(query);
+  const c = normalizeForMatch(candidateText);
+  if (!q || !c) return 0;
+  if (q === c) return 1;
+  if (c.includes(q)) return 0.93;
+  if (q.includes(c)) return 0.88;
+
+  const qTokens = tokenize(q);
+  const cTokens = tokenize(c);
+  if (!qTokens.length || !cTokens.length) return 0;
+
+  const cSet = new Set(cTokens);
+  let overlap = 0;
+  for (const token of qTokens) {
+    if (cSet.has(token)) overlap += 1;
+  }
+  const ratio = overlap / qTokens.length;
+  if (ratio === 1) return 0.9;
+  return ratio;
+}
+
+function candidateLabel(entity, entityType) {
+  if (!entity || typeof entity !== "object") return `${entityType} (unknown)`;
+  return (
+    entity.name ||
+    entity.title ||
+    entity.reference ||
+    entity.email ||
+    `${entityType} #${entity.id}`
+  );
+}
+
+function buildCandidateText(entity, labelFields = []) {
+  const fields = [
+    ...labelFields.map((field) => entity?.[field]),
+    entity?.name,
+    entity?.title,
+    entity?.reference,
+    entity?.description,
+  ];
+  return fields.filter(Boolean).join(" ");
+}
+
+async function resolveEntity({ entityType, identifier, mode = "name" }, policy) {
+  const normalizedType = normalizeEntityType(entityType);
+  const cfg = ENTITY_RESOLUTION_CONFIG[normalizedType];
+  const rawIdentifier = String(identifier ?? "").trim();
+  if (!normalizedType || !cfg || !rawIdentifier) {
+    return {
+      found: false,
+      reason: "unsupported",
+      message: `Cannot resolve entity type: ${entityType || "unknown"}`,
+    };
+  }
+
+  if (mode === "id") {
+    const numericId = Number(rawIdentifier);
+    if (!Number.isFinite(numericId) || numericId <= 0) {
       return {
-        resolved: false,
+        found: false,
         reason: "not_found",
-        message: `No ${label} found matching "${query}"`,
+        message: `No ${cfg.label} found with id ${rawIdentifier}`,
       };
     }
-    if (items.length === 1) {
-      return { resolved: true, entity: items[0], type };
+    try {
+      const response = await this._callReadTool(
+        cfg.idTool,
+        { [cfg.idParam]: numericId },
+        policy,
+      );
+      const entity = response?.[cfg.idResultKey] || null;
+      if (!entity) {
+        return {
+          found: false,
+          reason: "not_found",
+          message: `No ${cfg.label} found with id ${rawIdentifier}`,
+        };
+      }
+      return {
+        found: true,
+        entityType: normalizedType,
+        entity,
+        entityId: entity.id,
+        entityLabel: candidateLabel(entity, normalizedType),
+      };
+    } catch (err) {
+      return { found: false, reason: "error", message: err.message };
     }
+  }
+
+  if (normalizedType === "dossier" && cfg.referenceTool) {
+    try {
+      const byRef = await this._callReadTool(
+        cfg.referenceTool,
+        { [cfg.referenceParam]: rawIdentifier },
+        policy,
+      );
+      const refEntity = byRef?.[cfg.referenceResultKey] || null;
+      if (refEntity) {
+        return {
+          found: true,
+          entityType: normalizedType,
+          entity: refEntity,
+          entityId: refEntity.id,
+          entityLabel: candidateLabel(refEntity, normalizedType),
+        };
+      }
+    } catch {
+      // Continue to name matching.
+    }
+  }
+
+  let items = [];
+  try {
+    const queried = await this._callReadTool(
+      cfg.listTool,
+      { query: rawIdentifier, limit: 20 },
+      policy,
+    );
+    items = Array.isArray(queried?.[cfg.listKey]) ? queried[cfg.listKey] : [];
+  } catch {
+    items = [];
+  }
+
+  if (!items.length) {
+    try {
+      const fallback = await this._callReadTool(
+        cfg.listTool,
+        { limit: 200 },
+        policy,
+      );
+      items = Array.isArray(fallback?.[cfg.listKey]) ? fallback[cfg.listKey] : [];
+    } catch {
+      items = [];
+    }
+  }
+
+  if (!items.length) {
+    return {
+      found: false,
+      reason: "not_found",
+      message: `No ${cfg.label} found matching "${rawIdentifier}"`,
+    };
+  }
+
+  const ranked = items
+    .map((entity) => {
+      const text = buildCandidateText(entity, cfg.labelFields);
+      const score = similarityScore(rawIdentifier, text);
+      return { entity, score };
+    })
+    .filter((entry) => entry.score >= 0.75)
+    .sort((a, b) => b.score - a.score);
+
+  if (!ranked.length) {
+    return {
+      found: false,
+      reason: "not_found",
+      message: `No ${cfg.label} found matching "${rawIdentifier}"`,
+    };
+  }
+
+  if (ranked.length > 1 && ranked[0].score - ranked[1].score < 0.08) {
+    return {
+      found: false,
+      reason: "ambiguous",
+      message: `Multiple ${cfg.label}s match "${rawIdentifier}".`,
+      candidates: ranked.slice(0, 5).map((entry) => ({
+        id: entry.entity.id,
+        name: candidateLabel(entry.entity, normalizedType),
+        score: entry.score,
+      })),
+    };
+  }
+
+  const winner = ranked[0].entity;
+  return {
+    found: true,
+    entityType: normalizedType,
+    entity: winner,
+    entityId: winner.id,
+    entityLabel: candidateLabel(winner, normalizedType),
+  };
+}
+
+async function _resolveEntity(hint, policy) {
+  const rawType = hint?.entityType || hint?.type;
+  const normalizedType = normalizeEntityType(rawType);
+  const typeToken = String(hint?.type || "").toLowerCase();
+  const nameHint = hint?.nameHint || hint?.value || hint?.reference;
+  const idHint = hint?.id || hint?.entityId || hint?.value;
+  const mode = typeToken === "id" ? "id" : "name";
+  const identifier = mode === "id" ? idHint : nameHint;
+
+  const resolution = await this.resolveEntity(
+    {
+      entityType: normalizedType,
+      identifier,
+      mode,
+    },
+    policy,
+  );
+
+  if (resolution.found && resolution.entity) {
+    return {
+      resolved: true,
+      entity: resolution.entity,
+      type: resolution.entityType,
+    };
+  }
+  if (resolution.reason === "ambiguous") {
     return {
       resolved: false,
       reason: "ambiguous",
-      message: `Multiple ${label}s match "${query}".`,
-      candidates: items.map((item) => ({
-        id: item.id,
-        name: item[nameField] || item.reference || item.title || item.name,
-      })),
+      message: resolution.message,
+      candidates: resolution.candidates || [],
     };
-  };
-
-  // Resolution by dossier reference (exact match)
-  if (type === "dossier" && reference) {
-    try {
-      const result = await this._callReadTool(
-        "getDossierByReference",
-        { reference },
-        policy,
-      );
-      if (result && result.dossier) {
-        return { resolved: true, entity: result.dossier, type: "dossier" };
-      }
-      return {
-        resolved: false,
-        reason: "not_found",
-        message: `No dossier found with reference ${reference}`,
-      };
-    } catch (err) {
-      return { resolved: false, reason: "error", message: err.message };
-    }
   }
-
-  if (type === "dossier" && nameHint) {
-    try {
-      return await resolveFromList({
-        toolName: "listDossiers",
-        listKey: "dossiers",
-        query: nameHint,
-        label: "dossier",
-        nameField: "title",
-      });
-    } catch (err) {
-      return { resolved: false, reason: "error", message: err.message };
-    }
-  }
-
-  // Resolution by client name (fuzzy match)
-  if (type === "client" && nameHint) {
-    try {
-      const result = await this._callReadTool(
-        "searchClientsByName",
-        { nameHint },
-        policy,
-      );
-      if (!result || !result.clients || result.clients.length === 0) {
-        return {
-          resolved: false,
-          reason: "not_found",
-          message: `No client found matching "${nameHint}"`,
-        };
-      }
-      if (result.clients.length === 1) {
-        return { resolved: true, entity: result.clients[0], type: "client" };
-      }
-      // Multiple matches - ambiguous
-      return {
-        resolved: false,
-        reason: "ambiguous",
-        message: `Multiple clients match "${nameHint}".`,
-        candidates: result.clients.map((c) => ({ id: c.id, name: c.name })),
-      };
-    } catch (err) {
-      return { resolved: false, reason: "error", message: err.message };
-    }
-  }
-
-  if (type === "lawsuit" && (reference || nameHint)) {
-    try {
-      return await resolveFromList({
-        toolName: "listLawsuits",
-        listKey: "lawsuits",
-        query: reference || nameHint,
-        label: "lawsuit",
-        nameField: "title",
-      });
-    } catch (err) {
-      return { resolved: false, reason: "error", message: err.message };
-    }
-  }
-
-  if (type === "mission" && (reference || nameHint)) {
-    try {
-      return await resolveFromList({
-        toolName: "listMissions",
-        listKey: "missions",
-        query: reference || nameHint,
-        label: "mission",
-        nameField: "title",
-      });
-    } catch (err) {
-      return { resolved: false, reason: "error", message: err.message };
-    }
-  }
-
-  if (type === "task" && nameHint) {
-    try {
-      return await resolveFromList({
-        toolName: "listTasks",
-        listKey: "tasks",
-        query: nameHint,
-        label: "task",
-        nameField: "title",
-      });
-    } catch (err) {
-      return { resolved: false, reason: "error", message: err.message };
-    }
-  }
-
-  if (type === "personal_task" && nameHint) {
-    try {
-      return await resolveFromList({
-        toolName: "listPersonalTasks",
-        listKey: "personalTasks",
-        query: nameHint,
-        label: "personal task",
-        nameField: "title",
-      });
-    } catch (err) {
-      return { resolved: false, reason: "error", message: err.message };
-    }
-  }
-
-  if (type === "session" && nameHint) {
-    try {
-      return await resolveFromList({
-        toolName: "listSessions",
-        listKey: "sessions",
-        query: nameHint,
-        label: "session",
-        nameField: "title",
-      });
-    } catch (err) {
-      return { resolved: false, reason: "error", message: err.message };
-    }
-  }
-
-  if (type === "financial_entry" && (reference || nameHint)) {
-    try {
-      return await resolveFromList({
-        toolName: "listFinancialEntries",
-        listKey: "financialEntries",
-        query: reference || nameHint,
-        label: "financial entry",
-        nameField: "title",
-      });
-    } catch (err) {
-      return { resolved: false, reason: "error", message: err.message };
-    }
-  }
-
-  if (type === "notification" && nameHint) {
-    try {
-      return await resolveFromList({
-        toolName: "listNotifications",
-        listKey: "notifications",
-        query: nameHint,
-        label: "notification",
-        nameField: "template_key",
-      });
-    } catch (err) {
-      return { resolved: false, reason: "error", message: err.message };
-    }
-  }
-
-  if (type === "history_event" && nameHint) {
-    try {
-      return await resolveFromList({
-        toolName: "listHistoryEvents",
-        listKey: "historyEvents",
-        query: nameHint,
-        label: "history event",
-        nameField: "action",
-      });
-    } catch (err) {
-      return { resolved: false, reason: "error", message: err.message };
-    }
-  }
-
   return {
     resolved: false,
-    reason: "unsupported",
-    message: `Cannot resolve entity type: ${type}`,
+    reason: resolution.reason || "not_found",
+    message: resolution.message || `No ${normalizedType || "entity"} found`,
+    candidates: resolution.candidates || [],
   };
 }
 
@@ -544,6 +687,7 @@ function _buildEnrichedContext(context, fetchedData, dataReqs) {
 }
 
 module.exports = {
+  resolveEntity,
   _resolveEntity,
   _callReadTool,
   _builtinEntityLookup,

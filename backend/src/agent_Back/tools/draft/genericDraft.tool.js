@@ -21,6 +21,8 @@ const {
 const LLM_BASE_URL = process.env.LLM_BASE_URL || 'http://127.0.0.1:11434';
 const LLM_MODEL = process.env.LLM_MODEL || 'qwen2.5:7b-instruct';
 const LLM_TIMEOUT = parseInt(process.env.LLM_TIMEOUT || '45000', 10);
+const LLM_DRAFT_TIMEOUT = parseInt(process.env.LLM_DRAFT_TIMEOUT || String(LLM_TIMEOUT), 10);
+const LLM_DRAFT_NUM_PREDICT = parseInt(process.env.LLM_DRAFT_NUM_PREDICT || '500', 10);
 
 const inputSchema = {
   type: 'object',
@@ -186,7 +188,7 @@ Output only the draft content, no meta-commentary.`;
 
 async function generateDraftContent(prompt) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), LLM_TIMEOUT);
+  const timeoutId = setTimeout(() => controller.abort(), LLM_DRAFT_TIMEOUT);
 
   try {
     const response = await fetch(`${LLM_BASE_URL}/api/generate`, {
@@ -198,7 +200,7 @@ async function generateDraftContent(prompt) {
         stream: false,
         options: {
           temperature: 0.5,
-          num_predict: 800,
+          num_predict: LLM_DRAFT_NUM_PREDICT,
         },
       }),
       signal: controller.signal,
@@ -214,6 +216,9 @@ async function generateDraftContent(prompt) {
     return (data.response || '').trim();
   } catch (err) {
     clearTimeout(timeoutId);
+    if (err?.name === 'AbortError') {
+      throw new Error(`Draft generation timed out after ${LLM_DRAFT_TIMEOUT}ms`);
+    }
     throw new Error(`Failed to generate draft content: ${err.message}`);
   }
 }

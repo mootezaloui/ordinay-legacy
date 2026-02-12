@@ -34,6 +34,7 @@ import { CollectionArtifact } from "./artifacts/CollectionArtifact";
 import { WebSearchResultsArtifact } from "./artifacts/WebSearchResultsArtifact";
 import { FollowUpSuggestions } from "./artifacts/FollowUpSuggestions";
 import { CommentaryBubble } from "./artifacts/CommentaryBubble";
+import { ContextSuggestionRenderer } from "./artifacts/ContextSuggestionRenderer";
 import { MarkdownOutput } from "../../components/MarkdownOutput";
 import {
   decideCommentary,
@@ -1056,6 +1057,42 @@ function ArtifactBody({
       <ErrorArtifact
         content={message.content}
         onExampleClick={onExampleClick}
+      />
+    );
+  }
+
+  // ── CLEAN CONTRACT: Context Suggestions ──
+  // Driven ONLY by output.type, no nested field inspection
+  if (dataType === "context_suggestion" && message.data?.contextSuggestion) {
+    return (
+      <ContextSuggestionRenderer
+        data={message.data.contextSuggestion}
+        onSelect={(suggestion) => {
+          // Send resolution payload preserving original intent
+          const payload = {
+            intent: "RESOLVE_CONTEXT_AND_CONTINUE",
+            originalIntent: message.data.contextSuggestion.originalIntent,
+            originalDraftType: message.data.contextSuggestion.originalDraftType,
+            originalMessage: message.data.contextSuggestion.originalMessage,
+            resolvedEntity: {
+              type: suggestion.entityType,
+              id: suggestion.entityId,
+              label: suggestion.label,
+            },
+            entityType: suggestion.entityType,
+            entityId: suggestion.entityId,
+            scope: suggestion.scope,
+            label: suggestion.label,
+            reason: "User selected context suggestion",
+            origin: {
+              entity: suggestion.entityType.toUpperCase(),
+              entityId: suggestion.entityId,
+            },
+          };
+          console.log('[DEBUG] Sending context resolution payload:', payload);
+          console.log('[DEBUG] contextSuggestion data:', message.data.contextSuggestion);
+          onFollowUpClick?.(payload);
+        }}
       />
     );
   }

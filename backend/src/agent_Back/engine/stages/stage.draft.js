@@ -5,6 +5,10 @@ const {
   resolveEntityDisplayLabel,
   formatEntityTypeLabel,
 } = require("../../utils/entityDisplay");
+const {
+  getContextSuggestions,
+  formatSuggestionResponse,
+} = require("./stage.contextSuggest");
 
 /**
  * Execute a DRAFT intent (deterministic draft generation).
@@ -66,6 +70,49 @@ async function _executeDraftIntent(
     || context?.clientId
     || context?.sessionId
     || null;
+
+  // ── Extract resolved entity from context suggestion resolution ──
+  if (context?._resolvedFromSuggestion && context?.resolvedEntity) {
+    resolvedEntityType = context.resolvedEntity.type;
+    const entityId = Number(context.resolvedEntity.id);
+
+    console.log(`[Draft] Fetching resolved entity: ${resolvedEntityType}#${entityId}`);
+
+    // Fetch the actual entity data using the resolved ID
+    try {
+      const toolName = `get${resolvedEntityType.charAt(0).toUpperCase() + resolvedEntityType.slice(1)}`;
+      const entityResult = await this._callReadTool(
+        toolName,
+        { [`${resolvedEntityType}Id`]: entityId },
+        policy
+      );
+
+      console.log(`[Draft] Entity fetch result:`, entityResult);
+
+      if (entityResult?.[resolvedEntityType]) {
+        resolvedEntity = entityResult[resolvedEntityType];
+        console.log(`[Draft] Entity resolved successfully:`, resolvedEntity?.id);
+      }
+    } catch (err) {
+      console.error(`[Draft] Failed to fetch resolved entity ${resolvedEntityType}#${entityId}:`, err.message);
+    }
+
+    // If entity fetch failed, return error
+    if (!resolvedEntity) {
+      return {
+        intent,
+        agentVersion: policy.version,
+        reasoner: "draft-gate",
+        output: {
+          type: "error",
+          message: `Could not find ${resolvedEntityType} with ID ${entityId}. The ${resolvedEntityType} may have been deleted or you may not have permission to access it.`,
+          timestamp: new Date().toISOString(),
+        },
+        needsClarification: false,
+        isDraftIntent: true,
+      };
+    }
+  }
 
   if (entityHints.length > 0) {
     for (const hint of entityHints) {
@@ -200,7 +247,109 @@ async function _executeDraftIntent(
   }
 
   // ── Step 3: Clarification if no entity resolved ───────────────────
-  if (!resolvedEntity) {
+  // Skip context suggestion if entity was just resolved from a previous suggestion
+  if (!resolvedEntity && !context._resolvedFromSuggestion) {
+    const missingEntities = _draftMissingEntities(effectiveDraftType);
+    const primaryMissingEntity = missingEntities[0] || _draftEntityLabel(effectiveDraftType);
+    const suggestions = await getContextSuggestions.call(
+      this,
+      intent,
+      missingEntities,
+      {
+        userMessage: message,
+        requestContext: context,
+        policy,
+      },
+    );
+
+    if (Array.isArray(suggestions) && suggestions.length > 0) {
+      const suggestionEntityType =
+        String(suggestions[0]?.entityType || primaryMissingEntity || "entity").toLowerCase();
+
+      this.ledger.record({
+        type: "draft_context_suggestions",
+        reason: "missing_entity",
+        draftType: effectiveDraftType,
+        entityType: suggestionEntityType,
+        suggestionCount: suggestions.length,
+        timestamp: new Date().toISOString(),
+      });
+
+      // Helper to build scope object from entityType/entityId
+      const buildScope = (entityType, entityId) => {
+        const scope = {};
+        if (entityType === "client") scope.clientId = Number(entityId);
+        else if (entityType === "dossier") scope.dossierId = Number(entityId);
+        else if (entityType === "lawsuit") scope.lawsuitId = Number(entityId);
+        else if (entityType === "session") scope.sessionId = Number(entityId);
+        else if (entityType === "task") scope.taskId = Number(entityId);
+        return scope;
+      };
+
+      // Helper to extract metadata from signal string
+      const parseSignalMetadata = (signal) => {
+        const metadata = {};
+        if (!signal) return metadata;
+        const parts = String(signal).split(",").map(s => s.trim());
+        for (const part of parts) {
+          const match = part.match(/^(\d+)\s+(.+?)(?:\(s\))?$/i);
+          if (match) {
+            const count = parseInt(match[1], 10);
+            const label = match[2].trim().replace(/\s+/g, "_").toLowerCase();
+            metadata[label] = count;
+          }
+        }
+        return metadata;
+      };
+
+      console.log('[DEBUG] Creating context_suggestion with:', { intent, effectiveDraftType, message });
+
+      return {
+        intent,
+        agentVersion: policy.version,
+        reasoner: "draft-gate",
+        output: {
+          type: "context_suggestion",
+          message: `I found ${suggestions.length} ${suggestionEntityType}${suggestions.length === 1 ? "" : "s"} that might match your request:`,
+          entityType: suggestionEntityType,
+          reason: "missing_context",
+
+          // Preserve original execution context
+          originalIntent: intent,
+          originalDraftType: effectiveDraftType,
+          originalMessage: message,
+
+          suggestions: suggestions.map((item) => ({
+            id: `${item.entityType}-${item.entityId}`,
+            entityType: item.entityType,
+            entityId: item.entityId,
+            label: item.label,
+            subtitle: null,
+            metadata: parseSignalMetadata(item.signal),
+
+            // Resolution intent, not READ
+            intent: "RESOLVE_CONTEXT_AND_CONTINUE",
+            scope: buildScope(item.entityType, item.entityId),
+
+            // Embedded resolution context
+            resolveContext: {
+              originalIntent: intent,
+              originalDraftType: effectiveDraftType
+            }
+          })),
+          timestamp: new Date().toISOString(),
+          confidence: 0.6,
+          source: "draft-gate",
+
+          // Manual override capability
+          allowManualInput: true,
+          manualInputHint: `If the correct ${suggestionEntityType} is not listed, you can type the name manually.`,
+        },
+        needsClarification: true,
+        isDraftIntent: true,
+      };
+    }
+
     this.ledger.record({
       type: "draft_clarification_required",
       reason: "missing_entity",
@@ -216,10 +365,8 @@ async function _executeDraftIntent(
         type: "explanation",
         entityId: "pending_clarification",
         entityType: "query",
-        summary: `Which ${_draftEntityLabel(effectiveDraftType)} should this ${_draftTypeLabel(effectiveDraftType)} be for?`,
-        details: [
-          "Please specify a client name, dossier reference, or session.",
-        ],
+        summary: `Which ${primaryMissingEntity} should this be for?`,
+        details: [],
         timestamp: new Date().toISOString(),
         confidence: 0,
         sources: [
@@ -239,6 +386,7 @@ async function _executeDraftIntent(
   }
 
   // ── Step 4: Derive tool params ────────────────────────────────────
+  console.log(`[Draft] Deriving tool params - resolvedEntityType: ${resolvedEntityType}, resolvedEntity:`, resolvedEntity);
   const entityType = _mapToToolEntityType(resolvedEntityType);
   const entityId = resolvedEntity.id;
   const purpose = _derivePurpose(message, effectiveDraftType);
@@ -253,6 +401,8 @@ async function _executeDraftIntent(
     language: "fr",
   };
 
+  console.log(`[Draft] Tool params:`, toolParams);
+
   // ── Step 5: Execute genericDraft tool via registry ────────────────
   this.ledger.record({
     type: "draft_tool_invocation",
@@ -263,12 +413,16 @@ async function _executeDraftIntent(
     timestamp: new Date().toISOString(),
   });
 
+  console.log(`[Draft] Calling genericDraft tool...`);
+
   try {
     const v2Result = await this.executeToolV2("genericDraft", toolParams, policy, {
       confirmed: true,
       planId: null,
       stepIndex: 0,
     });
+
+    console.log(`[Draft] genericDraft returned:`, v2Result);
 
     const draftOutput = v2Result.result;
 
@@ -284,6 +438,7 @@ async function _executeDraftIntent(
       isDraftIntent: true,
     };
   } catch (err) {
+    console.error(`[Draft] Error during draft generation:`, err);
     this.ledger.record({
       type: "draft_intent_error",
       intent,
@@ -388,6 +543,14 @@ function _draftEntityLabel(draftType) {
   if (draftType === "HEARING_SUMMARY") return "session";
   if (draftType === "INTERNAL_NOTE") return "dossier or client";
   return "entity";
+}
+
+function _draftMissingEntities(draftType) {
+  if (draftType === "CLIENT_EMAIL") return ["client"];
+  if (draftType === "INVITATION") return ["session", "dossier"];
+  if (draftType === "HEARING_SUMMARY") return ["session"];
+  if (draftType === "INTERNAL_NOTE") return ["dossier", "client"];
+  return ["entity"];
 }
 
 module.exports = {

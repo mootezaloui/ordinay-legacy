@@ -86,13 +86,14 @@ export interface AgentMessage {
 }
 
 export interface AgentMessageData {
-  type: "explanation" | "risks" | "draft" | "actions" | "clarification" | "collection" | "proposal" | "web_search_results" | "web_deep_search_results" | "error";
+  type: "explanation" | "risks" | "draft" | "actions" | "clarification" | "collection" | "context_suggestion" | "proposal" | "web_search_results" | "web_deep_search_results" | "error";
   explanation?: ExplanationOutput;
   risks?: RiskAnalysisOutput;
   draft?: DraftOutput;
   actionProposals?: ActionProposal[];
   clarification?: ClarificationOutput;
   collection?: CollectionOutput;
+  contextSuggestion?: import("../../services/api/agent").ContextSuggestionOutput;
   proposal?: ProposalOutput;
   webSearchResults?: WebSearchResultsOutput | WebDeepSearchResultsOutput;
   error?: string;

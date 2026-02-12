@@ -143,6 +143,8 @@ class ConversationContextStore {
     // NEW: Try operational store first (NO TTL CHECK)
     const operational = this._operationalStore.get(userId, conversationId);
     if (operational) {
+      // Need to get lastOutput from legacy map since operational store doesn't have it yet
+      const legacy = this._contexts.get(conversationId);
       // Convert operational context to legacy format for backward compatibility
       return {
         conversationId,
@@ -160,6 +162,7 @@ class ConversationContextStore {
         lastQuery: operational.lastQuery || '',
         source: operational.source || 'nlp',
         updatedAt: operational.updatedAt,
+        lastOutput: legacy?.lastOutput || null, // For pending resolution detection
       };
     }
 
@@ -301,6 +304,7 @@ class ConversationContextStore {
       lastQuery: actionResult.query || '',
       source: actionResult.source || CONTEXT_SOURCES.NLP,
       lastPosture: posture ? posture.mode : (previous?.lastPosture || null),
+      lastOutput: actionResult.lastOutput || null, // For pending resolution detection
       updatedAt: new Date().toISOString(),
     });
 

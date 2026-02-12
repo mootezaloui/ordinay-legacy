@@ -146,6 +146,15 @@ export interface FollowUpSuggestion {
     personalTaskId?: number;
     financialEntryId?: number;
   };
+  // Context resolution fields (for RESOLVE_CONTEXT_AND_CONTINUE)
+  originalIntent?: string;
+  originalDraftType?: string;
+  originalMessage?: string;
+  resolvedEntity?: {
+    type: string;
+    id: string | number;
+    label: string;
+  };
   filters?: {
     status?: string | null;
     priority?: string | null;
@@ -292,6 +301,17 @@ export interface FollowUpIntent {
     personalTaskId?: number;
     financialEntryId?: number;
   };
+
+  // Context resolution fields (for RESOLVE_CONTEXT_AND_CONTINUE)
+  originalIntent?: string;
+  originalDraftType?: string;
+  originalMessage?: string;
+  resolvedEntity?: {
+    type: string;
+    id: string | number;
+    label: string;
+  };
+
   filters?: {
     status?: string | null;
     priority?: string | null;
@@ -429,6 +449,54 @@ export interface CollectionOutput {
   followUps?: FollowUpSuggestion[];
 }
 
+// Context Suggestion output — clean contract for entity selection
+export interface ContextSuggestionOutput {
+  type: 'context_suggestion';
+  message: string;
+  entityType: string;
+  reason?: 'ambiguous_query' | 'missing_context' | 'multiple_matches';
+
+  // Original execution context (for intent preservation)
+  originalIntent?: string;
+  originalDraftType?: string;
+  originalMessage?: string;
+
+  suggestions: ContextSuggestionItem[];
+  timestamp: string;
+  confidence?: number;
+  source?: string;
+
+  // Manual override capability
+  allowManualInput?: boolean;
+  manualInputHint?: string;
+}
+
+export interface ContextSuggestionItem {
+  id: string;
+  entityType: string;
+  entityId: number | string;
+  label: string;
+  subtitle?: string | null;
+  metadata: Record<string, string | number>;
+  intent: string;
+  scope: {
+    clientId?: number;
+    dossierId?: number;
+    lawsuitId?: number;
+    sessionId?: number;
+    taskId?: number;
+    missionId?: number;
+    personalTaskId?: number;
+    financialEntryId?: number;
+  };
+
+  // Resolution context (for intent preservation)
+  resolveContext?: {
+    originalIntent: string;
+    originalDraftType?: string;
+  };
+}
+
 // Proposal output — V3 execution proposals
 export interface ProposalOutput {
   type: 'proposal';
@@ -524,6 +592,7 @@ export type AgentOutput =
   | DraftOutput
   | ClarificationOutput
   | CollectionOutput
+  | ContextSuggestionOutput
   | ProposalOutput
   | WebSearchResultsOutput
   | WebDeepSearchResultsOutput
@@ -555,6 +624,7 @@ export interface ProcessedAgentResponse {
   draft?: DraftOutput;
   clarification?: ClarificationOutput;
   collection?: CollectionOutput;
+  contextSuggestion?: ContextSuggestionOutput;
   proposal?: ProposalOutput;
   webSearchResults?: WebSearchResultsOutput | WebDeepSearchResultsOutput;
   actionProposals?: ActionProposal[];
@@ -647,6 +717,9 @@ export async function sendAgentMessage(
       processed.displayText = '';
     } else if (output.type === 'collection') {
       processed.collection = output as CollectionOutput;
+      processed.displayText = '';
+    } else if (output.type === 'context_suggestion') {
+      processed.contextSuggestion = output as ContextSuggestionOutput;
       processed.displayText = '';
     } else if (output.type === 'proposal') {
       processed.proposal = output as ProposalOutput;

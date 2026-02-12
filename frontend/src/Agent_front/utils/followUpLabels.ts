@@ -166,6 +166,14 @@ export function buildFollowUpLabel(
   if (!followUp) return "";
   if (followUp.category === "planning" && followUp.label) return followUp.label;
 
+  // Special handling for context resolution
+  if (followUp.intent === "RESOLVE_CONTEXT_AND_CONTINUE") {
+    if (followUp.resolvedEntity?.label) {
+      return followUp.resolvedEntity.label;
+    }
+    return followUp.label || "";
+  }
+
   const labelKey = followUp.labelKey || deriveLabelKey(followUp.intent);
 
   if (labelKey && SPECIAL_LABEL_KEYS.has(labelKey)) {

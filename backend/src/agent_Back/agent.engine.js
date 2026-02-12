@@ -15,6 +15,7 @@ const agentV3Policy = require("./policies/agent.v3.policy");
 
 const chatSchema = require("./schemas/chat.schema.json");
 const explanationSchema = require("./schemas/explanation.schema.json");
+const contextSuggestionSchema = require("./schemas/contextSuggestion.schema.json");
 const draftSchema = require("./schemas/draft.schema.json");
 const riskSchema = require("./schemas/risk.schema.json");
 const actionsSchema = require("./schemas/actions.schema.json");
@@ -78,6 +79,7 @@ class AgentEngine {
     this.validators = {
       chat: this.ajv.compile(chatSchema),
       explanation: this.ajv.compile(explanationSchema),
+      context_suggestion: this.ajv.compile(contextSuggestionSchema),
       draft: this.ajv.compile(draftSchema),
       operational_risk_analysis: this.ajv.compile(riskSchema),
       action_plan: this.ajv.compile(actionsSchema),

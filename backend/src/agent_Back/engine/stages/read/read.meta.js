@@ -590,6 +590,36 @@ function _buildReadExplanation({
     unknown: 0.6,
   };
 
+  // ── Clean Contract: Detect Context Suggestions ──
+  // If there are selection-category follow-ups, return context_suggestion output type
+  const hasFollowUps = Array.isArray(explanation.followUps) && explanation.followUps.length > 0;
+  const selectionFollowUps = hasFollowUps ? explanation.followUps.filter(f => f.category === "selection") : [];
+  const isContextSuggestion = selectionFollowUps.length > 0;
+
+  if (isContextSuggestion) {
+    // Return dedicated context_suggestion output using ONLY selection-category followUps
+    return {
+      type: "context_suggestion",
+      message: factsSummary || `I found ${selectionFollowUps.length} ${entityType}${selectionFollowUps.length === 1 ? "" : "s"} that might match your request:`,
+      entityType,
+      reason: readOutcome === "ambiguous" ? "ambiguous_query" : readOutcome === "incomplete" ? "missing_context" : "multiple_matches",
+      suggestions: selectionFollowUps.map((followUp, idx) => ({
+        id: `${followUp.entityType}-${followUp.entityId}`,
+        entityType: followUp.entityType,
+        entityId: followUp.entityId,
+        label: followUp.label?.replace(/^Review\s+\w+\s+context:\s*/i, "") || followUp.target?.label || `${formatEntityTypeLabel(followUp.entityType)} #${followUp.entityId}`,
+        subtitle: followUp.target?.reference || null,
+        metadata: this._parseMetadataFromReason(followUp.reason),
+        intent: followUp.intent,
+        scope: followUp.scope,
+      })),
+      timestamp: new Date().toISOString(),
+      confidence: confidenceMap[readOutcome] ?? 0.6,
+      source: "rule-based",
+    };
+  }
+
+  // Standard explanation output (unchanged for non-suggestion cases)
   return {
     type: "explanation",
     entityId: this._resolveReadEntityId(entityType, entityData),
@@ -611,6 +641,26 @@ function _buildReadExplanation({
   };
 }
 
+function _parseMetadataFromReason(reason) {
+  // Parse reason string like "3 overdue invoice(s), 2 open task(s), 1 active dossier(s)"
+  // into structured metadata: { overdueInvoices: 3, openTasks: 2, activeDossiers: 1 }
+  const metadata = {};
+  if (!reason || typeof reason !== "string") return metadata;
+
+  const parts = reason.split(",").map(s => s.trim());
+  for (const part of parts) {
+    const match = part.match(/^(\d+)\s+(.+?)(?:\(s\))?$/i);
+    if (match) {
+      const count = parseInt(match[1], 10);
+      const label = match[2].trim();
+      // Convert "overdue invoice" → "overdueInvoices", "open task" → "openTasks"
+      const key = label.replace(/\s+/g, "_").toLowerCase();
+      metadata[key] = count;
+    }
+  }
+  return metadata;
+}
+
 module.exports = {
   _resolveReadEntityType,
   _resolveReadEntityId,
@@ -619,4 +669,5 @@ module.exports = {
   _deriveContextPromotion,
   _buildReadInterpretationContext,
   _buildReadExplanation,
+  _parseMetadataFromReason,
 };
