@@ -16,7 +16,7 @@ const agentV1Policy = {
   ],
   allowedToolCategories: ['read', 'analysis', 'draft'],
   allowExecution: false,
-  allowExternalSearch: false,
+  allowExternalSearch: true,
   allowEnrichment: false,
   defaultReasoner: 'rule',
 };

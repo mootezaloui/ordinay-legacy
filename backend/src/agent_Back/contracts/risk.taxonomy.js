@@ -1,9 +1,9 @@
-'use strict';
+"use strict";
 
 /**
  * Operational Risk Taxonomy
  *
- * CRITICAL: This file defines what "risk" means in Organia.
+ * CRITICAL: This file defines what "risk" means in Ordinay.
  *
  * All risks MUST use these categories. No free-text categories allowed.
  * This is operational risk ONLY — no legal predictions, no probability estimates.
@@ -24,56 +24,56 @@ const RISK_CATEGORY = Object.freeze({
    * A deadline has passed or will pass soon without completion.
    * Factual observation only, no speculation about consequences.
    */
-  DEADLINE: 'DEADLINE',
+  DEADLINE: "DEADLINE",
 
   /**
    * DEPENDENCY
    * A task, session, or action is blocked by another incomplete item.
    * Identifies dependency relationships that prevent progress.
    */
-  DEPENDENCY: 'DEPENDENCY',
+  DEPENDENCY: "DEPENDENCY",
 
   /**
    * STATE_INCONSISTENCY
    * Entity state does not match expected state or business rules.
    * Example: Lawsuit status is "closed" but has open tasks.
    */
-  STATE_INCONSISTENCY: 'STATE_INCONSISTENCY',
+  STATE_INCONSISTENCY: "STATE_INCONSISTENCY",
 
   /**
    * ACCOUNTING_GAP
    * Financial tracking is incomplete or inconsistent.
    * Example: Session has no associated time entry, missing expense record.
    */
-  ACCOUNTING_GAP: 'ACCOUNTING_GAP',
+  ACCOUNTING_GAP: "ACCOUNTING_GAP",
 
   /**
    * MISSING_DOCUMENT
    * Required document is not present or not linked.
    * Purely structural check, no content validation.
    */
-  MISSING_DOCUMENT: 'MISSING_DOCUMENT',
+  MISSING_DOCUMENT: "MISSING_DOCUMENT",
 
   /**
    * UNASSIGNED_RESPONSIBILITY
    * Task, mission, or action has no assigned operator.
    * Work cannot proceed without assignment.
    */
-  UNASSIGNED_RESPONSIBILITY: 'UNASSIGNED_RESPONSIBILITY',
+  UNASSIGNED_RESPONSIBILITY: "UNASSIGNED_RESPONSIBILITY",
 
   /**
    * NO_RECENT_ACTIVITY
    * Entity has no recorded activity within expected timeframe.
    * Potential stagnation indicator.
    */
-  NO_RECENT_ACTIVITY: 'NO_RECENT_ACTIVITY',
+  NO_RECENT_ACTIVITY: "NO_RECENT_ACTIVITY",
 
   /**
    * SESSION_PREPARATION_GAP
    * Session is scheduled soon but preparation tasks are incomplete.
    * Time-sensitive operational readiness check.
    */
-  SESSION_PREPARATION_GAP: 'SESSION_PREPARATION_GAP',
+  SESSION_PREPARATION_GAP: "SESSION_PREPARATION_GAP",
 });
 
 /**
@@ -88,21 +88,21 @@ const RISK_SEVERITY = Object.freeze({
    * Minor operational inefficiency.
    * Does not block immediate work.
    */
-  LOW: 'LOW',
+  LOW: "LOW",
 
   /**
    * MEDIUM
    * Moderate operational issue.
    * May cause delays or require attention soon.
    */
-  MEDIUM: 'MEDIUM',
+  MEDIUM: "MEDIUM",
 
   /**
    * HIGH
    * Significant operational problem.
    * Requires immediate attention to prevent impact.
    */
-  HIGH: 'HIGH',
+  HIGH: "HIGH",
 });
 
 /**
@@ -114,7 +114,7 @@ function validateRiskCategory(category) {
   const validCategories = Object.values(RISK_CATEGORY);
   if (!validCategories.includes(category)) {
     throw new Error(
-      `Invalid risk category: "${category}". Must be one of: ${validCategories.join(', ')}`
+      `Invalid risk category: "${category}". Must be one of: ${validCategories.join(", ")}`,
     );
   }
 }
@@ -128,7 +128,7 @@ function validateRiskSeverity(severity) {
   const validSeverities = Object.values(RISK_SEVERITY);
   if (!validSeverities.includes(severity)) {
     throw new Error(
-      `Invalid risk severity: "${severity}". Must be one of: ${validSeverities.join(', ')}`
+      `Invalid risk severity: "${severity}". Must be one of: ${validSeverities.join(", ")}`,
     );
   }
 }
@@ -147,7 +147,14 @@ function validateRiskSeverity(severity) {
  * @returns {Object} Validated risk object
  * @throws {Error} If validation fails
  */
-function createRisk({ id, category, severity, description, affectedEntityRef, affectedItems = [] }) {
+function createRisk({
+  id,
+  category,
+  severity,
+  description,
+  affectedEntityRef,
+  affectedItems = [],
+}) {
   // Validate category
   validateRiskCategory(category);
 
@@ -155,30 +162,36 @@ function createRisk({ id, category, severity, description, affectedEntityRef, af
   validateRiskSeverity(severity);
 
   // Validate required fields
-  if (!id || typeof id !== 'string') {
-    throw new Error('Risk id is required and must be a string');
+  if (!id || typeof id !== "string") {
+    throw new Error("Risk id is required and must be a string");
   }
 
-  if (!description || typeof description !== 'string') {
-    throw new Error('Risk description is required and must be a string');
+  if (!description || typeof description !== "string") {
+    throw new Error("Risk description is required and must be a string");
   }
 
-  if (!affectedEntityRef || typeof affectedEntityRef !== 'object') {
-    throw new Error('Risk affectedEntityRef is required and must be an object');
+  if (!affectedEntityRef || typeof affectedEntityRef !== "object") {
+    throw new Error("Risk affectedEntityRef is required and must be an object");
   }
 
   if (!affectedEntityRef.type || !affectedEntityRef.id) {
-    throw new Error('affectedEntityRef must have type and id');
+    throw new Error("affectedEntityRef must have type and id");
   }
 
   // No probability estimates allowed
   // No legal predictions allowed
   // No outcome speculation allowed
-  const forbiddenFields = ['probability', 'legalImpact', 'likelihood', 'prediction', 'outcome'];
-  forbiddenFields.forEach(field => {
+  const forbiddenFields = [
+    "probability",
+    "legalImpact",
+    "likelihood",
+    "prediction",
+    "outcome",
+  ];
+  forbiddenFields.forEach((field) => {
     if (field in arguments[0]) {
       throw new Error(
-        `Risk object must not contain "${field}". Operational risks are factual observations only.`
+        `Risk object must not contain "${field}". Operational risks are factual observations only.`,
       );
     }
   });
@@ -204,43 +217,43 @@ function getCategoryMetadata(category) {
 
   const metadata = {
     [RISK_CATEGORY.DEADLINE]: {
-      name: 'Deadline Risk',
-      type: 'temporal',
+      name: "Deadline Risk",
+      type: "temporal",
       requiresTimestamp: true,
     },
     [RISK_CATEGORY.DEPENDENCY]: {
-      name: 'Dependency Risk',
-      type: 'relational',
+      name: "Dependency Risk",
+      type: "relational",
       requiresTimestamp: false,
     },
     [RISK_CATEGORY.STATE_INCONSISTENCY]: {
-      name: 'State Inconsistency',
-      type: 'structural',
+      name: "State Inconsistency",
+      type: "structural",
       requiresTimestamp: false,
     },
     [RISK_CATEGORY.ACCOUNTING_GAP]: {
-      name: 'Accounting Gap',
-      type: 'financial',
+      name: "Accounting Gap",
+      type: "financial",
       requiresTimestamp: false,
     },
     [RISK_CATEGORY.MISSING_DOCUMENT]: {
-      name: 'Missing Document',
-      type: 'structural',
+      name: "Missing Document",
+      type: "structural",
       requiresTimestamp: false,
     },
     [RISK_CATEGORY.UNASSIGNED_RESPONSIBILITY]: {
-      name: 'Unassigned Responsibility',
-      type: 'organizational',
+      name: "Unassigned Responsibility",
+      type: "organizational",
       requiresTimestamp: false,
     },
     [RISK_CATEGORY.NO_RECENT_ACTIVITY]: {
-      name: 'No Recent Activity',
-      type: 'temporal',
+      name: "No Recent Activity",
+      type: "temporal",
       requiresTimestamp: true,
     },
     [RISK_CATEGORY.SESSION_PREPARATION_GAP]: {
-      name: 'Session Preparation Gap',
-      type: 'temporal',
+      name: "Session Preparation Gap",
+      type: "temporal",
       requiresTimestamp: true,
     },
   };

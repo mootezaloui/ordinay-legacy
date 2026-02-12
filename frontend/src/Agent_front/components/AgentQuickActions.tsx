@@ -97,7 +97,9 @@ function useDynamicSuggestions(): DynamicSuggestion[] {
       const date = s.scheduled_at || s.session_date;
       if (!date) return false;
       const sessionDate = new Date(date);
-      const daysUntil = Math.ceil((sessionDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      const daysUntil = Math.ceil(
+        (sessionDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+      );
       return daysUntil >= 0 && daysUntil <= 7;
     });
 
@@ -114,13 +116,16 @@ function useDynamicSuggestions(): DynamicSuggestion[] {
 
     // ── Active Dossiers ──
     const activeDossiers = dossiers.filter(
-      (d) => d.status !== "closed" && d.status !== "archived"
+      (d) => d.status !== "closed" && d.status !== "archived",
     );
 
     if (activeDossiers.length > 0) {
       // Suggest viewing a specific recent dossier
       const recentDossier = activeDossiers[0];
-      const dossierRef = recentDossier.reference || recentDossier.title || `#${recentDossier.id}`;
+      const dossierRef =
+        recentDossier.reference ||
+        recentDossier.title ||
+        `#${recentDossier.id}`;
 
       suggestions.push({
         id: "active-dossiers",
@@ -147,7 +152,8 @@ function useDynamicSuggestions(): DynamicSuggestion[] {
     // ── Client Overview (if we have clients) ──
     if (clients.length > 0 && suggestions.length < 3) {
       const recentClient = clients[0];
-      const clientName = recentClient.name || recentClient.reference || `#${recentClient.id}`;
+      const clientName =
+        recentClient.name || recentClient.reference || `#${recentClient.id}`;
 
       suggestions.push({
         id: "client-overview",
@@ -161,7 +167,7 @@ function useDynamicSuggestions(): DynamicSuggestion[] {
 
     // ── Task Summary (if we have tasks) ──
     const pendingTasks = tasks.filter(
-      (t) => t.status !== "done" && t.status !== "completed"
+      (t) => t.status !== "done" && t.status !== "completed",
     );
 
     if (pendingTasks.length > 0 && suggestions.length < 4) {
@@ -177,7 +183,7 @@ function useDynamicSuggestions(): DynamicSuggestion[] {
 
     // ── Personal Tasks (if available) ──
     const pendingPersonal = personalTasks.filter(
-      (t) => t.status !== "done" && t.status !== "completed"
+      (t) => t.status !== "done" && t.status !== "completed",
     );
 
     if (pendingPersonal.length > 0 && suggestions.length < 4) {
@@ -219,7 +225,7 @@ export function AgentQuickActions({ onExampleClick }: AgentQuickActionsProps) {
             <MessageSquare className="w-5 h-5 text-slate-500 dark:text-slate-400" />
           </div>
           <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">
-            Organia Intelligence
+            Ordinay Intelligence
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 max-w-xs mx-auto">
             Query your dossiers, clients, tasks, and documents. Use{" "}
@@ -258,16 +264,20 @@ export function AgentQuickActions({ onExampleClick }: AgentQuickActionsProps) {
               onClick={() => onExampleClick?.(suggestion.prompt)}
               className="group flex items-center gap-3 p-4 bg-white/85 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-700/60 rounded-2xl hover:border-slate-300/80 dark:hover:border-slate-600 transition-colors text-left shadow-sm"
             >
-              <div className={`p-2 rounded-xl flex-shrink-0 border ${
-                suggestion.priority === 0
-                  ? "bg-amber-50 dark:bg-amber-900/20 border-amber-200/70 dark:border-amber-800/60"
-                  : "bg-slate-50 dark:bg-slate-800 border-slate-200/70 dark:border-slate-700/60"
-              }`}>
-                <IconComponent className={`w-4 h-4 ${
+              <div
+                className={`p-2 rounded-xl flex-shrink-0 border ${
                   suggestion.priority === 0
-                    ? "text-amber-600 dark:text-amber-400"
-                    : "text-slate-500 dark:text-slate-400"
-                }`} />
+                    ? "bg-amber-50 dark:bg-amber-900/20 border-amber-200/70 dark:border-amber-800/60"
+                    : "bg-slate-50 dark:bg-slate-800 border-slate-200/70 dark:border-slate-700/60"
+                }`}
+              >
+                <IconComponent
+                  className={`w-4 h-4 ${
+                    suggestion.priority === 0
+                      ? "text-amber-600 dark:text-amber-400"
+                      : "text-slate-500 dark:text-slate-400"
+                  }`}
+                />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">

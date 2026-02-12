@@ -861,7 +861,7 @@ function registerContentSecurityPolicyHandler() {
           "default-src 'self'",
           "script-src 'self' 'unsafe-inline'", // unsafe-inline needed for Vite HMR in dev
           "style-src 'self' 'unsafe-inline'", // unsafe-inline needed for styled-components/CSS-in-JS
-          "img-src 'self' data: blob:",
+          "img-src 'self' data: blob: https://www.google.com https://*.gstatic.com",
           "font-src 'self' data:",
           "connect-src 'self' http://localhost:* ws://localhost:* http://192.168.1.175:* ws://192.168.1.175:* http://169.254.9.207:* ws://169.254.9.207:*", // Vite HMR + LAN dev
           "object-src 'none'",
@@ -873,7 +873,7 @@ function registerContentSecurityPolicyHandler() {
           "default-src 'self'",
           "script-src 'self' 'unsafe-inline'",
           "style-src 'self' 'unsafe-inline'", // unsafe-inline still needed for CSS-in-JS in production
-          "img-src 'self' data: blob:",
+          "img-src 'self' data: blob: https://www.google.com https://*.gstatic.com",
           "font-src 'self' data:",
           "connect-src 'self' https://ordinay.app https://*.ordinay.app", // Outbound only (activation/referral)
           "object-src 'none'",

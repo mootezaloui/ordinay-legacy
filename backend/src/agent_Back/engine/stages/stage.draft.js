@@ -39,6 +39,19 @@ async function _executeDraftIntent(
     draftType,
     entityHints = [],
   } = draftIntent;
+  let effectiveDraftType = draftType;
+  if (!effectiveDraftType) {
+    const m = String(message || "").toLowerCase();
+    const invitationSignal = /\b(hearing|session|demand)\b/.test(m) || m.includes("mise en demeure");
+    const emailSignal = /\b(response|reply)\b/.test(m);
+    const noteSignal = /\bnote\b/.test(m);
+    const inferred = [
+      invitationSignal ? "INVITATION" : null,
+      emailSignal ? "CLIENT_EMAIL" : null,
+      noteSignal ? "INTERNAL_NOTE" : null,
+    ].filter(Boolean);
+    if (new Set(inferred).size === 1) [effectiveDraftType] = inferred;
+  }
 
   // ── Step 1: Resolve entity hints ──────────────────────────────────
   let resolvedEntity = null;
@@ -56,76 +69,92 @@ async function _executeDraftIntent(
 
   if (entityHints.length > 0) {
     for (const hint of entityHints) {
-      try {
-        const resolution = await this._resolveEntity(hint, policy);
-        if (resolution.resolved) {
-          resolvedEntity = resolution.entity;
-          resolvedEntityType = resolution.type;
-          break;
-        }
+      const hintsToTry = hint?.type === "name"
+        ? [
+            { type: "client", nameHint: hint.value },
+            { type: "dossier", nameHint: hint.value },
+            { type: "session", nameHint: hint.value },
+          ]
+        : [hint];
 
-        // Ambiguous → return clarification
-        if (resolution.reason === "ambiguous") {
+      for (const hintToResolve of hintsToTry) {
+        try {
+          const resolution = await this._resolveEntity(hintToResolve, policy);
+          if (resolution.resolved) {
+            resolvedEntity = resolution.entity;
+            resolvedEntityType = resolution.type;
+            break;
+          }
+
+          // Ambiguous → return clarification
+          if (resolution.reason === "ambiguous") {
+            this.ledger.record({
+              type: "draft_clarification_required",
+              reason: "ambiguous_entity",
+              candidates: resolution.candidates,
+              timestamp: new Date().toISOString(),
+            });
+
+            const clarificationType = hintToResolve?.entityType
+              || hintToResolve?.type
+              || hint?.entityType
+              || hint?.type
+              || "record";
+            const candidateDetails = Array.isArray(resolution.candidates)
+              ? resolution.candidates.map((c) =>
+                  resolveEntityDisplayLabel(clarificationType, c, {
+                    fallback: formatEntityTypeLabel(clarificationType),
+                  }),
+                )
+              : [];
+
+            return {
+              intent,
+              agentVersion: policy.version,
+              reasoner: "draft-gate",
+              output: {
+                type: "explanation",
+                entityId: "pending_clarification",
+                entityType: "query",
+                summary: resolution.message,
+                details: candidateDetails,
+                timestamp: new Date().toISOString(),
+                confidence: 0,
+                sources: [
+                  {
+                    sourceType: "context",
+                    reference: "entity_resolution",
+                    note: "Awaiting user clarification for draft",
+                  },
+                ],
+                status: "pending_clarification",
+                source: "draft-gate",
+                requires_validation: false,
+              },
+              needsClarification: true,
+              isDraftIntent: true,
+            };
+          }
+
+          // Not found → continue to next adapted hint or next original hint
+        } catch (err) {
           this.ledger.record({
-            type: "draft_clarification_required",
-            reason: "ambiguous_entity",
-            candidates: resolution.candidates,
+            type: "draft_entity_resolution_error",
+            hint: hintToResolve,
+            error: err.message,
             timestamp: new Date().toISOString(),
           });
-
-          const clarificationType = hint?.entityType || hint?.type || "record";
-          const candidateDetails = Array.isArray(resolution.candidates)
-            ? resolution.candidates.map((c) =>
-                resolveEntityDisplayLabel(clarificationType, c, {
-                  fallback: formatEntityTypeLabel(clarificationType),
-                }),
-              )
-            : [];
-
-          return {
-            intent,
-            agentVersion: policy.version,
-            reasoner: "draft-gate",
-            output: {
-              type: "explanation",
-              entityId: "pending_clarification",
-              entityType: "query",
-              summary: resolution.message,
-              details: candidateDetails,
-              timestamp: new Date().toISOString(),
-              confidence: 0,
-              sources: [
-                {
-                  sourceType: "context",
-                  reference: "entity_resolution",
-                  note: "Awaiting user clarification for draft",
-                },
-              ],
-              status: "pending_clarification",
-              source: "draft-gate",
-              requires_validation: false,
-            },
-            needsClarification: true,
-            isDraftIntent: true,
-          };
         }
-
-        // Not found → continue to next hint or fall through
-      } catch (err) {
-        this.ledger.record({
-          type: "draft_entity_resolution_error",
-          hint,
-          error: err.message,
-          timestamp: new Date().toISOString(),
-        });
       }
+
+      if (resolvedEntity) break;
     }
   }
 
   // Fall back to context-bound entity if no hint resolved
   // Only accept context entity if its type is compatible with the requested draft type
   if (!resolvedEntity && contextEntityId && contextEntityType) {
-    const compatible = _isEntityTypeCompatible(contextEntityType, draftType);
+    const compatible = _isEntityTypeCompatible(contextEntityType, effectiveDraftType);
     if (compatible) {
       resolvedEntityType = contextEntityType;
       resolvedEntity = { id: contextEntityId };
@@ -133,7 +162,7 @@ async function _executeDraftIntent(
   }
 
   // ── Step 2: Clarification if draft type is missing ────────────────
-  if (!draftType) {
+  if (!effectiveDraftType) {
     this.ledger.record({
       type: "draft_clarification_required",
       reason: "missing_draft_type",
@@ -175,7 +204,7 @@ async function _executeDraftIntent(
     this.ledger.record({
       type: "draft_clarification_required",
       reason: "missing_entity",
-      draftType,
+      draftType: effectiveDraftType,
       timestamp: new Date().toISOString(),
     });
 
@@ -187,7 +216,7 @@ async function _executeDraftIntent(
         type: "explanation",
         entityId: "pending_clarification",
         entityType: "query",
-        summary: `Which ${_draftEntityLabel(draftType)} should this ${_draftTypeLabel(draftType)} be for?`,
+        summary: `Which ${_draftEntityLabel(effectiveDraftType)} should this ${_draftTypeLabel(effectiveDraftType)} be for?`,
         details: [
           "Please specify a client name, dossier reference, or session.",
         ],
@@ -212,14 +241,14 @@ async function _executeDraftIntent(
   // ── Step 4: Derive tool params ────────────────────────────────────
   const entityType = _mapToToolEntityType(resolvedEntityType);
   const entityId = resolvedEntity.id;
-  const purpose = _derivePurpose(message, draftType);
+  const purpose = _derivePurpose(message, effectiveDraftType);
 
   const toolParams = {
     entityType,
     entityId,
-    draftType,
+    draftType: effectiveDraftType,
     purpose,
-    audience: _deriveAudience(draftType),
+    audience: _deriveAudience(effectiveDraftType),
     tone: "formal",
     language: "fr",
   };
@@ -228,7 +257,7 @@ async function _executeDraftIntent(
   this.ledger.record({
     type: "draft_tool_invocation",
     toolName: "genericDraft",
-    draftType,
+    draftType: effectiveDraftType,
     entityType,
     entityId,
     timestamp: new Date().toISOString(),
@@ -258,7 +287,7 @@ async function _executeDraftIntent(
     this.ledger.record({
       type: "draft_intent_error",
       intent,
-      draftType,
+      draftType: effectiveDraftType,
       error: err.message,
       timestamp: new Date().toISOString(),
     });
@@ -325,11 +354,17 @@ function _deriveAudience(draftType) {
 }
 
 function _derivePurpose(message, draftType) {
-  // Extract purpose from message — only topic prepositions, not entity-targeting "for/pour"
-  const purposeMatch = message.match(
-    /(?:about|regarding|concerning|au sujet de)\s+(.{5,60}?)(?:\.|$)/i,
-  );
-  if (purposeMatch) return purposeMatch[1].trim();
+  // Extract purpose from common intent phrases with bounded capture length.
+  const purposePatterns = [
+    /(?:about|regarding|concerning|au sujet de)\s+(.{5,60}?)(?:[.!?]|$)/i,
+    /(?:requesting|afin de)\s+(.{5,60}?)(?:[.!?]|$)/i,
+    /\bto\s+(.{5,60}?)(?:[.!?]|$)/i,
+    /\b(?:for|pour)\s+(.{5,60}?)(?:[.!?]|$)/i,
+  ];
+  for (const pattern of purposePatterns) {
+    const purposeMatch = String(message || "").match(pattern);
+    if (purposeMatch) return purposeMatch[1].trim();
+  }
 
   // Default purpose by draft type
   if (draftType === "INVITATION") return "session invitation";

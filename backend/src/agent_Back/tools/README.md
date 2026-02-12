@@ -8,7 +8,7 @@
 
 ## Overview
 
-This directory contains the **Tool Registry, Safety Firewall, and Tool Implementations** for the Organia Agent.
+This directory contains the **Tool Registry, Safety Firewall, and Tool Implementations** for the Ordinay Agent.
 
 ### ⚠️ CRITICAL SAFETY PRINCIPLES
 
@@ -57,7 +57,7 @@ agent/tools/
 
 ### 1️⃣ READ (Safe)
 
-**Purpose**: Read-only access to Organia data
+**Purpose**: Read-only access to Ordinay data
 **Allowed in**: v1, v2, v3
 **Side effects**: None
 **Reversibility**: Yes (read operations don't modify data)

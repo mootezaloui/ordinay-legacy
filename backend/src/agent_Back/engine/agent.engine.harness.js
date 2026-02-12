@@ -146,6 +146,48 @@ async function runHarness() {
     };
   });
 
+  registerReadTool(registry, 'mcpWebSearch', async ({ query } = {}) => {
+    return {
+      query,
+      provider: 'mcp:harness',
+      resultCount: 2,
+      results: [
+        { id: '1', title: `External result A for ${query}`, snippet: 'Snippet A', url: 'https://example.com/a' },
+        { id: '2', title: `External result B for ${query}`, snippet: 'Snippet B', url: 'https://example.com/b' },
+      ],
+      citation: { source: 'mcp:harness', tool: 'search_web', timestamp: new Date().toISOString() },
+    };
+  });
+
+  registerReadTool(registry, 'mcpLegalSearch', async ({ query } = {}) => {
+    return {
+      query,
+      provider: 'mcp:harness',
+      resultCount: 2,
+      results: [
+        { id: '1', title: `Legal result A for ${query}`, snippet: 'Legal snippet A', url: 'https://example.com/legal-a' },
+        { id: '2', title: `Legal result B for ${query}`, snippet: 'Legal snippet B', url: 'https://example.com/legal-b' },
+      ],
+      citation: { source: 'mcp:harness', tool: 'search_legal', timestamp: new Date().toISOString() },
+    };
+  });
+
+  registerReadTool(registry, 'mcpDeepSearch', async ({ query } = {}) => {
+    return {
+      query,
+      provider: 'mcp:harness',
+      status: 'complete',
+      queries: [query, `${query} case law`],
+      totalEstimatedMatches: 42,
+      resultCount: 2,
+      results: [
+        { id: '1', title: `Deep result A for ${query}`, snippet: 'Deep snippet A', url: 'https://example.com/deep-a' },
+        { id: '2', title: `Deep result B for ${query}`, snippet: 'Deep snippet B', url: 'https://example.com/deep-b' },
+      ],
+      citation: { source: 'mcp:harness', tool: 'search_deep', timestamp: new Date().toISOString() },
+    };
+  });
+
   const engine = new AgentEngine({ toolRegistry: registry });
 
   const baseContext = {
@@ -213,12 +255,9 @@ async function runHarness() {
     context: baseContext,
     agentVersion: 'v1',
   });
-  assert(webSearch.intent === 'READ_DATA', 'Web search routes through read intent');
-  assert(webSearch.output.entityType === 'web_search', 'Web search is explicitly attributed');
-  assert(
-    String(webSearch.output.facts?.summary || '').includes('Web Search executed'),
-    'Web search summary states explicit web search execution',
-  );
+  assert(webSearch.intent === 'SEARCH_WEB', 'Web search routes through SEARCH_WEB gate');
+  assert(webSearch.output.type === 'web_search_results', 'Web search returns dedicated artifact type');
+  assert(webSearch.output.triggeredBy === 'explicit_language', 'Web search records explicit trigger source');
 
   log('Scenario 6: Explicit deep search', 'blue');
   const deepSearch = await engine.run({
@@ -226,12 +265,9 @@ async function runHarness() {
     context: baseContext,
     agentVersion: 'v1',
   });
-  assert(deepSearch.intent === 'READ_DATA', 'Deep search routes through read intent');
-  assert(deepSearch.output.entityType === 'deep_search', 'Deep search is explicitly attributed');
-  assert(
-    String(deepSearch.output.facts?.summary || '').includes('Deep Search executed'),
-    'Deep search summary states explicit deep search execution',
-  );
+  assert(deepSearch.intent === 'SEARCH_DEEP_WEB', 'Deep search routes through SEARCH_DEEP_WEB gate');
+  assert(deepSearch.output.type === 'web_deep_search_results', 'Deep search returns dedicated artifact type');
+  assert(deepSearch.output.searchIntent === 'DEEP_SEARCH', 'Deep search intent is preserved in output');
 
   log('\nAll harness scenarios passed.\n', 'green');
 }

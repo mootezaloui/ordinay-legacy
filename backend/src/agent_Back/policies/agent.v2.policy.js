@@ -13,7 +13,7 @@ const agentV2Policy = {
   ],
   allowedToolCategories: ['read', 'analysis', 'draft', 'research'],
   allowExecution: false,
-  allowExternalSearch: false,
+  allowExternalSearch: true,
   allowEnrichment: true, // read-only enrichment flag
   defaultReasoner: 'rule',
 };

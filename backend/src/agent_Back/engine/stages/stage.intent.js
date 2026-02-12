@@ -375,6 +375,34 @@ async function _executeCommandTools(
     throw new Error(`Command ${commandKey} not implemented`);
   }
 
+  if (
+    readIntent.intent === READ_INTENTS.WEB_SEARCH ||
+    readIntent.intent === READ_INTENTS.DEEP_SEARCH
+  ) {
+    const isDeepSearch = readIntent.intent === READ_INTENTS.DEEP_SEARCH;
+    return this._executeSearchWebIntent(
+      readIntent,
+      message || parsed.command,
+      {
+        ...(context || {}),
+        requestMetadata: {
+          ...(context?.requestMetadata || {}),
+          webSearchEnabled: true,
+          webSearchTrigger: "explicit_language",
+          webSearchQuery: readIntent?.filters?.query || argText || "",
+          webSearchIntent: readIntent.intent,
+          webDeepSearchEnabled: isDeepSearch,
+          webDeepSearchTrigger: isDeepSearch ? "explicit_language" : undefined,
+          webDeepSearchQuery: isDeepSearch
+            ? readIntent?.filters?.query || argText || ""
+            : undefined,
+        },
+      },
+      policy,
+      engineContext,
+    );
+  }
+
   return this._executeReadIntent(
     readIntent,
     message || parsed.command,

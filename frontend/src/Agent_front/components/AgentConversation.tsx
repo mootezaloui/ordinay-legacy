@@ -3,7 +3,7 @@ import { AgentMessage as AgentMessageType } from "../types/agentMessage";
 import { UserCommand } from "./UserCommand";
 import { AgentArtifact } from "./AgentArtifact";
 import { StatusMessage } from "./messages/StatusMessage";
-import type { FollowUpSuggestion } from "../../services/api/agent";
+import type { AgentRequestMetadata, FollowUpSuggestion } from "../../services/api/agent";
 
 type TransientStatus = {
   action: string;
@@ -17,6 +17,7 @@ interface AgentConversationProps {
   transientStatus?: TransientStatus | null;
   onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
   onExampleClick?: (example: string) => void;
+  onConfirmWebSearch?: (metadata: AgentRequestMetadata) => void;
 }
 
 /**
@@ -33,6 +34,7 @@ export const AgentConversation = memo(function AgentConversation({
   transientStatus,
   onFollowUpClick,
   onExampleClick,
+  onConfirmWebSearch,
 }: AgentConversationProps) {
   // Group messages into interaction pairs: [user, agent?]
   const interactionPairs = useMemo(() => {
@@ -102,6 +104,7 @@ export const AgentConversation = memo(function AgentConversation({
                     message={agent}
                     onFollowUpClick={onFollowUpClick}
                     onExampleClick={onExampleClick}
+                    onConfirmWebSearch={onConfirmWebSearch}
                   />
                 ))}
               </div>

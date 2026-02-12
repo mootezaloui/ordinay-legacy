@@ -8,12 +8,14 @@ const {
   DOCUMENT_RELEVANCE_PROMPT,
   DOCUMENT_SUMMARY_PROMPT,
   UNGOVERNED_MODE_DECISION_PROMPT,
+  WEB_SEARCH_SUMMARY_PROMPT,
 } = require("./llm.prompts");
 const { parseJsonResponse } = require("./llm.validation");
 
 const LLM_BASE_URL = process.env.LLM_BASE_URL || "http://127.0.0.1:11434";
 const LLM_MODEL = process.env.LLM_MODEL || "qwen2.5:7b-instruct";
 const LLM_TIMEOUT = parseInt(process.env.LLM_TIMEOUT || "45000", 10);
+const OLLAMA_STREAMING = process.env.OLLAMA_STREAMING !== "false";
 const INTENT_FRAMING_TIMEOUT = parseInt(
   process.env.LLM_INTENT_FRAMING_TIMEOUT || "30000",
   10,
@@ -22,12 +24,26 @@ const DOCUMENT_SUMMARY_MAX_CHARS = parseInt(
   process.env.DOCUMENT_SUMMARY_MAX_CHARS || "12000",
   10,
 );
+const WEB_SEARCH_SUMMARY_TIMEOUT = parseInt(
+  process.env.LLM_WEB_SEARCH_SUMMARY_TIMEOUT || "15000",
+  10,
+);
+const WEB_SEARCH_STREAM_TIMEOUT = Math.max(
+  parseInt(process.env.LLM_WEB_SEARCH_STREAM_TIMEOUT || "30000", 10),
+  30000,
+);
+const WEB_SEARCH_SUMMARY_MAX_ITEMS = 5;
+const WEB_SEARCH_SUMMARY_MAX_TEXT = 400;
+const WEB_SEARCH_SUMMARY_MAX_RETRIES = 1;
 
-async function classifyIntentWithLLM(message, { customPrompt, validationList } = {}) {
+async function classifyIntentWithLLM(
+  message,
+  { customPrompt, validationList } = {},
+) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), LLM_TIMEOUT);
 
-  const prompt = customPrompt || (INTENT_CLASSIFICATION_PROMPT + message);
+  const prompt = customPrompt || INTENT_CLASSIFICATION_PROMPT + message;
   const allowedValues = validationList || INTENT_LIST;
 
   try {
@@ -89,7 +105,12 @@ async function isLLMAvailable() {
   }
 }
 
-async function selectRelevantDocuments({ question, entityType, entityId, documents }) {
+async function selectRelevantDocuments({
+  question,
+  entityType,
+  entityId,
+  documents,
+}) {
   if (!question || !Array.isArray(documents)) {
     return null;
   }
@@ -146,9 +167,7 @@ JSON:`;
     return {
       selected: parsed.selected.filter(
         (item) =>
-          item &&
-          Number.isInteger(item.document_id) &&
-          item.document_id > 0,
+          item && Number.isInteger(item.document_id) && item.document_id > 0,
       ),
     };
   } catch (err) {
@@ -168,8 +187,10 @@ async function summarizeDocumentText({ title, text, question }) {
       ? trimmedText.slice(0, DOCUMENT_SUMMARY_MAX_CHARS)
       : trimmedText;
 
-  const prompt = DOCUMENT_SUMMARY_PROMPT
-    .replace("{{title}}", title || "Document")
+  const prompt = DOCUMENT_SUMMARY_PROMPT.replace(
+    "{{title}}",
+    title || "Document",
+  )
     .replace("{{question}}", question ? String(question).trim() : "None")
     .replace(
       "{{text}}",
@@ -214,6 +235,10 @@ async function summarizeDocumentText({ title, text, question }) {
 }
 
 async function generateChatResponse(message) {
+  console.log(
+    "[LLM][ChatCompletion] Invoked",
+    JSON.stringify({ preview: String(message || "").slice(0, 80) }),
+  );
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), LLM_TIMEOUT);
 
@@ -248,21 +273,63 @@ async function generateChatResponse(message) {
 }
 
 function buildIntentFramingPrompt(intentType, entity, scope) {
-  return INTENT_FRAMING_PROMPT
-    .replace("{{intentType}}", intentType)
+  return INTENT_FRAMING_PROMPT.replace("{{intentType}}", intentType)
     .replace("{{entity}}", entity)
     .replace("{{scope}}", scope);
 }
 
+async function consumeOllamaJsonlStream(response, handlers) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let pending = "";
+
+  const processLine = (line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return false;
+    try {
+      const data = JSON.parse(trimmed);
+      if (data.response) {
+        handlers.onToken?.(data.response);
+      }
+      if (data.done) {
+        handlers.onDone?.(data);
+        return true;
+      }
+    } catch {
+      // Skip malformed json line chunks
+    }
+    return false;
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    pending += decoder.decode(value, { stream: true });
+    const lines = pending.split("\n");
+    pending = lines.pop() || "";
+    for (const line of lines) {
+      if (processLine(line)) return;
+    }
+  }
+
+  if (pending && processLine(pending)) return;
+  handlers.onDone?.({ done: true });
+}
+
 async function requestIntentFraming(prompt, signal) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), INTENT_FRAMING_TIMEOUT);
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    INTENT_FRAMING_TIMEOUT,
+  );
 
   if (signal) {
     if (signal.aborted) {
       controller.abort();
     } else {
-      signal.addEventListener("abort", () => controller.abort(), { once: true });
+      signal.addEventListener("abort", () => controller.abort(), {
+        once: true,
+      });
     }
   }
 
@@ -297,7 +364,10 @@ async function requestIntentFraming(prompt, signal) {
   }
 }
 
-async function generateIntentFramingMessage({ intentType, entity, scope }, signal) {
+async function generateIntentFramingMessage(
+  { intentType, entity, scope },
+  signal,
+) {
   if (!intentType || !entity || !scope) return null;
 
   const basePrompt = buildIntentFramingPrompt(intentType, entity, scope);
@@ -316,21 +386,45 @@ async function generateIntentFramingMessage({ intentType, entity, scope }, signa
  * @param {Object} callbacks - { onChunk, onDone, onError }
  * @param {AbortSignal} signal - Optional abort signal
  */
-async function streamIntentFramingMessage({ intentType, entity, scope }, callbacks, signal) {
-  console.log('[Intent Framing LLM] Called with:', { intentType, entity, scope });
+async function streamIntentFramingMessage(
+  { intentType, entity, scope },
+  callbacks,
+  signal,
+) {
+  console.log("[Intent Framing LLM] Called with:", {
+    intentType,
+    entity,
+    scope,
+  });
 
   if (!intentType || !entity || !scope) {
-    console.log('[Intent Framing LLM] Missing required params, skipping');
-    callbacks.onDone?.('');
+    console.log("[Intent Framing LLM] Missing required params, skipping");
+    callbacks.onDone?.("");
+    return;
+  }
+
+  if (!OLLAMA_STREAMING) {
+    const message = await generateIntentFramingMessage(
+      { intentType, entity, scope },
+      signal,
+    );
+    callbacks.onDone?.(message || "");
     return;
   }
 
   const prompt = buildIntentFramingPrompt(intentType, entity, scope);
-  console.log('[Intent Framing LLM] Starting stream request to:', `${LLM_BASE_URL}/api/generate`);
+  console.log(
+    "[Intent Framing LLM] Starting stream request to:",
+    `${LLM_BASE_URL}/api/generate`,
+  );
 
   const abortController = new AbortController();
   const timeoutId = setTimeout(() => {
-    console.log('[Intent Framing LLM] Timeout after', INTENT_FRAMING_TIMEOUT, 'ms');
+    console.log(
+      "[Intent Framing LLM] Timeout after",
+      INTENT_FRAMING_TIMEOUT,
+      "ms",
+    );
     abortController.abort();
   }, INTENT_FRAMING_TIMEOUT);
 
@@ -338,16 +432,19 @@ async function streamIntentFramingMessage({ intentType, entity, scope }, callbac
     if (signal.aborted) {
       abortController.abort();
     } else {
-      signal.addEventListener('abort', () => abortController.abort(), { once: true });
+      signal.addEventListener("abort", () => abortController.abort(), {
+        once: true,
+      });
     }
   }
 
-  let fullContent = '';
+  let fullContent = "";
+  let emittedChunks = 0;
 
   try {
     const response = await fetch(`${LLM_BASE_URL}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: LLM_MODEL,
         prompt,
@@ -361,49 +458,37 @@ async function streamIntentFramingMessage({ intentType, entity, scope }, callbac
     });
 
     clearTimeout(timeoutId);
-    console.log('[Intent Framing LLM] Response status:', response.status);
+    console.log("[Intent Framing LLM] Response status:", response.status);
 
     if (!response.ok) {
-      console.error('[Intent Framing LLM] Request failed:', response.status);
+      console.error("[Intent Framing LLM] Request failed:", response.status);
       callbacks.onError?.(`LLM request failed: ${response.status}`);
       return;
     }
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = chunk.split('\n').filter((line) => line.trim());
-
-      for (const line of lines) {
-        try {
-          const data = JSON.parse(line);
-          if (data.response) {
-            fullContent += data.response;
-            callbacks.onChunk?.(data.response);
-          }
-          if (data.done) {
-            console.log('[Intent Framing LLM] Stream complete, total length:', fullContent.length);
-            callbacks.onDone?.(fullContent);
-            return;
-          }
-        } catch {
-          // Skip malformed JSON
-        }
-      }
-    }
-
-    console.log('[Intent Framing LLM] Reader finished, total length:', fullContent.length);
+    await consumeOllamaJsonlStream(response, {
+      onToken: (token) => {
+        fullContent += token;
+        emittedChunks += 1;
+        callbacks.onChunk?.(token);
+      },
+      onDone: () => {},
+    });
+    console.log(
+      "[Intent Framing LLM] Stream complete, total length:",
+      fullContent.length,
+      "chunks:",
+      emittedChunks,
+    );
     callbacks.onDone?.(fullContent);
   } catch (err) {
     clearTimeout(timeoutId);
-    console.error('[Intent Framing LLM] Error:', err.name, err.message);
-    if (err.name === 'AbortError') {
-      console.log('[Intent Framing LLM] Aborted, returning partial content:', fullContent.length);
+    console.error("[Intent Framing LLM] Error:", err.name, err.message);
+    if (err.name === "AbortError") {
+      console.log(
+        "[Intent Framing LLM] Aborted, returning partial content:",
+        fullContent.length,
+      );
       callbacks.onDone?.(fullContent);
     } else {
       callbacks.onError?.(err.message);
@@ -441,6 +526,15 @@ async function* streamChatResponse(message, signal) {
   }
 
   try {
+    if (!OLLAMA_STREAMING) {
+      const fallback = await generateChatResponse(message);
+      if (fallback) {
+        yield { type: "chunk", content: fallback };
+      }
+      yield { type: "done" };
+      return;
+    }
+
     console.log("[LLM STREAM] Sending fetch request...");
     const response = await fetch(`${LLM_BASE_URL}/api/generate`, {
       method: "POST",
@@ -532,6 +626,15 @@ async function streamChatWithCallbacks(message, callbacks, signal) {
   }
 
   try {
+    if (!OLLAMA_STREAMING) {
+      const fallback = await generateChatResponse(message);
+      if (fallback) {
+        callbacks.onChunk?.(fallback);
+      }
+      callbacks.onDone?.();
+      return;
+    }
+
     console.log("[LLM STREAM CB] Sending fetch request...");
     const response = await fetch(`${LLM_BASE_URL}/api/generate`, {
       method: "POST",
@@ -555,50 +658,10 @@ async function streamChatWithCallbacks(message, callbacks, signal) {
       return;
     }
 
-    const reader = response.body.getReader();
-    console.log("[LLM STREAM CB] Got reader, starting to read...");
-    const decoder = new TextDecoder();
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
-        console.log("[LLM STREAM CB] Reader done");
-        break;
-      }
-
-      const chunk = decoder.decode(value, { stream: true });
-      console.log("[LLM STREAM CB] Received chunk:", chunk.slice(0, 50));
-      const lines = chunk.split("\n").filter((line) => line.trim());
-
-      for (const line of lines) {
-        try {
-          const data = JSON.parse(line);
-          console.log(
-            "[LLM STREAM CB] Parsed data, response:",
-            data.response ? `"${data.response}"` : "(empty)",
-            "done:",
-            data.done,
-          );
-          if (data.response) {
-            console.log("[LLM STREAM CB] Calling onChunk with:", data.response);
-            callbacks.onChunk?.(data.response);
-          }
-          if (data.done) {
-            console.log("[LLM STREAM CB] Ollama done signal received");
-            callbacks.onDone?.();
-            return;
-          }
-        } catch (parseErr) {
-          console.log(
-            "[LLM STREAM CB] JSON parse error:",
-            parseErr.message,
-            "line:",
-            line.slice(0, 50),
-          );
-        }
-      }
-    }
-
+    await consumeOllamaJsonlStream(response, {
+      onToken: (token) => callbacks.onChunk?.(token),
+      onDone: () => {},
+    });
     callbacks.onDone?.();
   } catch (err) {
     clearTimeout(timeoutId);
@@ -633,11 +696,16 @@ async function decideUngoverned(message) {
     /\bsample\s+(email|letter|message|document)/i,
   ];
 
-  const isGenerationRequest = generationPatterns.some(pattern => pattern.test(normalized));
+  const isGenerationRequest = generationPatterns.some((pattern) =>
+    pattern.test(normalized),
+  );
 
   if (isGenerationRequest) {
-    console.log("[Intent Adaptive] Generation request detected, routing to ungoverned mode:", message.slice(0, 60));
-    return { requiresOrganiaData: false, reason: "generation_request" };
+    console.log(
+      "[Intent Adaptive] Generation request detected, routing to ungoverned mode:",
+      message.slice(0, 60),
+    );
+    return { requiresOrdinayData: false, reason: "generation_request" };
   }
 
   const controller = new AbortController();
@@ -662,7 +730,7 @@ async function decideUngoverned(message) {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      return { requiresOrganiaData: true };
+      return { requiresOrdinayData: true };
     }
 
     const data = await response.json();
@@ -676,11 +744,227 @@ async function decideUngoverned(message) {
       message.slice(0, 50),
     );
 
-    return { requiresOrganiaData: requiresData };
+    return { requiresOrdinayData: requiresData };
   } catch (err) {
     clearTimeout(timeoutId);
-    console.warn("[Ungoverned Decision] LLM error, defaulting to governed:", err.message);
-    return { requiresOrganiaData: true };
+    console.warn(
+      "[Ungoverned Decision] LLM error, defaulting to governed:",
+      err.message,
+    );
+    return { requiresOrdinayData: true };
+  }
+}
+
+function sanitizeSearchSummaryInput(results = []) {
+  return (Array.isArray(results) ? results : [])
+    .slice(0, WEB_SEARCH_SUMMARY_MAX_ITEMS)
+    .map((row, idx) => {
+      const title = String(row?.title || "").trim().slice(0, WEB_SEARCH_SUMMARY_MAX_TEXT);
+      const snippet = String(row?.snippet || "").trim().slice(0, WEB_SEARCH_SUMMARY_MAX_TEXT);
+      const summary = row?.summary
+        ? String(row.summary).trim().slice(0, WEB_SEARCH_SUMMARY_MAX_TEXT)
+        : "";
+      const url = String(row?.url || "").trim().slice(0, 1200);
+      const publishedDate = row?.publishedDate ? String(row.publishedDate).trim().slice(0, 80) : "";
+      const source = row?.source ? String(row.source).trim().slice(0, 120) : "";
+      if (!url) return null;
+      return {
+        index: idx + 1,
+        title,
+        snippet,
+        summary: summary || null,
+        url,
+        publishedDate: publishedDate || null,
+        source: source || null,
+      };
+    })
+    .filter(Boolean);
+}
+
+function buildStructuredSearchContext(query, results) {
+  return {
+    query: String(query || "").trim(),
+    results: (Array.isArray(results) ? results : []).slice(0, WEB_SEARCH_SUMMARY_MAX_ITEMS).map((row) => ({
+      title: String(row?.title || "").trim(),
+      snippet: String(row?.snippet || "").trim(),
+      summary: row?.summary ? String(row.summary).trim() : "",
+      url: String(row?.url || "").trim(),
+    })),
+  };
+}
+
+function normalizeSummaryText(text) {
+  const cleaned = String(text || "").replace(/\s+/g, " ").trim();
+  if (!cleaned) return null;
+  return cleaned.length > 1200 ? `${cleaned.slice(0, 1200).trim()}...` : cleaned;
+}
+
+async function generateWebSearchAiSummary({ query, mode = "basic", results = [] } = {}) {
+  const sanitizedResults = sanitizeSearchSummaryInput(results);
+  if (!query || sanitizedResults.length === 0) return null;
+  const structuredSearchContext = buildStructuredSearchContext(query, sanitizedResults);
+
+  console.log("[WebSearchSummary] Started", JSON.stringify({ mode, query, resultCount: sanitizedResults.length }));
+  console.log(
+    "[WebSearchSummary] Grounded context payload",
+    JSON.stringify({
+      query,
+      mode,
+      resultCount: structuredSearchContext.results.length,
+      sample: structuredSearchContext.results.slice(0, 2),
+    }),
+  );
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), WEB_SEARCH_SUMMARY_TIMEOUT);
+  try {
+    const basePrompt = `${WEB_SEARCH_SUMMARY_PROMPT}
+
+USER:
+${JSON.stringify(structuredSearchContext)}`;
+    let prompt = basePrompt;
+    let lastError = "empty_summary";
+    for (let attempt = 0; attempt <= WEB_SEARCH_SUMMARY_MAX_RETRIES; attempt += 1) {
+      const response = await fetch(`${LLM_BASE_URL}/api/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: LLM_MODEL,
+          prompt,
+          stream: false,
+          options: {
+            temperature: 0.1,
+            num_predict: 350,
+          },
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        console.warn("[WebSearchSummary] Failed: non-ok response", response.status);
+        return null;
+      }
+
+      const data = await response.json();
+      const summaryText = normalizeSummaryText(data?.response || "");
+      if (summaryText) {
+        console.log("[WebSearchSummary] Finished", JSON.stringify({ chars: summaryText.length, attempt: attempt + 1 }));
+        return {
+          shortAnswer: summaryText,
+          keyHighlights: [],
+          citations: [],
+        };
+      }
+
+      lastError = "empty_summary";
+      console.warn("[WebSearchSummary] Invalid payload", JSON.stringify({ attempt: attempt + 1, error: lastError }));
+      if (attempt >= WEB_SEARCH_SUMMARY_MAX_RETRIES) {
+        break;
+      }
+      prompt = `${basePrompt}
+
+Respond with only a concise factual summary grounded in the provided JSON. No generic advice.`;
+    }
+
+    console.warn("[WebSearchSummary] Failed: retries exhausted");
+    return null;
+  } catch (err) {
+    console.warn("[WebSearchSummary] Failed", err?.message || "unknown_error");
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function streamWebSearchAiSummary(
+  { query, mode = "basic", results = [] } = {},
+  callbacks = {},
+  signal,
+) {
+  const sanitizedResults = sanitizeSearchSummaryInput(results);
+  if (!query || sanitizedResults.length === 0) {
+    return { success: false, reason: "no_results" };
+  }
+  const structuredSearchContext = buildStructuredSearchContext(query, sanitizedResults);
+  const timeoutMs = WEB_SEARCH_STREAM_TIMEOUT;
+
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(() => abortController.abort(), timeoutMs);
+  if (signal) {
+    if (signal.aborted) {
+      abortController.abort();
+    } else {
+      signal.addEventListener("abort", () => abortController.abort(), { once: true });
+    }
+  }
+
+  console.log(
+    "[SearchFlow] summary_start",
+    JSON.stringify({ timeoutMs, mode, resultCount: structuredSearchContext.results.length }),
+  );
+  console.log(
+    "[SearchFlow] summary_context_payload",
+    JSON.stringify({
+      query,
+      mode,
+      resultCount: structuredSearchContext.results.length,
+      sample: structuredSearchContext.results.slice(0, 2),
+    }),
+  );
+
+  let fullContent = "";
+  let chunkCount = 0;
+  try {
+    const prompt = `${WEB_SEARCH_SUMMARY_PROMPT}
+
+USER:
+${JSON.stringify(structuredSearchContext)}`;
+    const response = await fetch(`${LLM_BASE_URL}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: LLM_MODEL,
+        prompt,
+        stream: true,
+        options: {
+          temperature: 0.1,
+          num_predict: 350,
+        },
+      }),
+      signal: abortController.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!response.ok) {
+      return { success: false, reason: `http_${response.status}` };
+    }
+
+    await consumeOllamaJsonlStream(response, {
+      onToken: (token) => {
+        chunkCount += 1;
+        fullContent += token;
+        callbacks.onChunk?.(token);
+        console.debug(
+          "[SearchFlow] summary_token",
+          JSON.stringify({ chunkCount, size: String(token || "").length }),
+        );
+      },
+      onDone: () => {},
+    });
+
+    const normalized = normalizeSummaryText(fullContent);
+    if (!normalized) {
+      return { success: false, reason: "empty_summary" };
+    }
+    console.log(
+      "[SearchFlow] summary_complete",
+      JSON.stringify({ chunkCount, chars: normalized.length }),
+    );
+    callbacks.onDone?.(normalized);
+    return { success: true, summary: normalized };
+  } catch (err) {
+    clearTimeout(timeoutId);
+    const reason = err?.name === "AbortError" ? "abort" : (err?.message || "error");
+    return { success: false, reason };
   }
 }
 
@@ -692,10 +976,13 @@ module.exports = {
   isLLMAvailable,
   LLM_BASE_URL,
   LLM_MODEL,
+  OLLAMA_STREAMING,
   CHAT_SYSTEM_PROMPT,
   generateIntentFramingMessage,
   streamIntentFramingMessage,
   selectRelevantDocuments,
   summarizeDocumentText,
   decideUngoverned,
+  generateWebSearchAiSummary,
+  streamWebSearchAiSummary,
 };

@@ -1190,6 +1190,10 @@
   --artifact-accent: rgba(139, 92, 246, 0.8);
 }
 
+.agent-artifact-card.is-web-search {
+  --artifact-accent: rgba(20, 184, 166, 0.8);
+}
+
 .agent-artifact-card.is-error {
   --artifact-accent: rgba(245, 158, 11, 0.9);
   --artifact-bg: rgba(255, 251, 235, 0.9);
@@ -1281,6 +1285,16 @@
 .dark .agent-artifact-header-proposal {
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(124, 58, 237, 0.15) 50%, transparent 100%);
   border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.agent-artifact-header-web-search {
+  background: linear-gradient(135deg, rgba(240, 253, 250, 0.95) 0%, rgba(204, 251, 241, 0.7) 50%, transparent 100%);
+  border-bottom: 1px solid rgba(94, 234, 212, 0.5);
+}
+
+.dark .agent-artifact-header-web-search {
+  background: linear-gradient(135deg, rgba(19, 78, 74, 0.15) 0%, rgba(20, 184, 166, 0.08) 50%, transparent 100%);
+  border-bottom: 1px solid rgba(20, 184, 166, 0.2);
 }
 
 /* ── Field-Level Diff Rendering (Universal Operations) ── */
@@ -1426,6 +1440,11 @@
 .agent-icon-container-violet {
   background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
   box-shadow: 0 4px 12px -2px rgba(139, 92, 246, 0.4);
+}
+
+.agent-icon-container-teal {
+  background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+  box-shadow: 0 4px 12px -2px rgba(20, 184, 166, 0.4);
 }
 
 /* ── Status Badges ── */
@@ -4949,4 +4968,50 @@ input[type="week"]::-webkit-calendar-picker-indicator {
 
 .ordinay-accent {
   transition: opacity 0.3s ease;
+}
+
+/* --------------------------
+   Web Search Artifact Components
+-------------------------- */
+
+.web-search-synthesis {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, rgba(240, 253, 250, 0.6) 0%, rgba(204, 251, 241, 0.3) 100%);
+  border: 1px solid rgba(94, 234, 212, 0.3);
+}
+
+.dark .web-search-synthesis {
+  background: linear-gradient(135deg, rgba(19, 78, 74, 0.2) 0%, rgba(20, 184, 166, 0.1) 100%);
+  border-color: rgba(20, 184, 166, 0.2);
+}
+
+.web-search-synthesis-content {
+  /* Contained styling for synthesis text */
+}
+
+.web-search-source-card {
+  padding: 0.875rem;
+  border-radius: 0.75rem;
+  background: rgba(248, 250, 252, 0.7);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  transition: all 0.2s ease;
+}
+
+.web-search-source-card:hover {
+  background: rgba(241, 245, 249, 0.9);
+  border-color: rgba(203, 213, 225, 0.9);
+  box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.1);
+  transform: translateY(-1px);
+}
+
+.dark .web-search-source-card {
+  background: rgba(15, 23, 42, 0.5);
+  border-color: rgba(51, 65, 85, 0.6);
+}
+
+.dark .web-search-source-card:hover {
+  background: rgba(30, 41, 59, 0.7);
+  border-color: rgba(71, 85, 105, 0.7);
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.3);
 }

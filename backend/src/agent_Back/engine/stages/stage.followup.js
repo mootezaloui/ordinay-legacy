@@ -13,6 +13,35 @@ const SEARCH_FOLLOW_UP_INTENTS = new Set([
   READ_INTENTS.DEEP_SEARCH,
 ]);
 
+async function executeFollowUpReadOrSearch(engine, readIntent, message, context, policy, engineContext) {
+  const normalized = String(readIntent?.intent || "").toUpperCase();
+  if (SEARCH_FOLLOW_UP_INTENTS.has(normalized)) {
+    const isDeepSearch = normalized === READ_INTENTS.DEEP_SEARCH;
+    return engine._executeSearchWebIntent(
+      readIntent,
+      message,
+      {
+        ...(context || {}),
+        requestMetadata: {
+          ...(context?.requestMetadata || {}),
+          webSearchEnabled: true,
+          webSearchTrigger: "user_confirmed",
+          webSearchQuery: readIntent?.filters?.query || message || "",
+          webSearchIntent: normalized,
+          webDeepSearchEnabled: isDeepSearch,
+          webDeepSearchTrigger: isDeepSearch ? "user_confirmed" : undefined,
+          webDeepSearchQuery: isDeepSearch
+            ? readIntent?.filters?.query || message || ""
+            : undefined,
+        },
+      },
+      policy,
+      engineContext,
+    );
+  }
+  return engine._executeReadIntent(readIntent, message, context, policy, engineContext);
+}
+
 async function _executeFollowUpIntent(
   followUpIntent,
   message,
@@ -104,7 +133,8 @@ async function _executeFollowUpIntent(
     ];
   }
 
-  const result = await this._executeReadIntent(
+  const result = await executeFollowUpReadOrSearch(
+    this,
     readIntent,
     message,
     scopedContext,
@@ -677,7 +707,8 @@ async function _handleFilterModification(
     filters,
   };
 
-  const result = await this._executeReadIntent(
+  const result = await executeFollowUpReadOrSearch(
+    this,
     readIntent,
     message,
     context,
@@ -821,7 +852,8 @@ async function _handleRepeatAction(
     filters: lastResultSummary?.filters || {},
   };
 
-  const result = await this._executeReadIntent(
+  const result = await executeFollowUpReadOrSearch(
+    this,
     readIntent,
     message,
     context,

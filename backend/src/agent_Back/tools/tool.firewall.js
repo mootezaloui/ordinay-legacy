@@ -31,7 +31,10 @@ const { getAdapter } = require('../engine/entityAdapters');
 const TOOL_DOMAIN_MAP = Object.freeze({
   // READ tools
   webSearch: 'web', // External web search (public information only)
+  mcpWebSearch: 'web', // External MCP web search (explicit activation only)
   legalResearch: 'legal', // Legal research (jurisprudence, statutes, procedures)
+  mcpLegalSearch: 'legal', // External MCP legal search (explicit activation only)
+  mcpDeepSearch: 'legal', // External deep web/legal search (explicit activation only)
   getClient: 'clients',
   listClients: 'clients',
   searchClientsByName: 'clients',

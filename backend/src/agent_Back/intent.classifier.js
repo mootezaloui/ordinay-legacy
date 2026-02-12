@@ -843,11 +843,19 @@ function detectDraftIntent(message, context = {}) {
   }
 
   // Detect draft type from message
-  const isInvitation = /\b(invitation|convocation|invite|meeting\s+request|summons)\b/i.test(normalized);
+  // --- Explicit document-type patterns (highest confidence) ---
+  const isInvitation = /\b(invitation|convocation|invite|meeting\s+request|summons|summon|assignation)\b/i.test(normalized);
   const isClientEmail = /\b(email|e-mail|mail|letter|message|courrier|lettre)\b/i.test(normalized)
     && /\b(client|customer|mandant)\b/i.test(normalized);
   const isHearingSummary = /\b(hearing\s+summary|session\s+summary|compte[\s-]?rendu|summary\s+of\s+(?:the\s+)?(?:hearing|session))\b/i.test(normalized);
   const isInternalNote = /\b(internal\s+note|memo|note\s+interne)\b/i.test(normalized);
+  // --- Extended vocabulary: legal document types that map to existing draft types ---
+  const isFormalRequest = /\b(official\s+request|formal\s+request|formal\s+letter|court\s+letter|requ[eê]te|demande\s+officielle|mise\s+en\s+demeure)\b/i.test(normalized);
+  const isResponse = /\b(response|reply|r[eé]ponse)\b/i.test(normalized)
+    && /\b(client|customer|mandant|party|partie|opposing|adverse)\b/i.test(normalized);
+  const isStandaloneNote = !isInternalNote
+    && /\b(note|note\s+de\s+service)\b/i.test(normalized)
+    && !/\bnote\s+(that|the|this|how|why|about\s+the\s+difference)\b/i.test(normalized);
 
   let intent = null;
   let draftType = null;
@@ -864,6 +872,39 @@ function detectDraftIntent(message, context = {}) {
   } else if (isInternalNote) {
     intent = INTENTS.DRAFT_INVITATION;
     draftType = "INTERNAL_NOTE";
+  } else if (isFormalRequest) {
+    intent = INTENTS.DRAFT_INVITATION;
+    draftType = "INVITATION";
+  } else if (isResponse) {
+    // "response to client" → CLIENT_EMAIL; "response to opposing party" → INVITATION
+    const isOpposingParty = /\b(opposing|adverse|partie\s+adverse)\b/i.test(normalized);
+    intent = isOpposingParty ? INTENTS.DRAFT_INVITATION : INTENTS.DRAFT_CLIENT_EMAIL;
+    draftType = isOpposingParty ? "INVITATION" : "CLIENT_EMAIL";
+  } else if (isStandaloneNote) {
+    intent = INTENTS.DRAFT_INVITATION;
+    draftType = "INTERNAL_NOTE";
+  }
+
+  // --- Contextual inference: draft verb present but no explicit type matched ---
+  // Infer from domain keywords in the message before falling back to null
+  if (!intent) {
+    const hasHearingContext = /\b(hearing|session|audience|séance)\b/i.test(normalized);
+    const hasClientContext = /\b(client|customer|mandant)\b/i.test(normalized);
+    const hasCourtContext = /\b(court|tribunal|judge|juge|greff)\b/i.test(normalized);
+
+    if (hasHearingContext && !hasClientContext) {
+      // "write something for the hearing" → INVITATION (court-facing)
+      intent = INTENTS.DRAFT_INVITATION;
+      draftType = "INVITATION";
+    } else if (hasClientContext) {
+      // "write something to the client" → CLIENT_EMAIL
+      intent = INTENTS.DRAFT_CLIENT_EMAIL;
+      draftType = "CLIENT_EMAIL";
+    } else if (hasCourtContext) {
+      // "prepare a document for the court" → INVITATION (formal request)
+      intent = INTENTS.DRAFT_INVITATION;
+      draftType = "INVITATION";
+    }
   }
 
   if (!intent) {
@@ -924,12 +965,12 @@ function detectReadIntent(message, context = {}) {
   }
 
   const explicitWebSearchPattern =
-    /\b(search\s+the\s+web|web\s+search|search\s+online|internet\s+search|look\s+up\s+on\s+the\s+web|look\s+it\s+up\s+on\s+the\s+web)\b/i;
+    /\b(search\s+the\s+web|web\s+search|search\s+online|internet\s+search|look\s+up\s+online|find\s+online|look\s+up\s+on\s+the\s+web|look\s+it\s+up\s+on\s+the\s+web)\b/i;
   const explicitDeepSearchPattern =
     /\b(deep\s+search|deep\s+research|legal\s+research|jurisprudence\s+research|research\s+jurisprudence|in[\s-]?depth\s+legal\s+research)\b/i;
   const explicitWebSearchQuery = extractExplicitSearchQuery(
     message,
-    /\b(?:search\s+the\s+web|web\s+search|search\s+online|internet\s+search|look\s+up\s+on\s+the\s+web|look\s+it\s+up\s+on\s+the\s+web)(?:\s+(?:for|about|on))?\s+(.+)/i,
+    /\b(?:search\s+the\s+web|web\s+search|search\s+online|internet\s+search|look\s+up\s+online|find\s+online|look\s+up\s+on\s+the\s+web|look\s+it\s+up\s+on\s+the\s+web)(?:\s+(?:for|about|on))?\s+(.+)/i,
   );
   const explicitDeepSearchQuery = extractExplicitSearchQuery(
     message,

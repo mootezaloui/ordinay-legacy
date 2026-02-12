@@ -3,6 +3,7 @@ import type { ClarificationOutput, SemanticSignal } from "../../../services/api/
 
 interface ClarificationArtifactProps {
   data: ClarificationOutput;
+  onConfirmWebSearch?: () => void;
 }
 
 function formatValue(value: string | number | null | undefined) {
@@ -29,10 +30,10 @@ function renderSignal(signal: SemanticSignal) {
   if (signal.type === "CLARIFICATION_REQUIRED") {
     return `CLARIFICATION_REQUIRED:${formatValue(signal.entityType)}:${formatValue(signal.reason)}`;
   }
-  return signal.type;
+  return "CLARIFICATION_REQUIRED";
 }
 
-export function ClarificationArtifact({ data }: ClarificationArtifactProps) {
+export function ClarificationArtifact({ data, onConfirmWebSearch }: ClarificationArtifactProps) {
   const reasonType = data.reason?.type || "UNKNOWN";
   const entityType = data.reason?.entityType || null;
   const resultCount = data.reason?.resultCount;
@@ -105,6 +106,18 @@ export function ClarificationArtifact({ data }: ClarificationArtifactProps) {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {reasonType === "EXTERNAL_SEARCH_CONFIRMATION_REQUIRED" && onConfirmWebSearch && (
+          <div className="artifact-build-section artifact-build-section-3 pt-1">
+            <button
+              type="button"
+              onClick={onConfirmWebSearch}
+              className="px-3 py-2 rounded-lg text-xs font-semibold bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+            >
+              Search The Web
+            </button>
           </div>
         )}
       </div>

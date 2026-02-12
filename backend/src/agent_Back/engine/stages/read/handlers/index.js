@@ -266,11 +266,9 @@ async function dispatchReadIntent(state) {
 
   switch (intent) {
     case READ_INTENTS.WEB_SEARCH:
-      result = await handleWebSearch(state);
-      break;
+      throw new Error("WEB_SEARCH is handled by SEARCH_WEB gate and must not execute in READ lane.");
     case READ_INTENTS.DEEP_SEARCH:
-      result = await handleDeepSearch(state);
-      break;
+      throw new Error("DEEP_SEARCH is handled by SEARCH_DEEP_WEB gate and must not execute in READ lane.");
 
     case READ_INTENTS.LIST_CLIENTS:
       result = await clientHandlers.handleListClients.call(state.engine, state);

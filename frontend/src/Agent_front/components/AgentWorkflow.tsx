@@ -17,6 +17,7 @@ import type {
   ExplanationOutput,
   CollectionOutput,
   CollectionItem,
+  AgentRequestMetadata,
 } from "../../services/api/agent";
 import { confirmProposal } from "../../services/api/agent";
 
@@ -30,6 +31,7 @@ import { ChatArtifact } from "./artifacts/ChatArtifact";
 import { ErrorArtifact } from "./artifacts/ErrorArtifact";
 import { ClarificationArtifact } from "./artifacts/ClarificationArtifact";
 import { CollectionArtifact } from "./artifacts/CollectionArtifact";
+import { WebSearchResultsArtifact } from "./artifacts/WebSearchResultsArtifact";
 import { FollowUpSuggestions } from "./artifacts/FollowUpSuggestions";
 import { CommentaryBubble } from "./artifacts/CommentaryBubble";
 import { MarkdownOutput } from "../../components/MarkdownOutput";
@@ -76,6 +78,7 @@ interface AgentWorkflowProps {
   message: AgentMessage;
   onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
   onExampleClick?: (example: string) => void;
+  onConfirmWebSearch?: (metadata: AgentRequestMetadata) => void;
 }
 
 /**
@@ -95,6 +98,7 @@ export function AgentWorkflow({
   message,
   onFollowUpClick,
   onExampleClick,
+  onConfirmWebSearch,
 }: AgentWorkflowProps) {
   const isStreaming = message.status === "sending";
   const isError = message.status === "error";
@@ -278,6 +282,7 @@ export function AgentWorkflow({
             message={message}
             onFollowUpClick={onFollowUpClick}
             onExampleClick={onExampleClick}
+            onConfirmWebSearch={onConfirmWebSearch}
           />
         </div>
 
@@ -302,6 +307,7 @@ export function AgentWorkflow({
         message={message}
         onFollowUpClick={onFollowUpClick}
         onExampleClick={onExampleClick}
+        onConfirmWebSearch={onConfirmWebSearch}
       />
 
       {/* Assistive reasoning — appears AFTER the artifact it references */}
@@ -1034,10 +1040,12 @@ function ArtifactBody({
   message,
   onFollowUpClick,
   onExampleClick,
+  onConfirmWebSearch,
 }: {
   message: AgentMessage;
   onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
   onExampleClick?: (example: string) => void;
+  onConfirmWebSearch?: (metadata: AgentRequestMetadata) => void;
 }) {
   const isError = message.status === "error";
   const hasContent = !!(message.content && message.content.length > 0);
@@ -1096,7 +1104,39 @@ function ArtifactBody({
     );
   }
   if (dataType === "clarification" && message.data?.clarification) {
-    return <ClarificationArtifact data={message.data.clarification} />;
+    const searchRequest = message.data.clarification.searchRequest;
+    return (
+      <ClarificationArtifact
+        data={message.data.clarification}
+        onConfirmWebSearch={
+          onConfirmWebSearch
+            ? () =>
+                onConfirmWebSearch({
+                  webSearchEnabled: true,
+                  webSearchTrigger: "user_confirmed",
+                  webSearchQuery: searchRequest?.query || message.content || "",
+                  webSearchIntent: searchRequest?.searchIntent || "WEB_SEARCH",
+                  webDeepSearchEnabled:
+                    (searchRequest?.searchIntent || "WEB_SEARCH") === "DEEP_SEARCH",
+                  webDeepSearchTrigger:
+                    (searchRequest?.searchIntent || "WEB_SEARCH") === "DEEP_SEARCH"
+                      ? "user_confirmed"
+                      : undefined,
+                  webDeepSearchQuery:
+                    (searchRequest?.searchIntent || "WEB_SEARCH") === "DEEP_SEARCH"
+                      ? searchRequest?.query || message.content || ""
+                      : undefined,
+                })
+            : undefined
+        }
+      />
+    );
+  }
+  if (
+    (dataType === "web_search_results" || dataType === "web_deep_search_results") &&
+    message.data?.webSearchResults
+  ) {
+    return <WebSearchResultsArtifact data={message.data.webSearchResults} />;
   }
   if (dataType === "proposal" && message.data?.proposal) {
     return (
@@ -1132,7 +1172,9 @@ function getAcknowledgment(intent?: string): string {
 
   const n = intent.toUpperCase();
 
+  if (n.includes("SEARCH_DEEP_WEB")) return "Running deep legal research...";
   if (n.includes("WEB_SEARCH")) return "Searching public web sources...";
+  if (n.includes("SEARCH_WEB")) return "Searching public web sources...";
   if (n.includes("DEEP_SEARCH")) return "Running deep legal research...";
 
   // Read intents
@@ -1195,9 +1237,27 @@ function getWorkSteps(intent?: string): string[] {
 
   const n = intent.toUpperCase();
 
+  if (n.includes("SEARCH_DEEP_WEB")) {
+    return [
+      "Request classified",
+      "Checking deep-search activation",
+      "Running explicit deep search",
+      "Aggregating expanded queries",
+      "Formatting deep-search results",
+    ];
+  }
   if (n.includes("WEB_SEARCH")) {
     return [
       "Request classified",
+      "Running explicit web search",
+      "Collecting cited sources",
+      "Formatting search results",
+    ];
+  }
+  if (n.includes("SEARCH_WEB")) {
+    return [
+      "Request classified",
+      "Checking external-search activation",
       "Running explicit web search",
       "Collecting cited sources",
       "Formatting search results",

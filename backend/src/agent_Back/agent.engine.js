@@ -21,6 +21,8 @@ const actionsSchema = require("./schemas/actions.schema.json");
 const agentRequestSchema = require("./schemas/agentRequest.schema.json");
 const agentResponseSchema = require("./schemas/agentResponse.schema.json");
 const followUpIntentSchema = require("./schemas/followUpIntent.schema.json");
+const webSearchResultsSchema = require("./schemas/webSearchResults.schema.json");
+const webDeepSearchResultsSchema = require("./schemas/webDeepSearchResults.schema.json");
 
 const pipeline = require("./engine/pipeline");
 const response = require("./engine/response");
@@ -33,6 +35,8 @@ const intentStage = require("./engine/stages/stage.intent");
 const readStage = require("./engine/stages/stage.read");
 const followUpStage = require("./engine/stages/stage.followup");
 const draftStage = require("./engine/stages/stage.draft");
+const searchWebStage = require("./engine/stages/stage.searchWeb");
+const deepSearchStage = require("./engine/stages/stage.deepSearch");
 const state = require("./engine/state");
 const planner = require("./engine/planner");
 const executor = require("./engine/executor");
@@ -80,6 +84,8 @@ class AgentEngine {
       agent_request: this.ajv.compile(agentRequestSchema),
       agent_response: this.ajv.compile(agentResponseSchema),
       follow_up_intent: this.ajv.compile(followUpIntentSchema),
+      web_search_results: this.ajv.compile(webSearchResultsSchema),
+      web_deep_search_results: this.ajv.compile(webDeepSearchResultsSchema),
     };
   }
 }
@@ -97,6 +103,8 @@ Object.assign(
   readStage,
   followUpStage,
   draftStage,
+  searchWebStage,
+  deepSearchStage,
   state,
   planner,
   executor,

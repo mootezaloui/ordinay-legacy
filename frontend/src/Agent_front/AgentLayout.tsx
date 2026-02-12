@@ -38,6 +38,7 @@ export function AgentLayout({
     dataAccess,
     setDataAccess,
     startFollowUpIntent,
+    confirmWebSearch,
   } = useAgentState();
 
   const {
@@ -157,6 +158,7 @@ export function AgentLayout({
                 transientStatus={transientStatus}
                 onFollowUpClick={handleFollowUpClick}
                 onExampleClick={handleExampleClick}
+                onConfirmWebSearch={confirmWebSearch}
               />
             )}
           </div>

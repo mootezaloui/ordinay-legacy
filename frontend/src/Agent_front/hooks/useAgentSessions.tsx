@@ -11,8 +11,8 @@ import {
 import { AgentSession, AgentFolder } from "../types/agentSession";
 import { AgentMessage } from "../types/agentMessage";
 
-const STORAGE_KEY = "organia_agent_conversations";
-const FOLDERS_STORAGE_KEY = "organia_agent_folders";
+const STORAGE_KEY = "ordinay_agent_conversations";
+const FOLDERS_STORAGE_KEY = "ordinay_agent_folders";
 
 // ============================================================================
 // ID Generation

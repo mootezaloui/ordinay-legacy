@@ -41,10 +41,24 @@ export interface DataAccessPermissions {
   documents: boolean;
 }
 
+export type WebSearchTrigger = 'explicit_language' | 'button' | 'user_confirmed';
+
+export interface AgentRequestMetadata {
+  webSearchEnabled?: boolean;
+  webSearchTrigger?: WebSearchTrigger;
+  webSearchQuery?: string;
+  webSearchIntent?: 'WEB_SEARCH' | 'DEEP_SEARCH';
+  webDeepSearchEnabled?: boolean;
+  webDeepSearchTrigger?: WebSearchTrigger;
+  webDeepSearchQuery?: string;
+  streamingEnabled?: boolean;
+}
+
 // Agent request to backend
 export interface AgentRequest {
   message: string;
   context?: ContextRefs & { scope?: ContextScope; dataAccess?: DataAccessPermissions };
+  metadata?: AgentRequestMetadata;
   agentVersion?: AgentVersion;
   reasoner?: string;
   followUpIntent?: FollowUpIntent;
@@ -189,7 +203,8 @@ export interface ClarificationOption {
     | 'SELECT_ONE'
     | 'NARROW_SCOPE'
     | 'PROVIDE_IDENTIFIER'
-    | 'OPEN_CONTEXT';
+    | 'OPEN_CONTEXT'
+    | 'ENABLE_WEB_SEARCH';
   entityType?: string;
   intent?: string;
   scope?: FollowUpSuggestion['scope'];
@@ -205,6 +220,12 @@ export interface ClarificationOutput {
   };
   signals?: SemanticSignal[];
   options?: ClarificationOption[];
+  prompt?: string;
+  searchRequest?: {
+    searchIntent?: 'WEB_SEARCH' | 'DEEP_SEARCH';
+    query?: string | null;
+    suggestedTrigger?: WebSearchTrigger;
+  };
 }
 
 // Facts block — what was read
@@ -415,6 +436,58 @@ export interface ProposalOutput {
   sessionId: string;
 }
 
+export interface WebSearchResultItem {
+  id: string;
+  title: string;
+  snippet: string;
+  url: string;
+  source?: string | null;
+  publishedDate?: string | null;
+}
+
+export interface WebSearchAiSummary {
+  shortAnswer: string;
+  keyHighlights: string[];
+  citations: Array<{ index: number; url: string }>;
+}
+
+export interface WebSearchResultsOutput {
+  type: 'web_search_results';
+  query: string;
+  searchIntent: 'WEB_SEARCH' | 'DEEP_SEARCH';
+  triggeredBy: WebSearchTrigger;
+  provider: string;
+  results: WebSearchResultItem[];
+  resultCount: number;
+  message?: string | null;
+  sources: Array<{ sourceType: string; reference: string; note: string }>;
+  timestamp: string;
+  status: string;
+  aiSummary?: WebSearchAiSummary | null;
+  source: string;
+  requires_validation: boolean;
+}
+
+export interface WebDeepSearchResultsOutput {
+  type: 'web_deep_search_results';
+  query: string;
+  searchIntent: 'DEEP_SEARCH';
+  triggeredBy: WebSearchTrigger;
+  provider: string;
+  queries: string[];
+  results: WebSearchResultItem[];
+  resultCount: number;
+  message?: string | null;
+  totalEstimatedMatches: number;
+  sources: Array<{ sourceType: string; reference: string; note: string }>;
+  timestamp: string;
+  status: string;
+  reason?: string | null;
+  aiSummary?: WebSearchAiSummary | null;
+  source: string;
+  requires_validation: boolean;
+}
+
 // Execution result — V3 execution confirmation result
 export interface ExecutionResult {
   type: 'execution_result';
@@ -452,6 +525,8 @@ export type AgentOutput =
   | ClarificationOutput
   | CollectionOutput
   | ProposalOutput
+  | WebSearchResultsOutput
+  | WebDeepSearchResultsOutput
   | { type: 'action_plan'; actions: ActionProposal[] };
 
 // Agent response from backend
@@ -481,6 +556,7 @@ export interface ProcessedAgentResponse {
   clarification?: ClarificationOutput;
   collection?: CollectionOutput;
   proposal?: ProposalOutput;
+  webSearchResults?: WebSearchResultsOutput | WebDeepSearchResultsOutput;
   actionProposals?: ActionProposal[];
   // Error info
   error?: string;
@@ -498,6 +574,7 @@ export async function sendAgentMessage(
     contextRefs?: ContextRefs;
     agentVersion?: AgentVersion;
     followUpIntent?: FollowUpIntent;
+    metadata?: AgentRequestMetadata;
     sessionId: string; // REQUIRED
   }
 ): Promise<ProcessedAgentResponse> {
@@ -506,10 +583,14 @@ export async function sendAgentMessage(
     contextRefs = {},
     agentVersion = 'v1',
     followUpIntent,
+    metadata,
     sessionId,
   } = options;
 
-  const request: AgentRequest & { followUpIntent?: FollowUpIntent } = {
+  const request: AgentRequest & {
+    followUpIntent?: FollowUpIntent;
+    metadata?: AgentRequestMetadata;
+  } = {
     message,
     context: {
       ...contextRefs,
@@ -521,6 +602,9 @@ export async function sendAgentMessage(
   };
   if (followUpIntent) {
     request.followUpIntent = followUpIntent;
+  }
+  if (metadata) {
+    request.metadata = metadata;
   }
 
   try {
@@ -566,6 +650,9 @@ export async function sendAgentMessage(
       processed.displayText = '';
     } else if (output.type === 'proposal') {
       processed.proposal = output as ProposalOutput;
+      processed.displayText = '';
+    } else if (output.type === 'web_search_results' || output.type === 'web_deep_search_results') {
+      processed.webSearchResults = output as WebSearchResultsOutput | WebDeepSearchResultsOutput;
       processed.displayText = '';
     } else if (output.type === 'action_plan') {
       const actionPlan = output as { type: 'action_plan'; actions: ActionProposal[] };
@@ -813,6 +900,7 @@ export function streamAgentMessage(
     agentVersion?: AgentVersion;
     dataAccess?: DataAccessPermissions;
     followUpIntent?: FollowUpIntent;
+    metadata?: AgentRequestMetadata;
     /** Agent conversation session ID — REQUIRED for continuity */
     sessionId: string;
     /** Document IDs explicitly attached to this message */
@@ -820,12 +908,13 @@ export function streamAgentMessage(
   },
   callbacks: StreamCallbacks
 ): AbortController {
-  const { contextScope = 'GLOBAL', contextRefs = {}, agentVersion = 'v1', dataAccess, followUpIntent, sessionId, documentIds } = options;
+  const { contextScope = 'GLOBAL', contextRefs = {}, agentVersion = 'v1', dataAccess, followUpIntent, metadata, sessionId, documentIds } = options;
   const abortController = new AbortController();
 
   const request: AgentRequest & {
     dataAccess?: DataAccessPermissions;
     followUpIntent?: FollowUpIntent;
+    metadata?: AgentRequestMetadata;
     documentIds?: number[];
   } = {
     message,
@@ -839,6 +928,9 @@ export function streamAgentMessage(
   };
   if (followUpIntent) {
     request.followUpIntent = followUpIntent;
+  }
+  if (metadata) {
+    request.metadata = metadata;
   }
   if (documentIds && documentIds.length > 0) {
     request.documentIds = documentIds;

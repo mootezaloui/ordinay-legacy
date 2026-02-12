@@ -25,6 +25,31 @@ const {
 } = require("../utils/entityDisplay");
 const { resolveInteractionPosture, POSTURES } = require("../posture.resolver");
 
+const EXTERNAL_SEARCH_INTENTS = new Set([
+  READ_INTENTS.WEB_SEARCH,
+  READ_INTENTS.DEEP_SEARCH,
+]);
+
+function isExternalSearchIntent(readIntent) {
+  return Boolean(readIntent && EXTERNAL_SEARCH_INTENTS.has(readIntent.intent));
+}
+
+function normalizeWebSearchTrigger(rawTrigger, fallback = "explicit_language") {
+  const normalized = String(rawTrigger || "").trim().toLowerCase();
+  if (normalized === "button" || normalized === "user_confirmed") {
+    return normalized;
+  }
+  return fallback;
+}
+
+function detectsExternalInfoNeed(message = "") {
+  const normalized = String(message || "").toLowerCase();
+  if (!normalized) return false;
+  return /\b(latest|recent|current|up[-\s]?to[-\s]?date|today|new precedent|online precedent|recent case law)\b/i.test(
+    normalized,
+  );
+}
+
 function isWorkSnapshotRefreshRequest(message) {
   const normalized = String(message || "").toLowerCase();
   if (!normalized) return false;
@@ -32,6 +57,47 @@ function isWorkSnapshotRefreshRequest(message) {
   return /\bupdate\b\s+(?:the\s+)?(?:snapshot|work\s+snapshot|dossier\s+snapshot|dossier|work\s+mode)\b/i.test(
     normalized,
   );
+}
+
+function buildExternalSearchClarification({
+  searchIntent,
+  query,
+  suggestedTrigger = "user_confirmed",
+}) {
+  return {
+    type: "clarification",
+    reason: {
+      type: "EXTERNAL_SEARCH_CONFIRMATION_REQUIRED",
+      entityType: "web_search",
+    },
+    signals: [
+      {
+        type: "CLARIFICATION_REQUIRED",
+        reason: "EXTERNAL_SEARCH_CONFIRMATION_REQUIRED",
+        entityType: "web_search",
+      },
+    ],
+    options: [
+      {
+        action: "ENABLE_WEB_SEARCH",
+        intent: searchIntent,
+        filters: {
+          query: query || null,
+        },
+      },
+    ],
+    prompt:
+      "I may need to search the web for up-to-date external information. Would you like me to search the web?",
+    searchRequest: {
+      searchIntent,
+      query: query || null,
+      suggestedTrigger,
+    },
+    timestamp: new Date().toISOString(),
+    status: "awaiting_input",
+    source: "search-web-gate",
+    requires_validation: false,
+  };
 }
 
 function buildWorkSnapshotRefreshReadIntent(message, context, contextStore) {
@@ -335,6 +401,7 @@ async function run({
     userId: turnContext?.userId || turnContext?.user?.id || null,
     activeEntity: turnContext?.activeEntity || null,
     dataAccess: turnContext?.dataAccess || null,
+    requestMetadata: turnContext?.requestMetadata || null,
     documentContext: documentContext || null,
     posture: finalPosture || null,
     postureAuthority,
@@ -471,18 +538,271 @@ async function run({
   }
   // ========== END FOLLOW-UP INTENT GATE ==========
 
+  const preDetectedDraftIntent = governedPosture
+    ? detectDraftIntent(normalizedMessage, turnContext)
+    : null;
+  const preDetectedReadIntent = preDetectedDraftIntent
+    ? null
+    : hasDocumentTurnBinding
+      ? documentReadIntentCandidate
+      : detectReadIntent(normalizedMessage, turnContext);
+
+  // ========== SEARCH_DEEP_WEB INTENT GATE ==========
+  {
+    const requestMetadata = turnContext?.requestMetadata || {};
+    const metadataIntent = String(requestMetadata?.webSearchIntent || "").toUpperCase();
+    const explicitDeepIntent =
+      preDetectedReadIntent?.intent === READ_INTENTS.DEEP_SEARCH
+        ? preDetectedReadIntent
+        : null;
+    const metadataDeepEnabled =
+      requestMetadata?.webDeepSearchEnabled === true ||
+      (requestMetadata?.webSearchEnabled === true &&
+        metadataIntent === READ_INTENTS.DEEP_SEARCH);
+    const metadataDeepIntent = metadataDeepEnabled
+      ? {
+          intent: READ_INTENTS.DEEP_SEARCH,
+          requiresLocalData: true,
+          filters: {
+            query:
+              requestMetadata?.webDeepSearchQuery ||
+              requestMetadata?.webSearchQuery ||
+              normalizedMessage,
+          },
+        }
+      : null;
+    const effectiveDeepSearchIntent = metadataDeepIntent || explicitDeepIntent;
+
+    if (effectiveDeepSearchIntent) {
+      this._ensureTurnGateAllowed(policy, {
+        gate: "search_deep_web_intent",
+        intent: effectiveDeepSearchIntent.intent,
+        requiresRead: true,
+      });
+
+      if (!policy.allowExternalSearch) {
+        return {
+          ...this._generateDomainDeniedResponse(
+            "legal",
+            `External search is disabled by policy ${policy.version}.`,
+            policy,
+          ),
+          posture: engineContext.posture,
+          postureAuthority: engineContext.postureAuthority,
+        };
+      }
+
+      const triggeredBy = metadataDeepEnabled
+        ? normalizeWebSearchTrigger(
+            requestMetadata?.webDeepSearchTrigger || requestMetadata?.webSearchTrigger,
+            "button",
+          )
+        : "explicit_language";
+      const query = String(
+        requestMetadata?.webDeepSearchQuery ||
+          requestMetadata?.webSearchQuery ||
+          effectiveDeepSearchIntent?.filters?.query ||
+          normalizedMessage ||
+          "",
+      ).trim();
+
+      engineContext.intent = READ_INTENTS.DEEP_SEARCH;
+      this.ledger.record({
+        type: "search_deep_web_gate_triggered",
+        searchIntent: READ_INTENTS.DEEP_SEARCH,
+        triggeredBy,
+        query,
+        timestamp: new Date().toISOString(),
+      });
+
+      const deepSearchResult = await this._executeDeepSearchIntent(
+        {
+          ...effectiveDeepSearchIntent,
+          filters: {
+            ...(effectiveDeepSearchIntent.filters || {}),
+            query,
+          },
+        },
+        normalizedMessage,
+        {
+          ...(turnContext || {}),
+          requestMetadata: {
+            ...requestMetadata,
+            webDeepSearchEnabled: true,
+            webDeepSearchTrigger: triggeredBy,
+            webDeepSearchQuery: query,
+            webSearchEnabled: true,
+            webSearchIntent: READ_INTENTS.DEEP_SEARCH,
+            webSearchTrigger: triggeredBy,
+            webSearchQuery: query,
+          },
+        },
+        policy,
+        engineContext,
+      );
+      this._updateConversationContext(
+        turnContext,
+        normalizedMessage,
+        deepSearchResult,
+        CONTEXT_SOURCES.READ_INTENT,
+        engineContext.posture,
+      );
+      return {
+        ...deepSearchResult,
+        posture: engineContext.posture,
+        postureAuthority: engineContext.postureAuthority,
+      };
+    }
+  }
+  // ========== END SEARCH_DEEP_WEB INTENT GATE ==========
+
+  // ========== SEARCH_WEB INTENT GATE ==========
+  {
+    const requestMetadata = turnContext?.requestMetadata || {};
+    const metadataIntent = String(requestMetadata?.webSearchIntent || "").toUpperCase();
+    const metadataSearchEnabled =
+      requestMetadata?.webSearchEnabled === true &&
+      requestMetadata?.webDeepSearchEnabled !== true &&
+      metadataIntent !== READ_INTENTS.DEEP_SEARCH;
+    const explicitSearchIntent =
+      preDetectedReadIntent?.intent === READ_INTENTS.WEB_SEARCH
+        ? preDetectedReadIntent
+        : null;
+    const metadataSearchIntent = metadataSearchEnabled
+      ? {
+          intent: READ_INTENTS.WEB_SEARCH,
+          requiresLocalData: true,
+          filters: {
+            query: requestMetadata?.webSearchQuery || normalizedMessage,
+          },
+        }
+      : null;
+    const effectiveSearchIntent = metadataSearchIntent || explicitSearchIntent;
+    const shouldSuggestExternalSearch =
+      !effectiveSearchIntent &&
+      requestMetadata?.webDeepSearchEnabled !== true &&
+      !metadataSearchEnabled &&
+      policy.allowExternalSearch &&
+      detectsExternalInfoNeed(normalizedMessage);
+
+    if (shouldSuggestExternalSearch) {
+      const inferredIntent = /\b(case\s+law|precedent|jurisprudence|statute|regulation)\b/i.test(
+        normalizedMessage,
+      )
+        ? READ_INTENTS.DEEP_SEARCH
+        : READ_INTENTS.WEB_SEARCH;
+      const clarificationOutput = buildExternalSearchClarification({
+        searchIntent: inferredIntent,
+        query: normalizedMessage,
+      });
+      this.ledger.record({
+        type: "search_web_confirmation_requested",
+        searchIntent: inferredIntent,
+        query: normalizedMessage,
+        timestamp: new Date().toISOString(),
+      });
+      return {
+        intent: "SEARCH_WEB_CONFIRMATION_REQUIRED",
+        agentVersion: policy.version,
+        reasoner: "search-web-gate",
+        output: clarificationOutput,
+        needsUserInput: true,
+        posture: engineContext.posture,
+        postureAuthority: engineContext.postureAuthority,
+      };
+    }
+
+    if (effectiveSearchIntent) {
+      this._ensureTurnGateAllowed(policy, {
+        gate: "search_web_intent",
+        intent: effectiveSearchIntent.intent,
+        requiresRead: true,
+      });
+
+      if (!policy.allowExternalSearch) {
+        return {
+          ...this._generateDomainDeniedResponse(
+            "web",
+            `External search is disabled by policy ${policy.version}.`,
+            policy,
+          ),
+          posture: engineContext.posture,
+          postureAuthority: engineContext.postureAuthority,
+        };
+      }
+
+      const triggeredBy = metadataSearchEnabled
+        ? normalizeWebSearchTrigger(requestMetadata?.webSearchTrigger, "button")
+        : "explicit_language";
+      const query =
+        String(
+          requestMetadata?.webSearchQuery ||
+            effectiveSearchIntent?.filters?.query ||
+            normalizedMessage ||
+            "",
+        ).trim();
+
+      engineContext.intent = effectiveSearchIntent.intent;
+      this.ledger.record({
+        type: "search_web_gate_triggered",
+        searchIntent: effectiveSearchIntent.intent,
+        triggeredBy,
+        query,
+        timestamp: new Date().toISOString(),
+      });
+
+      const searchResult = await this._executeSearchWebIntent(
+        {
+          ...effectiveSearchIntent,
+          filters: {
+            ...(effectiveSearchIntent.filters || {}),
+            query,
+          },
+        },
+        normalizedMessage,
+        {
+          ...(turnContext || {}),
+          requestMetadata: {
+            ...requestMetadata,
+            webSearchEnabled: true,
+            webSearchTrigger: triggeredBy,
+            webSearchQuery: query,
+            webSearchIntent: READ_INTENTS.WEB_SEARCH,
+          },
+        },
+        policy,
+        engineContext,
+      );
+      this._updateConversationContext(
+        turnContext,
+        normalizedMessage,
+        searchResult,
+        CONTEXT_SOURCES.READ_INTENT,
+        engineContext.posture,
+      );
+      return {
+        ...searchResult,
+        posture: engineContext.posture,
+        postureAuthority: engineContext.postureAuthority,
+      };
+    }
+  }
+  // ========== END SEARCH_WEB INTENT GATE ==========
+
   // ========== READ INTENT GATE ==========
   // Rule-based detection BEFORE LLM - ensures data questions always access local data
   if (governedPosture) {
-    let readIntent = hasDocumentTurnBinding
-      ? documentReadIntentCandidate
-      : detectReadIntent(normalizedMessage, turnContext);
+    let readIntent = preDetectedReadIntent;
     if (!readIntent) {
       readIntent = buildWorkSnapshotRefreshReadIntent(
         normalizedMessage,
         turnContext,
         this.contextStore,
       );
+    }
+    // External search is routed exclusively through SEARCH_WEB / SEARCH_DEEP_WEB gates.
+    if (isExternalSearchIntent(readIntent)) {
+      readIntent = null;
     }
     if (
       readIntent &&
@@ -529,7 +849,7 @@ async function run({
   // ========== DRAFT INTENT GATE ==========
   // Rule-based detection BEFORE LLM — ensures draft requests invoke genericDraft tool
   if (governedPosture) {
-    const draftIntent = detectDraftIntent(normalizedMessage, turnContext);
+    const draftIntent = preDetectedDraftIntent;
     if (
       draftIntent &&
       policy.allowedToolCategories.includes("draft")
@@ -949,6 +1269,10 @@ async function _executeIntent(intent, reasoner, payload) {
   const { message, context } = payload;
   switch (intent) {
     case INTENTS.GENERAL_CHAT:
+      console.log(
+        "[Pipeline] Routing to GENERAL_CHAT reasoner path",
+        JSON.stringify({ intent }),
+      );
       return reasoner.chat({ message, context });
     case INTENTS.EXPLAIN_ENTITY_STATE:
       return reasoner.explain({ message, context });

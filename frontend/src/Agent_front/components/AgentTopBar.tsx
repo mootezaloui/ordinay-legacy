@@ -37,8 +37,8 @@ export function AgentTopBar({
             <Sparkles className="w-3.5 h-3.5" />
           </div>
           <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-            <span className="hidden sm:inline">Organia Intelligence</span>
-            <span className="sm:hidden">Organia Agent</span>
+            <span className="hidden sm:inline">Ordinay Intelligence</span>
+            <span className="sm:hidden">Ordinay Agent</span>
           </span>
         </div>
       </div>
@@ -46,7 +46,9 @@ export function AgentTopBar({
       <button
         onClick={onToggleContext}
         className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors whitespace-nowrap"
-        aria-label={showContextSidebar ? "Hide context panel" : "Show context panel"}
+        aria-label={
+          showContextSidebar ? "Hide context panel" : "Show context panel"
+        }
       >
         <Database className="w-3.5 h-3.5" />
         <span className="hidden sm:inline">

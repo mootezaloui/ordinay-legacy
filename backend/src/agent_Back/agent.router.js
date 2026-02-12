@@ -3,7 +3,7 @@
 const express = require("express");
 const AgentEngine = require("./agent.engine");
 const { getAvailableCommands } = require("./intent.classifier");
-const { streamIntentFramingMessage } = require("./llm.client");
+const { streamIntentFramingMessage, streamWebSearchAiSummary } = require("./llm.client");
 const { streamCommentary } = require("./commentary.generator");
 
 const router = express.Router();
@@ -48,6 +48,8 @@ function getStatusAction(intent, phase = "processing") {
   }
 
   if (phase === "fetching") {
+    if (n.includes("SEARCH_WEB")) return "Searching the web…";
+    if (n.includes("SEARCH_DEEP_WEB")) return "Running deep search…";
     if (n.includes("WEB_SEARCH")) return "Searching the web…";
     if (n.includes("DEEP_SEARCH")) return "Running deep search…";
     if (n.includes("CLIENT")) return "Retrieving client data…";
@@ -60,6 +62,8 @@ function getStatusAction(intent, phase = "processing") {
   }
 
   if (phase === "analyzing") {
+    if (n.includes("SEARCH_WEB")) return "Compiling web sources…";
+    if (n.includes("SEARCH_DEEP_WEB")) return "Compiling deep-search findings…";
     if (n.includes("WEB_SEARCH")) return "Compiling web sources…";
     if (n.includes("DEEP_SEARCH")) return "Compiling deep-search findings…";
     if (n.includes("EXPLAIN")) return "Analyzing current state…";
@@ -173,6 +177,8 @@ function deriveEntityLabel(
   if (normalized.includes("ANALYZE_OPERATIONAL_RISKS"))
     return "operational risks";
   if (normalized.includes("PROPOSE_ACTIONS")) return "next steps";
+  if (normalized.includes("SEARCH_WEB")) return "web sources";
+  if (normalized.includes("SEARCH_DEEP_WEB")) return "legal sources";
   if (normalized.includes("WEB_SEARCH")) return "web sources";
   if (normalized.includes("DEEP_SEARCH")) return "legal sources";
   if (normalized.includes("CLIENT")) return "client";
@@ -263,18 +269,31 @@ function buildIntentFramingPayload({
  * @param {AbortSignal} signal - Abort signal
  * @param {boolean} aborted - Abort flag
  */
-async function streamIntentEvent(sendEvent, payload, signal, aborted) {
+async function streamIntentEvent(
+  sendEvent,
+  payload,
+  signal,
+  aborted,
+  { chunkStreaming = true } = {},
+) {
   if (aborted) return;
 
   return new Promise((resolve) => {
-    let chunks = [];
+    let fullMessage = "";
+    let chunkCount = 0;
+    console.log("[SSE][Intent] Stream start", JSON.stringify({ chunkStreaming }));
 
     streamIntentFramingMessage(
       payload || {},
       {
         onChunk: (chunk) => {
           if (aborted) return;
-          chunks.push(chunk);
+          fullMessage += chunk;
+          chunkCount += 1;
+          if (chunkStreaming) {
+            sendEvent("intent_framing_chunk", { chunk });
+          }
+          console.debug("[SSE][Intent] Token emitted", JSON.stringify({ chunkCount, size: chunk.length }));
         },
         onDone: (message) => {
           if (aborted) {
@@ -283,18 +302,23 @@ async function streamIntentEvent(sendEvent, payload, signal, aborted) {
           }
 
           // Send unified `intent` event (not `intent_framing`)
-          if (message) {
+          const finalMessage = message || fullMessage;
+          if (finalMessage) {
             sendEvent("intent", {
-              message,
+              message: finalMessage,
               action: payload?.intentType || "unknown",
               entity: payload?.entity || null,
               scope: payload?.scope || null,
             });
           }
+          console.log(
+            "[SSE][Intent] Stream end",
+            JSON.stringify({ chunkCount, chars: finalMessage ? finalMessage.length : 0 }),
+          );
           resolve();
         },
         onError: (error) => {
-          console.warn("[SSE] Intent generation failed (non-blocking):", error);
+          console.error("[SSE][Intent] Stream error:", error);
           resolve();
         },
       },
@@ -331,6 +355,123 @@ function sendArtifactEvent(sendEvent, result, aborted) {
   return true;
 }
 
+function streamTextAsChunks(text, onChunk) {
+  if (!text || typeof text !== "string") return;
+  const tokens = text.match(/\S+\s*/g) || [];
+  for (const token of tokens) {
+    onChunk(token);
+  }
+}
+
+function extractDomain(url) {
+  try {
+    const parsed = new URL(String(url || "").trim());
+    return parsed.hostname.replace(/^www\./i, "");
+  } catch {
+    return String(url || "").trim();
+  }
+}
+
+function buildSearchFallbackCommentary(output, reason = "unknown") {
+  const rows = Array.isArray(output?.results) ? output.results : [];
+  if (!rows.length) {
+    return `Summary unavailable (reason: ${reason}). No external results found. Could you narrow scope by jurisdiction, date range, or law number?`;
+  }
+  const topSources = rows.slice(0, 3).map((row, idx) => {
+    const title = String(row?.title || "Untitled source").trim();
+    const domain = extractDomain(row?.url || "");
+    return `${idx + 1}. ${title} (${domain})`;
+  });
+  return `Summary unavailable (reason: ${reason}). Top sources: ${topSources.join(" | ")}. Would you like me to narrow to specific statutes, case law, or a date range?`;
+}
+
+async function streamGroundedSearchCommentaryEvent(
+  sendEvent,
+  result,
+  signal,
+  aborted,
+  { chunkStreaming = true } = {},
+) {
+  // Two-phase search behavior:
+  // 1) Emit artifact as soon as external results are available.
+  // 2) Run a separate grounded summary stream using only search JSON context.
+  // If summary fails, emit deterministic fallback commentary instead of silence.
+  if (aborted) return;
+  const output = result?.output || {};
+  const artifactType = String(output?.type || "");
+  const isSearchArtifact =
+    artifactType === "web_search_results" ||
+    artifactType === "web_deep_search_results";
+  if (!isSearchArtifact) return;
+  const rows = Array.isArray(output?.results) ? output.results : [];
+  if (!rows.length) {
+    console.log("[SearchFlow] summary_start skipped=true reason=no_results");
+    console.log("[SearchFlow] no_llm_call_without_results confirmed=true");
+    console.log("[SearchFlow] summary_failed reason=no_results");
+    const fallbackNoResults = buildSearchFallbackCommentary(output, "no_results");
+    if (chunkStreaming) {
+      streamTextAsChunks(fallbackNoResults, (chunk) => {
+        if (aborted) return;
+        sendEvent("commentary_chunk", { chunk });
+      });
+    }
+    if (!aborted) {
+      sendEvent("commentary", { message: fallbackNoResults, signals: [] });
+      console.log("[SearchFlow] fallback_commentary_emitted");
+    }
+    return;
+  }
+
+  let summaryText = "";
+  const summaryResult = await streamWebSearchAiSummary(
+    {
+      query: output?.query || "",
+      mode: artifactType === "web_deep_search_results" ? "deep" : "basic",
+      results: rows,
+    },
+    {
+      onChunk: (chunk) => {
+        if (aborted) return;
+        summaryText += chunk;
+        if (chunkStreaming) {
+          sendEvent("commentary_chunk", { chunk });
+        }
+      },
+      onDone: (finalSummary) => {
+        summaryText = finalSummary || summaryText;
+      },
+    },
+    signal,
+  );
+
+  if (aborted) return;
+
+  if (summaryResult?.success && summaryText.trim()) {
+    sendEvent("commentary", {
+      message: summaryText.trim(),
+      signals: [],
+    });
+    return;
+  }
+
+  const reason = String(summaryResult?.reason || "summary_unavailable");
+  console.log("[SearchFlow] summary_failed", `reason=${reason}`);
+  const fallbackCommentary = buildSearchFallbackCommentary(output, reason);
+  if (chunkStreaming) {
+    streamTextAsChunks(fallbackCommentary, (chunk) => {
+      if (aborted) return;
+      sendEvent("commentary_chunk", { chunk });
+    });
+  }
+  if (!aborted) {
+    sendEvent("commentary", {
+      message: fallbackCommentary,
+      signals: [],
+    });
+    console.log("[SearchFlow] fallback_commentary_emitted");
+  }
+}
+
 /**
  * Stream commentary event with LLM-generated commentary.
  * Unified event name: `commentary`
@@ -342,12 +483,35 @@ function sendArtifactEvent(sendEvent, result, aborted) {
  * @param {boolean} aborted - Whether connection was aborted
  * @param {AbortSignal} signal - Abort signal for cancellation
  */
-async function streamCommentaryEvent(sendEvent, result, context, aborted, signal) {
+async function streamCommentaryEvent(
+  sendEvent,
+  result,
+  context,
+  aborted,
+  signal,
+  { chunkStreaming = true } = {},
+) {
   if (aborted) return;
 
-  // Skip commentary for chat (already conversational)
+  // Skip commentary for chat and external search artifacts.
   const artifactType = result?.output?.type;
-  if (!artifactType || artifactType === "chat") return;
+  if (
+    !artifactType ||
+    artifactType === "chat" ||
+    artifactType === "web_search_results" ||
+    artifactType === "web_deep_search_results"
+  ) {
+    if (
+      artifactType === "web_search_results" ||
+      artifactType === "web_deep_search_results"
+    ) {
+      console.log(
+        "[SearchFlow] Commentary skipped for external search artifact",
+        JSON.stringify({ artifactType }),
+      );
+    }
+    return;
+  }
 
   // Get conversation history for context-aware commentary
   const llmContext =
@@ -405,7 +569,8 @@ async function streamCommentaryEvent(sendEvent, result, context, aborted, signal
   console.log("[Commentary] Intent for mode derivation:", result?.intent);
 
   return new Promise((resolve) => {
-    let hasContent = false;
+    let chunkCount = 0;
+    console.log("[SSE][Commentary] Stream start", JSON.stringify({ chunkStreaming }));
 
     streamCommentary(
       artifactType,
@@ -414,8 +579,14 @@ async function streamCommentaryEvent(sendEvent, result, context, aborted, signal
       {
         onChunk: (chunk) => {
           if (aborted) return;
-          hasContent = true;
-          // Unified event: commentary with chunks (no separate commentary_chunk)
+          chunkCount += 1;
+          if (chunkStreaming) {
+            sendEvent("commentary_chunk", { chunk });
+          }
+          console.debug(
+            "[SSE][Commentary] Token emitted",
+            JSON.stringify({ chunkCount, size: chunk.length }),
+          );
         },
         onDone: (commentaryResult) => {
           if (aborted) {
@@ -433,19 +604,34 @@ async function streamCommentaryEvent(sendEvent, result, context, aborted, signal
               signals: commentaryResult.signals || [],
             });
           }
+          console.log(
+            "[SSE][Commentary] Stream end",
+            JSON.stringify({
+              chunkCount,
+              chars: commentaryResult?.commentary ? commentaryResult.commentary.length : 0,
+            }),
+          );
           resolve();
         },
         onError: (err) => {
-          console.warn(
-            "[SSE] Commentary streaming failed (non-blocking):",
-            err,
-          );
+          console.error("[SSE][Commentary] Stream error:", err);
           resolve();
         },
       },
       signal,
     );
   });
+}
+
+function resolveChunkStreamingEnabled(req, metadata) {
+  const serverEnabled = process.env.OLLAMA_STREAMING !== "false";
+  const metadataEnabled =
+    metadata && typeof metadata === "object" && metadata.streamingEnabled === false
+      ? false
+      : true;
+  const header = String(req.get("x-agent-streaming") || "").trim().toLowerCase();
+  const headerEnabled = header !== "false" && header !== "0";
+  return serverEnabled && metadataEnabled && headerEnabled;
 }
 
 /**
@@ -476,7 +662,7 @@ function resolveDocumentContext(sessionId, documentIds) {
   return null;
 }
 
-function buildRequestContext(context, sessionId, documentContext) {
+function buildRequestContext(context, sessionId, documentContext, metadata) {
   const requestContext = { ...(context || {}) };
   if (sessionId && !requestContext.conversationId) {
     requestContext.conversationId = sessionId;
@@ -488,6 +674,9 @@ function buildRequestContext(context, sessionId, documentContext) {
   ) {
     requestContext._hasDocumentContext = true;
     requestContext.documentCount = documentContext.documents.length;
+  }
+  if (metadata && typeof metadata === "object") {
+    requestContext.requestMetadata = { ...metadata };
   }
   return requestContext;
 }
@@ -507,6 +696,18 @@ function getLifecycleStatusAction(contextLifecycle) {
     return "Conversation context was cleared.";
   }
   return "Conversation context changed.";
+}
+
+function isExternalSearchArtifact(result) {
+  const outputType = String(result?.output?.type || "").toLowerCase();
+  const provider = String(result?.output?.provider || "").toLowerCase();
+  if (
+    outputType === "web_search_results" ||
+    outputType === "web_deep_search_results"
+  ) {
+    return true;
+  }
+  return provider.includes("langsearch");
 }
 
 function shouldSendIntentFraming(result, requestContext, framingPayload) {
@@ -531,6 +732,7 @@ router.post("/agent/run", async (req, res, next) => {
     followUpIntent,
     sessionId,
     documentIds,
+    metadata,
   } = req.body || {};
   try {
     const documentContext = resolveDocumentContext(sessionId, documentIds);
@@ -538,6 +740,7 @@ router.post("/agent/run", async (req, res, next) => {
       context,
       sessionId,
       documentContext,
+      metadata,
     );
     const hasMessage =
       typeof message === "string" && String(message).trim().length > 0;
@@ -710,6 +913,7 @@ router.post("/agent/stream", async (req, res) => {
     followUpIntent,
     sessionId,
     documentIds,
+    metadata,
   } = req.body || {};
 
   const documentContext = resolveDocumentContext(sessionId, documentIds);
@@ -720,7 +924,9 @@ router.post("/agent/stream", async (req, res) => {
     context,
     sessionId,
     documentContext,
+    metadata,
   );
+  const chunkStreamingEnabled = resolveChunkStreamingEnabled(req, metadata);
 
   // Validate message — allow file-only uploads to pass through
   if (!hasMessage && !followUpIntent && !hasDocuments) {
@@ -842,6 +1048,17 @@ router.post("/agent/stream", async (req, res) => {
     const unifiedResultWithLifecycle = contextLifecycle
       ? { ...unifiedResult, contextLifecycle }
       : unifiedResult;
+    const externalSearchFlow = isExternalSearchArtifact(unifiedResultWithLifecycle);
+    if (externalSearchFlow) {
+      console.log(
+        "[SearchFlow] External search artifact detected",
+        JSON.stringify({
+          intent: unifiedResultWithLifecycle?.intent,
+          type: unifiedResultWithLifecycle?.output?.type,
+          provider: unifiedResultWithLifecycle?.output?.provider || null,
+        }),
+      );
+    }
 
     // Unified lifecycle: start → intent → artifact → commentary → done
 
@@ -859,11 +1076,19 @@ router.post("/agent/stream", async (req, res) => {
         framingPayload,
       )
     ) {
+      if (externalSearchFlow) {
+        console.log("[SearchFlow] intent_start");
+      }
+      console.log(
+        "[LLM][IntentFraming] Invoked",
+        JSON.stringify({ intent: unifiedResultWithLifecycle?.intent }),
+      );
       await streamIntentEvent(
         trackingSendEvent,
         framingPayload,
         abortController.signal,
         aborted,
+        { chunkStreaming: chunkStreamingEnabled },
       );
     }
 
@@ -873,19 +1098,41 @@ router.post("/agent/stream", async (req, res) => {
       unifiedResultWithLifecycle,
       aborted,
     );
+    if (sentArtifact && externalSearchFlow) {
+      console.log(
+        "[SearchFlow] results_emitted",
+        `resultCount=${Array.isArray(unifiedResultWithLifecycle?.output?.results) ? unifiedResultWithLifecycle.output.results.length : 0}`,
+      );
+    }
     if (!sentArtifact) {
       sendErrorEnvelope("Agent response did not include valid output", "INVALID_OUTPUT");
     }
 
     // Stream commentary event
     if (sentArtifact) {
-      await streamCommentaryEvent(
-        trackingSendEvent,
-        unifiedResultWithLifecycle,
-        requestContext,
-        aborted,
-        abortController.signal,
-      );
+      if (externalSearchFlow) {
+        console.log("[SearchFlow] Using grounded search commentary stream");
+        await streamGroundedSearchCommentaryEvent(
+          trackingSendEvent,
+          unifiedResultWithLifecycle,
+          abortController.signal,
+          aborted,
+          { chunkStreaming: chunkStreamingEnabled },
+        );
+      } else {
+        console.log(
+          "[LLM][Commentary] Invoked",
+          JSON.stringify({ intent: unifiedResultWithLifecycle?.intent }),
+        );
+        await streamCommentaryEvent(
+          trackingSendEvent,
+          unifiedResultWithLifecycle,
+          requestContext,
+          aborted,
+          abortController.signal,
+          { chunkStreaming: chunkStreamingEnabled },
+        );
+      }
     }
 
     // Done (always sent)

@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, memo } from "react";
 import { Copy, Check, RotateCw } from "lucide-react";
 import { AgentMessage } from "../types/agentMessage";
-import type { FollowUpSuggestion } from "../../services/api/agent";
+import type { AgentRequestMetadata, FollowUpSuggestion } from "../../services/api/agent";
 import { useAgentSessions } from "../hooks/useAgentSessions";
 import { useAgentState } from "../hooks/useAgentState";
 import { AgentWorkflow } from "./AgentWorkflow";
@@ -10,6 +10,7 @@ interface AgentArtifactProps {
   message: AgentMessage;
   onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
   onExampleClick?: (example: string) => void;
+  onConfirmWebSearch?: (metadata: AgentRequestMetadata) => void;
 }
 
 /**
@@ -20,12 +21,17 @@ interface AgentArtifactProps {
  *
  * This component just adds the shared footer (copy, retry).
  */
-export const AgentArtifact = memo(function AgentArtifact({ message, onFollowUpClick, onExampleClick }: AgentArtifactProps) {
+export const AgentArtifact = memo(function AgentArtifact({ message, onFollowUpClick, onExampleClick, onConfirmWebSearch }: AgentArtifactProps) {
   const isStreaming = message.status === "sending";
 
   return (
     <div className="agent-artifact-wrapper">
-      <AgentWorkflow message={message} onFollowUpClick={onFollowUpClick} onExampleClick={onExampleClick} />
+      <AgentWorkflow
+        message={message}
+        onFollowUpClick={onFollowUpClick}
+        onExampleClick={onExampleClick}
+        onConfirmWebSearch={onConfirmWebSearch}
+      />
       {/* Footer actions — only visible on completed, non-streaming responses */}
       {!isStreaming && message.status !== undefined && (
         <ArtifactFooter message={message} />

@@ -22,7 +22,9 @@
 const LLM_BASE_URL = process.env.LLM_BASE_URL || "http://127.0.0.1:11434";
 const LLM_MODEL = process.env.LLM_MODEL || "qwen2.5:7b-instruct";
 const LLM_TIMEOUT = parseInt(process.env.LLM_COMMENTARY_TIMEOUT || "30000", 10);
-const ALWAYS_GENERATE_COMMENTARY = process.env.LLM_COMMENTARY_ALWAYS !== "false";
+const OLLAMA_STREAMING = process.env.OLLAMA_STREAMING !== "false";
+const ALWAYS_GENERATE_COMMENTARY =
+  process.env.LLM_COMMENTARY_ALWAYS !== "false";
 
 // ─── Commentary Modes (MANDATORY) ──────────────────────────────────────────
 
@@ -31,9 +33,9 @@ const ALWAYS_GENERATE_COMMENTARY = process.env.LLM_COMMENTARY_ALWAYS !== "false"
  * Mode MUST be derived from PRIMARY USER INTENT, not artifact signals.
  */
 const COMMENTARY_MODES = Object.freeze({
-  REPORTING: "REPORTING",       // For: summarize, list, show, display, read
+  REPORTING: "REPORTING", // For: summarize, list, show, display, read
   INTERPRETIVE: "INTERPRETIVE", // For: analyze, assess, explain risks, evaluate
-  GUIDANCE: "GUIDANCE",         // For: what next, help me with, suggest, recommend
+  GUIDANCE: "GUIDANCE", // For: what next, help me with, suggest, recommend
 });
 
 /**
@@ -106,7 +108,7 @@ const MODE_PROHIBITED_PHRASES = Object.freeze({
  * Each mode has distinct tone and content instructions.
  */
 const MODE_PROMPTS = Object.freeze({
-  [COMMENTARY_MODES.REPORTING]: `You are Organia Assistant. You are the primary assistant message the user reads first.
+  [COMMENTARY_MODES.REPORTING]: `You are Ordinay Assistant. You are the primary assistant message the user reads first.
 The user requested information to be DISPLAYED or SUMMARIZED. A structured artifact with all facts is shown below your message.
 
 YOUR ROLE: Help the user understand what matters most right now. Do NOT narrate what the artifact already shows.
@@ -126,7 +128,7 @@ PROHIBITED (CRITICAL):
 
 If you cannot add insight beyond what the artifact shows, respond with exactly: [silent]`,
 
-  [COMMENTARY_MODES.INTERPRETIVE]: `You are Organia Assistant. You are the primary assistant message the user reads first.
+  [COMMENTARY_MODES.INTERPRETIVE]: `You are Ordinay Assistant. You are the primary assistant message the user reads first.
 The user requested ANALYSIS, ASSESSMENT, or EXPLANATION. A structured artifact with all facts is shown below your message.
 
 YOUR ROLE: Interpret consequences. Help the user decide what to do next.
@@ -148,7 +150,7 @@ PROHIBITED:
 
 If you cannot add insight beyond what the artifact shows, respond with exactly: [silent]`,
 
-  [COMMENTARY_MODES.GUIDANCE]: `You are Organia Assistant. You are the primary assistant message the user reads first.
+  [COMMENTARY_MODES.GUIDANCE]: `You are Ordinay Assistant. You are the primary assistant message the user reads first.
 The user asked for SUGGESTIONS or NEXT STEPS. A structured artifact with all facts is shown below your message.
 
 YOUR ROLE: Help the user prioritize and sequence their work.
@@ -237,7 +239,9 @@ function violatesModeConstraints(commentary, mode) {
 
   for (const phrase of prohibited) {
     if (lower.includes(phrase.toLowerCase())) {
-      console.warn(`[Commentary] Mode violation detected: "${phrase}" in ${mode} mode`);
+      console.warn(
+        `[Commentary] Mode violation detected: "${phrase}" in ${mode} mode`,
+      );
       return true;
     }
   }
@@ -247,7 +251,7 @@ function violatesModeConstraints(commentary, mode) {
 
 // ─── Legacy System Prompt (kept for reference, not used) ───────────────────
 
-const COMMENTARY_SYSTEM_PROMPT_LEGACY = `You are Organia Assistant, a helpful AI for a legal practice management system.
+const COMMENTARY_SYSTEM_PROMPT_LEGACY = `You are Ordinay Assistant, a helpful AI for a legal practice management system.
 You have just retrieved structured information for the user. Your task is to provide a brief, conversational message.
 RULES: Be concise. Do NOT repeat facts verbatim. Do NOT propose write actions.`;
 
@@ -261,7 +265,11 @@ RULES: Be concise. Do NOT repeat facts verbatim. Do NOT propose write actions.`;
  * @param {string} mode - Commentary mode (REPORTING, INTERPRETIVE, GUIDANCE)
  * @returns {string} - Context string for the LLM prompt
  */
-function buildPromptContext(artifactSummary, semanticSignals = [], mode = COMMENTARY_MODES.REPORTING) {
+function buildPromptContext(
+  artifactSummary,
+  semanticSignals = [],
+  mode = COMMENTARY_MODES.REPORTING,
+) {
   const lines = [];
 
   // Entity identity
@@ -276,10 +284,16 @@ function buildPromptContext(artifactSummary, semanticSignals = [], mode = COMMEN
   if (typeof artifactSummary.totalCount === "number") {
     lines.push(`Total items: ${artifactSummary.totalCount}`);
   }
-  if (typeof artifactSummary.urgentCount === "number" && artifactSummary.urgentCount > 0) {
+  if (
+    typeof artifactSummary.urgentCount === "number" &&
+    artifactSummary.urgentCount > 0
+  ) {
     lines.push(`Urgent items: ${artifactSummary.urgentCount}`);
   }
-  if (typeof artifactSummary.overdueCount === "number" && artifactSummary.overdueCount > 0) {
+  if (
+    typeof artifactSummary.overdueCount === "number" &&
+    artifactSummary.overdueCount > 0
+  ) {
     lines.push(`Overdue items: ${artifactSummary.overdueCount}`);
   }
 
@@ -319,7 +333,11 @@ function buildPromptContext(artifactSummary, semanticSignals = [], mode = COMMEN
   }
 
   // Semantic signals in INTERPRETIVE mode
-  if (mode === COMMENTARY_MODES.INTERPRETIVE && Array.isArray(semanticSignals) && semanticSignals.length > 0) {
+  if (
+    mode === COMMENTARY_MODES.INTERPRETIVE &&
+    Array.isArray(semanticSignals) &&
+    semanticSignals.length > 0
+  ) {
     lines.push(`Semantic signals: ${JSON.stringify(semanticSignals)}`);
   }
 
@@ -389,7 +407,10 @@ function extractArtifactSummary(artifactType, artifact, context) {
         summary.signals.push(`Warning: ${stmt.statement}`);
       }
       // Extract implications for work-context commentary
-      if (stmt.implication && (stmt.level === "critical" || stmt.level === "warning")) {
+      if (
+        stmt.implication &&
+        (stmt.level === "critical" || stmt.level === "warning")
+      ) {
         const signalTag = stmt.signal ? `[${stmt.signal}] ` : "";
         summary.implications.push(`${signalTag}${stmt.implication}`);
       }
@@ -406,9 +427,7 @@ function extractArtifactSummary(artifactType, artifact, context) {
 
   // Extract follow-up labels (just the action names, not full objects)
   if (artifact.followUps && Array.isArray(artifact.followUps)) {
-    summary.followUpLabels = artifact.followUps
-      .slice(0, 4)
-      .map((f) => f.label);
+    summary.followUpLabels = artifact.followUps.slice(0, 4).map((f) => f.label);
   }
 
   // Handle list-type artifacts (tasks, dossiers, etc.)
@@ -419,13 +438,13 @@ function extractArtifactSummary(artifactType, artifact, context) {
       (item) =>
         item.priority === "urgent" ||
         item.priority === "high" ||
-        item.status === "urgent"
+        item.status === "urgent",
     );
     const overdue = artifact.items.filter(
       (item) =>
         item.days_overdue > 0 ||
         item.is_overdue ||
-        (item.due_date && new Date(item.due_date) < new Date())
+        (item.due_date && new Date(item.due_date) < new Date()),
     );
     summary.urgentCount = urgent.length;
     summary.overdueCount = overdue.length;
@@ -445,9 +464,13 @@ function extractArtifactSummary(artifactType, artifact, context) {
     }
   }
 
-  if (summary.resultCount === null && Array.isArray(artifact.interpretation?.statements)) {
+  if (
+    summary.resultCount === null &&
+    Array.isArray(artifact.interpretation?.statements)
+  ) {
     const statementWithCount = artifact.interpretation.statements.find(
-      (stmt) => typeof stmt.statement === "string" && /\d+/.test(stmt.statement),
+      (stmt) =>
+        typeof stmt.statement === "string" && /\d+/.test(stmt.statement),
     );
     if (statementWithCount) {
       const match = statementWithCount.statement.match(/(\d+)/);
@@ -509,12 +532,70 @@ function deriveSemanticSignals(summary) {
 // from the structured facts. If the LLM hallucinates counts, reject.
 
 const WORD_TO_NUMBER = Object.freeze({
-  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5,
-  six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
-  eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15,
-  sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20,
-  thirty: 30, forty: 40, fifty: 50, hundred: 100,
+  zero: 0,
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+  thirteen: 13,
+  fourteen: 14,
+  fifteen: 15,
+  sixteen: 16,
+  seventeen: 17,
+  eighteen: 18,
+  nineteen: 19,
+  twenty: 20,
+  thirty: 30,
+  forty: 40,
+  fifty: 50,
+  hundred: 100,
 });
+
+async function consumeOllamaJsonlStream(response, handlers) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let pending = "";
+
+  const processLine = (line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return false;
+    try {
+      const data = JSON.parse(trimmed);
+      if (data.response) {
+        handlers.onToken?.(data.response);
+      }
+      if (data.done) {
+        handlers.onDone?.(data);
+        return true;
+      }
+    } catch {
+      // Skip malformed json line chunks
+    }
+    return false;
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    pending += decoder.decode(value, { stream: true });
+    const lines = pending.split("\n");
+    pending = lines.pop() || "";
+    for (const line of lines) {
+      if (processLine(line)) return;
+    }
+  }
+
+  if (pending && processLine(pending)) return;
+  handlers.onDone?.({ done: true });
+}
 
 /**
  * Extracts all numeric values (digit and written-out) from text.
@@ -548,10 +629,14 @@ function isNumericallyGrounded(commentary, summary) {
 
   // Build the set of valid numbers from structured artifact data
   const validNumbers = new Set();
-  if (typeof summary.totalCount === "number") validNumbers.add(summary.totalCount);
-  if (typeof summary.urgentCount === "number") validNumbers.add(summary.urgentCount);
-  if (typeof summary.overdueCount === "number") validNumbers.add(summary.overdueCount);
-  if (typeof summary.resultCount === "number") validNumbers.add(summary.resultCount);
+  if (typeof summary.totalCount === "number")
+    validNumbers.add(summary.totalCount);
+  if (typeof summary.urgentCount === "number")
+    validNumbers.add(summary.urgentCount);
+  if (typeof summary.overdueCount === "number")
+    validNumbers.add(summary.overdueCount);
+  if (typeof summary.resultCount === "number")
+    validNumbers.add(summary.resultCount);
 
   // Extract numbers from interpretation signals (these contain grounded entity counts)
   if (Array.isArray(summary.signals)) {
@@ -676,7 +761,9 @@ function sanitizeCommentary(text, summary, artifact, options = {}) {
   const prohibitedPhrases = MODE_PROHIBITED_PHRASES[mode] || [];
   for (const phrase of prohibitedPhrases) {
     if (lower.includes(phrase.toLowerCase())) {
-      console.warn(`[Commentary] Suppressed - mode violation: "${phrase}" in ${mode} mode`);
+      console.warn(
+        `[Commentary] Suppressed - mode violation: "${phrase}" in ${mode} mode`,
+      );
       return null; // Silence is preferred over misleading tone
     }
   }
@@ -711,7 +798,10 @@ function sanitizeCommentary(text, summary, artifact, options = {}) {
     const identifierPattern =
       /\b[A-Z]{2,5}-\d{3,6}-\d{2,6}\b|\bID[:\s]*\d+\b|\b#\d{2,}\b|\bDOS-\d{4}-\d+\b/i;
     if (identifierPattern.test(cleaned)) {
-      cleaned = cleaned.replace(identifierPattern, "").replace(/\s+/g, " ").trim();
+      cleaned = cleaned
+        .replace(identifierPattern, "")
+        .replace(/\s+/g, " ")
+        .trim();
     }
   }
 
@@ -734,7 +824,9 @@ function shouldSkipDocumentCommentary(artifact, context = {}) {
     return true;
   }
 
-  const summaryText = String(artifact?.facts?.summary || artifact?.summary || "").toLowerCase();
+  const summaryText = String(
+    artifact?.facts?.summary || artifact?.summary || "",
+  ).toLowerCase();
   const detailText = Array.isArray(artifact?.facts?.details)
     ? artifact.facts.details.join(" ").toLowerCase()
     : Array.isArray(artifact?.details)
@@ -763,10 +855,20 @@ function shouldSkipDocumentCommentary(artifact, context = {}) {
  * @param {Object} options - Generation options
  * @returns {Promise<Object>} - Commentary result { success, commentary, error, mode }
  */
-async function generateCommentary(artifactType, artifact, context = {}, options = {}) {
+async function generateCommentary(
+  artifactType,
+  artifact,
+  context = {},
+  options = {},
+) {
   // Skip commentary for chat-type artifacts (already conversational)
   if (artifactType === "chat") {
-    return { success: true, commentary: null, skipped: true, reason: "chat_artifact" };
+    return {
+      success: true,
+      commentary: null,
+      skipped: true,
+      reason: "chat_artifact",
+    };
   }
   if (shouldSkipDocumentCommentary(artifact, context)) {
     return {
@@ -778,30 +880,50 @@ async function generateCommentary(artifactType, artifact, context = {}, options 
   }
 
   // DERIVE COMMENTARY MODE FROM PRIMARY USER INTENT (CRITICAL)
-  const intent = context?.intent || context?.lastIntent || options?.intent || "";
+  const intent =
+    context?.intent || context?.lastIntent || options?.intent || "";
   const mode = deriveCommentaryMode(intent);
   console.log(`[Commentary] Mode: ${mode} (derived from intent: ${intent})`);
 
   // Get mode-specific system prompt
-  const systemPrompt = MODE_PROMPTS[mode] || MODE_PROMPTS[COMMENTARY_MODES.REPORTING];
+  const systemPrompt =
+    MODE_PROMPTS[mode] || MODE_PROMPTS[COMMENTARY_MODES.REPORTING];
 
   // Extract summary — this is what the LLM sees
-  const artifactSummary = extractArtifactSummary(artifactType, artifact, context);
-  const semanticSignals = Array.isArray(options.semanticSignals) ? options.semanticSignals : [];
+  const artifactSummary = extractArtifactSummary(
+    artifactType,
+    artifact,
+    context,
+  );
+  const semanticSignals = Array.isArray(options.semanticSignals)
+    ? options.semanticSignals
+    : [];
   const forceResponse = Boolean(options.forceResponse);
-  const minLength = typeof options.minLength === "number" ? options.minLength : 10;
+  const minLength =
+    typeof options.minLength === "number" ? options.minLength : 10;
 
   // Build prompt context with mode awareness
-  const promptContext = buildPromptContext(artifactSummary, semanticSignals, mode);
+  const promptContext = buildPromptContext(
+    artifactSummary,
+    semanticSignals,
+    mode,
+  );
 
   // Build conversation history if available (NEW: length-based compaction support)
-  let conversationHistory = '';
-  if (context.recentTurns && Array.isArray(context.recentTurns) && context.recentTurns.length > 0) {
-    const turnSummaries = context.recentTurns.slice(-3).map((turn, idx) => {
-      const userMsg = turn.userMessage || '[no message]';
-      const intent = turn.agentIntent || '[no intent]';
-      return `Turn ${idx + 1}: User asked "${userMsg.slice(0, 60)}..." → Intent: ${intent}`;
-    }).join('\n');
+  let conversationHistory = "";
+  if (
+    context.recentTurns &&
+    Array.isArray(context.recentTurns) &&
+    context.recentTurns.length > 0
+  ) {
+    const turnSummaries = context.recentTurns
+      .slice(-3)
+      .map((turn, idx) => {
+        const userMsg = turn.userMessage || "[no message]";
+        const intent = turn.agentIntent || "[no intent]";
+        return `Turn ${idx + 1}: User asked "${userMsg.slice(0, 60)}..." → Intent: ${intent}`;
+      })
+      .join("\n");
     conversationHistory = `\n\nRecent conversation:\n${turnSummaries}`;
   }
   if (context.compactionSummary) {
@@ -851,7 +973,12 @@ ${forceResponse ? "\nYou must respond with 2-4 short sentences." : ""}`;
 
     if (!response.ok) {
       console.warn("[Commentary] LLM request failed:", response.status);
-      return { success: false, commentary: null, error: `LLM_HTTP_${response.status}`, mode };
+      return {
+        success: false,
+        commentary: null,
+        error: `LLM_HTTP_${response.status}`,
+        mode,
+      };
     }
 
     const data = await response.json();
@@ -859,21 +986,42 @@ ${forceResponse ? "\nYou must respond with 2-4 short sentences." : ""}`;
 
     // Validate commentary isn't empty or too short
     if (!commentary || commentary.length < minLength) {
-      return { success: true, commentary: null, skipped: true, reason: "empty_response", mode };
+      return {
+        success: true,
+        commentary: null,
+        skipped: true,
+        reason: "empty_response",
+        mode,
+      };
     }
 
     // Basic safety check — reject if commentary contains action verbs
-    const actionVerbs = /\b(create|update|delete|send|assign|execute|modify|change|add|remove|schedule|book|submit|file)\b/i;
+    const actionVerbs =
+      /\b(create|update|delete|send|assign|execute|modify|change|add|remove|schedule|book|submit|file)\b/i;
     if (actionVerbs.test(commentary)) {
-      console.warn("[Commentary] Rejected — contains action verbs:", commentary.slice(0, 100));
-      return { success: false, commentary: null, error: "ACTION_VERB_DETECTED", mode };
+      console.warn(
+        "[Commentary] Rejected — contains action verbs:",
+        commentary.slice(0, 100),
+      );
+      return {
+        success: false,
+        commentary: null,
+        error: "ACTION_VERB_DETECTED",
+        mode,
+      };
     }
 
     // MODE CONSTRAINT CHECK (CRITICAL)
     // If commentary violates mode, suppress it entirely
     if (violatesModeConstraints(commentary, mode)) {
       console.warn(`[Commentary] Rejected — violates ${mode} mode constraints`);
-      return { success: true, commentary: null, skipped: true, reason: "mode_violation", mode };
+      return {
+        success: true,
+        commentary: null,
+        skipped: true,
+        reason: "mode_violation",
+        mode,
+      };
     }
 
     return { success: true, commentary, mode };
@@ -902,10 +1050,20 @@ ${forceResponse ? "\nYou must respond with 2-4 short sentences." : ""}`;
  * @param {Object} callbacks - { onChunk, onDone, onError }
  * @param {AbortSignal} signal - Optional abort signal
  */
-async function streamCommentary(artifactType, artifact, context, callbacks, signal) {
+async function streamCommentary(
+  artifactType,
+  artifact,
+  context,
+  callbacks,
+  signal,
+) {
   // Skip commentary for chat-type artifacts
   if (artifactType === "chat") {
-    callbacks.onDone?.({ commentary: null, source: "skipped", reason: "chat_artifact" });
+    callbacks.onDone?.({
+      commentary: null,
+      source: "skipped",
+      reason: "chat_artifact",
+    });
     return;
   }
   if (shouldSkipDocumentCommentary(artifact, context)) {
@@ -920,25 +1078,43 @@ async function streamCommentary(artifactType, artifact, context, callbacks, sign
   // DERIVE COMMENTARY MODE FROM PRIMARY USER INTENT (CRITICAL)
   const intent = context?.intent || context?.lastIntent || "";
   const mode = deriveCommentaryMode(intent);
-  console.log(`[Commentary Stream] Mode: ${mode} (derived from intent: ${intent})`);
+  console.log(
+    `[Commentary Stream] Mode: ${mode} (derived from intent: ${intent})`,
+  );
 
   // Get mode-specific system prompt
-  const systemPrompt = MODE_PROMPTS[mode] || MODE_PROMPTS[COMMENTARY_MODES.REPORTING];
+  const systemPrompt =
+    MODE_PROMPTS[mode] || MODE_PROMPTS[COMMENTARY_MODES.REPORTING];
 
-  const artifactSummary = extractArtifactSummary(artifactType, artifact, context);
+  const artifactSummary = extractArtifactSummary(
+    artifactType,
+    artifact,
+    context,
+  );
   const semanticSignals = deriveSemanticSignals(artifactSummary);
 
   // Build prompt context with mode awareness
-  const promptContext = buildPromptContext(artifactSummary, semanticSignals, mode);
+  const promptContext = buildPromptContext(
+    artifactSummary,
+    semanticSignals,
+    mode,
+  );
 
   // Build conversation history if available (NEW: length-based compaction support)
-  let conversationHistory = '';
-  if (context.recentTurns && Array.isArray(context.recentTurns) && context.recentTurns.length > 0) {
-    const turnSummaries = context.recentTurns.slice(-3).map((turn, idx) => {
-      const userMsg = turn.userMessage || '[no message]';
-      const intent = turn.agentIntent || '[no intent]';
-      return `Turn ${idx + 1}: User asked "${userMsg.slice(0, 60)}..." → Intent: ${intent}`;
-    }).join('\n');
+  let conversationHistory = "";
+  if (
+    context.recentTurns &&
+    Array.isArray(context.recentTurns) &&
+    context.recentTurns.length > 0
+  ) {
+    const turnSummaries = context.recentTurns
+      .slice(-3)
+      .map((turn, idx) => {
+        const userMsg = turn.userMessage || "[no message]";
+        const intent = turn.agentIntent || "[no intent]";
+        return `Turn ${idx + 1}: User asked "${userMsg.slice(0, 60)}..." → Intent: ${intent}`;
+      })
+      .join("\n");
     conversationHistory = `\n\nRecent conversation:\n${turnSummaries}`;
   }
   if (context.compactionSummary) {
@@ -972,13 +1148,44 @@ You must respond with 2-4 short sentences.`;
     if (signal.aborted) {
       controller.abort();
     } else {
-      signal.addEventListener("abort", () => controller.abort(), { once: true });
+      signal.addEventListener("abort", () => controller.abort(), {
+        once: true,
+      });
     }
   }
 
   let fullContent = "";
+  let emittedChunks = 0;
 
   try {
+    if (!OLLAMA_STREAMING) {
+      const nonStream = await generateCommentary(
+        artifactType,
+        artifact,
+        context,
+        {
+          semanticSignals,
+          forceResponse: true,
+          minLength: 4,
+          intent,
+        },
+      );
+      const sanitized = nonStream.success
+        ? sanitizeCommentary(nonStream.commentary, artifactSummary, artifact, {
+            allowIdentifiers: false,
+            mode,
+          })
+        : null;
+      callbacks.onDone?.({
+        commentary: sanitized,
+        source: sanitized ? "llm" : "skipped",
+        signals: semanticSignals,
+        mode,
+        reason: sanitized ? undefined : "non_stream_fallback",
+      });
+      return;
+    }
+
     const response = await fetch(`${LLM_BASE_URL}/api/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1001,49 +1208,29 @@ You must respond with 2-4 short sentences.`;
       return;
     }
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = chunk.split("\n").filter((line) => line.trim());
-
-      for (const line of lines) {
-        try {
-          const data = JSON.parse(line);
-          if (data.response) {
-            fullContent += data.response;
-            callbacks.onChunk?.(data.response);
-          }
-          if (data.done) {
-            // Sanitize final content WITH MODE CONSTRAINT CHECKING
-            const sanitized = sanitizeCommentary(fullContent, artifactSummary, artifact, {
-              allowIdentifiers: false,
-              mode, // Pass mode for constraint checking
-            });
-            callbacks.onDone?.({
-              commentary: sanitized,
-              source: sanitized ? "llm" : "skipped",
-              signals: semanticSignals,
-              mode,
-              reason: sanitized ? undefined : "mode_violation",
-            });
-            return;
-          }
-        } catch {
-          // Skip malformed JSON
-        }
-      }
-    }
+    await consumeOllamaJsonlStream(response, {
+      onToken: (token) => {
+        fullContent += token;
+        emittedChunks += 1;
+        callbacks.onChunk?.(token);
+      },
+      onDone: () => {},
+    });
+    console.log(
+      "[Commentary Stream] Complete",
+      JSON.stringify({ chunks: emittedChunks, chars: fullContent.length }),
+    );
 
     // Stream ended without done signal
-    const sanitized = sanitizeCommentary(fullContent, artifactSummary, artifact, {
-      allowIdentifiers: false,
-      mode, // Pass mode for constraint checking
-    });
+    const sanitized = sanitizeCommentary(
+      fullContent,
+      artifactSummary,
+      artifact,
+      {
+        allowIdentifiers: false,
+        mode, // Pass mode for constraint checking
+      },
+    );
     callbacks.onDone?.({
       commentary: sanitized,
       source: sanitized ? "llm" : "skipped",
@@ -1054,7 +1241,12 @@ You must respond with 2-4 short sentences.`;
   } catch (err) {
     clearTimeout(timeoutId);
     if (err.name === "AbortError") {
-      callbacks.onDone?.({ commentary: null, source: "skipped", reason: "timeout", mode });
+      callbacks.onDone?.({
+        commentary: null,
+        source: "skipped",
+        reason: "timeout",
+        mode,
+      });
     } else {
       callbacks.onError?.(err.message);
     }
@@ -1072,12 +1264,25 @@ You must respond with 2-4 short sentences.`;
 function shouldGenerateCommentary(artifactType, artifact) {
   // Always skip chat artifacts — they ARE the conversation
   if (artifactType === "chat") return false;
+  // Web search artifacts already include structured search results and optional aiSummary.
+  // Skip extra commentary to prevent ungrounded generic recommendations.
+  if (
+    artifactType === "web_search_results" ||
+    artifactType === "web_deep_search_results"
+  ) {
+    return false;
+  }
 
   // Skip if artifact is empty or error
   if (!artifact || artifact.type === "error") return false;
 
   // Generate for read-type artifacts
-  const readTypes = ["explanation", "risk_analysis", "action_plan", "clarification"];
+  const readTypes = [
+    "explanation",
+    "risk_analysis",
+    "action_plan",
+    "clarification",
+  ];
   if (readTypes.includes(artifactType)) return true;
 
   // Generate for draft artifacts (to explain what was drafted)
@@ -1115,19 +1320,30 @@ async function generateAgentCommentary(artifactType, artifact, context = {}) {
   const intent = context?.intent || context?.lastIntent || "";
   const mode = deriveCommentaryMode(intent);
 
-  const artifactSummary = extractArtifactSummary(artifactType, artifact, context);
+  const artifactSummary = extractArtifactSummary(
+    artifactType,
+    artifact,
+    context,
+  );
   const semanticSignals = deriveSemanticSignals(artifactSummary);
   const policy = applyCommentaryPolicy(artifactSummary);
   const needsClarification =
     artifactSummary.isAmbiguous ||
     artifactSummary.isIncomplete ||
     artifactSummary.resultCount === 0 ||
-    (typeof artifactSummary.resultCount === "number" && artifactSummary.resultCount > 1);
+    (typeof artifactSummary.resultCount === "number" &&
+      artifactSummary.resultCount > 1);
   const forceNarration = ALWAYS_GENERATE_COMMENTARY;
   const forceResponse = forceNarration || needsClarification;
 
   if (policy.action === "skip") {
-    return { commentary: null, source: "skipped", reason: policy.reason, signals: semanticSignals, mode };
+    return {
+      commentary: null,
+      source: "skipped",
+      reason: policy.reason,
+      signals: semanticSignals,
+      mode,
+    };
   }
 
   // Try LLM-based commentary (with mode)
@@ -1138,7 +1354,12 @@ async function generateAgentCommentary(artifactType, artifact, context = {}) {
     intent, // Pass intent for mode derivation
   });
 
-  if (needsClarification && result.success && !result.commentary && result.skipped) {
+  if (
+    needsClarification &&
+    result.success &&
+    !result.commentary &&
+    result.skipped
+  ) {
     result = await generateCommentary(artifactType, artifact, context, {
       semanticSignals,
       forceResponse: true,
@@ -1149,11 +1370,16 @@ async function generateAgentCommentary(artifactType, artifact, context = {}) {
 
   if (result.success && result.commentary) {
     // Sanitize with mode constraint checking
-    let sanitized = sanitizeCommentary(result.commentary, artifactSummary, artifact, {
-      allowRedundant: forceResponse,
-      allowIdentifiers: false,
-      mode, // Pass mode for constraint checking
-    });
+    let sanitized = sanitizeCommentary(
+      result.commentary,
+      artifactSummary,
+      artifact,
+      {
+        allowRedundant: forceResponse,
+        allowIdentifiers: false,
+        mode, // Pass mode for constraint checking
+      },
+    );
     if (!sanitized) {
       const retry = await generateCommentary(artifactType, artifact, context, {
         semanticSignals,
@@ -1162,21 +1388,42 @@ async function generateAgentCommentary(artifactType, artifact, context = {}) {
         intent,
       });
       if (retry.success && retry.commentary) {
-        sanitized = sanitizeCommentary(retry.commentary, artifactSummary, artifact, {
-          allowRedundant: needsClarification,
-          allowIdentifiers: false,
-          mode,
-        });
+        sanitized = sanitizeCommentary(
+          retry.commentary,
+          artifactSummary,
+          artifact,
+          {
+            allowRedundant: needsClarification,
+            allowIdentifiers: false,
+            mode,
+          },
+        );
       }
     }
     if (sanitized) {
-      return { commentary: sanitized, source: "llm", signals: semanticSignals, mode };
+      return {
+        commentary: sanitized,
+        source: "llm",
+        signals: semanticSignals,
+        mode,
+      };
     }
-    return { commentary: null, source: "skipped", reason: "mode_violation", signals: semanticSignals, mode };
+    return {
+      commentary: null,
+      source: "skipped",
+      reason: "mode_violation",
+      signals: semanticSignals,
+      mode,
+    };
   }
 
   // No commentary generated
-  return { commentary: null, source: result.skipped ? "skipped" : "failed", signals: semanticSignals, mode };
+  return {
+    commentary: null,
+    source: result.skipped ? "skipped" : "failed",
+    signals: semanticSignals,
+    mode,
+  };
 }
 
 // ─── Exports ───────────────────────────────────────────────────────────────

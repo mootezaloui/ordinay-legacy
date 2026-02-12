@@ -7,12 +7,15 @@ import {
   ContextScope,
   AgentVersion,
   DataAccessPermissions,
+  AgentRequestMetadata,
   FollowUpSuggestion,
   FollowUpIntent,
   ExplanationOutput,
   CollectionOutput,
   CommentaryOutput,
   StatusEventData,
+  WebSearchResultsOutput,
+  WebDeepSearchResultsOutput,
 } from "../../services/api/agent";
 import { uploadAttachments } from "../../services/api/agentDocuments";
 import type { AttachedFile } from "../components/AgentInput";
@@ -34,11 +37,11 @@ const DEFAULT_DATA_ACCESS: DataAccessPermissions = {
 };
 
 // Storage key for persisting data access permissions
-const DATA_ACCESS_STORAGE_KEY = 'organia_agent_data_access';
+const DATA_ACCESS_STORAGE_KEY = 'ordinay_agent_data_access';
 const HISTORY_SIDEBAR_BREAKPOINT = 1024; // lg
 const CONTEXT_SIDEBAR_BREAKPOINT = 1536; // 2xl
-const HISTORY_SIDEBAR_STORAGE_KEY = "organia_agent_history_sidebar";
-const CONTEXT_SIDEBAR_STORAGE_KEY = "organia_agent_context_sidebar";
+const HISTORY_SIDEBAR_STORAGE_KEY = "ordinay_agent_history_sidebar";
+const CONTEXT_SIDEBAR_STORAGE_KEY = "ordinay_agent_context_sidebar";
 
 const streamRegistry: {
   abortController: AbortController | null;
@@ -457,7 +460,7 @@ export function useAgentState() {
     return () => clearTimeout(timeout);
   }, [input, activeSessionId, updateSessionDraft]);
 
-  const handleSubmit = useCallback((e: React.SyntheticEvent, attachments?: AttachedFile[]) => {
+  const handleSubmit = useCallback((e: React.SyntheticEvent, attachments?: AttachedFile[], metadata?: AgentRequestMetadata) => {
     e.preventDefault();
     const trimmed = input.trim();
     // Allow send if there's text OR attachments
@@ -586,7 +589,7 @@ export function useAgentState() {
     // Start streaming
       const abortController = streamAgentMessage(
         trimmed,
-        { contextScope, agentVersion, dataAccess, sessionId, documentIds: pendingDocumentIds },
+        { contextScope, agentVersion, dataAccess, metadata, sessionId, documentIds: pendingDocumentIds },
         {
         onStart: (data) => {
           intent = data.intent;
@@ -673,6 +676,12 @@ export function useAgentState() {
             streamedContent = "";
           } else if (output.type === "proposal") {
             agentData = { type: "proposal", proposal: output };
+            streamedContent = "";
+          } else if (output.type === "web_search_results" || output.type === "web_deep_search_results") {
+            agentData = {
+              type: output.type,
+              webSearchResults: output as WebSearchResultsOutput | WebDeepSearchResultsOutput,
+            };
             streamedContent = "";
           } else if (output.type === "action_plan") {
             agentData = { type: "actions", actionProposals: output.actions };
@@ -1017,6 +1026,12 @@ export function useAgentState() {
           } else if (output.type === "proposal") {
             agentData = { type: "proposal", proposal: output };
             streamedContent = "";
+          } else if (output.type === "web_search_results" || output.type === "web_deep_search_results") {
+            agentData = {
+              type: output.type,
+              webSearchResults: output as WebSearchResultsOutput | WebDeepSearchResultsOutput,
+            };
+            streamedContent = "";
           } else if (output.type === "action_plan") {
             agentData = { type: "actions", actionProposals: output.actions };
             streamedContent = "";
@@ -1188,6 +1203,7 @@ export function useAgentState() {
       retryOf?: string;
       sourceUserId?: string;
       followUpIntent?: FollowUpIntent;
+      metadata?: AgentRequestMetadata;
       sessionId?: string;
       replaceMessageId?: string;  // ID of assistant message to replace (for edits)
       editedMessageId?: string;   // ID of user message to update (for edits)
@@ -1280,6 +1296,7 @@ export function useAgentState() {
         agentVersion,
         dataAccess,
         followUpIntent: opts?.followUpIntent,
+        metadata: opts?.metadata,
         sessionId: activeSessionId,
       },
         {
@@ -1360,6 +1377,12 @@ export function useAgentState() {
             streamedContent = "";
           } else if (output.type === "proposal") {
             agentData = { type: "proposal", proposal: output };
+            streamedContent = "";
+          } else if (output.type === "web_search_results" || output.type === "web_deep_search_results") {
+            agentData = {
+              type: output.type,
+              webSearchResults: output as WebSearchResultsOutput | WebDeepSearchResultsOutput,
+            };
             streamedContent = "";
           } else if (output.type === "action_plan") {
             agentData = { type: "actions", actionProposals: output.actions };
@@ -1524,6 +1547,33 @@ export function useAgentState() {
     inputRef.current?.focus();
   }, [setInput]);
 
+  const confirmWebSearch = useCallback(
+    (metadata: AgentRequestMetadata) => {
+      const deepRequested =
+        metadata?.webDeepSearchEnabled === true ||
+        metadata?.webSearchIntent === "DEEP_SEARCH";
+      const safeMetadata: AgentRequestMetadata = {
+        webSearchEnabled: true,
+        webSearchTrigger: metadata?.webSearchTrigger || "user_confirmed",
+        webSearchQuery: metadata?.webSearchQuery,
+        webSearchIntent: metadata?.webSearchIntent,
+        webDeepSearchEnabled: deepRequested,
+        webDeepSearchTrigger: deepRequested
+          ? metadata?.webDeepSearchTrigger || metadata?.webSearchTrigger || "user_confirmed"
+          : undefined,
+        webDeepSearchQuery: deepRequested
+          ? metadata?.webDeepSearchQuery || metadata?.webSearchQuery
+          : undefined,
+      };
+      const confirmationMessage =
+        safeMetadata.webSearchQuery && safeMetadata.webSearchQuery.trim().length > 0
+          ? `Search the web for ${safeMetadata.webSearchQuery}`
+          : "Yes, search the web.";
+      startAgentStream(confirmationMessage, { metadata: safeMetadata });
+    },
+    [startAgentStream],
+  );
+
   return {
     input,
     setInput,
@@ -1551,6 +1601,7 @@ export function useAgentState() {
     getRelativeTime,
     cancelStream,
     startAgentStream,
+    confirmWebSearch,
     startFollowUpIntent,
   };
 }

@@ -6,7 +6,8 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "mcp:websearch": "node scripts/run-mcp-websearch-server.js"
   },
   "dependencies": {
     "ajv": "^8.12.0",

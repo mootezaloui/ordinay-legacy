@@ -22,6 +22,12 @@ function _updateConversationContext(requestContext, query, result, source, postu
     else if (intent.includes("FINANCIAL_ENTRY"))
       entityType = "financial_entry";
     else if (intent.includes("DOCUMENT")) entityType = "document";
+    else if (intent.includes("SEARCH_WEB") || intent.includes("SEARCH_DEEP_WEB")) {
+      entityType =
+        String(output?.searchIntent || "").toUpperCase() === "DEEP_SEARCH"
+          ? "deep_search"
+          : "web_search";
+    }
     else if (intent.includes("WEB_SEARCH")) entityType = "web_search";
     else if (intent.includes("DEEP_SEARCH")) entityType = "deep_search";
     else if (intent.includes("NOTIFICATION")) entityType = "notification";

@@ -1,3 +1,26 @@
+const fs = require("node:fs");
+const path = require("node:path");
+
+function loadEnvFiles() {
+  // Load backend/.env first (project-level), then src/.env as fallback/override.
+  const candidates = [
+    path.resolve(__dirname, "..", ".env"),
+    path.resolve(__dirname, ".env"),
+  ];
+
+  for (const file of candidates) {
+    if (fs.existsSync(file)) {
+      try {
+        process.loadEnvFile(file);
+      } catch (error) {
+        console.warn(`[Env] Failed to load ${file}:`, error?.message || error);
+      }
+    }
+  }
+}
+
+loadEnvFiles();
+
 const app = require("./app");
 const { port } = require("./config/app.config");
 

@@ -8,6 +8,7 @@ import {
   Folder,
   Search,
   Check,
+  Globe,
 } from "lucide-react";
 import {
   getSlashCommands,
@@ -57,7 +58,19 @@ interface AgentInputProps {
   input: string;
   setInput: (value: string) => void;
   inputRef: React.RefObject<HTMLTextAreaElement | null>;
-  onSubmit: (e: React.SyntheticEvent, attachments?: AttachedFile[]) => void;
+  onSubmit: (
+    e: React.SyntheticEvent,
+    attachments?: AttachedFile[],
+    metadata?: {
+      webSearchEnabled?: boolean;
+      webSearchTrigger?: "explicit_language" | "button" | "user_confirmed";
+      webSearchQuery?: string;
+      webSearchIntent?: "WEB_SEARCH" | "DEEP_SEARCH";
+      webDeepSearchEnabled?: boolean;
+      webDeepSearchTrigger?: "explicit_language" | "button" | "user_confirmed";
+      webDeepSearchQuery?: string;
+    },
+  ) => void;
   onKeyDown: (e: React.KeyboardEvent) => void;
   isStreaming?: boolean;
   onStopGeneration?: () => void;
@@ -86,6 +99,7 @@ export function AgentInput({
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [showDocumentPicker, setShowDocumentPicker] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
+  const [searchModeArmed, setSearchModeArmed] = useState<"web" | "deep" | null>(null);
   const [documentSearch, setDocumentSearch] = useState("");
   const [systemDocuments, setSystemDocuments] = useState<SystemDocument[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
@@ -175,6 +189,28 @@ export function AgentInput({
     inputRef.current?.focus();
   }, [manualDropdownOpen, commands, inputRef]);
 
+  const buildWebSearchMetadata = useCallback(() => {
+    if (!searchModeArmed) return undefined;
+    const query = input.trim();
+    if (searchModeArmed === "deep") {
+      return {
+        webSearchEnabled: true,
+        webSearchTrigger: "button" as const,
+        webSearchQuery: query || undefined,
+        webSearchIntent: "DEEP_SEARCH" as const,
+        webDeepSearchEnabled: true,
+        webDeepSearchTrigger: "button" as const,
+        webDeepSearchQuery: query || undefined,
+      };
+    }
+    return {
+      webSearchEnabled: true,
+      webSearchTrigger: "button" as const,
+      webSearchQuery: query || undefined,
+      webSearchIntent: "WEB_SEARCH" as const,
+    };
+  }, [input, searchModeArmed]);
+
   const handleKeyDownWithCommands = useCallback(
     (e: React.KeyboardEvent) => {
       if (showDropdown && filteredCommands.length > 0) {
@@ -205,10 +241,13 @@ export function AgentInput({
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         const currentAttachments = [...attachedFiles];
+        const metadata = buildWebSearchMetadata();
         setAttachedFiles([]);
+        setSearchModeArmed(null);
         onSubmit(
           e,
           currentAttachments.length > 0 ? currentAttachments : undefined,
+          metadata,
         );
         return;
       }
@@ -221,6 +260,7 @@ export function AgentInput({
       selectCommand,
       onKeyDown,
       attachedFiles,
+      buildWebSearchMetadata,
       onSubmit,
     ],
   );
@@ -609,6 +649,16 @@ export function AgentInput({
               </div>
             )}
 
+            {searchModeArmed && (
+              <div className="px-4 pt-3 pb-2 border-b border-slate-200/70 dark:border-slate-700/60 bg-cyan-50/70 dark:bg-cyan-900/20">
+                <div className="text-xs font-medium text-cyan-800 dark:text-cyan-200">
+                  {searchModeArmed === "deep"
+                    ? "Deep Search is activated. The next sent message will include a deep search request."
+                    : "Web Search is activated. The next sent message will include a web search request."}
+                </div>
+              </div>
+            )}
+
             <div className="flex items-start gap-2 p-3">
               <div className="flex items-center gap-1 pt-2">
                 <button
@@ -649,6 +699,50 @@ export function AgentInput({
                 >
                   /
                 </button>
+
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    if (isStreaming) return;
+                    setSearchModeArmed((prev) => (prev === "web" ? null : "web"));
+                  }}
+                  title={
+                    searchModeArmed === "web"
+                      ? "Disable Web Search for next message"
+                      : "Enable Web Search for next message"
+                  }
+                  disabled={isStreaming}
+                  className={`w-9 h-9 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed rounded-xl transition-all ${
+                    searchModeArmed === "web"
+                      ? "bg-cyan-600 text-white dark:bg-cyan-500 dark:text-slate-950 shadow-md"
+                      : "bg-slate-100/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                  }`}
+                >
+                  <Globe className="w-4 h-4" />
+                </button>
+
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    if (isStreaming) return;
+                    setSearchModeArmed((prev) => (prev === "deep" ? null : "deep"));
+                  }}
+                  title={
+                    searchModeArmed === "deep"
+                      ? "Disable Deep Search for next message"
+                      : "Enable Deep Search for next message"
+                  }
+                  disabled={isStreaming}
+                  className={`w-9 h-9 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed rounded-xl transition-all ${
+                    searchModeArmed === "deep"
+                      ? "bg-indigo-600 text-white dark:bg-indigo-500 dark:text-slate-950 shadow-md"
+                      : "bg-slate-100/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                  }`}
+                >
+                  <Search className="w-4 h-4" />
+                </button>
               </div>
 
               <textarea
@@ -671,7 +765,7 @@ export function AgentInput({
                   }, 150);
                 }}
                 rows={3}
-                placeholder="Ask Organia anything about your lawsuits, clients, tasks, or request reports and analysis..."
+                placeholder="Ask Ordinay anything about your lawsuits, clients, tasks, or request reports and analysis..."
                 className="flex-1 resize-none bg-transparent px-2 py-2 text-[15px] leading-relaxed text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
               />
 
@@ -703,13 +797,16 @@ export function AgentInput({
                     onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
                       event.preventDefault();
                       const currentAttachments = [...attachedFiles];
+                      const metadata = buildWebSearchMetadata();
                       // Clear attachments immediately to prevent them sticking
                       setAttachedFiles([]);
+                      setSearchModeArmed(null);
                       onSubmit(
                         event,
                         currentAttachments.length > 0
                           ? currentAttachments
                           : undefined,
+                        metadata,
                       );
                     }}
                     disabled={!input.trim() && attachedFiles.length === 0}
