@@ -19,30 +19,22 @@ function createEngineMock(toolResults = {}) {
 
 async function testClientSuggestions() {
   const engine = createEngineMock({
-    listClients: {
+    findClientsWithOverdueInvoices: {
       clients: [
-        { id: 1, name: "Alpha Corp", updated_at: "2026-02-01T09:00:00Z" },
-        { id: 2, name: "Beta SARL", updated_at: "2026-02-10T10:00:00Z" },
-      ],
-    },
-    listFinancialEntries: {
-      financialEntries: [
-        { id: 101, client_id: 2, due_date: "2026-01-01T00:00:00Z" },
-        { id: 102, client_id: 2, due_date: "2026-01-05T00:00:00Z" },
-        { id: 103, client_id: 2, due_date: "2026-01-09T00:00:00Z" },
-        { id: 104, client_id: 1, due_date: "2026-01-03T00:00:00Z" },
-      ],
-    },
-    listDossiers: {
-      dossiers: [
-        { id: 10, client_id: 1, status: "open", updated_at: "2026-01-15T00:00:00Z" },
-        { id: 20, client_id: 2, status: "open", updated_at: "2026-02-11T00:00:00Z" },
-      ],
-    },
-    listTasks: {
-      tasks: [
-        { id: 401, dossier_id: 20, status: "todo", updated_at: "2026-02-11T00:00:00Z" },
-        { id: 402, dossier_id: 10, status: "done", updated_at: "2026-02-11T00:00:00Z" },
+        {
+          client_id: 2,
+          client_name: "Beta SARL",
+          overdue_count: 2,
+          total_overdue_amount: 12000,
+          oldest_due_date: "2026-01-05T00:00:00Z",
+        },
+        {
+          client_id: 1,
+          client_name: "Alpha Corp",
+          overdue_count: 3,
+          total_overdue_amount: 4800,
+          oldest_due_date: "2026-01-01T00:00:00Z",
+        },
       ],
     },
   });
@@ -61,8 +53,9 @@ async function testClientSuggestions() {
 
   assert.ok(Array.isArray(suggestions));
   assert.ok(suggestions.length >= 2);
-  assert.strictEqual(suggestions[0].entityId, 2);
-  assert.ok(suggestions[0].signal.includes("3 overdue invoice"));
+  assert.strictEqual(suggestions[0].entityId, 1);
+  assert.strictEqual(suggestions[0].metadata.overdueCount, 3);
+  assert.strictEqual(suggestions[0].metadata.totalOverdueAmount, 4800);
 }
 
 async function testUpcomingSessionsSuggestions() {
@@ -157,11 +150,40 @@ async function testFallbackWhenNoData() {
   assert.strictEqual(fallback.summary, "Which client should this be for?");
 }
 
+async function testOverdueFallback() {
+  const engine = createEngineMock({
+    findClientsWithOverdueInvoices: { clients: [] },
+    listClients: {
+      clients: [
+        { id: 1, name: "Alpha Corp", updated_at: "2026-02-01T09:00:00Z" },
+        { id: 2, name: "Beta SARL", updated_at: "2026-02-10T10:00:00Z" },
+      ],
+    },
+  });
+
+  const suggestions = await getContextSuggestions.call(
+    engine,
+    "DRAFT_CLIENT_EMAIL",
+    ["client"],
+    {
+      policy: { version: "v1", allowedToolCategories: ["read"] },
+      requestContext: {},
+      userMessage: "Draft a client email regarding overdue payment",
+      now: "2026-02-12T00:00:00Z",
+    },
+  );
+
+  assert.strictEqual(suggestions.length, 2);
+  assert.strictEqual(suggestions[0].entityId, 2);
+  assert.ok(suggestions[0].signal.includes("last interaction"));
+}
+
 async function run() {
   await testClientSuggestions();
   await testUpcomingSessionsSuggestions();
   await testDossierSemanticSuggestions();
   await testFallbackWhenNoData();
+  await testOverdueFallback();
   // eslint-disable-next-line no-console
   console.log("stage.contextSuggest tests passed");
 }
@@ -177,4 +199,3 @@ if (require.main === module) {
 module.exports = {
   run,
 };
-

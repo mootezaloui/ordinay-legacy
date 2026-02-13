@@ -1,4 +1,4 @@
-'use strict';
+"use strict";
 
 /**
  * Tool Firewall
@@ -19,8 +19,8 @@
  * - Execute flag false but execution requested → BLOCK
  */
 
-const { TOOL_CATEGORIES } = require('./tool.registry');
-const { getAdapter } = require('../engine/entityAdapters');
+const { TOOL_CATEGORIES } = require("./tool.registry");
+const { getAdapter } = require("../engine/entityAdapters");
 
 /**
  * TOOL_DOMAIN_MAP
@@ -30,63 +30,64 @@ const { getAdapter } = require('../engine/entityAdapters');
  */
 const TOOL_DOMAIN_MAP = Object.freeze({
   // READ tools
-  webSearch: 'web', // External web search (public information only)
-  mcpWebSearch: 'web', // External MCP web search (explicit activation only)
-  legalResearch: 'legal', // Legal research (jurisprudence, statutes, procedures)
-  mcpLegalSearch: 'legal', // External MCP legal search (explicit activation only)
-  mcpDeepSearch: 'legal', // External deep web/legal search (explicit activation only)
-  getClient: 'clients',
-  listClients: 'clients',
-  searchClientsByName: 'clients',
-  getDossier: 'dossiers',
-  getDossierByReference: 'dossiers',
-  listDossiers: 'dossiers',
-  listDossiersForClient: 'dossiers',
-  getClientDossierSummary: 'dossiers',
-  getDossierWorkSummary: 'dossiers',
-  getLawsuit: 'lawsuits',
-  listLawsuits: 'lawsuits',
-  getSession: 'sessions',
-  listSessions: 'sessions',
-  listTasks: 'tasks',
-  getTask: 'tasks',
-  getTimeline: 'dossiers', // Timeline is dossier-scoped
-  listPersonalTasks: 'personalTasks',
-  getPersonalTask: 'personalTasks',
-  listMissions: 'missions',
-  getMission: 'missions',
-  listOfficers: 'clients',
-  getOfficer: 'clients',
-  listFinancialEntries: 'financialEntries',
-  getFinancialEntry: 'financialEntries',
-  listNotifications: 'notifications',
-  getNotification: 'notifications',
-  listHistoryEvents: 'history',
-  getHistoryEvent: 'history',
+  webSearch: "web", // External web search (public information only)
+  mcpWebSearch: "web", // External MCP web search (explicit activation only)
+  legalResearch: "legal", // Legal research (jurisprudence, statutes, procedures)
+  mcpLegalSearch: "legal", // External MCP legal search (explicit activation only)
+  mcpDeepSearch: "legal", // External deep web/legal search (explicit activation only)
+  getClient: "clients",
+  listClients: "clients",
+  searchClientsByName: "clients",
+  getDossier: "dossiers",
+  getDossierByReference: "dossiers",
+  listDossiers: "dossiers",
+  listDossiersForClient: "dossiers",
+  getClientDossierSummary: "dossiers",
+  getDossierWorkSummary: "dossiers",
+  getLawsuit: "lawsuits",
+  listLawsuits: "lawsuits",
+  getSession: "sessions",
+  listSessions: "sessions",
+  listTasks: "tasks",
+  getTask: "tasks",
+  getTimeline: "dossiers", // Timeline is dossier-scoped
+  listPersonalTasks: "personalTasks",
+  getPersonalTask: "personalTasks",
+  listMissions: "missions",
+  getMission: "missions",
+  listOfficers: "clients",
+  getOfficer: "clients",
+  listFinancialEntries: "financialEntries",
+  getFinancialEntry: "financialEntries",
+  findClientsWithOverdueInvoices: "financialEntries",
+  listNotifications: "notifications",
+  getNotification: "notifications",
+  listHistoryEvents: "history",
+  getHistoryEvent: "history",
 
   // ANALYSIS tools
-  detectOverdueTasks: 'tasks',
-  computeDossierStatus: 'dossiers',
-  findBlockingDependencies: 'dossiers',
-  scanOperationalRisks: 'dossiers',
+  detectOverdueTasks: "tasks",
+  computeDossierStatus: "dossiers",
+  findBlockingDependencies: "dossiers",
+  scanOperationalRisks: "dossiers",
 
   // DRAFT tools (require underlying data access)
-  draftInvitation: 'sessions',
-  draftClientEmail: 'clients',
-  draftHearingSummary: 'sessions',
+  draftInvitation: "sessions",
+  draftClientEmail: "clients",
+  draftHearingSummary: "sessions",
 
   // RESEARCH tools
-  compileDossierResearch: 'dossiers',
+  compileDossierResearch: "dossiers",
 
   // EXECUTE tools
   universalMutation: null, // Multi-domain — domain resolved per operation params
-  createTask: 'tasks',
-  updateTask: 'tasks',
+  createTask: "tasks",
+  updateTask: "tasks",
   addNote: null, // Multi-entity — domain resolved per params
-  createDocumentDraft: 'documents',
-  updateDocumentMetadata: 'documents',
-  scheduleReminder: 'tasks',
-  prepareClientNotification: 'clients',
+  createDocumentDraft: "documents",
+  updateDocumentMetadata: "documents",
+  scheduleReminder: "tasks",
+  prepareClientNotification: "clients",
 });
 
 /**
@@ -95,19 +96,19 @@ const TOOL_DOMAIN_MAP = Object.freeze({
  * All supported data domains for access control.
  */
 const DATA_DOMAINS = Object.freeze({
-  CLIENTS: 'clients',
-  DOSSIERS: 'dossiers',
-  LAWSUITS: 'lawsuits',
-  TASKS: 'tasks',
-  SESSIONS: 'sessions',
-  DOCUMENTS: 'documents',
-  PERSONAL_TASKS: 'personalTasks',
-  MISSIONS: 'missions',
-  FINANCIAL_ENTRIES: 'financialEntries',
-  NOTIFICATIONS: 'notifications',
-  HISTORY: 'history',
-  WEB: 'web', // External web search (public information only)
-  LEGAL: 'legal', // Legal research (jurisprudence, statutes, procedures)
+  CLIENTS: "clients",
+  DOSSIERS: "dossiers",
+  LAWSUITS: "lawsuits",
+  TASKS: "tasks",
+  SESSIONS: "sessions",
+  DOCUMENTS: "documents",
+  PERSONAL_TASKS: "personalTasks",
+  MISSIONS: "missions",
+  FINANCIAL_ENTRIES: "financialEntries",
+  NOTIFICATIONS: "notifications",
+  HISTORY: "history",
+  WEB: "web", // External web search (public information only)
+  LEGAL: "legal", // Legal research (jurisprudence, statutes, procedures)
 });
 
 /**
@@ -117,28 +118,28 @@ const DATA_DOMAINS = Object.freeze({
  * Used by GATE 6 to resolve domain for multi-domain tools.
  */
 const ENTITY_TYPE_DOMAIN_MAP = Object.freeze({
-  client: 'clients',
-  dossier: 'dossiers',
-  lawsuit: 'lawsuits',
-  task: 'tasks',
-  session: 'sessions',
-  document: 'documents',
-  personal_task: 'personalTasks',
-  mission: 'missions',
-  financial_entry: 'financialEntries',
-  notification: 'notifications',
-  history_event: 'history',
-  officer: 'clients', // officers are client-domain entities
+  client: "clients",
+  dossier: "dossiers",
+  lawsuit: "lawsuits",
+  task: "tasks",
+  session: "sessions",
+  document: "documents",
+  personal_task: "personalTasks",
+  mission: "missions",
+  financial_entry: "financialEntries",
+  notification: "notifications",
+  history_event: "history",
+  officer: "clients", // officers are client-domain entities
   note: null, // polymorphic — resolved from target entity
 });
 
 class ToolFirewall {
   constructor({ registry, ledger }) {
     if (!registry) {
-      throw new Error('ToolFirewall requires a ToolRegistry instance');
+      throw new Error("ToolFirewall requires a ToolRegistry instance");
     }
     if (!ledger) {
-      throw new Error('ToolFirewall requires a AgentLedgerService instance');
+      throw new Error("ToolFirewall requires a AgentLedgerService instance");
     }
 
     this.registry = registry;
@@ -162,7 +163,7 @@ class ToolFirewall {
     if (!tool) {
       const result = this._buildRejection({
         toolName,
-        reason: 'UNDECLARED_TOOL',
+        reason: "UNDECLARED_TOOL",
         message: `Tool '${toolName}' is not declared in the tool registry`,
         policy,
         context,
@@ -173,9 +174,9 @@ class ToolFirewall {
     }
 
     checks.push({
-      gate: 'REGISTRY_CHECK',
+      gate: "REGISTRY_CHECK",
       passed: true,
-      message: 'Tool exists in registry',
+      message: "Tool exists in registry",
     });
 
     // GATE 2: Agent version must be allowed for this tool
@@ -183,8 +184,8 @@ class ToolFirewall {
     if (!tool.allowedAgentVersions.includes(agentVersion)) {
       const result = this._buildRejection({
         toolName,
-        reason: 'VERSION_NOT_ALLOWED',
-        message: `Tool '${toolName}' is not allowed for agent version ${agentVersion}. Allowed versions: ${tool.allowedAgentVersions.join(', ')}`,
+        reason: "VERSION_NOT_ALLOWED",
+        message: `Tool '${toolName}' is not allowed for agent version ${agentVersion}. Allowed versions: ${tool.allowedAgentVersions.join(", ")}`,
         policy,
         context,
         checks,
@@ -195,7 +196,7 @@ class ToolFirewall {
     }
 
     checks.push({
-      gate: 'VERSION_CHECK',
+      gate: "VERSION_CHECK",
       passed: true,
       message: `Agent version ${agentVersion} is allowed`,
     });
@@ -204,8 +205,8 @@ class ToolFirewall {
     if (!policy.allowedToolCategories.includes(tool.category)) {
       const result = this._buildRejection({
         toolName,
-        reason: 'CATEGORY_NOT_ALLOWED',
-        message: `Tool category '${tool.category}' is not allowed by agent policy ${agentVersion}. Allowed categories: ${policy.allowedToolCategories.join(', ')}`,
+        reason: "CATEGORY_NOT_ALLOWED",
+        message: `Tool category '${tool.category}' is not allowed by agent policy ${agentVersion}. Allowed categories: ${policy.allowedToolCategories.join(", ")}`,
         policy,
         context,
         checks,
@@ -216,7 +217,7 @@ class ToolFirewall {
     }
 
     checks.push({
-      gate: 'CATEGORY_CHECK',
+      gate: "CATEGORY_CHECK",
       passed: true,
       message: `Category '${tool.category}' is allowed by policy`,
     });
@@ -225,7 +226,7 @@ class ToolFirewall {
     if (tool.category === TOOL_CATEGORIES.EXTERNAL) {
       const result = this._buildRejection({
         toolName,
-        reason: 'EXTERNAL_TOOLS_DISABLED',
+        reason: "EXTERNAL_TOOLS_DISABLED",
         message: `External tools are not yet available. Tool '${toolName}' is in the external category.`,
         policy,
         context,
@@ -240,7 +241,7 @@ class ToolFirewall {
     if (tool.category === TOOL_CATEGORIES.EXECUTE && !policy.allowExecution) {
       const result = this._buildRejection({
         toolName,
-        reason: 'EXECUTION_NOT_PERMITTED',
+        reason: "EXECUTION_NOT_PERMITTED",
         message: `Execution tools are not permitted for agent version ${agentVersion}. This is a safety constraint.`,
         policy,
         context,
@@ -253,11 +254,12 @@ class ToolFirewall {
     }
 
     checks.push({
-      gate: 'EXECUTION_CHECK',
+      gate: "EXECUTION_CHECK",
       passed: true,
-      message: tool.category === TOOL_CATEGORIES.EXECUTE
-        ? 'Execution is permitted by policy'
-        : 'Tool does not require execution permission',
+      message:
+        tool.category === TOOL_CATEGORIES.EXECUTE
+          ? "Execution is permitted by policy"
+          : "Tool does not require execution permission",
     });
 
     // GATE 4.5: Posture check — execute tools require matching posture
@@ -266,8 +268,8 @@ class ToolFirewall {
       if (currentPosture !== policy.requirePosture) {
         const result = this._buildRejection({
           toolName,
-          reason: 'POSTURE_MISMATCH',
-          message: `Tool '${toolName}' requires posture ${policy.requirePosture}, current posture is ${currentPosture || 'NONE'}`,
+          reason: "POSTURE_MISMATCH",
+          message: `Tool '${toolName}' requires posture ${policy.requirePosture}, current posture is ${currentPosture || "NONE"}`,
           policy,
           context,
           checks,
@@ -278,7 +280,7 @@ class ToolFirewall {
       }
 
       checks.push({
-        gate: 'POSTURE_CHECK',
+        gate: "POSTURE_CHECK",
         passed: true,
         message: `Posture ${currentPosture} matches required ${policy.requirePosture}`,
       });
@@ -290,7 +292,7 @@ class ToolFirewall {
       if (confirmationRequired && !context.confirmed) {
         const result = this._buildRejection({
           toolName,
-          reason: 'CONFIRMATION_REQUIRED',
+          reason: "CONFIRMATION_REQUIRED",
           message: `Tool '${toolName}' has side effects and requires explicit confirmation`,
           policy,
           context,
@@ -302,11 +304,11 @@ class ToolFirewall {
       }
 
       checks.push({
-        gate: 'CONFIRMATION_CHECK',
+        gate: "CONFIRMATION_CHECK",
         passed: true,
         message: context.confirmed
-          ? 'Execution confirmed'
-          : 'Confirmation not required for this tool',
+          ? "Execution confirmed"
+          : "Confirmation not required for this tool",
       });
     }
 
@@ -318,7 +320,7 @@ class ToolFirewall {
       if (domainEnabled === false) {
         const result = this._buildRejection({
           toolName,
-          reason: 'DOMAIN_ACCESS_DENIED',
+          reason: "DOMAIN_ACCESS_DENIED",
           message: `Access to ${toolDomain} data is disabled. Enable ${toolDomain} access in the context panel to use this feature.`,
           policy,
           context,
@@ -331,7 +333,7 @@ class ToolFirewall {
       }
 
       checks.push({
-        gate: 'DOMAIN_ACCESS_CHECK',
+        gate: "DOMAIN_ACCESS_CHECK",
         passed: true,
         message: `Access to ${toolDomain} domain is permitted`,
       });
@@ -343,7 +345,7 @@ class ToolFirewall {
         if (domain && context.dataAccess[domain] === false) {
           const result = this._buildRejection({
             toolName,
-            reason: 'DOMAIN_ACCESS_DENIED',
+            reason: "DOMAIN_ACCESS_DENIED",
             message: `Access to ${domain} data is disabled (entity type: ${et}). Enable ${domain} access in the context panel to use this feature.`,
             policy,
             context,
@@ -357,29 +359,35 @@ class ToolFirewall {
       }
 
       checks.push({
-        gate: 'DOMAIN_ACCESS_CHECK',
+        gate: "DOMAIN_ACCESS_CHECK",
         passed: true,
-        message: entityTypes.length > 0
-          ? `Access to domains for [${entityTypes.join(', ')}] is permitted`
-          : 'No domain restrictions specified (all domains allowed)',
+        message:
+          entityTypes.length > 0
+            ? `Access to domains for [${entityTypes.join(", ")}] is permitted`
+            : "No domain restrictions specified (all domains allowed)",
       });
     } else if (toolDomain) {
       // No dataAccess in context = all domains allowed (backward compatibility)
       checks.push({
-        gate: 'DOMAIN_ACCESS_CHECK',
+        gate: "DOMAIN_ACCESS_CHECK",
         passed: true,
-        message: 'No domain restrictions specified (all domains allowed)',
+        message: "No domain restrictions specified (all domains allowed)",
       });
     }
 
     // GATE 7: Delete adapter restriction — block DELETE_ENTITY if adapter forbids it
-    if (params && params.operation === 'DELETE_ENTITY' && params.params && params.params.entityType) {
+    if (
+      params &&
+      params.operation === "DELETE_ENTITY" &&
+      params.params &&
+      params.params.entityType
+    ) {
       try {
         const adapter = getAdapter(params.params.entityType);
         if (adapter.allowedDelete === false) {
           const result = this._buildRejection({
             toolName,
-            reason: 'DELETE_NOT_ALLOWED',
+            reason: "DELETE_NOT_ALLOWED",
             message: `Deletion is not allowed for entity type '${params.params.entityType}'. Use soft-delete or archive instead.`,
             policy,
             context,
@@ -394,7 +402,7 @@ class ToolFirewall {
       }
 
       checks.push({
-        gate: 'ADAPTER_DELETE_CHECK',
+        gate: "ADAPTER_DELETE_CHECK",
         passed: true,
         message: `Delete is allowed for ${params.params.entityType}`,
       });
@@ -423,7 +431,16 @@ class ToolFirewall {
    * Build a rejection result
    * @private
    */
-  _buildRejection({ toolName, reason, message, policy, context, checks, tool = null, suggestedAlternative = null }) {
+  _buildRejection({
+    toolName,
+    reason,
+    message,
+    policy,
+    context,
+    checks,
+    tool = null,
+    suggestedAlternative = null,
+  }) {
     return {
       permitted: false,
       toolName,
@@ -448,10 +465,10 @@ class ToolFirewall {
    */
   _logDecision(result) {
     this.ledger.record({
-      type: 'tool_permission_check',
+      type: "tool_permission_check",
       toolName: result.toolName,
       permitted: result.permitted,
-      reason: result.reason || 'PERMITTED',
+      reason: result.reason || "PERMITTED",
       policyVersion: result.policy.version,
       toolCategory: result.tool ? result.tool.category : null,
       checks: result.checks,
@@ -466,15 +483,15 @@ class ToolFirewall {
   _suggestReadAlternative(toolName) {
     // Map execute tools to their read equivalents
     const alternatives = {
-      universalMutation: 'listDossiers',
-      createTask: 'listTasks',
-      updateTask: 'getTask',
-      addNote: 'getDossier',
-      createDocumentDraft: 'getDossier',
-      updateDocumentMetadata: 'getDossier',
-      scheduleReminder: 'listReminders',
-      prepareClientNotification: 'getClient',
-      updateDossierStatus: 'getDossier',
+      universalMutation: "listDossiers",
+      createTask: "listTasks",
+      updateTask: "getTask",
+      addNote: "getDossier",
+      createDocumentDraft: "getDossier",
+      updateDocumentMetadata: "getDossier",
+      scheduleReminder: "listReminders",
+      prepareClientNotification: "getClient",
+      updateDossierStatus: "getDossier",
     };
 
     const alternative = alternatives[toolName];

@@ -38,15 +38,12 @@ async function _executeDraftIntent(
   policy,
   engineContext,
 ) {
-  const {
-    intent,
-    draftType,
-    entityHints = [],
-  } = draftIntent;
+  const { intent, draftType, entityHints = [] } = draftIntent;
   let effectiveDraftType = draftType;
   if (!effectiveDraftType) {
     const m = String(message || "").toLowerCase();
-    const invitationSignal = /\b(hearing|session|demand)\b/.test(m) || m.includes("mise en demeure");
+    const invitationSignal =
+      /\b(hearing|session|demand)\b/.test(m) || m.includes("mise en demeure");
     const emailSignal = /\b(response|reply)\b/.test(m);
     const noteSignal = /\bnote\b/.test(m);
     const inferred = [
@@ -62,21 +59,23 @@ async function _executeDraftIntent(
   let resolvedEntityType = null;
 
   // Check context for pre-bound entity (work snapshot or active entity)
-  const contextEntityType = context?.activeEntity?.type
-    || context?.scope
-    || null;
-  const contextEntityId = context?.activeEntity?.id
-    || context?.dossierId
-    || context?.clientId
-    || context?.sessionId
-    || null;
+  const contextEntityType =
+    context?.activeEntity?.type || context?.scope || null;
+  const contextEntityId =
+    context?.activeEntity?.id ||
+    context?.dossierId ||
+    context?.clientId ||
+    context?.sessionId ||
+    null;
 
   // ── Extract resolved entity from context suggestion resolution ──
   if (context?._resolvedFromSuggestion && context?.resolvedEntity) {
     resolvedEntityType = context.resolvedEntity.type;
     const entityId = Number(context.resolvedEntity.id);
 
-    console.log(`[Draft] Fetching resolved entity: ${resolvedEntityType}#${entityId}`);
+    console.log(
+      `[Draft] Fetching resolved entity: ${resolvedEntityType}#${entityId}`,
+    );
 
     // Fetch the actual entity data using the resolved ID
     try {
@@ -84,17 +83,23 @@ async function _executeDraftIntent(
       const entityResult = await this._callReadTool(
         toolName,
         { [`${resolvedEntityType}Id`]: entityId },
-        policy
+        policy,
       );
 
       console.log(`[Draft] Entity fetch result:`, entityResult);
 
       if (entityResult?.[resolvedEntityType]) {
         resolvedEntity = entityResult[resolvedEntityType];
-        console.log(`[Draft] Entity resolved successfully:`, resolvedEntity?.id);
+        console.log(
+          `[Draft] Entity resolved successfully:`,
+          resolvedEntity?.id,
+        );
       }
     } catch (err) {
-      console.error(`[Draft] Failed to fetch resolved entity ${resolvedEntityType}#${entityId}:`, err.message);
+      console.error(
+        `[Draft] Failed to fetch resolved entity ${resolvedEntityType}#${entityId}:`,
+        err.message,
+      );
     }
 
     // If entity fetch failed, return error
@@ -116,13 +121,14 @@ async function _executeDraftIntent(
 
   if (entityHints.length > 0) {
     for (const hint of entityHints) {
-      const hintsToTry = hint?.type === "name"
-        ? [
-            { type: "client", nameHint: hint.value },
-            { type: "dossier", nameHint: hint.value },
-            { type: "session", nameHint: hint.value },
-          ]
-        : [hint];
+      const hintsToTry =
+        hint?.type === "name"
+          ? [
+              { type: "client", nameHint: hint.value },
+              { type: "dossier", nameHint: hint.value },
+              { type: "session", nameHint: hint.value },
+            ]
+          : [hint];
 
       for (const hintToResolve of hintsToTry) {
         try {
@@ -142,11 +148,12 @@ async function _executeDraftIntent(
               timestamp: new Date().toISOString(),
             });
 
-            const clarificationType = hintToResolve?.entityType
-              || hintToResolve?.type
-              || hint?.entityType
-              || hint?.type
-              || "record";
+            const clarificationType =
+              hintToResolve?.entityType ||
+              hintToResolve?.type ||
+              hint?.entityType ||
+              hint?.type ||
+              "record";
             const candidateDetails = Array.isArray(resolution.candidates)
               ? resolution.candidates.map((c) =>
                   resolveEntityDisplayLabel(clarificationType, c, {
@@ -201,7 +208,10 @@ async function _executeDraftIntent(
   // Fall back to context-bound entity if no hint resolved
   // Only accept context entity if its type is compatible with the requested draft type
   if (!resolvedEntity && contextEntityId && contextEntityType) {
-    const compatible = _isEntityTypeCompatible(contextEntityType, effectiveDraftType);
+    const compatible = _isEntityTypeCompatible(
+      contextEntityType,
+      effectiveDraftType,
+    );
     if (compatible) {
       resolvedEntityType = contextEntityType;
       resolvedEntity = { id: contextEntityId };
@@ -216,7 +226,12 @@ async function _executeDraftIntent(
       timestamp: new Date().toISOString(),
     });
 
-    const availableTypes = ["Invitation", "Client Email", "Hearing Summary", "Internal Note"];
+    const availableTypes = [
+      "Invitation",
+      "Client Email",
+      "Hearing Summary",
+      "Internal Note",
+    ];
 
     return {
       intent,
@@ -250,7 +265,8 @@ async function _executeDraftIntent(
   // Skip context suggestion if entity was just resolved from a previous suggestion
   if (!resolvedEntity && !context._resolvedFromSuggestion) {
     const missingEntities = _draftMissingEntities(effectiveDraftType);
-    const primaryMissingEntity = missingEntities[0] || _draftEntityLabel(effectiveDraftType);
+    const primaryMissingEntity =
+      missingEntities[0] || _draftEntityLabel(effectiveDraftType);
     const suggestions = await getContextSuggestions.call(
       this,
       intent,
@@ -263,8 +279,9 @@ async function _executeDraftIntent(
     );
 
     if (Array.isArray(suggestions) && suggestions.length > 0) {
-      const suggestionEntityType =
-        String(suggestions[0]?.entityType || primaryMissingEntity || "entity").toLowerCase();
+      const suggestionEntityType = String(
+        suggestions[0]?.entityType || primaryMissingEntity || "entity",
+      ).toLowerCase();
 
       this.ledger.record({
         type: "draft_context_suggestions",
@@ -287,22 +304,32 @@ async function _executeDraftIntent(
       };
 
       // Helper to extract metadata from signal string
-      const parseSignalMetadata = (signal) => {
+      const parseSignalMetadata = (signal, extraMetadata) => {
         const metadata = {};
-        if (!signal) return metadata;
-        const parts = String(signal).split(",").map(s => s.trim());
-        for (const part of parts) {
-          const match = part.match(/^(\d+)\s+(.+?)(?:\(s\))?$/i);
-          if (match) {
-            const count = parseInt(match[1], 10);
-            const label = match[2].trim().replace(/\s+/g, "_").toLowerCase();
-            metadata[label] = count;
+        if (signal) {
+          const parts = String(signal)
+            .split(",")
+            .map((s) => s.trim());
+          for (const part of parts) {
+            const match = part.match(/^(\d+)\s+(.+?)(?:\(s\))?$/i);
+            if (match) {
+              const count = parseInt(match[1], 10);
+              const label = match[2].trim().replace(/\s+/g, "_").toLowerCase();
+              metadata[label] = count;
+            }
           }
+        }
+        if (extraMetadata && typeof extraMetadata === "object") {
+          return { ...metadata, ...extraMetadata };
         }
         return metadata;
       };
 
-      console.log('[DEBUG] Creating context_suggestion with:', { intent, effectiveDraftType, message });
+      console.log("[DEBUG] Creating context_suggestion with:", {
+        intent,
+        effectiveDraftType,
+        message,
+      });
 
       return {
         intent,
@@ -325,7 +352,7 @@ async function _executeDraftIntent(
             entityId: item.entityId,
             label: item.label,
             subtitle: null,
-            metadata: parseSignalMetadata(item.signal),
+            metadata: parseSignalMetadata(item.signal, item.metadata),
 
             // Resolution intent, not READ
             intent: "RESOLVE_CONTEXT_AND_CONTINUE",
@@ -334,8 +361,8 @@ async function _executeDraftIntent(
             // Embedded resolution context
             resolveContext: {
               originalIntent: intent,
-              originalDraftType: effectiveDraftType
-            }
+              originalDraftType: effectiveDraftType,
+            },
           })),
           timestamp: new Date().toISOString(),
           confidence: 0.6,
@@ -386,7 +413,10 @@ async function _executeDraftIntent(
   }
 
   // ── Step 4: Derive tool params ────────────────────────────────────
-  console.log(`[Draft] Deriving tool params - resolvedEntityType: ${resolvedEntityType}, resolvedEntity:`, resolvedEntity);
+  console.log(
+    `[Draft] Deriving tool params - resolvedEntityType: ${resolvedEntityType}, resolvedEntity:`,
+    resolvedEntity,
+  );
   const entityType = _mapToToolEntityType(resolvedEntityType);
   const entityId = resolvedEntity.id;
   const purpose = _derivePurpose(message, effectiveDraftType);
@@ -416,11 +446,16 @@ async function _executeDraftIntent(
   console.log(`[Draft] Calling genericDraft tool...`);
 
   try {
-    const v2Result = await this.executeToolV2("genericDraft", toolParams, policy, {
-      confirmed: true,
-      planId: null,
-      stepIndex: 0,
-    });
+    const v2Result = await this.executeToolV2(
+      "genericDraft",
+      toolParams,
+      policy,
+      {
+        confirmed: true,
+        planId: null,
+        stepIndex: 0,
+      },
+    );
 
     console.log(`[Draft] genericDraft returned:`, v2Result);
 

@@ -3,7 +3,11 @@
 function toLowerSet(values = []) {
   return new Set(
     (Array.isArray(values) ? values : [])
-      .map((value) => String(value || "").trim().toLowerCase())
+      .map((value) =>
+        String(value || "")
+          .trim()
+          .toLowerCase(),
+      )
       .filter(Boolean),
   );
 }
@@ -58,8 +62,34 @@ function formatSessionProximity(sessionDate, nowDate) {
   return `in ${diffDays} days`;
 }
 
+function computeDaysLate(oldestDueDate, nowDate) {
+  const dueTs = parseDateValue(oldestDueDate);
+  const nowTs = parseDateValue(nowDate);
+  if (!dueTs || !nowTs) return null;
+  const dayMs = 24 * 60 * 60 * 1000;
+  return Math.max(0, Math.floor((nowTs - dueTs) / dayMs));
+}
+
+function isOverdueClientEmailIntent(intent, userMessage) {
+  const normalizedIntent = String(intent || "").toUpperCase();
+  if (normalizedIntent !== "DRAFT_CLIENT_EMAIL") return false;
+  const message = String(userMessage || "").toLowerCase();
+  if (!message) return false;
+  const keywords = [
+    "overdue",
+    "unpaid",
+    "late payment",
+    "payment reminder",
+    "past due",
+    "late invoice",
+  ];
+  return keywords.some((keyword) => message.includes(keyword));
+}
+
 function inferWorkspaceScope(requestContext = {}) {
-  const activeType = String(requestContext?.activeEntity?.type || "").toLowerCase();
+  const activeType = String(
+    requestContext?.activeEntity?.type || "",
+  ).toLowerCase();
   const activeId = requestContext?.activeEntity?.id || null;
   return {
     clientId:
@@ -77,36 +107,44 @@ function inferWorkspaceScope(requestContext = {}) {
   };
 }
 
-async function discoverClientSuggestions({ policy, requestContext, now }, runtime) {
+async function discoverClientSuggestions(
+  { policy, requestContext, now },
+  runtime,
+) {
   const scope = inferWorkspaceScope(requestContext);
 
-  const [clientsResult, overdueResult, dossiersResult, tasksResult] = await Promise.all([
-    runtime.readTool("listClients", { limit: 200 }, policy),
-    runtime.readTool(
-      "listFinancialEntries",
-      {
-        paymentStatus: "overdue",
-        ...(scope.clientId ? { clientId: scope.clientId } : {}),
-        limit: 300,
-      },
-      policy,
-    ),
-    runtime.readTool(
-      "listDossiers",
-      {
-        ...(scope.clientId ? { clientId: scope.clientId } : {}),
-        limit: 300,
-      },
-      policy,
-    ),
-    runtime.readTool("listTasks", { limit: 400 }, policy),
-  ]);
+  const [clientsResult, overdueResult, dossiersResult, tasksResult] =
+    await Promise.all([
+      runtime.readTool("listClients", { limit: 200 }, policy),
+      runtime.readTool(
+        "listFinancialEntries",
+        {
+          paymentStatus: "overdue",
+          ...(scope.clientId ? { clientId: scope.clientId } : {}),
+          limit: 300,
+        },
+        policy,
+      ),
+      runtime.readTool(
+        "listDossiers",
+        {
+          ...(scope.clientId ? { clientId: scope.clientId } : {}),
+          limit: 300,
+        },
+        policy,
+      ),
+      runtime.readTool("listTasks", { limit: 400 }, policy),
+    ]);
 
-  const clients = Array.isArray(clientsResult?.clients) ? clientsResult.clients : [];
+  const clients = Array.isArray(clientsResult?.clients)
+    ? clientsResult.clients
+    : [];
   const overdueEntries = Array.isArray(overdueResult?.financialEntries)
     ? overdueResult.financialEntries
     : [];
-  const dossiers = Array.isArray(dossiersResult?.dossiers) ? dossiersResult.dossiers : [];
+  const dossiers = Array.isArray(dossiersResult?.dossiers)
+    ? dossiersResult.dossiers
+    : [];
   const tasks = Array.isArray(tasksResult?.tasks) ? tasksResult.tasks : [];
 
   const dossierClientMap = new Map();
@@ -123,7 +161,9 @@ async function discoverClientSuggestions({ policy, requestContext, now }, runtim
       overdueCount: 0,
       openTasksCount: 0,
       activeDossiersCount: 0,
-      lastInteraction: parseDateValue(client?.updated_at || client?.created_at || 0),
+      lastInteraction: parseDateValue(
+        client?.updated_at || client?.created_at || 0,
+      ),
     });
   }
 
@@ -134,7 +174,9 @@ async function discoverClientSuggestions({ policy, requestContext, now }, runtim
     row.overdueCount += 1;
     row.lastInteraction = Math.max(
       row.lastInteraction,
-      parseDateValue(entry?.updated_at || entry?.occurred_at || entry?.due_date),
+      parseDateValue(
+        entry?.updated_at || entry?.occurred_at || entry?.due_date,
+      ),
     );
   }
 
@@ -148,7 +190,9 @@ async function discoverClientSuggestions({ policy, requestContext, now }, runtim
     }
     row.lastInteraction = Math.max(
       row.lastInteraction,
-      parseDateValue(dossier?.updated_at || dossier?.opened_at || dossier?.created_at),
+      parseDateValue(
+        dossier?.updated_at || dossier?.opened_at || dossier?.created_at,
+      ),
     );
   }
 
@@ -167,22 +211,32 @@ async function discoverClientSuggestions({ policy, requestContext, now }, runtim
   }
 
   let candidates = Array.from(metrics.values()).filter(
-    (row) => row.overdueCount > 0 || row.openTasksCount > 0 || row.activeDossiersCount > 0,
+    (row) =>
+      row.overdueCount > 0 ||
+      row.openTasksCount > 0 ||
+      row.activeDossiersCount > 0,
   );
 
   if (scope.clientId) {
-    candidates = candidates.filter((row) => Number(row?.client?.id) === Number(scope.clientId));
+    candidates = candidates.filter(
+      (row) => Number(row?.client?.id) === Number(scope.clientId),
+    );
   } else if (scope.dossierId) {
     const scopedClient = dossierClientMap.get(Number(scope.dossierId));
     if (scopedClient) {
-      candidates = candidates.filter((row) => Number(row?.client?.id) === Number(scopedClient));
+      candidates = candidates.filter(
+        (row) => Number(row?.client?.id) === Number(scopedClient),
+      );
     }
   }
 
   candidates.sort((a, b) => {
-    if (b.overdueCount !== a.overdueCount) return b.overdueCount - a.overdueCount;
-    if (b.lastInteraction !== a.lastInteraction) return b.lastInteraction - a.lastInteraction;
-    if (b.openTasksCount !== a.openTasksCount) return b.openTasksCount - a.openTasksCount;
+    if (b.overdueCount !== a.overdueCount)
+      return b.overdueCount - a.overdueCount;
+    if (b.lastInteraction !== a.lastInteraction)
+      return b.lastInteraction - a.lastInteraction;
+    if (b.openTasksCount !== a.openTasksCount)
+      return b.openTasksCount - a.openTasksCount;
     return b.activeDossiersCount - a.activeDossiersCount;
   });
 
@@ -190,12 +244,91 @@ async function discoverClientSuggestions({ policy, requestContext, now }, runtim
     entityType: "client",
     entityId: row.client.id,
     label: row.client.name || `Client #${row.client.id}`,
-    score: row.overdueCount * 1000 + row.openTasksCount * 10 + row.activeDossiersCount,
+    score:
+      row.overdueCount * 1000 +
+      row.openTasksCount * 10 +
+      row.activeDossiersCount,
     signal: `${row.overdueCount} overdue invoice(s), ${row.openTasksCount} open task(s), ${row.activeDossiersCount} active dossier(s), last interaction ${formatIsoDate(row.lastInteraction || now)}`,
   }));
 }
 
-async function discoverSessionSuggestions({ policy, requestContext, now }, runtime) {
+async function discoverOverdueClientSuggestions(
+  { policy, requestContext, now },
+  runtime,
+) {
+  const scope = inferWorkspaceScope(requestContext);
+  const params = { limit: 5 };
+  if (scope.clientId) params.clientId = Number(scope.clientId);
+
+  const result = await runtime.readTool(
+    "findClientsWithOverdueInvoices",
+    params,
+    policy,
+  );
+  const rows = Array.isArray(result?.clients) ? result.clients : [];
+
+  return rows.map((row) => {
+    const overdueCount = Number(row?.overdue_count || 0);
+    const totalOverdueAmount = Number(row?.total_overdue_amount || 0);
+    const oldestDueDate = row?.oldest_due_date || null;
+    const daysLate = computeDaysLate(oldestDueDate, now);
+    const clientId = Number(row?.client_id || 0);
+    const clientName = row?.client_name || `Client #${clientId}`;
+    return {
+      entityType: "client",
+      entityId: clientId,
+      label: clientName,
+      score: overdueCount * 1000 + totalOverdueAmount,
+      signal: `${overdueCount} overdue invoice(s), total overdue ${totalOverdueAmount}, oldest due ${formatIsoDate(oldestDueDate)}`,
+      metadata: {
+        clientId,
+        clientName,
+        overdueCount,
+        totalOverdueAmount,
+        daysLate,
+      },
+    };
+  });
+}
+
+async function discoverRecentClientSuggestions(
+  { policy, requestContext, now },
+  runtime,
+) {
+  const scope = inferWorkspaceScope(requestContext);
+  const result = await runtime.readTool("listClients", { limit: 200 }, policy);
+  const clients = Array.isArray(result?.clients) ? result.clients : [];
+
+  let candidates = clients
+    .map((client) => {
+      const lastInteraction = parseDateValue(
+        client?.updated_at || client?.created_at || 0,
+      );
+      return { client, lastInteraction };
+    })
+    .filter((row) => row.client);
+
+  if (scope.clientId) {
+    candidates = candidates.filter(
+      (row) => Number(row?.client?.id) === Number(scope.clientId),
+    );
+  }
+
+  candidates.sort((a, b) => b.lastInteraction - a.lastInteraction);
+
+  return candidates.slice(0, 5).map((row) => ({
+    entityType: "client",
+    entityId: row.client.id,
+    label: row.client.name || `Client #${row.client.id}`,
+    score: row.lastInteraction || 0,
+    signal: `last interaction ${formatIsoDate(row.lastInteraction || now)}`,
+  }));
+}
+
+async function discoverSessionSuggestions(
+  { policy, requestContext, now },
+  runtime,
+) {
   const scope = inferWorkspaceScope(requestContext);
   const params = {
     timeframe: "upcoming",
@@ -210,7 +343,10 @@ async function discoverSessionSuggestions({ policy, requestContext, now }, runti
 
   const candidates = sessions
     .filter((session) => parseDateValue(session?.scheduled_at) >= nowTs)
-    .sort((a, b) => parseDateValue(a?.scheduled_at) - parseDateValue(b?.scheduled_at))
+    .sort(
+      (a, b) =>
+        parseDateValue(a?.scheduled_at) - parseDateValue(b?.scheduled_at),
+    )
     .slice(0, 5)
     .map((session) => ({
       entityType: "session",
@@ -223,7 +359,10 @@ async function discoverSessionSuggestions({ policy, requestContext, now }, runti
   return candidates;
 }
 
-async function discoverDossierSuggestions({ policy, requestContext, userMessage }, runtime) {
+async function discoverDossierSuggestions(
+  { policy, requestContext, userMessage },
+  runtime,
+) {
   const query = String(userMessage || "").trim();
   if (!query) return [];
 
@@ -263,7 +402,9 @@ async function discoverDossierSuggestions({ policy, requestContext, userMessage 
     },
     policy,
   );
-  const dossiers = Array.isArray(listResult?.dossiers) ? listResult.dossiers : [];
+  const dossiers = Array.isArray(listResult?.dossiers)
+    ? listResult.dossiers
+    : [];
 
   return dossiers
     .map((dossier) => {
@@ -310,6 +451,27 @@ async function getContextSuggestions(intent, missingEntities, context = {}) {
   const userMessage = context?.userMessage || "";
 
   if (entities.has("client")) {
+    if (isOverdueClientEmailIntent(intent, userMessage)) {
+      console.log("[SuggestionEngine] Using overdue-aware resolver");
+      const overdueSuggestions = await discoverOverdueClientSuggestions(
+        { intent, policy, requestContext, now, userMessage },
+        runtime,
+      );
+      console.log(
+        `[SuggestionEngine] Results: ${Array.isArray(overdueSuggestions) ? overdueSuggestions.length : 0} clients`,
+      );
+
+      if (Array.isArray(overdueSuggestions) && overdueSuggestions.length > 0) {
+        return overdueSuggestions;
+      }
+
+      console.log("[SuggestionEngine] No overdue clients found, falling back");
+      return await discoverRecentClientSuggestions(
+        { intent, policy, requestContext, now, userMessage },
+        runtime,
+      );
+    }
+
     return await discoverClientSuggestions(
       { intent, policy, requestContext, now, userMessage },
       runtime,
@@ -355,4 +517,3 @@ module.exports = {
   formatSuggestionResponse,
   lexicalSimilarity,
 };
-
