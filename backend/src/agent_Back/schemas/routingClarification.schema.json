@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RoutingClarification",
+  "description": "Clarification artifact returned when capability routing is ambiguous",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["type", "message", "candidates", "timestamp"],
+  "properties": {
+    "type": {
+      "const": "routing_clarification"
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reason": {
+      "type": "string"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "signals": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "candidates": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["capability"],
+        "properties": {
+          "capability": { "type": "string" },
+          "intent": { "type": ["string", "null"] },
+          "confidence": { "type": "number" },
+          "signals": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "requires": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "entity": { "type": "boolean" },
+              "draftType": { "type": "boolean" },
+              "scope": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

@@ -51,13 +51,11 @@ async function _executeReadIntent(
     aggregateSummary = false,
   } = readIntent;
   const turnDocumentContext =
-    context?._turnDocumentContext ||
-    engineContext?.documentContext ||
-    null;
+    context?._turnDocumentContext || engineContext?.documentContext || null;
   const hasTurnDocumentContext = Boolean(
     turnDocumentContext &&
-      Array.isArray(turnDocumentContext.documents) &&
-      turnDocumentContext.documents.length > 0,
+    Array.isArray(turnDocumentContext.documents) &&
+    turnDocumentContext.documents.length > 0,
   );
   if (hasTurnDocumentContext) {
     context = {
@@ -80,7 +78,9 @@ async function _executeReadIntent(
   const snapshotRefreshRequested =
     Boolean(normalizedFilters._snapshotRefresh) ||
     isWorkSnapshotRefreshRequest(message);
-  if (Object.prototype.hasOwnProperty.call(normalizedFilters, "_snapshotRefresh")) {
+  if (
+    Object.prototype.hasOwnProperty.call(normalizedFilters, "_snapshotRefresh")
+  ) {
     delete normalizedFilters._snapshotRefresh;
   }
 
@@ -276,7 +276,9 @@ async function _executeReadIntent(
         return `${label}`;
       }
       if (entityType === "task") {
-        const due = item.due_date ? ` due ${helpers.formatDate(item.due_date)}` : "";
+        const due = item.due_date
+          ? ` due ${helpers.formatDate(item.due_date)}`
+          : "";
         return `${label} — ${item.status || "todo"}${due}`;
       }
       if (entityType === "session") {
@@ -328,7 +330,11 @@ async function _executeReadIntent(
                   intent: redirectIntent,
                   requiresLocalData: true,
                   entityHints: [
-                    { type: "id", value: resolution.id, entityType: entityTypeForIntent },
+                    {
+                      type: "id",
+                      value: resolution.id,
+                      entityType: entityTypeForIntent,
+                    },
                   ],
                 },
                 message,
@@ -351,7 +357,10 @@ async function _executeReadIntent(
               ? `Multiple ${label}s match \"${queryText}\". Please narrow by reference or exact name.`
               : `Multiple ${label}s match \"${queryText}\".`;
             candidates.forEach((candidate) => {
-              const detail = formatCandidateDetail(entityTypeForIntent, candidate);
+              const detail = formatCandidateDetail(
+                entityTypeForIntent,
+                candidate,
+              );
               if (detail) state.details.push(detail);
             });
             if (overflowNote) state.details.push(overflowNote);
@@ -443,25 +452,39 @@ async function _executeReadIntent(
     });
 
     // Validate based on actual output type (clean contract)
-    const contractType = explanationOutput.type === "context_suggestion" ? "context_suggestion" : "explanation";
+    const contractType =
+      explanationOutput.type === "context_suggestion"
+        ? "context_suggestion"
+        : "explanation";
     this._validateContract(contractType, explanationOutput, {
       intent: "READ_DATA",
     });
 
     // Run plan analysis for dossiers (automatic state analysis)
     let planAnalysis = null;
-    if (entityType === 'dossier' && state.data?.id && readOutcome === 'success') {
+    if (
+      entityType === "dossier" &&
+      state.data?.id &&
+      readOutcome === "success"
+    ) {
       try {
-        const analyzeEntityStateTool = this.toolRegistry.get('analyzeEntityState');
-        if (analyzeEntityStateTool) {
-          planAnalysis = await analyzeEntityStateTool.handler({
-            entityType: 'dossier',
-            entityId: state.data.id,
-          });
+        const tool = this.toolRegistry.get("analyzeEntityState");
+        if (tool) {
+          const analysisResult = await this.executeToolV2(
+            "analyzeEntityState",
+            { entityType: "dossier", entityId: state.data.id },
+            policy,
+            {
+              confirmed: true,
+              planId: "read_analysis",
+              stepIndex: 0,
+            },
+          );
+          planAnalysis = analysisResult?.result || null;
         }
       } catch (err) {
         this.ledger.record({
-          type: 'plan_analysis_error',
+          type: "plan_analysis_error",
           entityType,
           entityId: state.data?.id,
           error: err.message,

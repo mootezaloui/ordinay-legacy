@@ -8,6 +8,7 @@
  */
 
 const dossiersService = require('../../../services/dossiers.service');
+const clientsService = require('../../../services/clients.service');
 const { TOOL_CATEGORIES } = require('../tool.registry');
 
 const inputSchema = {
@@ -48,6 +49,9 @@ const outputSchema = {
 };
 
 async function handler({ clientId, limit = 20 }) {
+  const clientName = String(
+    clientsService.get(clientId)?.name || `Client #${clientId}`,
+  ).trim();
   const dossiers = dossiersService
     .list()
     .filter(dossier => dossier.client_id === clientId)
@@ -56,7 +60,12 @@ async function handler({ clientId, limit = 20 }) {
       const bUpdated = new Date(b.updated_at || b.created_at || 0).getTime();
       return bUpdated - aUpdated;
     })
-    .slice(0, limit);
+    .slice(0, limit)
+    .map((dossier) => ({
+      ...dossier,
+      client_name: dossier.client_name || dossier.clientName || clientName,
+      clientName: dossier.clientName || dossier.client_name || clientName,
+    }));
 
   return { dossiers, count: dossiers.length };
 }

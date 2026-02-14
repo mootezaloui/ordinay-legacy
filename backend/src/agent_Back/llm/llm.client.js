@@ -12,7 +12,7 @@ const {
 const { parseJsonResponse } = require("./llm.validation");
 
 const LLM_BASE_URL = process.env.LLM_BASE_URL || "http://127.0.0.1:11434";
-const LLM_MODEL = process.env.LLM_MODEL || "qwen2.5:7b-instruct";
+const LLM_MODEL = process.env.LLM_MODEL || "gpt-oss:120b-cloud";
 const LLM_TIMEOUT = parseInt(process.env.LLM_TIMEOUT || "45000", 10);
 const OLLAMA_STREAMING = process.env.OLLAMA_STREAMING !== "false";
 const INTENT_FRAMING_TIMEOUT = parseInt(
@@ -143,7 +143,7 @@ JSON:`;
         prompt,
         stream: false,
         options: {
-          temperature: 0,
+          temperature: 0.2,
           num_predict: 200,
         },
       }),
@@ -233,10 +233,52 @@ async function summarizeDocumentText({ title, text, question }) {
   }
 }
 
-async function generateChatResponse(message) {
+function buildChatHistoryBlock(historyContext) {
+  if (!historyContext || typeof historyContext !== "object") return "";
+  const lines = [];
+
+  if (historyContext.compactionSummary) {
+    lines.push(`Conversation summary: ${historyContext.compactionSummary}`);
+  }
+
+  const turns = Array.isArray(historyContext.recentTurns)
+    ? historyContext.recentTurns
+    : [];
+  for (const turn of turns) {
+    if (turn?.userMessage) {
+      lines.push(`User: ${turn.userMessage}`);
+    }
+    const assistantMessage =
+      turn?.agentOutput?.message || turn?.agentOutput?.summary || null;
+    if (assistantMessage) {
+      lines.push(`Assistant: ${assistantMessage}`);
+    }
+  }
+
+  return lines.length > 0 ? lines.join("\n") : "";
+}
+
+function buildChatPrompt(message, historyContext) {
+  const historyBlock = buildChatHistoryBlock(historyContext);
+  if (historyBlock) {
+    return `${CHAT_SYSTEM_PROMPT}\n\n${historyBlock}\n\nUser: ${message}\n\nAssistant:`;
+  }
+  return `${CHAT_SYSTEM_PROMPT}\n\nUser: ${message}\n\nAssistant:`;
+}
+
+async function generateChatResponse(message, historyContext = null) {
   console.log(
     "[LLM][ChatCompletion] Invoked",
     JSON.stringify({ preview: String(message || "").slice(0, 80) }),
+  );
+  console.debug(
+    "[LLM][ChatCompletion] Prompt context",
+    JSON.stringify({
+      recentTurns: Array.isArray(historyContext?.recentTurns)
+        ? historyContext.recentTurns.length
+        : 0,
+      hasCompactionSummary: Boolean(historyContext?.compactionSummary),
+    }),
   );
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), LLM_TIMEOUT);
@@ -247,10 +289,10 @@ async function generateChatResponse(message) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: LLM_MODEL,
-        prompt: `${CHAT_SYSTEM_PROMPT}\n\nUser: ${message}\n\nAssistant:`,
+        prompt: buildChatPrompt(message, historyContext),
         stream: false,
         options: {
-          temperature: 0.7,
+          temperature: 0.2,
           num_predict: 500,
         },
       }),
@@ -275,7 +317,11 @@ function buildMissingEntityQuestion(missingEntities = []) {
   const normalized = Array.from(
     new Set(
       (Array.isArray(missingEntities) ? missingEntities : [])
-        .map((entity) => String(entity || "").toLowerCase().trim())
+        .map((entity) =>
+          String(entity || "")
+            .toLowerCase()
+            .trim(),
+        )
         .filter(Boolean),
     ),
   );
@@ -301,7 +347,11 @@ function buildMissingEntityQuestion(missingEntities = []) {
   return "Which dossier does this pertain to?";
 }
 
-function buildIntentFramingPrompt(intentType, userMessage, missingEntities = []) {
+function buildIntentFramingPrompt(
+  intentType,
+  userMessage,
+  missingEntities = [],
+) {
   const normalizedIntent = String(intentType || "UNCERTAIN").toUpperCase();
   const message = String(userMessage || "").trim() || "(empty user request)";
   const missingQuestion = buildMissingEntityQuestion(missingEntities);
@@ -448,7 +498,7 @@ async function requestIntentFraming(prompt, signal) {
         prompt,
         stream: false,
         options: {
-          temperature: 0.4,
+          temperature: 0.2,
           num_predict: 80,
         },
       }),
@@ -564,7 +614,7 @@ async function streamIntentFramingMessage(
         prompt,
         stream: true,
         options: {
-          temperature: 0.4,
+          temperature: 0.2,
           num_predict: 80,
         },
       }),
@@ -658,7 +708,7 @@ async function* streamChatResponse(message, signal) {
         prompt: `${CHAT_SYSTEM_PROMPT}\n\nUser: ${message}\n\nAssistant:`,
         stream: true,
         options: {
-          temperature: 0.7,
+          temperature: 0.2,
           num_predict: 500,
         },
       }),
@@ -758,7 +808,7 @@ async function streamChatWithCallbacks(message, callbacks, signal) {
         prompt: `${CHAT_SYSTEM_PROMPT}\n\nUser: ${message}\n\nAssistant:`,
         stream: true,
         options: {
-          temperature: 0.7,
+          temperature: 0.2,
           num_predict: 500,
         },
       }),
@@ -873,13 +923,21 @@ function sanitizeSearchSummaryInput(results = []) {
   return (Array.isArray(results) ? results : [])
     .slice(0, WEB_SEARCH_SUMMARY_MAX_ITEMS)
     .map((row, idx) => {
-      const title = String(row?.title || "").trim().slice(0, WEB_SEARCH_SUMMARY_MAX_TEXT);
-      const snippet = String(row?.snippet || "").trim().slice(0, WEB_SEARCH_SUMMARY_MAX_TEXT);
+      const title = String(row?.title || "")
+        .trim()
+        .slice(0, WEB_SEARCH_SUMMARY_MAX_TEXT);
+      const snippet = String(row?.snippet || "")
+        .trim()
+        .slice(0, WEB_SEARCH_SUMMARY_MAX_TEXT);
       const summary = row?.summary
         ? String(row.summary).trim().slice(0, WEB_SEARCH_SUMMARY_MAX_TEXT)
         : "";
-      const url = String(row?.url || "").trim().slice(0, 1200);
-      const publishedDate = row?.publishedDate ? String(row.publishedDate).trim().slice(0, 80) : "";
+      const url = String(row?.url || "")
+        .trim()
+        .slice(0, 1200);
+      const publishedDate = row?.publishedDate
+        ? String(row.publishedDate).trim().slice(0, 80)
+        : "";
       const source = row?.source ? String(row.source).trim().slice(0, 120) : "";
       if (!url) return null;
       return {
@@ -898,27 +956,43 @@ function sanitizeSearchSummaryInput(results = []) {
 function buildStructuredSearchContext(query, results) {
   return {
     query: String(query || "").trim(),
-    results: (Array.isArray(results) ? results : []).slice(0, WEB_SEARCH_SUMMARY_MAX_ITEMS).map((row) => ({
-      title: String(row?.title || "").trim(),
-      snippet: String(row?.snippet || "").trim(),
-      summary: row?.summary ? String(row.summary).trim() : "",
-      url: String(row?.url || "").trim(),
-    })),
+    results: (Array.isArray(results) ? results : [])
+      .slice(0, WEB_SEARCH_SUMMARY_MAX_ITEMS)
+      .map((row) => ({
+        title: String(row?.title || "").trim(),
+        snippet: String(row?.snippet || "").trim(),
+        summary: row?.summary ? String(row.summary).trim() : "",
+        url: String(row?.url || "").trim(),
+      })),
   };
 }
 
 function normalizeSummaryText(text) {
-  const cleaned = String(text || "").replace(/\s+/g, " ").trim();
+  const cleaned = String(text || "")
+    .replace(/\s+/g, " ")
+    .trim();
   if (!cleaned) return null;
-  return cleaned.length > 1200 ? `${cleaned.slice(0, 1200).trim()}...` : cleaned;
+  return cleaned.length > 1200
+    ? `${cleaned.slice(0, 1200).trim()}...`
+    : cleaned;
 }
 
-async function generateWebSearchAiSummary({ query, mode = "basic", results = [] } = {}) {
+async function generateWebSearchAiSummary({
+  query,
+  mode = "basic",
+  results = [],
+} = {}) {
   const sanitizedResults = sanitizeSearchSummaryInput(results);
   if (!query || sanitizedResults.length === 0) return null;
-  const structuredSearchContext = buildStructuredSearchContext(query, sanitizedResults);
+  const structuredSearchContext = buildStructuredSearchContext(
+    query,
+    sanitizedResults,
+  );
 
-  console.log("[WebSearchSummary] Started", JSON.stringify({ mode, query, resultCount: sanitizedResults.length }));
+  console.log(
+    "[WebSearchSummary] Started",
+    JSON.stringify({ mode, query, resultCount: sanitizedResults.length }),
+  );
   console.log(
     "[WebSearchSummary] Grounded context payload",
     JSON.stringify({
@@ -930,7 +1004,10 @@ async function generateWebSearchAiSummary({ query, mode = "basic", results = [] 
   );
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), WEB_SEARCH_SUMMARY_TIMEOUT);
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    WEB_SEARCH_SUMMARY_TIMEOUT,
+  );
   try {
     const basePrompt = `${WEB_SEARCH_SUMMARY_PROMPT}
 
@@ -938,7 +1015,11 @@ USER:
 ${JSON.stringify(structuredSearchContext)}`;
     let prompt = basePrompt;
     let lastError = "empty_summary";
-    for (let attempt = 0; attempt <= WEB_SEARCH_SUMMARY_MAX_RETRIES; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt <= WEB_SEARCH_SUMMARY_MAX_RETRIES;
+      attempt += 1
+    ) {
       const response = await fetch(`${LLM_BASE_URL}/api/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -947,7 +1028,7 @@ ${JSON.stringify(structuredSearchContext)}`;
           prompt,
           stream: false,
           options: {
-            temperature: 0.1,
+            temperature: 0.2,
             num_predict: 350,
           },
         }),
@@ -955,14 +1036,20 @@ ${JSON.stringify(structuredSearchContext)}`;
       });
 
       if (!response.ok) {
-        console.warn("[WebSearchSummary] Failed: non-ok response", response.status);
+        console.warn(
+          "[WebSearchSummary] Failed: non-ok response",
+          response.status,
+        );
         return null;
       }
 
       const data = await response.json();
       const summaryText = normalizeSummaryText(data?.response || "");
       if (summaryText) {
-        console.log("[WebSearchSummary] Finished", JSON.stringify({ chars: summaryText.length, attempt: attempt + 1 }));
+        console.log(
+          "[WebSearchSummary] Finished",
+          JSON.stringify({ chars: summaryText.length, attempt: attempt + 1 }),
+        );
         return {
           shortAnswer: summaryText,
           keyHighlights: [],
@@ -971,7 +1058,10 @@ ${JSON.stringify(structuredSearchContext)}`;
       }
 
       lastError = "empty_summary";
-      console.warn("[WebSearchSummary] Invalid payload", JSON.stringify({ attempt: attempt + 1, error: lastError }));
+      console.warn(
+        "[WebSearchSummary] Invalid payload",
+        JSON.stringify({ attempt: attempt + 1, error: lastError }),
+      );
       if (attempt >= WEB_SEARCH_SUMMARY_MAX_RETRIES) {
         break;
       }
@@ -999,7 +1089,10 @@ async function streamWebSearchAiSummary(
   if (!query || sanitizedResults.length === 0) {
     return { success: false, reason: "no_results" };
   }
-  const structuredSearchContext = buildStructuredSearchContext(query, sanitizedResults);
+  const structuredSearchContext = buildStructuredSearchContext(
+    query,
+    sanitizedResults,
+  );
   const timeoutMs = WEB_SEARCH_STREAM_TIMEOUT;
 
   const abortController = new AbortController();
@@ -1008,13 +1101,19 @@ async function streamWebSearchAiSummary(
     if (signal.aborted) {
       abortController.abort();
     } else {
-      signal.addEventListener("abort", () => abortController.abort(), { once: true });
+      signal.addEventListener("abort", () => abortController.abort(), {
+        once: true,
+      });
     }
   }
 
   console.log(
     "[SearchFlow] summary_start",
-    JSON.stringify({ timeoutMs, mode, resultCount: structuredSearchContext.results.length }),
+    JSON.stringify({
+      timeoutMs,
+      mode,
+      resultCount: structuredSearchContext.results.length,
+    }),
   );
   console.log(
     "[SearchFlow] summary_context_payload",
@@ -1041,7 +1140,7 @@ ${JSON.stringify(structuredSearchContext)}`;
         prompt,
         stream: true,
         options: {
-          temperature: 0.1,
+          temperature: 0.2,
           num_predict: 350,
         },
       }),
@@ -1077,7 +1176,8 @@ ${JSON.stringify(structuredSearchContext)}`;
     return { success: true, summary: normalized };
   } catch (err) {
     clearTimeout(timeoutId);
-    const reason = err?.name === "AbortError" ? "abort" : (err?.message || "error");
+    const reason =
+      err?.name === "AbortError" ? "abort" : err?.message || "error";
     return { success: false, reason };
   }
 }

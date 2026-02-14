@@ -51,11 +51,10 @@ function _validateContract(contractType, output, context = {}) {
   return true;
 }
 
-
 function _validateAgainstSchema(intent, output, posture) {
   // ASSISTANT Mode: Skip schema validation (free-form output allowed)
-  if (posture && posture.mode === 'ASSISTANT') {
-    console.log('[Schema Validation] Skipped for ASSISTANT posture');
+  if (posture && posture.mode === "ASSISTANT") {
+    console.log("[Schema Validation] Skipped for ASSISTANT posture");
     return;
   }
 
@@ -64,7 +63,6 @@ function _validateAgainstSchema(intent, output, posture) {
   // Use contract validation boundary
   this._validateContract(schemaKey, output, { intent });
 }
-
 
 function _schemaKeyForIntent(intent) {
   if (intent === INTENTS.GENERAL_CHAT) {
@@ -81,6 +79,9 @@ function _schemaKeyForIntent(intent) {
     intent === INTENTS.DRAFT_CLIENT_EMAIL
   ) {
     return "draft";
+  }
+  if (intent === INTENTS.DRAFT_GENERIC) {
+    return "context_suggestion";
   }
   if (intent === INTENTS.ANALYZE_OPERATIONAL_RISKS) {
     return "operational_risk_analysis"; // Updated to match schema key

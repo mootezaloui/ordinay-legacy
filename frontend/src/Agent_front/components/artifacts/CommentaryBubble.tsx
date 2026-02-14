@@ -23,17 +23,47 @@ interface CommentaryBubbleProps {
  * - Stays silent if it cannot add value beyond the artifact
  */
 export function CommentaryBubble({ commentary }: CommentaryBubbleProps) {
-  // Skip rendering if no commentary or empty message
-  if (!commentary || !commentary.message || commentary.message.trim().length === 0) {
+  const hasLines = Array.isArray(commentary?.lines) && commentary.lines.length > 0;
+  const hasOptions =
+    Array.isArray(commentary?.options) && commentary.options.length > 0;
+  const hasQuestion =
+    typeof commentary?.question === "string" && commentary.question.length > 0;
+  const hasStructured =
+    commentary &&
+    (hasLines || hasOptions || hasQuestion);
+  if (
+    !commentary ||
+    (!hasStructured && (!commentary.message || commentary.message.trim().length === 0))
+  ) {
     return null;
   }
 
   return (
     <div className="agent-message-row animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <div className="agent-bubble agent-chat-text text-[15px] leading-relaxed text-slate-800 dark:text-slate-200 px-5 py-4">
-        <p className="m-0">
-          {commentary.message}
-        </p>
+      <div className="agent-bubble agent-chat-text text-[15px] leading-relaxed text-slate-800 dark:text-slate-200 px-5 py-4 space-y-2">
+        {hasLines &&
+          commentary.lines.map((line, index) => (
+            <p key={`${line}-${index}`} className="m-0 text-sm">
+              {line}
+            </p>
+          ))}
+        {hasOptions && (
+            <ul className="m-0 pl-4 space-y-1 text-sm text-slate-700 dark:text-slate-300">
+              {commentary.options.map((option) => (
+                <li key={`${option.value}-${option.label}`} className="list-disc">
+                  {option.label}
+                </li>
+              ))}
+            </ul>
+          )}
+        {hasQuestion && (
+          <p className="m-0 text-sm font-medium">{commentary.question}</p>
+        )}
+        {!hasStructured && commentary.message && (
+          <p className="m-0 text-xs text-slate-600 dark:text-slate-300">
+            {commentary.message}
+          </p>
+        )}
       </div>
     </div>
   );

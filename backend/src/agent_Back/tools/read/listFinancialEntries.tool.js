@@ -94,8 +94,16 @@ const outputSchema = {
 
 function isOverdue(entry, now) {
   if (!entry || entry.paid_at) return false;
+  const status = String(entry.status || '').toLowerCase();
+  if (status === 'cancelled' || status === 'void') return false;
   if (!entry.due_date) return false;
   return new Date(entry.due_date) < now;
+}
+
+function isActiveUnpaid(entry) {
+  if (!entry || entry.paid_at) return false;
+  const status = String(entry.status || '').toLowerCase();
+  return status !== 'cancelled' && status !== 'void';
 }
 
 async function handler({
@@ -153,7 +161,7 @@ async function handler({
     if (paymentStatus === 'paid') {
       entries = entries.filter(entry => !!entry.paid_at);
     } else if (paymentStatus === 'unpaid') {
-      entries = entries.filter(entry => !entry.paid_at);
+      entries = entries.filter(entry => isActiveUnpaid(entry));
     } else if (paymentStatus === 'overdue') {
       entries = entries.filter(entry => isOverdue(entry, now));
     }

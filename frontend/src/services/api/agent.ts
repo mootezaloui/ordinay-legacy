@@ -118,6 +118,8 @@ export interface FollowUpSuggestion {
   labelParams?: Record<string, unknown>;
   reason: string;
   category?: 'urgency' | 'accountability' | 'planning' | 'exploration' | 'summary' | 'selection' | 'search' | 'navigation' | 'guidance';
+  selectionId?: string | number;
+  selectionCategory?: string;
   intent: string;
   entityType: string;
   entityId: string | number;
@@ -221,7 +223,8 @@ export interface ClarificationOption {
 }
 
 export interface ClarificationOutput {
-  type: 'clarification';
+  type: 'clarification' | 'routing_clarification';
+  message?: string; // For routing_clarification
   reason: {
     type: string;
     entityType?: string;
@@ -229,6 +232,8 @@ export interface ClarificationOutput {
   };
   signals?: SemanticSignal[];
   options?: ClarificationOption[];
+  candidates?: Array<{ id: string; label: string; entityType?: string }>; // For routing_clarification
+  confidence?: number; // For routing_clarification
   prompt?: string;
   searchRequest?: {
     searchIntent?: 'WEB_SEARCH' | 'DEEP_SEARCH';
@@ -311,6 +316,8 @@ export interface FollowUpIntent {
     id: string | number;
     label: string;
   };
+  selectionId?: string | number;
+  selectionCategory?: string;
 
   filters?: {
     status?: string | null;
@@ -454,6 +461,7 @@ export interface ContextSuggestionOutput {
   type: 'context_suggestion';
   message: string;
   entityType: string;
+  category?: string;
   reason?: 'ambiguous_query' | 'missing_context' | 'multiple_matches';
 
   // Original execution context (for intent preservation)
@@ -712,7 +720,7 @@ export async function sendAgentMessage(
     } else if (['INVITATION', 'CLIENT_EMAIL', 'HEARING_SUMMARY', 'INTERNAL_NOTE'].includes(output.type)) {
       processed.draft = output as DraftOutput;
       processed.displayText = '';
-    } else if (output.type === 'clarification') {
+    } else if (output.type === 'clarification' || output.type === 'routing_clarification') {
       processed.clarification = output as ClarificationOutput;
       processed.displayText = '';
     } else if (output.type === 'collection') {
@@ -904,9 +912,20 @@ export function filterCommands(input: string, commands: SlashCommand[]): SlashCo
  * - Invents urgency
  */
 export interface CommentaryOutput {
-  message: string;
+  message?: string;
   source: 'llm' | 'fallback' | 'skipped' | 'failed';
+  kind?: 'commentary';
+  lines?: string[];
+  options?: Array<{ label: string; value: string }>;
+  question?: string | null;
   signals?: SemanticSignal[];
+}
+
+export interface IntentFramingOutput {
+  kind: 'intent';
+  summary: string;
+  contextEcho: string | null;
+  nextQuestion: string | null;
 }
 
 // ============================================================================
@@ -915,6 +934,17 @@ export interface CommentaryOutput {
 
 /** SSE event types from the streaming endpoint */
 export type StreamEventType =
+  | 'turn.start'
+  | 'turn.end'
+  | 'intent.delta'
+  | 'intent.final'
+  | 'intent.failed'
+  | 'artifact.delta'
+  | 'artifact.final'
+  | 'artifact.failed'
+  | 'commentary.delta'
+  | 'commentary.final'
+  | 'commentary.failed'
   | 'start'
   | 'status'
   | 'intent'
@@ -943,7 +973,7 @@ export interface StatusEventData {
 export interface StreamCallbacks {
   onStart?: (data: { intent: string; agentVersion: string }) => void;
   onStatus?: (data: StatusEventData) => void;
-  onIntentFraming?: (data: { message: string; messageType?: string; signal?: SemanticSignal | null }) => void;
+  onIntentFraming?: (data: { message: string; messageType?: string; signal?: SemanticSignal | null; structured?: IntentFramingOutput }) => void;
   /** Streaming chunk for intent framing message (for real-time display) */
   onIntentFramingChunk?: (chunk: string) => void;
   onChunk?: (content: string) => void;
@@ -1062,6 +1092,106 @@ export function streamAgentMessage(
         try {
           const data = JSON.parse(currentData);
           switch (currentEvent) {
+            case 'turn.start': {
+              const payload = data?.payload || {};
+              hasStartEnvelope = true;
+              callbacks.onStart?.({
+                intent: payload.intent || 'PENDING',
+                agentVersion: payload.agentVersion || request.agentVersion || 'v1',
+              });
+              break;
+            }
+            case 'turn.end':
+              hasDoneEnvelope = true;
+              callbacks.onDone?.({
+                timestamp: data?.timestamp || new Date().toISOString(),
+              });
+              break;
+            case 'intent.delta':
+              break;
+            case 'artifact.delta':
+              break;
+            case 'intent.final': {
+              const payload = data?.payload || {};
+              const summary = String(payload.summary || '').trim();
+              const contextEcho =
+                typeof payload.contextEcho === 'string' && payload.contextEcho.trim().length > 0
+                  ? payload.contextEcho.trim()
+                  : null;
+              const nextQuestion =
+                typeof payload.nextQuestion === 'string' && payload.nextQuestion.trim().length > 0
+                  ? payload.nextQuestion.trim()
+                  : null;
+              const intentMessage = [summary, nextQuestion].filter(Boolean).join(' ');
+              callbacks.onIntentFraming?.({
+                message: intentMessage || 'Intent prepared.',
+                structured: {
+                  kind: 'intent',
+                  summary: summary || 'I understood your request.',
+                  contextEcho,
+                  nextQuestion,
+                },
+              });
+              break;
+            }
+            case 'intent.failed':
+              callbacks.onIntentFraming?.({
+                message:
+                  String(data?.payload?.message || '').trim() ||
+                  'Intent stage failed.',
+              });
+              break;
+            case 'artifact.final':
+              hasResultEnvelope = true;
+              callbacks.onResult?.(data?.payload || {});
+              break;
+            case 'artifact.failed':
+              hasErrorEnvelope = true;
+              callbacks.onError?.(
+                typeof data?.payload?.message === 'string'
+                  ? data.payload.message
+                  : 'Artifact stage failed',
+              );
+              break;
+            case 'commentary.delta':
+              break;
+            case 'commentary.final': {
+              const payload = data?.payload || {};
+              const lines = Array.isArray(payload.lines)
+                ? payload.lines.map((x: unknown) => String(x || '').trim()).filter(Boolean)
+                : [];
+              const options = Array.isArray(payload.options)
+                ? payload.options
+                    .map((item: unknown) => {
+                      const row = item as { label?: unknown; value?: unknown };
+                      return {
+                        label: String(row?.label || '').trim(),
+                        value: String(row?.value || '').trim(),
+                      };
+                    })
+                    .filter((row: { label: string; value: string }) => row.label && row.value)
+                : [];
+              const question =
+                typeof payload.question === 'string' && payload.question.trim().length > 0
+                  ? payload.question.trim()
+                  : null;
+              const commentaryMessage = [...lines, question || ''].filter(Boolean).join(' ');
+              callbacks.onCommentary?.({
+                message: commentaryMessage,
+                source: 'llm',
+                kind: 'commentary',
+                lines,
+                options,
+                question,
+              });
+              break;
+            }
+            case 'commentary.failed':
+              callbacks.onCommentary?.({
+                message: String(data?.payload?.message || '').trim(),
+                source: 'failed',
+              });
+              break;
             case 'start':
               hasStartEnvelope = true;
               callbacks.onStart?.(data);

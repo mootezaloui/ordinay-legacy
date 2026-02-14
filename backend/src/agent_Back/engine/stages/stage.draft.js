@@ -9,6 +9,7 @@ const {
   getContextSuggestions,
   formatSuggestionResponse,
 } = require("./stage.contextSuggest");
+const { buildDraftContext } = require("../draft.context.builder");
 
 /**
  * Execute a DRAFT intent (deterministic draft generation).
@@ -18,7 +19,7 @@ const {
  *   1. Resolve entity hints (reuses _resolveEntity from context.js)
  *   2. If entity ambiguous → return clarification
  *   3. If draftType missing → return clarification asking which document type
- *   4. Derive entityType for genericDraft from resolved entity or context
+ *   4. Build unified draft context
  *   5. Call genericDraft tool via executeToolV2 (firewall runs automatically)
  *   6. Validate output against draft schema
  *   7. Return standard response shape
@@ -39,26 +40,6 @@ async function _executeDraftIntent(
   engineContext,
 ) {
   const { intent, draftType, entityHints = [] } = draftIntent;
-  let effectiveDraftType = draftType;
-  if (!effectiveDraftType) {
-    const m = String(message || "").toLowerCase();
-    const invitationSignal =
-      /\b(hearing|session|demand)\b/.test(m) || m.includes("mise en demeure");
-    const emailSignal = /\b(response|reply)\b/.test(m);
-    const noteSignal = /\bnote\b/.test(m);
-    const inferred = [
-      invitationSignal ? "INVITATION" : null,
-      emailSignal ? "CLIENT_EMAIL" : null,
-      noteSignal ? "INTERNAL_NOTE" : null,
-    ].filter(Boolean);
-    if (new Set(inferred).size === 1) [effectiveDraftType] = inferred;
-  }
-
-  // ── Step 1: Resolve entity hints ──────────────────────────────────
-  let resolvedEntity = null;
-  let resolvedEntityType = null;
-
-  // Check context for pre-bound entity (work snapshot or active entity)
   const contextEntityType =
     context?.activeEntity?.type || context?.scope || null;
   const contextEntityId =
@@ -68,6 +49,21 @@ async function _executeDraftIntent(
     context?.sessionId ||
     null;
 
+  let effectiveDraftType = draftType || null;
+  if (!effectiveDraftType) {
+    return _buildDraftTypeSelectionResponse(
+      intent,
+      policy,
+      message,
+      null, // No silent inference - always prompt user
+    );
+  }
+
+  // ── Step 1: Resolve entity hints ──────────────────────────────────
+  let resolvedEntity = null;
+  let resolvedEntityType = null;
+
+  // Check context for pre-bound entity (work snapshot or active entity)
   // ── Extract resolved entity from context suggestion resolution ──
   if (context?._resolvedFromSuggestion && context?.resolvedEntity) {
     resolvedEntityType = context.resolvedEntity.type;
@@ -264,7 +260,9 @@ async function _executeDraftIntent(
   // ── Step 3: Clarification if no entity resolved ───────────────────
   // Skip context suggestion if entity was just resolved from a previous suggestion
   if (!resolvedEntity && !context._resolvedFromSuggestion) {
-    const missingEntities = _draftMissingEntities(effectiveDraftType);
+    const missingEntities = hasHearingSignal
+      ? ["session"]
+      : _draftMissingEntities(effectiveDraftType);
     const primaryMissingEntity =
       missingEntities[0] || _draftEntityLabel(effectiveDraftType);
     const suggestions = await getContextSuggestions.call(
@@ -339,6 +337,7 @@ async function _executeDraftIntent(
           type: "context_suggestion",
           message: `I found ${suggestions.length} ${suggestionEntityType}${suggestions.length === 1 ? "" : "s"} that might match your request:`,
           entityType: suggestionEntityType,
+          capability: "DRAFT",
           reason: "missing_context",
 
           // Preserve original execution context
@@ -412,34 +411,108 @@ async function _executeDraftIntent(
     };
   }
 
-  // ── Step 4: Derive tool params ────────────────────────────────────
-  console.log(
-    `[Draft] Deriving tool params - resolvedEntityType: ${resolvedEntityType}, resolvedEntity:`,
-    resolvedEntity,
-  );
-  const entityType = _mapToToolEntityType(resolvedEntityType);
-  const entityId = resolvedEntity.id;
-  const purpose = _derivePurpose(message, effectiveDraftType);
+  const draftContextResult = await buildDraftContext.call(this, {
+    entityType: resolvedEntityType,
+    entityId: resolvedEntity.id,
+    draftType: effectiveDraftType,
+    originalMessage: message,
+    policy,
+  });
+
+  if (!draftContextResult || draftContextResult.isComplete === false) {
+    const ambiguities = Array.isArray(draftContextResult?.ambiguities)
+      ? draftContextResult.ambiguities
+      : [];
+    const invoiceAmbiguity = ambiguities.find(
+      (item) => item?.type === "invoice_selection",
+    );
+
+    if (invoiceAmbiguity && Array.isArray(invoiceAmbiguity.options)) {
+      const clientId = draftContextResult?.context?.client?.id || null;
+      return {
+        intent,
+        agentVersion: policy.version,
+        reasoner: "draft-gate",
+        output: {
+          type: "context_suggestion",
+          category: "invoice_selection",
+          message:
+            invoiceAmbiguity.message || "Which invoice should I reference?",
+          entityType: "financial_entry",
+          reason: "multiple_matches",
+          originalIntent: intent,
+          originalDraftType: effectiveDraftType,
+          originalMessage: message,
+          capability: "DRAFT",
+          suggestions: invoiceAmbiguity.options.map((option) => ({
+            id: `invoice-${option.invoiceId}`,
+            entityType: "financial_entry",
+            entityId: option.invoiceId,
+            label: option.label || `Invoice #${option.invoiceId}`,
+            subtitle: option.dueDate || null,
+            metadata: {
+              amount: option.amount ?? null,
+              currency: option.currency || null,
+              dueDate: option.dueDate || null,
+              daysLate: option.daysLate ?? null,
+              ...(clientId ? { clientId } : {}),
+            },
+            intent: "RESOLVE_CONTEXT_AND_CONTINUE",
+            scope: {
+              ...(clientId ? { clientId } : {}),
+              financialEntryId: Number(option.invoiceId),
+            },
+            resolveContext: {
+              originalIntent: intent,
+              originalDraftType: effectiveDraftType,
+            },
+          })),
+          timestamp: new Date().toISOString(),
+          confidence: 0.6,
+          source: "draft-gate",
+          allowManualInput: false,
+        },
+        needsClarification: true,
+        isDraftIntent: true,
+      };
+    }
+
+    return {
+      intent,
+      agentVersion: policy.version,
+      reasoner: "draft-gate",
+      output: {
+        type: "context_suggestion",
+        category: "draft_ambiguity",
+        originalIntent: intent,
+        originalDraftType: effectiveDraftType,
+        originalMessage: message,
+        capability: "DRAFT",
+        entityType: resolvedEntityType,
+        entityId: resolvedEntity.id,
+        ambiguities: ambiguities,
+        timestamp: new Date().toISOString(),
+        confidence: 0.6,
+        source: "draft-gate",
+        allowManualInput: false,
+      },
+      needsClarification: true,
+      isDraftIntent: true,
+    };
+  }
 
   const toolParams = {
-    entityType,
-    entityId,
     draftType: effectiveDraftType,
-    purpose,
-    audience: _deriveAudience(effectiveDraftType),
-    tone: "formal",
-    language: "fr",
+    context: draftContextResult.context,
   };
-
-  console.log(`[Draft] Tool params:`, toolParams);
 
   // ── Step 5: Execute genericDraft tool via registry ────────────────
   this.ledger.record({
     type: "draft_tool_invocation",
     toolName: "genericDraft",
     draftType: effectiveDraftType,
-    entityType,
-    entityId,
+    entityType: draftContextResult.context?.entityType || resolvedEntityType,
+    entityId: draftContextResult.context?.entityId || resolvedEntity.id,
     timestamp: new Date().toISOString(),
   });
 
@@ -523,55 +596,6 @@ function _isEntityTypeCompatible(entityType, draftType) {
   return allowed.includes(entityType);
 }
 
-function _mapToToolEntityType(resolvedType) {
-  const map = {
-    client: "client",
-    dossier: "dossier",
-    session: "session",
-    task: "task",
-    lawsuit: "dossier",
-    mission: "dossier",
-  };
-  return map[resolvedType] || "dossier";
-}
-
-function _deriveAudience(draftType) {
-  if (draftType === "CLIENT_EMAIL") return "client";
-  if (draftType === "INVITATION") return "client";
-  if (draftType === "INTERNAL_NOTE") return "internal";
-  if (draftType === "HEARING_SUMMARY") return "internal";
-  return "client";
-}
-
-function _derivePurpose(message, draftType) {
-  // Extract purpose from common intent phrases with bounded capture length.
-  const purposePatterns = [
-    /(?:about|regarding|concerning|au sujet de)\s+(.{5,60}?)(?:[.!?]|$)/i,
-    /(?:requesting|afin de)\s+(.{5,60}?)(?:[.!?]|$)/i,
-    /\bto\s+(.{5,60}?)(?:[.!?]|$)/i,
-    /\b(?:for|pour)\s+(.{5,60}?)(?:[.!?]|$)/i,
-  ];
-  for (const pattern of purposePatterns) {
-    const purposeMatch = String(message || "").match(pattern);
-    if (purposeMatch) return purposeMatch[1].trim();
-  }
-
-  // Default purpose by draft type
-  if (draftType === "INVITATION") return "session invitation";
-  if (draftType === "CLIENT_EMAIL") return "client communication";
-  if (draftType === "HEARING_SUMMARY") return "hearing summary";
-  if (draftType === "INTERNAL_NOTE") return "internal documentation";
-  return "general correspondence";
-}
-
-function _draftTypeLabel(draftType) {
-  if (draftType === "INVITATION") return "invitation";
-  if (draftType === "CLIENT_EMAIL") return "email";
-  if (draftType === "HEARING_SUMMARY") return "hearing summary";
-  if (draftType === "INTERNAL_NOTE") return "note";
-  return "draft";
-}
-
 function _draftEntityLabel(draftType) {
   if (draftType === "CLIENT_EMAIL") return "client";
   if (draftType === "INVITATION") return "session or dossier";
@@ -586,6 +610,50 @@ function _draftMissingEntities(draftType) {
   if (draftType === "HEARING_SUMMARY") return ["session"];
   if (draftType === "INTERNAL_NOTE") return ["dossier", "client"];
   return ["entity"];
+}
+
+function _buildDraftTypeSelectionResponse(
+  intent,
+  policy,
+  message,
+  draftTypeResolution,
+) {
+  const options = Array.isArray(draftTypeResolution?.options)
+    ? draftTypeResolution.options
+    : [];
+  const suggestions = options.map((option) => ({
+    id: String(option),
+    entityType: "draft_type",
+    entityId: String(option),
+    label: String(option),
+    subtitle: null,
+    metadata: {},
+    intent: "RESOLVE_DRAFT_TYPE",
+    scope: {},
+    resolveContext: {
+      originalIntent: intent,
+      originalDraftType: null,
+    },
+  }));
+  return {
+    intent,
+    agentVersion: policy.version,
+    reasoner: "draft-gate",
+    output: {
+      type: "draft_type_selection",
+      message: "Please choose the type of draft you want to generate:",
+      entityType: "draft_type",
+      reason: "ambiguous_query",
+      originalIntent: intent,
+      originalDraftType: null,
+      originalMessage: message,
+      suggestions,
+      timestamp: new Date().toISOString(),
+      source: "rule-based",
+    },
+    needsClarification: true,
+    isDraftIntent: true,
+  };
 }
 
 module.exports = {

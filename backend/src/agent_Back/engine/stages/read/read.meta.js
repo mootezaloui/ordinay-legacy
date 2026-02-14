@@ -1,6 +1,8 @@
 "use strict";
 
-const { interpret: postReadInterpret } = require("../../../interpreters/post-read.interpreter");
+const {
+  interpret: postReadInterpret,
+} = require("../../../interpreters/post-read.interpreter");
 const {
   resolveEntityDisplayLabel,
   formatEntityTypeLabel,
@@ -95,7 +97,10 @@ function _inferReadOutcome({ data, summary, details, entityType }) {
   const hasArrayData = Array.isArray(data);
 
   if (entityType === "document") {
-    if (combined.includes("ocr in progress") || combined.includes("still being processed")) {
+    if (
+      combined.includes("ocr in progress") ||
+      combined.includes("still being processed")
+    ) {
       return "processing";
     }
     if (
@@ -119,11 +124,13 @@ function _inferReadOutcome({ data, summary, details, entityType }) {
   }
 
   if (combined.includes("multiple")) return "ambiguous";
-  if (combined.includes("which") || combined.includes("provide")) return "incomplete";
+  if (combined.includes("which") || combined.includes("provide"))
+    return "incomplete";
 
   const explicitNotFoundPattern =
     /\bnot found\b|\bno [a-z\s]*found\b|\bcould not be located\b|\bno matching records?\b/i;
-  if (explicitNotFoundPattern.test(`${summaryText} ${detailsText}`)) return "not_found";
+  if (explicitNotFoundPattern.test(`${summaryText} ${detailsText}`))
+    return "not_found";
 
   if (combined.includes("error") || combined.includes("unable")) return "error";
   return "unknown";
@@ -214,15 +221,25 @@ function _buildReadInterpretationContext(
     ? entityData.length > 0
     : Boolean(entityData && typeof entityData === "object");
   const normalizedReadOutcome =
-    groundedEntityRetrieved && ["not_found", "incomplete"].includes(String(readOutcome || "").toLowerCase())
+    groundedEntityRetrieved &&
+    ["not_found", "incomplete"].includes(
+      String(readOutcome || "").toLowerCase(),
+    )
       ? "success"
       : readOutcome;
-  const context = { ...(baseContext || {}), _readOutcome: normalizedReadOutcome };
+  const context = {
+    ...(baseContext || {}),
+    _readOutcome: normalizedReadOutcome,
+  };
   const workSnapshot =
-    baseContext && baseContext.workSnapshot && typeof baseContext.workSnapshot === "object"
+    baseContext &&
+    baseContext.workSnapshot &&
+    typeof baseContext.workSnapshot === "object"
       ? baseContext.workSnapshot
       : null;
-  const snapshotEntityType = String(workSnapshot?.entityType || "").toLowerCase();
+  const snapshotEntityType = String(
+    workSnapshot?.entityType || "",
+  ).toLowerCase();
   const snapshotEntityId =
     workSnapshot?.entityId ??
     workSnapshot?.scope?.dossierId ??
@@ -238,6 +255,9 @@ function _buildReadInterpretationContext(
     entityType === "dossier" &&
     snapshotEntityId !== null &&
     snapshotEntityId !== undefined &&
+    !["incomplete", "ambiguous", "not_found"].includes(
+      String(readOutcome || "").toLowerCase(),
+    ) &&
     (readEntityId === null ||
       readEntityId === undefined ||
       String(snapshotEntityId) === String(readEntityId));
@@ -256,7 +276,8 @@ function _buildReadInterpretationContext(
     if (entityType === "session") context.sessionData = entityData;
     if (entityType === "mission") context.missionData = entityData;
     if (entityType === "officer") context.officerData = entityData;
-    if (entityType === "financial_entry") context.financialEntryData = entityData;
+    if (entityType === "financial_entry")
+      context.financialEntryData = entityData;
   }
 
   if (Array.isArray(entityData)) {
@@ -283,15 +304,15 @@ function _buildReadInterpretationContext(
     source: "read_intent",
     entityType,
     entityRetrieved: groundedEntityRetrieved,
-    resultCount: readMeta && typeof readMeta.count === "number" ? readMeta.count : null,
+    resultCount:
+      readMeta && typeof readMeta.count === "number" ? readMeta.count : null,
     readOutcome: normalizedReadOutcome,
     workMode: {
       dossier:
-        (
-          entityType === "dossier" &&
+        (entityType === "dossier" &&
           !Array.isArray(entityData) &&
-          groundedEntityRetrieved
-        ) || snapshotAppliesToRead,
+          groundedEntityRetrieved) ||
+        snapshotAppliesToRead,
     },
   };
   context._dossierWorkMode = Boolean(context._grounding.workMode.dossier);
@@ -299,7 +320,8 @@ function _buildReadInterpretationContext(
   if (snapshotAppliesToRead) {
     context._workSnapshotTimestamp = workSnapshot?.snapshotAt || null;
     context._workSnapshotStale = Boolean(workSnapshot?.meta?.stale);
-    context._workSnapshotRefreshReason = workSnapshot?.meta?.refreshReason || null;
+    context._workSnapshotRefreshReason =
+      workSnapshot?.meta?.refreshReason || null;
   }
 
   if (typeof aggregateSummary === "boolean") {
@@ -348,7 +370,9 @@ function _buildReadExplanation({
   };
 
   const isGuidanceDetail = (detail) => {
-    const trimmed = String(detail || "").trim().toLowerCase();
+    const trimmed = String(detail || "")
+      .trim()
+      .toLowerCase();
     return (
       trimmed.startsWith("please specify") ||
       trimmed.startsWith("try listing") ||
@@ -372,7 +396,8 @@ function _buildReadExplanation({
     const trimmed = String(fragment).trim();
     if (!trimmed) return true;
     const lower = trimmed.toLowerCase();
-    if (/\bn\/a\b/.test(lower) || lower === "na" || lower === "n/a") return true;
+    if (/\bn\/a\b/.test(lower) || lower === "na" || lower === "n/a")
+      return true;
     if (lower.startsWith("none") || lower.startsWith("no ")) return true;
     if (lower.includes("no data")) return true;
     if (lower.includes("no overdue risk")) return true;
@@ -388,7 +413,9 @@ function _buildReadExplanation({
     if (!raw) return "";
     const delimiter = raw.includes(" | ") ? " | " : ", ";
     const fragments = raw.split(/\s*(?:\||,|;)\s*/);
-    const kept = fragments.filter((fragment) => !isPlaceholderFragment(fragment));
+    const kept = fragments.filter(
+      (fragment) => !isPlaceholderFragment(fragment),
+    );
     return kept.length > 0 ? kept.join(delimiter) : "";
   };
 
@@ -519,13 +546,25 @@ function _buildReadExplanation({
     ],
     notification: ["summary", "status", "severity", "entity", "reason"],
     history_event: ["summary", "entity", "description", "created at"],
-    document: ["summary", "document", "source", "text length", "linked to", "status"],
+    document: [
+      "summary",
+      "document",
+      "source",
+      "text length",
+      "linked to",
+      "status",
+    ],
   };
 
   const orderFactsByPriority = (facts, type) => {
-    const priorities =
-      detailPriorityMap[type] ||
-      ["summary", "status", "priority", "due date", "relationships", "documents"];
+    const priorities = detailPriorityMap[type] || [
+      "summary",
+      "status",
+      "priority",
+      "due date",
+      "relationships",
+      "documents",
+    ];
     const priorityLookup = new Map(
       priorities.map((label, index) => [label, index]),
     );
@@ -545,14 +584,12 @@ function _buildReadExplanation({
       return { fact, index, weight };
     });
     return withIndex
-      .sort((a, b) => (a.weight - b.weight) || (a.index - b.index))
+      .sort((a, b) => a.weight - b.weight || a.index - b.index)
       .map((entry) => entry.fact);
   };
 
   const cleanedSummary =
-    typeof summary === "string" && summary.trim()
-      ? stripGuidance(summary)
-      : "";
+    typeof summary === "string" && summary.trim() ? stripGuidance(summary) : "";
 
   const deriveSummaryFromData = () => {
     if (cleanedSummary) return cleanedSummary;
@@ -592,27 +629,51 @@ function _buildReadExplanation({
 
   // ── Clean Contract: Detect Context Suggestions ──
   // If there are selection-category follow-ups, return context_suggestion output type
-  const hasFollowUps = Array.isArray(explanation.followUps) && explanation.followUps.length > 0;
-  const selectionFollowUps = hasFollowUps ? explanation.followUps.filter(f => f.category === "selection") : [];
+  const hasFollowUps =
+    Array.isArray(explanation.followUps) && explanation.followUps.length > 0;
+  const selectionFollowUps = hasFollowUps
+    ? explanation.followUps.filter((f) => f.category === "selection")
+    : [];
   const isContextSuggestion = selectionFollowUps.length > 0;
 
   if (isContextSuggestion) {
     // Return dedicated context_suggestion output using ONLY selection-category followUps
     return {
       type: "context_suggestion",
-      message: factsSummary || `I found ${selectionFollowUps.length} ${entityType}${selectionFollowUps.length === 1 ? "" : "s"} that might match your request:`,
+      message:
+        factsSummary ||
+        `I found ${selectionFollowUps.length} ${entityType}${selectionFollowUps.length === 1 ? "" : "s"} that might match your request:`,
       entityType,
-      reason: readOutcome === "ambiguous" ? "ambiguous_query" : readOutcome === "incomplete" ? "missing_context" : "multiple_matches",
-      suggestions: selectionFollowUps.map((followUp, idx) => ({
-        id: `${followUp.entityType}-${followUp.entityId}`,
-        entityType: followUp.entityType,
-        entityId: followUp.entityId,
-        label: followUp.label?.replace(/^Review\s+\w+\s+context:\s*/i, "") || followUp.target?.label || `${formatEntityTypeLabel(followUp.entityType)} #${followUp.entityId}`,
-        subtitle: followUp.target?.reference || null,
-        metadata: this._parseMetadataFromReason(followUp.reason),
-        intent: followUp.intent,
-        scope: followUp.scope,
-      })),
+      capability: "READ",
+      reason:
+        readOutcome === "ambiguous"
+          ? "ambiguous_query"
+          : readOutcome === "incomplete"
+            ? "missing_context"
+            : "multiple_matches",
+      originalIntent: intent,
+      suggestions: selectionFollowUps.map((followUp, idx) => {
+        const clientName = _resolveSelectionClientName(followUp);
+        return {
+          id: `${followUp.entityType}-${followUp.entityId}`,
+          entityType: followUp.entityType,
+          entityId: followUp.entityId,
+          label:
+            followUp.label?.replace(/^Review\s+\w+\s+context:\s*/i, "") ||
+            followUp.target?.label ||
+            `${formatEntityTypeLabel(followUp.entityType)} #${followUp.entityId}`,
+          subtitle: _buildSelectionSubtitle(followUp),
+          metadata: {
+            ..._parseMetadataFromReason(followUp.reason),
+            ...(followUp?.scope?.clientId
+              ? { clientId: Number(followUp.scope.clientId) }
+              : {}),
+            ...(clientName ? { clientName } : {}),
+          },
+          intent: followUp.intent,
+          scope: followUp.scope,
+        };
+      }),
       timestamp: new Date().toISOString(),
       confidence: confidenceMap[readOutcome] ?? 0.6,
       source: "rule-based",
@@ -622,7 +683,7 @@ function _buildReadExplanation({
   // Standard explanation output (unchanged for non-suggestion cases)
   return {
     type: "explanation",
-    entityId: this._resolveReadEntityId(entityType, entityData),
+    entityId: _resolveReadEntityId(entityType, entityData),
     entityType,
     facts: {
       summary: factsSummary,
@@ -641,13 +702,56 @@ function _buildReadExplanation({
   };
 }
 
+function _extractReferenceFromEntityLabel(label) {
+  const raw = String(label || "").trim();
+  if (!raw) return null;
+  const match = raw.match(/^([A-Z]{2,10}-\d{2,8}(?:-\d{1,8})?)/i);
+  return match ? match[1] : null;
+}
+
+function _resolveSelectionClientName(followUp) {
+  const target = followUp?.target || {};
+  const parent = followUp?.parent || {};
+  const candidates = [
+    target.clientName,
+    target.client_name,
+    target.client?.name,
+    followUp?.metadata?.clientName,
+    followUp?.metadata?.client_name,
+    parent.type === "client" ? parent.label : null,
+  ];
+  for (const candidate of candidates) {
+    const text = String(candidate || "").trim();
+    if (text) return text;
+  }
+  return null;
+}
+
+function _buildSelectionSubtitle(followUp) {
+  const target = followUp?.target || {};
+  const reference =
+    target.reference ||
+    target.ref ||
+    _extractReferenceFromEntityLabel(target.label || "");
+  const clientName = _resolveSelectionClientName(followUp);
+  const clientId =
+    followUp?.scope?.clientId && Number.isFinite(Number(followUp.scope.clientId))
+      ? Number(followUp.scope.clientId)
+      : null;
+  const bits = [];
+  if (reference) bits.push(String(reference).trim());
+  if (clientName) bits.push(`Client: ${clientName}`);
+  else if (clientId) bits.push(`Client #${clientId}`);
+  return bits.length > 0 ? bits.join(" | ") : null;
+}
+
 function _parseMetadataFromReason(reason) {
   // Parse reason string like "3 overdue invoice(s), 2 open task(s), 1 active dossier(s)"
   // into structured metadata: { overdueInvoices: 3, openTasks: 2, activeDossiers: 1 }
   const metadata = {};
   if (!reason || typeof reason !== "string") return metadata;
 
-  const parts = reason.split(",").map(s => s.trim());
+  const parts = reason.split(",").map((s) => s.trim());
   for (const part of parts) {
     const match = part.match(/^(\d+)\s+(.+?)(?:\(s\))?$/i);
     if (match) {

@@ -25,6 +25,9 @@ const {
 } = require("../utils/entityDisplay");
 const { resolveInteractionPosture, POSTURES } = require("../posture.resolver");
 const { getContextSuggestions } = require("./stages/stage.contextSuggest");
+const { routeCapability } = require("./capability.router");
+const { activationGuard } = require("./activation.guard");
+const { CAPABILITIES } = require("../contracts/capabilityRoute.contract");
 
 const EXTERNAL_SEARCH_INTENTS = new Set([
   READ_INTENTS.WEB_SEARCH,
@@ -36,7 +39,9 @@ function isExternalSearchIntent(readIntent) {
 }
 
 function normalizeWebSearchTrigger(rawTrigger, fallback = "explicit_language") {
-  const normalized = String(rawTrigger || "").trim().toLowerCase();
+  const normalized = String(rawTrigger || "")
+    .trim()
+    .toLowerCase();
   if (normalized === "button" || normalized === "user_confirmed") {
     return normalized;
   }
@@ -149,6 +154,43 @@ function buildResolutionScope(entityType, entityId) {
   return { [key]: id };
 }
 
+function extractReferenceFromLabel(label) {
+  const raw = String(label || "").trim();
+  if (!raw) return null;
+  const match = raw.match(/^([A-Z]{2,10}-\d{2,8}(?:-\d{1,8})?)/i);
+  return match ? match[1] : null;
+}
+
+function buildCandidateSubtitle(candidate = {}, candidateType = "entity") {
+  const reference =
+    candidate?.reference ||
+    candidate?.ref ||
+    candidate?.target?.reference ||
+    extractReferenceFromLabel(candidate?.label || candidate?.name || "");
+  const clientName =
+    candidate?.clientName ||
+    candidate?.client_name ||
+    candidate?.client ||
+    candidate?.parentLabel ||
+    candidate?.parent?.label ||
+    null;
+  const phase = candidate?.phase || candidate?.status || null;
+  const deadline =
+    candidate?.nextDeadline ||
+    candidate?.next_deadline ||
+    candidate?.deadline ||
+    null;
+
+  const bits = [];
+  if (reference) bits.push(String(reference).trim());
+  if (clientName) bits.push(`Client: ${String(clientName).trim()}`);
+  if (phase) bits.push(`Status: ${String(phase).trim()}`);
+  if (deadline) bits.push(`Deadline: ${String(deadline).slice(0, 10)}`);
+
+  if (bits.length > 0) return bits.join(" | ");
+  return null;
+}
+
 function buildResolutionContextSuggestion({
   entityType,
   candidates = [],
@@ -180,18 +222,24 @@ function buildResolutionContextSuggestion({
         candidate?.name ||
         candidate?.title ||
         `${candidateType} #${candidateId}`;
+      const subtitle = buildCandidateSubtitle(candidate, candidateType);
       return {
         id: `${candidateType}-${candidateId}`,
         entityType: candidateType,
         entityId: candidateId,
         label,
-        subtitle: null,
-        metadata:
-          candidate?.signal
-            ? { signal: candidate.signal }
-            : candidate?.score
-              ? { score: Number(candidate.score.toFixed ? candidate.score.toFixed(2) : candidate.score) }
-              : {},
+        subtitle,
+        metadata: candidate?.signal
+          ? { signal: candidate.signal }
+          : candidate?.score
+            ? {
+                score: Number(
+                  candidate.score.toFixed
+                    ? candidate.score.toFixed(2)
+                    : candidate.score,
+                ),
+              }
+            : {},
         intent: "RESOLVE_CONTEXT_AND_CONTINUE",
         scope: buildResolutionScope(candidateType, candidateId),
         resolveContext: {
@@ -337,8 +385,8 @@ async function run({
   this._assertExecutionIntent(context, policy);
   const hasTurnDocumentContext = Boolean(
     documentContext &&
-      Array.isArray(documentContext.documents) &&
-      documentContext.documents.length > 0,
+    Array.isArray(documentContext.documents) &&
+    documentContext.documents.length > 0,
   );
   const turnDocumentCount = hasTurnDocumentContext
     ? documentContext.documents.length
@@ -366,6 +414,82 @@ async function run({
   const hasDocumentTurnBinding =
     hasTurnDocumentContext &&
     documentReadIntentCandidate?.intent === READ_INTENTS.SUMMARIZE_DOCUMENT;
+
+  // === CAPABILITY ROUTER (runs BEFORE posture/LLM) ===
+  const routingContext = conversationContextSnapshot
+    ? {
+        ...(turnContext || {}),
+        lastPosture: conversationContextSnapshot.lastPosture || null,
+        lastIntent: conversationContextSnapshot.lastIntent || null,
+        activeEntityType: conversationContextSnapshot.activeEntityType || null,
+        activeEntityId: conversationContextSnapshot.activeEntityId || null,
+      }
+    : turnContext || {};
+
+  const routingResult = routeCapability({
+    message: normalizedMessage,
+    context: routingContext,
+    resumeContext: followUpIntent || null,
+  });
+
+  console.log("[CapabilityRouter]", {
+    capability: routingResult.capability,
+    confidence: routingResult.confidence,
+    signals: routingResult.signals,
+    candidates: Array.isArray(routingResult.candidates)
+      ? routingResult.candidates.length
+      : 0,
+    type: routingResult.type,
+  });
+
+  // If routing requires clarification, return immediately
+  if (routingResult.type === "routing_clarification") {
+    this.ledger.record({
+      type: "capability_clarification_required",
+      reason: routingResult.reason,
+      candidates: routingResult.candidates || [],
+      timestamp: new Date().toISOString(),
+    });
+
+    return {
+      intent: "ROUTING_CLARIFICATION",
+      agentVersion: policy.version,
+      reasoner: "capability-router",
+      output: routingResult,
+      needsClarification: true,
+      posture: {
+        mode: POSTURES.ASSISTANT,
+        confidence: 1.0,
+        signals: ["routing_blocked"],
+      },
+      postureAuthority: {
+        finalMode: POSTURES.ASSISTANT,
+        overrideRule: "routing_clarification",
+      },
+    };
+  }
+
+  // Store capability lock (will prevent ASSISTANT posture from bypassing gates)
+  const capabilityLock = {
+    capability: routingResult.capability,
+    intent: routingResult.intent,
+    confidence: routingResult.confidence,
+    signals: routingResult.signals || [],
+    requires: routingResult.requires || {},
+    candidates: routingResult.candidates || [],
+  };
+
+  console.log("[CapabilityLock]", capabilityLock);
+
+  this.ledger.record({
+    type: "capability_locked",
+    capability: capabilityLock.capability,
+    intent: capabilityLock.intent,
+    confidence: capabilityLock.confidence,
+    timestamp: new Date().toISOString(),
+  });
+
+  // === POSTURE RESOLUTION (now after capability lock, with LLM disabled) ===
   const postureResolutionContext = conversationContextSnapshot
     ? {
         ...(turnContext || {}),
@@ -374,10 +498,11 @@ async function run({
         activeEntityType: conversationContextSnapshot.activeEntityType || null,
         activeEntityId: conversationContextSnapshot.activeEntityId || null,
       }
-    : (turnContext || {});
+    : turnContext || {};
   const resolvedPosture = await resolveInteractionPosture(
     normalizedMessage,
     postureResolutionContext,
+    { allowLLM: false }, // Skip LLM because capability is already locked
   );
 
   const postureAuthority = {
@@ -399,8 +524,8 @@ async function run({
     inheritedContextPosture === POSTURES.INSPECTION;
   const followUpHasStrongContextAnchor = Boolean(
     conversationContextSnapshot?.lastIntent ||
-      conversationContextSnapshot?.activeEntityType ||
-      conversationContextSnapshot?.pendingSelection,
+    conversationContextSnapshot?.activeEntityType ||
+    conversationContextSnapshot?.pendingSelection,
   );
   const canInheritGovernedPosture =
     !hasFollowUpIntent &&
@@ -444,7 +569,10 @@ async function run({
       ],
     };
     postureAuthority.overrideRule = "follow_up_context_posture";
-  } else if (hasDocumentTurnBinding && finalPosture.mode === POSTURES.ASSISTANT) {
+  } else if (
+    hasDocumentTurnBinding &&
+    finalPosture.mode === POSTURES.ASSISTANT
+  ) {
     finalPosture = {
       ...finalPosture,
       mode: POSTURES.INSPECTION,
@@ -483,6 +611,7 @@ async function run({
     documentContext: documentContext || null,
     posture: finalPosture || null,
     postureAuthority,
+    capabilityLock, // Store capability lock to prevent gate bypass
     request: {
       message: normalizedMessage,
       agentVersion: policy.version,
@@ -500,12 +629,15 @@ async function run({
     originalMessage,
     resolvedEntity,
     baseContext,
+    resolutionContext = null,
   }) => {
     const scope = buildResolutionScope(resolvedEntity.type, resolvedEntity.id);
     const enrichedContext = {
       ...(baseContext || {}),
       resolvedEntity,
+      scope: resolvedEntity.type,
       ...scope,
+      ...(resolutionContext || {}),
       _resolvedFromSuggestion: true,
     };
 
@@ -546,6 +678,58 @@ async function run({
       };
     }
 
+    if (
+      originalIntent &&
+      Object.values(READ_INTENTS).includes(originalIntent)
+    ) {
+      // Transform LIST intents to READ intents when specific entity is selected
+      const listToReadMapping = {
+        [READ_INTENTS.LIST_DOSSIERS]: READ_INTENTS.READ_DOSSIER,
+        [READ_INTENTS.LIST_CLIENTS]: READ_INTENTS.READ_CLIENT,
+        [READ_INTENTS.LIST_TASKS]: READ_INTENTS.READ_TASK,
+        [READ_INTENTS.LIST_PERSONAL_TASKS]: READ_INTENTS.READ_PERSONAL_TASK,
+        [READ_INTENTS.LIST_SESSIONS]: READ_INTENTS.READ_SESSION,
+        [READ_INTENTS.LIST_UPCOMING_SESSIONS]: READ_INTENTS.READ_SESSION,
+        [READ_INTENTS.LIST_LAWSUITS]: READ_INTENTS.READ_LAWSUIT,
+        [READ_INTENTS.LIST_OVERDUE_TASKS]: READ_INTENTS.READ_TASK,
+      };
+      const resumeIntent = listToReadMapping[originalIntent] || originalIntent;
+
+      engineContext.intent = resumeIntent;
+      this.ledger.record({
+        type: "context_resolved_read_resume",
+        originalIntent,
+        resumeIntent,
+        resolvedEntity,
+        timestamp: new Date().toISOString(),
+      });
+
+      const readResult = await this._executeReadIntent(
+        {
+          intent: resumeIntent,
+          entityHints: [],
+        },
+        originalMessage || normalizedMessage,
+        enrichedContext,
+        policy,
+        engineContext,
+      );
+
+      this._updateConversationContext(
+        enrichedContext,
+        originalMessage || normalizedMessage,
+        readResult,
+        CONTEXT_SOURCES.READ_INTENT,
+        engineContext.posture,
+      );
+
+      return {
+        ...readResult,
+        posture: engineContext.posture,
+        postureAuthority: engineContext.postureAuthority,
+      };
+    }
+
     throw new Error(`Cannot resume intent: ${originalIntent}`);
   };
 
@@ -557,6 +741,7 @@ async function run({
     originalDraftType,
     originalMessage,
     source = "manual_input",
+    resolutionContext = null,
   }) => {
     this.ledger.record({
       type: "pending_resolution_attempt",
@@ -585,9 +770,12 @@ async function run({
         resolvedEntity: {
           type: resolution.entityType || entityType,
           id: resolution.entityId,
-          label: resolution.entityLabel || `${resolution.entityType} #${resolution.entityId}`,
+          label:
+            resolution.entityLabel ||
+            `${resolution.entityType} #${resolution.entityId}`,
         },
         baseContext: turnContext,
+        resolutionContext,
       });
     }
 
@@ -672,7 +860,8 @@ async function run({
     !hasFollowUpIntent &&
     lastOutput?.type === "context_suggestion" &&
     lastOutput?.originalIntent &&
-    lastOutput?.entityType;
+    lastOutput?.entityType &&
+    lastOutput?.category !== "invoice_selection";
 
   if (isPendingResolution) {
     console.log(
@@ -748,7 +937,22 @@ async function run({
         entityType,
         entityId,
         originalMessage,
+        selectionId,
+        selectionCategory,
       } = followUpIntent;
+      const resolutionContext =
+        selectionCategory === "invoice_selection" && selectionId
+          ? {
+              invoiceSelection: {
+                mode: String(selectionId) === "ALL_OVERDUE" ? "all" : "single",
+                invoiceId:
+                  String(selectionId) === "ALL_OVERDUE"
+                    ? null
+                    : Number(selectionId),
+                selectionId: String(selectionId),
+              },
+            }
+          : null;
       return await runResolutionMode({
         entityType: resolvedEntity?.type || entityType,
         identifier: resolvedEntity?.id || entityId,
@@ -757,6 +961,7 @@ async function run({
         originalDraftType,
         originalMessage: originalMessage || normalizedMessage,
         source: "suggestion_click",
+        resolutionContext,
       });
     }
 
@@ -812,6 +1017,254 @@ async function run({
     };
   }
   // ========== END FOLLOW-UP INTENT ==========
+
+  // ========== ACTIVATION GUARD (runs AFTER capability lock, BEFORE tool execution) ===
+  const activationResult = activationGuard({
+    capability: capabilityLock.capability,
+    intent: capabilityLock.intent,
+    message: normalizedMessage,
+    context: turnContext,
+    requestMetadata: turnContext?.requestMetadata || {},
+  });
+
+  console.log("[ActivationGuard]", {
+    type: activationResult.type,
+    reason: activationResult.reason || null,
+    candidates: Array.isArray(activationResult.candidates)
+      ? activationResult.candidates.length
+      : 0,
+  });
+
+  // If activation requires clarification, return immediately
+  if (activationResult.type === "routing_clarification") {
+    this.ledger.record({
+      type: "activation_clarification_required",
+      capability: capabilityLock.capability,
+      reason: activationResult.reason,
+      candidates: activationResult.candidates || [],
+      timestamp: new Date().toISOString(),
+    });
+
+    return {
+      intent: capabilityLock.intent || "ACTIVATION_CLARIFICATION",
+      agentVersion: policy.version,
+      reasoner: "activation-guard",
+      output: activationResult,
+      needsClarification: true,
+      posture: engineContext.posture,
+      postureAuthority: engineContext.postureAuthority,
+    };
+  }
+
+  // If activation is ok, proceed to stage dispatch
+  this.ledger.record({
+    type: "activation_ok",
+    capability: capabilityLock.capability,
+    intent: capabilityLock.intent,
+    timestamp: new Date().toISOString(),
+  });
+  // ========== END ACTIVATION GUARD ===
+
+  // ========== CAPABILITY DISPATCH ===
+  // Route to correct stage based on capability lock (not posture)
+  const capabilityDispatch = capabilityLock.capability;
+
+  // SEARCH capability -> Web/Deep search
+  if (capabilityDispatch === CAPABILITIES.SEARCH) {
+    const requestMetadata = turnContext?.requestMetadata || {};
+    const metadataIntent = String(
+      requestMetadata?.webSearchIntent || "",
+    ).toUpperCase();
+    const isDeepSearch =
+      capabilityLock.intent === READ_INTENTS.DEEP_SEARCH ||
+      requestMetadata?.webDeepSearchEnabled === true ||
+      (requestMetadata?.webSearchEnabled === true &&
+        metadataIntent === READ_INTENTS.DEEP_SEARCH);
+
+    if (!policy.allowExternalSearch) {
+      return {
+        ...this._generateDomainDeniedResponse(
+          isDeepSearch ? "legal" : "web",
+          `External search is disabled by policy ${policy.version}.`,
+          policy,
+        ),
+        posture: engineContext.posture,
+        postureAuthority: engineContext.postureAuthority,
+      };
+    }
+
+    this._ensureTurnGateAllowed(policy, {
+      gate: isDeepSearch ? "search_deep_web_intent" : "search_web_intent",
+      intent: capabilityLock.intent,
+      requiresRead: true,
+    });
+
+    const triggeredBy = requestMetadata?.webSearchEnabled
+      ? normalizeWebSearchTrigger(
+          requestMetadata?.webDeepSearchTrigger ||
+            requestMetadata?.webSearchTrigger,
+          "button",
+        )
+      : "explicit_language";
+
+    const query = String(
+      requestMetadata?.webDeepSearchQuery ||
+        requestMetadata?.webSearchQuery ||
+        capabilityLock.requires?.query ||
+        normalizedMessage ||
+        "",
+    ).trim();
+
+    engineContext.intent = capabilityLock.intent;
+    this.ledger.record({
+      type: isDeepSearch
+        ? "search_deep_web_gate_triggered"
+        : "search_web_gate_triggered",
+      searchIntent: capabilityLock.intent,
+      triggeredBy,
+      query,
+      timestamp: new Date().toISOString(),
+    });
+
+    const searchExecutor = isDeepSearch
+      ? this._executeDeepSearchIntent
+      : this._executeSearchWebIntent;
+    const searchResult = await searchExecutor.call(
+      this,
+      {
+        intent: capabilityLock.intent,
+        requiresLocalData: true,
+        filters: { query },
+      },
+      normalizedMessage,
+      {
+        ...(turnContext || {}),
+        requestMetadata: {
+          ...requestMetadata,
+          webSearchEnabled: true,
+          webSearchTrigger: triggeredBy,
+          webSearchQuery: query,
+          webSearchIntent: capabilityLock.intent,
+          ...(isDeepSearch
+            ? {
+                webDeepSearchEnabled: true,
+                webDeepSearchTrigger: triggeredBy,
+                webDeepSearchQuery: query,
+              }
+            : {}),
+        },
+      },
+      policy,
+      engineContext,
+    );
+
+    this._updateConversationContext(
+      turnContext,
+      normalizedMessage,
+      searchResult,
+      CONTEXT_SOURCES.READ_INTENT,
+      engineContext.posture,
+    );
+
+    return {
+      ...searchResult,
+      posture: engineContext.posture,
+      postureAuthority: engineContext.postureAuthority,
+    };
+  }
+
+  // READ capability -> Local data retrieval
+  if (capabilityDispatch === CAPABILITIES.READ) {
+    this._ensureTurnGateAllowed(policy, {
+      gate: "read_intent",
+      intent: capabilityLock.intent,
+      requiresRead: true,
+    });
+
+    engineContext.intent = capabilityLock.intent;
+    this.ledger.record({
+      type: "read_intent_gate_triggered",
+      intent: capabilityLock.intent,
+      timestamp: new Date().toISOString(),
+    });
+
+    const readIntent = {
+      intent: capabilityLock.intent,
+      requiresLocalData: true,
+      filters: capabilityLock.requires || {},
+    };
+
+    const readResult = await this._executeReadIntent(
+      readIntent,
+      normalizedMessage,
+      turnContext,
+      policy,
+      engineContext,
+    );
+
+    this._updateConversationContext(
+      turnContext,
+      normalizedMessage,
+      readResult,
+      CONTEXT_SOURCES.READ_INTENT,
+      engineContext.posture,
+    );
+
+    return {
+      ...readResult,
+      posture: engineContext.posture,
+      postureAuthority: engineContext.postureAuthority,
+    };
+  }
+
+  // DRAFT capability -> Document generation
+  if (capabilityDispatch === CAPABILITIES.DRAFT) {
+    this._ensureTurnGateAllowed(policy, {
+      gate: "draft_intent",
+      intent: capabilityLock.intent,
+      requiresRead: false,
+    });
+
+    engineContext.intent = capabilityLock.intent;
+    this.ledger.record({
+      type: "draft_intent_gate_triggered",
+      intent: capabilityLock.intent,
+      draftType: capabilityLock.requires?.draftType || null,
+      timestamp: new Date().toISOString(),
+    });
+
+    const draftIntent = {
+      intent: capabilityLock.intent,
+      draftType: capabilityLock.requires?.draftType || null,
+      entityHints: capabilityLock.requires?.entityHints || [],
+    };
+
+    const draftResult = await this._executeDraftIntent(
+      draftIntent,
+      normalizedMessage,
+      turnContext,
+      policy,
+      engineContext,
+    );
+
+    this._updateConversationContext(
+      turnContext,
+      normalizedMessage,
+      draftResult,
+      CONTEXT_SOURCES.DRAFT_INTENT,
+      engineContext.posture,
+    );
+
+    return {
+      ...draftResult,
+      posture: engineContext.posture,
+      postureAuthority: engineContext.postureAuthority,
+    };
+  }
+
+  // ASSISTANT capability -> Fall through to LLM reasoner
+  // (Only used when no other capability matches)
+  // ========== END CAPABILITY DISPATCH ===
 
   // STEP: Check for slash commands BEFORE intent classification
   if (governedPosture && isSlashCommand(normalizedMessage)) {
@@ -886,7 +1339,9 @@ async function run({
   // ========== SEARCH_DEEP_WEB INTENT GATE ==========
   {
     const requestMetadata = turnContext?.requestMetadata || {};
-    const metadataIntent = String(requestMetadata?.webSearchIntent || "").toUpperCase();
+    const metadataIntent = String(
+      requestMetadata?.webSearchIntent || "",
+    ).toUpperCase();
     const explicitDeepIntent =
       preDetectedReadIntent?.intent === READ_INTENTS.DEEP_SEARCH
         ? preDetectedReadIntent
@@ -930,7 +1385,8 @@ async function run({
 
       const triggeredBy = metadataDeepEnabled
         ? normalizeWebSearchTrigger(
-            requestMetadata?.webDeepSearchTrigger || requestMetadata?.webSearchTrigger,
+            requestMetadata?.webDeepSearchTrigger ||
+              requestMetadata?.webSearchTrigger,
             "button",
           )
         : "explicit_language";
@@ -995,7 +1451,9 @@ async function run({
   // ========== SEARCH_WEB INTENT GATE ==========
   {
     const requestMetadata = turnContext?.requestMetadata || {};
-    const metadataIntent = String(requestMetadata?.webSearchIntent || "").toUpperCase();
+    const metadataIntent = String(
+      requestMetadata?.webSearchIntent || "",
+    ).toUpperCase();
     const metadataSearchEnabled =
       requestMetadata?.webSearchEnabled === true &&
       requestMetadata?.webDeepSearchEnabled !== true &&
@@ -1022,11 +1480,12 @@ async function run({
       detectsExternalInfoNeed(normalizedMessage);
 
     if (shouldSuggestExternalSearch) {
-      const inferredIntent = /\b(case\s+law|precedent|jurisprudence|statute|regulation)\b/i.test(
-        normalizedMessage,
-      )
-        ? READ_INTENTS.DEEP_SEARCH
-        : READ_INTENTS.WEB_SEARCH;
+      const inferredIntent =
+        /\b(case\s+law|precedent|jurisprudence|statute|regulation)\b/i.test(
+          normalizedMessage,
+        )
+          ? READ_INTENTS.DEEP_SEARCH
+          : READ_INTENTS.WEB_SEARCH;
       const clarificationOutput = buildExternalSearchClarification({
         searchIntent: inferredIntent,
         query: normalizedMessage,
@@ -1070,13 +1529,12 @@ async function run({
       const triggeredBy = metadataSearchEnabled
         ? normalizeWebSearchTrigger(requestMetadata?.webSearchTrigger, "button")
         : "explicit_language";
-      const query =
-        String(
-          requestMetadata?.webSearchQuery ||
-            effectiveSearchIntent?.filters?.query ||
-            normalizedMessage ||
-            "",
-        ).trim();
+      const query = String(
+        requestMetadata?.webSearchQuery ||
+          effectiveSearchIntent?.filters?.query ||
+          normalizedMessage ||
+          "",
+      ).trim();
 
       engineContext.intent = effectiveSearchIntent.intent;
       this.ledger.record({
@@ -1186,10 +1644,7 @@ async function run({
   // Rule-based detection BEFORE LLM — ensures draft requests invoke genericDraft tool
   if (governedPosture) {
     const draftIntent = preDetectedDraftIntent;
-    if (
-      draftIntent &&
-      policy.allowedToolCategories.includes("draft")
-    ) {
+    if (draftIntent && policy.allowedToolCategories.includes("draft")) {
       this._ensureTurnGateAllowed(policy, {
         gate: "draft_intent",
         intent: draftIntent.intent,
@@ -1404,6 +1859,15 @@ async function run({
       dataReqs,
     );
 
+    // Attach LLM context to enriched context for chat history injection
+    const llmContext =
+      typeof this.contextStore?.getContextForLLMInjection === "function"
+        ? this.contextStore.getContextForLLMInjection(turnContext)
+        : null;
+    if (llmContext) {
+      enrichedContext.llmContext = llmContext;
+    }
+
     // Log successful data enrichment
     this.ledger.record({
       type: "context_enriched",
@@ -1434,7 +1898,9 @@ async function run({
     this.ledger.record({
       type: "governed_mode_failed",
       intent,
-      errors: executionResult.stepResults.filter((s) => s.error).map((s) => s.error),
+      errors: executionResult.stepResults
+        .filter((s) => s.error)
+        .map((s) => s.error),
       timestamp: new Date().toISOString(),
     });
 

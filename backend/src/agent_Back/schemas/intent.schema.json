@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "summary", "contextEcho", "nextQuestion"],
+  "properties": {
+    "kind": { "type": "string", "const": "intent" },
+    "summary": { "type": "string", "minLength": 1, "maxLength": 280 },
+    "contextEcho": {
+      "anyOf": [
+        { "type": "string", "maxLength": 220 },
+        { "type": "null" }
+      ]
+    },
+    "nextQuestion": {
+      "anyOf": [
+        { "type": "string", "maxLength": 220 },
+        { "type": "null" }
+      ]
+    }
+  }
+}

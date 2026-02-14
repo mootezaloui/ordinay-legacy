@@ -23,7 +23,6 @@ const DATA_REQUIREMENTS = Object.freeze({
   TIMELINE: "timeline",
 });
 
-
 /**
  * Slash Command Registry
  * Defines all supported slash commands with their mappings to tools
@@ -426,7 +425,8 @@ function detectDataRequirements(message, context = {}) {
     session: /\b(session|sessions|meeting|appointment)\b/i,
     mission: /\b(mission|missions)\b/i,
     officer: /\b(officer|officers|bailiff|bailiffs|huissier|huissiers)\b/i,
-    financial_entry: /\b(accounting|financial|invoice|payment|expense|billing|entry|entries)\b/i,
+    financial_entry:
+      /\b(accounting|financial|invoice|payment|expense|billing|entry|entries)\b/i,
     notification: /\b(notification|notifications|alert|alerts)\b/i,
     history_event: /\b(history|audit\s*trail|activity\s*log|audit)\b/i,
   };
@@ -663,10 +663,9 @@ function extractEntityHints(message) {
     /(task|personal\s+task)\s+(?:named\s+)?([A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+)*)/i,
   );
   if (taskNameMatch) {
-    const type =
-      String(taskNameMatch[1]).toLowerCase().includes("personal")
-        ? "personal_task"
-        : "task";
+    const type = String(taskNameMatch[1]).toLowerCase().includes("personal")
+      ? "personal_task"
+      : "task";
     hints.push({
       type: "name",
       value: taskNameMatch[2],
@@ -767,7 +766,12 @@ function hasExplicitEntityTarget(entityType, entityHints, context) {
   });
 }
 
-function detectAggregateSummaryRequest(normalized, entityType, entityHints, context) {
+function detectAggregateSummaryRequest(
+  normalized,
+  entityType,
+  entityHints,
+  context,
+) {
   if (!entityType) return false;
   const pluralSignal = AGGREGATE_PLURAL_PATTERNS[entityType]?.test(normalized);
   const quantifierSignal = AGGREGATE_QUANTIFIER_PATTERN.test(normalized);
@@ -797,13 +801,20 @@ function buildAggregateFilters(normalized, entityType, temporal) {
     filters.overdue = true;
   }
 
-  if (/\b(active|open|pending|closed|inactive|archived|blocked|done|completed|cancelled)\b/i.test(normalized)) {
+  if (
+    /\b(active|open|pending|closed|inactive|archived|blocked|done|completed|cancelled)\b/i.test(
+      normalized,
+    )
+  ) {
     const status = normalized.match(
       /\b(active|open|pending|closed|inactive|archived|blocked|done|completed|cancelled)\b/i,
     )?.[1];
     if (status) {
       filters.status = status.toLowerCase();
-      if (["active", "open", "pending"].includes(filters.status) && (entityType === "task" || entityType === "personal_task")) {
+      if (
+        ["active", "open", "pending"].includes(filters.status) &&
+        (entityType === "task" || entityType === "personal_task")
+      ) {
         filters.activity = "active";
       }
     }
@@ -832,7 +843,7 @@ function detectDraftIntent(message, context = {}) {
     /\bhow\s+to\s+(write|draft|compose|structure)\s+(a|an)\b/i,
     /\b(email|letter|message|document|invitation)\s+(template|example|sample|format)\b/i,
   ];
-  if (genericPatterns.some(p => p.test(normalized))) {
+  if (genericPatterns.some((p) => p.test(normalized))) {
     return null;
   }
 
@@ -844,73 +855,71 @@ function detectDraftIntent(message, context = {}) {
 
   // Detect draft type from message
   // --- Explicit document-type patterns (highest confidence) ---
-  const isInvitation = /\b(invitation|convocation|invite|meeting\s+request|summons|summon|assignation)\b/i.test(normalized);
-  const isClientEmail = /\b(email|e-mail|mail|letter|message|courrier|lettre)\b/i.test(normalized)
-    && /\b(client|customer|mandant)\b/i.test(normalized);
-  const isHearingSummary = /\b(hearing\s+summary|session\s+summary|compte[\s-]?rendu|summary\s+of\s+(?:the\s+)?(?:hearing|session))\b/i.test(normalized);
-  const isInternalNote = /\b(internal\s+note|memo|note\s+interne)\b/i.test(normalized);
-  // --- Extended vocabulary: legal document types that map to existing draft types ---
-  const isFormalRequest = /\b(official\s+request|formal\s+request|formal\s+letter|court\s+letter|requ[eê]te|demande\s+officielle|mise\s+en\s+demeure)\b/i.test(normalized);
-  const isResponse = /\b(response|reply|r[eé]ponse)\b/i.test(normalized)
-    && /\b(client|customer|mandant|party|partie|opposing|adverse)\b/i.test(normalized);
-  const isStandaloneNote = !isInternalNote
-    && /\b(note|note\s+de\s+service)\b/i.test(normalized)
-    && !/\bnote\s+(that|the|this|how|why|about\s+the\s+difference)\b/i.test(normalized);
+  const isInvitation =
+    /\b(invitation|convocation|invite|meeting\s+request|summons|summon|assignation)\b/i.test(
+      normalized,
+    );
+  const isClientEmail =
+    /\b(email|e-mail|mail|letter|message|courrier|lettre)\b/i.test(
+      normalized,
+    ) && /\b(client|customer|mandant)\b/i.test(normalized);
+  const isHearingSummary =
+    /\b(hearing\s+summary|session\s+summary|compte[\s-]?rendu|summary\s+of\s+(?:the\s+)?(?:hearing|session))\b/i.test(
+      normalized,
+    );
+  const isInternalNote = /\b(internal\s+note|memo|note\s+interne)\b/i.test(
+    normalized,
+  );
+  const isResponse =
+    /\b(response|reply|r[eé]ponse)\b/i.test(normalized) &&
+    /\b(client|customer|mandant|party|partie|opposing|adverse)\b/i.test(
+      normalized,
+    );
+  const isStandaloneNote =
+    !isInternalNote &&
+    /\b(note|note\s+de\s+service)\b/i.test(normalized) &&
+    !/\bnote\s+(that|the|this|how|why|about\s+the\s+difference)\b/i.test(
+      normalized,
+    );
 
   let intent = null;
   let draftType = null;
+  let draftTypeConfidence = 0;
 
   if (isInvitation) {
     intent = INTENTS.DRAFT_INVITATION;
     draftType = "INVITATION";
+    draftTypeConfidence = 1;
   } else if (isClientEmail) {
     intent = INTENTS.DRAFT_CLIENT_EMAIL;
     draftType = "CLIENT_EMAIL";
+    draftTypeConfidence = 1;
   } else if (isHearingSummary) {
     intent = INTENTS.DRAFT_INVITATION;
     draftType = "HEARING_SUMMARY";
+    draftTypeConfidence = 1;
   } else if (isInternalNote) {
     intent = INTENTS.DRAFT_INVITATION;
     draftType = "INTERNAL_NOTE";
-  } else if (isFormalRequest) {
-    intent = INTENTS.DRAFT_INVITATION;
-    draftType = "INVITATION";
+    draftTypeConfidence = 1;
   } else if (isResponse) {
     // "response to client" → CLIENT_EMAIL; "response to opposing party" → INVITATION
-    const isOpposingParty = /\b(opposing|adverse|partie\s+adverse)\b/i.test(normalized);
-    intent = isOpposingParty ? INTENTS.DRAFT_INVITATION : INTENTS.DRAFT_CLIENT_EMAIL;
+    const isOpposingParty = /\b(opposing|adverse|partie\s+adverse)\b/i.test(
+      normalized,
+    );
+    intent = isOpposingParty
+      ? INTENTS.DRAFT_INVITATION
+      : INTENTS.DRAFT_CLIENT_EMAIL;
     draftType = isOpposingParty ? "INVITATION" : "CLIENT_EMAIL";
+    draftTypeConfidence = 1;
   } else if (isStandaloneNote) {
     intent = INTENTS.DRAFT_INVITATION;
     draftType = "INTERNAL_NOTE";
+    draftTypeConfidence = 1;
   }
-
-  // --- Contextual inference: draft verb present but no explicit type matched ---
-  // Infer from domain keywords in the message before falling back to null
-  if (!intent) {
-    const hasHearingContext = /\b(hearing|session|audience|séance)\b/i.test(normalized);
-    const hasClientContext = /\b(client|customer|mandant)\b/i.test(normalized);
-    const hasCourtContext = /\b(court|tribunal|judge|juge|greff)\b/i.test(normalized);
-
-    if (hasHearingContext && !hasClientContext) {
-      // "write something for the hearing" → INVITATION (court-facing)
-      intent = INTENTS.DRAFT_INVITATION;
-      draftType = "INVITATION";
-    } else if (hasClientContext) {
-      // "write something to the client" → CLIENT_EMAIL
-      intent = INTENTS.DRAFT_CLIENT_EMAIL;
-      draftType = "CLIENT_EMAIL";
-    } else if (hasCourtContext) {
-      // "prepare a document for the court" → INVITATION (formal request)
-      intent = INTENTS.DRAFT_INVITATION;
-      draftType = "INVITATION";
-    }
-  }
-
-  if (!intent) {
-    // Draft verb detected but no recognizable document type — needs clarification
-    intent = INTENTS.DRAFT_INVITATION;
-    draftType = null;
+  if (!draftType) {
+    intent = INTENTS.DRAFT_GENERIC;
+    draftTypeConfidence = 0;
   }
 
   // Extract entity hints using existing helper
@@ -920,13 +929,14 @@ function detectDraftIntent(message, context = {}) {
   const forMatch = message.match(
     /(?:draft|write|compose|prepare|rédiger|rediger)\s+(?:an?\s+)?(?:\w+\s+){0,3}(?:for|pour)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)/i,
   );
-  if (forMatch && !entityHints.some(h => h.value === forMatch[1].trim())) {
+  if (forMatch && !entityHints.some((h) => h.value === forMatch[1].trim())) {
     entityHints.push({ type: "name", value: forMatch[1].trim() });
   }
 
   return {
     intent,
     draftType,
+    draftTypeConfidence,
     entityHints,
   };
 }
@@ -957,10 +967,15 @@ function detectReadIntent(message, context = {}) {
     /\bstructured\s+(email|letter|message|document|invitation|cover\s+letter)\b/i,
   ];
 
-  const isGenericDomainUsage = genericDomainUsagePatterns.some(pattern => pattern.test(normalized));
+  const isGenericDomainUsage = genericDomainUsagePatterns.some((pattern) =>
+    pattern.test(normalized),
+  );
 
   if (isGenericDomainUsage) {
-    console.log("[Domain Language Decoupling] Generic domain usage detected, not requiring system data:", message.slice(0, 60));
+    console.log(
+      "[Domain Language Decoupling] Generic domain usage detected, not requiring system data:",
+      message.slice(0, 60),
+    );
     return null;
   }
 
@@ -1030,10 +1045,19 @@ function detectReadIntent(message, context = {}) {
   ];
 
   const entityPatterns = [
-    { type: "personal_task", pattern: /\b(personal\s+task|personal\s+tasks)\b/i },
+    {
+      type: "personal_task",
+      pattern: /\b(personal\s+task|personal\s+tasks)\b/i,
+    },
     { type: "client", pattern: /\b(client|clients)\b/i },
-    { type: "dossier", pattern: /\b(dossier|dossiers|case\s*file|matter|matters)\b/i },
-    { type: "lawsuit", pattern: /\b(lawsuit|lawsuits|case|cases|trial|proces)\b/i },
+    {
+      type: "dossier",
+      pattern: /\b(dossier|dossiers|case\s*file|matter|matters)\b/i,
+    },
+    {
+      type: "lawsuit",
+      pattern: /\b(lawsuit|lawsuits|case|cases|trial|proces)\b/i,
+    },
     { type: "task", pattern: /\b(task|tasks|todo|to-do|todos)\b/i },
     {
       type: "session",
@@ -1041,17 +1065,28 @@ function detectReadIntent(message, context = {}) {
         /\b(session|sessions|meeting|meetings|hearing|hearings|appointment|appointments)\b/i,
     },
     { type: "mission", pattern: /\b(mission|missions)\b/i },
-    { type: "officer", pattern: /\b(officer|officers|bailiff|bailiffs|huissier|huissiers)\b/i },
+    {
+      type: "officer",
+      pattern: /\b(officer|officers|bailiff|bailiffs|huissier|huissiers)\b/i,
+    },
     {
       type: "financial_entry",
-      pattern: /\b(accounting|financial|invoice|payment|expense|billing|entry|entries)\b/i,
+      pattern:
+        /\b(accounting|financial|invoice|payment|expense|billing|entry|entries)\b/i,
     },
     {
       type: "document",
-      pattern: /\b(document|documents|file|files|attachment|attachments|pdf|docx|resume|cv|letter|report)\b/i,
+      pattern:
+        /\b(document|documents|file|files|attachment|attachments|pdf|docx|resume|cv|letter|report)\b/i,
     },
-    { type: "notification", pattern: /\b(notification|notifications|alert|alerts)\b/i },
-    { type: "history_event", pattern: /\b(history|audit\s*trail|activity\s*log|audit)\b/i },
+    {
+      type: "notification",
+      pattern: /\b(notification|notifications|alert|alerts)\b/i,
+    },
+    {
+      type: "history_event",
+      pattern: /\b(history|audit\s*trail|activity\s*log|audit)\b/i,
+    },
   ];
 
   const temporalPatterns = {
@@ -1112,7 +1147,9 @@ function detectReadIntent(message, context = {}) {
         .trim();
       if (
         cleaned &&
-        !/^(all|list|overview|summary|clients?|dossiers?|tasks?|sessions?)$/i.test(cleaned)
+        !/^(all|list|overview|summary|clients?|dossiers?|tasks?|sessions?)$/i.test(
+          cleaned,
+        )
       ) {
         extractedHints = [...extractedHints, { type: "name", value: cleaned }];
       }
@@ -1155,7 +1192,11 @@ function detectReadIntent(message, context = {}) {
     extractedHints,
     context,
   );
-  const aggregateFilters = buildAggregateFilters(normalized, entityType, temporal);
+  const aggregateFilters = buildAggregateFilters(
+    normalized,
+    entityType,
+    temporal,
+  );
 
   // SUMMARIZE intents
   if (hasSummarizePattern) {
@@ -1176,7 +1217,13 @@ function detectReadIntent(message, context = {}) {
         requiresLocalData: true,
         allowedTools: aggregateSummary
           ? ["listDossiers"]
-          : ["getDossier", "getDossierByReference", "listTasks", "listSessions", "listMissions"],
+          : [
+              "getDossier",
+              "getDossierByReference",
+              "listTasks",
+              "listSessions",
+              "listMissions",
+            ],
         entityHints: extractedHints,
         aggregateSummary,
         filters: aggregateFilters,
@@ -1205,7 +1252,9 @@ function detectReadIntent(message, context = {}) {
       return {
         intent: READ_INTENTS.SUMMARIZE_TASK,
         requiresLocalData: true,
-        allowedTools: aggregateSummary ? ["listTasks"] : ["getTask", "listTasks"],
+        allowedTools: aggregateSummary
+          ? ["listTasks"]
+          : ["getTask", "listTasks"],
         entityHints: extractedHints,
         aggregateSummary,
         filters: aggregateFilters,
@@ -1214,7 +1263,9 @@ function detectReadIntent(message, context = {}) {
       return {
         intent: READ_INTENTS.SUMMARIZE_PERSONAL_TASK,
         requiresLocalData: true,
-        allowedTools: aggregateSummary ? ["listPersonalTasks"] : ["getPersonalTask", "listPersonalTasks"],
+        allowedTools: aggregateSummary
+          ? ["listPersonalTasks"]
+          : ["getPersonalTask", "listPersonalTasks"],
         entityHints: extractedHints,
         aggregateSummary,
         filters: aggregateFilters,
@@ -1223,7 +1274,9 @@ function detectReadIntent(message, context = {}) {
       return {
         intent: READ_INTENTS.SUMMARIZE_MISSION,
         requiresLocalData: true,
-        allowedTools: aggregateSummary ? ["listMissions"] : ["getMission", "listMissions"],
+        allowedTools: aggregateSummary
+          ? ["listMissions"]
+          : ["getMission", "listMissions"],
         entityHints: extractedHints,
         aggregateSummary,
         filters: aggregateFilters,
@@ -1232,7 +1285,9 @@ function detectReadIntent(message, context = {}) {
       return {
         intent: READ_INTENTS.SUMMARIZE_OFFICER,
         requiresLocalData: true,
-        allowedTools: aggregateSummary ? ["listOfficers"] : ["getOfficer", "listOfficers"],
+        allowedTools: aggregateSummary
+          ? ["listOfficers"]
+          : ["getOfficer", "listOfficers"],
         entityHints: extractedHints,
         aggregateSummary,
         filters: aggregateFilters,
@@ -1241,7 +1296,9 @@ function detectReadIntent(message, context = {}) {
       return {
         intent: READ_INTENTS.SUMMARIZE_FINANCIAL_ENTRY,
         requiresLocalData: true,
-        allowedTools: aggregateSummary ? ["listFinancialEntries"] : ["getFinancialEntry", "listFinancialEntries"],
+        allowedTools: aggregateSummary
+          ? ["listFinancialEntries"]
+          : ["getFinancialEntry", "listFinancialEntries"],
         entityHints: extractedHints,
         aggregateSummary,
         filters: aggregateFilters,
@@ -1250,7 +1307,9 @@ function detectReadIntent(message, context = {}) {
       return {
         intent: READ_INTENTS.SUMMARIZE_NOTIFICATION,
         requiresLocalData: true,
-        allowedTools: aggregateSummary ? ["listNotifications"] : ["getNotification", "listNotifications"],
+        allowedTools: aggregateSummary
+          ? ["listNotifications"]
+          : ["getNotification", "listNotifications"],
         entityHints: extractedHints,
         aggregateSummary,
         filters: aggregateFilters,
@@ -1281,14 +1340,24 @@ function detectReadIntent(message, context = {}) {
       return {
         intent: READ_INTENTS.EXPLAIN_CLIENT_STATE,
         requiresLocalData: true,
-        allowedTools: ["getClient", "searchClientsByName", "listDossiersForClient"],
+        allowedTools: [
+          "getClient",
+          "searchClientsByName",
+          "listDossiersForClient",
+        ],
         entityHints: extractedHints,
       };
     if (entityType === "dossier")
       return {
         intent: READ_INTENTS.EXPLAIN_DOSSIER_STATE,
         requiresLocalData: true,
-        allowedTools: ["getDossier", "getDossierByReference", "listTasks", "listSessions", "listMissions"],
+        allowedTools: [
+          "getDossier",
+          "getDossierByReference",
+          "listTasks",
+          "listSessions",
+          "listMissions",
+        ],
         entityHints: extractedHints,
       };
     if (entityType === "lawsuit")
@@ -1398,7 +1467,11 @@ function detectReadIntent(message, context = {}) {
         return {
           intent: READ_INTENTS.SUMMARIZE_CLIENT,
           requiresLocalData: true,
-          allowedTools: ["getClient", "searchClientsByName", "listDossiersForClient"],
+          allowedTools: [
+            "getClient",
+            "searchClientsByName",
+            "listDossiersForClient",
+          ],
           entityHints: nameHints,
         };
       }
@@ -1406,7 +1479,11 @@ function detectReadIntent(message, context = {}) {
         return {
           intent: READ_INTENTS.EXPLAIN_CLIENT_STATE,
           requiresLocalData: true,
-          allowedTools: ["getClient", "searchClientsByName", "listDossiersForClient"],
+          allowedTools: [
+            "getClient",
+            "searchClientsByName",
+            "listDossiersForClient",
+          ],
           entityHints: nameHints,
         };
       }
@@ -1645,7 +1722,9 @@ function extractExplicitSearchQuery(message, pattern) {
   if (typeof message !== "string") return "";
   const match = message.match(pattern);
   if (!match || !match[1]) return "";
-  return String(match[1]).replace(/[?!.]+$/g, "").trim();
+  return String(match[1])
+    .replace(/[?!.]+$/g, "")
+    .trim();
 }
 
 function inferDeepResearchTypeFromQuery(query) {
@@ -1657,10 +1736,16 @@ function inferDeepResearchTypeFromQuery(query) {
   ) {
     return "jurisprudence";
   }
-  if (/\b(statute|law|code|regulation|act|article|section)\b/i.test(normalized)) {
+  if (
+    /\b(statute|law|code|regulation|act|article|section)\b/i.test(normalized)
+  ) {
     return "statute";
   }
-  if (/\b(procedure|procedural|filing|deadline|appeal|jurisdiction)\b/i.test(normalized)) {
+  if (
+    /\b(procedure|procedural|filing|deadline|appeal|jurisdiction)\b/i.test(
+      normalized,
+    )
+  ) {
     return "procedure";
   }
   return "comprehensive";
@@ -1677,7 +1762,9 @@ function inferWebSearchCategoryFromQuery(query) {
   if (/\b(define|definition|meaning|what\s+is)\b/i.test(normalized)) {
     return "definition";
   }
-  if (/\b(legal|law|jurisprudence|court|statute|regulation)\b/i.test(normalized)) {
+  if (
+    /\b(legal|law|jurisprudence|court|statute|regulation)\b/i.test(normalized)
+  ) {
     return "legal";
   }
   return "general";
@@ -2121,8 +2208,10 @@ function detectEntityType(message) {
       /\b(session|sessions|meeting|meetings|hearing|hearings|appointment|appointments)\b/i,
     mission: /\b(mission|missions)\b/i,
     officer: /\b(officer|officers|bailiff|bailiffs|huissier|huissiers)\b/i,
-    financial_entry: /\b(accounting|financial|invoice|payment|expense|billing|entry|entries)\b/i,
-    document: /\b(document|documents|file|files|attachment|attachments|pdf|docx|resume|cv|letter|report)\b/i,
+    financial_entry:
+      /\b(accounting|financial|invoice|payment|expense|billing|entry|entries)\b/i,
+    document:
+      /\b(document|documents|file|files|attachment|attachments|pdf|docx|resume|cv|letter|report)\b/i,
     notification: /\b(notification|notifications|alert|alerts)\b/i,
     history_event: /\b(history|audit\s*trail|activity\s*log|audit)\b/i,
   };
@@ -2134,6 +2223,28 @@ function detectEntityType(message) {
   }
 
   return null;
+}
+
+function getIntentSignals(message, context = {}) {
+  const signals = [];
+  const draftIntent = detectDraftIntent(message, context);
+  const readIntent = draftIntent ? null : detectReadIntent(message, context);
+
+  if (draftIntent) signals.push("draft_rule");
+  if (readIntent) signals.push("read_rule");
+  if (
+    readIntent &&
+    (readIntent.intent === READ_INTENTS.WEB_SEARCH ||
+      readIntent.intent === READ_INTENTS.DEEP_SEARCH)
+  ) {
+    signals.push("search_rule");
+  }
+
+  return {
+    draftIntent,
+    readIntent,
+    signals,
+  };
 }
 
 module.exports = classifyIntent;
@@ -2153,3 +2264,4 @@ module.exports.detectFollowUp = detectFollowUp;
 module.exports.detectFilterModifier = detectFilterModifier;
 module.exports.hasExplicitEntityMention = hasExplicitEntityMention;
 module.exports.detectEntityType = detectEntityType;
+module.exports.getIntentSignals = getIntentSignals;

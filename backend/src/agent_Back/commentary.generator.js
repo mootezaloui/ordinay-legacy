@@ -20,7 +20,7 @@
  */
 
 const LLM_BASE_URL = process.env.LLM_BASE_URL || "http://127.0.0.1:11434";
-const LLM_MODEL = process.env.LLM_MODEL || "qwen2.5:7b-instruct";
+const LLM_MODEL = process.env.LLM_MODEL || "gpt-oss:120b-cloud";
 const LLM_TIMEOUT = parseInt(process.env.LLM_COMMENTARY_TIMEOUT || "30000", 10);
 const OLLAMA_STREAMING = process.env.OLLAMA_STREAMING !== "false";
 const ALWAYS_GENERATE_COMMENTARY =
@@ -962,7 +962,7 @@ ${forceResponse ? "\nYou must respond with 2-4 short sentences." : ""}`;
         prompt: `${systemPrompt}\n\nUser: ${userPrompt}\n\nAssistant:`,
         stream: false,
         options: {
-          temperature: 0.5, // Lower temperature for more consistent mode adherence
+          temperature: 0.2, // Lower temperature for more consistent mode adherence
           num_predict: 200,
         },
       }),
@@ -1194,7 +1194,7 @@ You must respond with 2-4 short sentences.`;
         prompt: `${systemPrompt}\n\nUser: ${userPrompt}\n\nAssistant:`,
         stream: true,
         options: {
-          temperature: 0.5, // Lower temperature for more consistent mode adherence
+          temperature: 0.2, // Lower temperature for more consistent mode adherence
           num_predict: 200,
         },
       }),

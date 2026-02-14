@@ -1774,6 +1774,18 @@ function buildSelectionFollowUps(entityType, entityData, options = {}) {
   const candidates = entityData.filter(
     (item) => item && item.id !== null && item.id !== undefined,
   );
+  const resolveClientName = (item) => {
+    const direct =
+      item?.clientName ||
+      item?.client_name ||
+      item?.client?.name ||
+      item?.client ||
+      null;
+    if (direct) return String(direct).trim();
+    const scopedClientName = context?.clientData?.name;
+    if (scopedClientName) return String(scopedClientName).trim();
+    return null;
+  };
 
   return candidates.slice(0, 5).flatMap((item, idx) => {
     const isActiveCandidate =
@@ -1840,6 +1852,7 @@ function buildSelectionFollowUps(entityType, entityData, options = {}) {
       type: entityType,
       id: item.id,
       label: rawLabelText,
+      clientName: resolveClientName(item),
     };
     return [
       {

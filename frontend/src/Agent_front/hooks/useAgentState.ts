@@ -400,6 +400,8 @@ export function useAgentState() {
       originalDraftType: followUp.originalDraftType,
       originalMessage: followUp.originalMessage,
       resolvedEntity: followUp.resolvedEntity,
+      selectionId: followUp.selectionId,
+      selectionCategory: followUp.selectionCategory,
     }),
     []
   );
@@ -571,7 +573,11 @@ export function useAgentState() {
       updateSessionMessages(sessionId, workingMessages);
     };
 
-    const upsertIntentMessage = (content: string, intentOverride?: string) => {
+    const upsertIntentMessage = (
+      content: string,
+      intentOverride?: string,
+      structured?: import("../../services/api/agent").IntentFramingOutput
+    ) => {
       const trimmedContent = content.trim();
       if (!trimmedContent) return;
       const intentMessage: AgentMessage = {
@@ -582,6 +588,7 @@ export function useAgentState() {
         stage: "intent",
         intent: intentOverride || intent,
         messageType: "AGENT_INTENT_MESSAGE",
+        intentFraming: structured,
       };
       const exists = workingMessages.some((msg) => msg.id === intentMessageId);
       if (exists) {
@@ -606,7 +613,7 @@ export function useAgentState() {
           if (!data.message || data.message.trim().length === 0) return;
           // Complete intent framing message - use this as final
           streamedIntentContent = data.message;
-          upsertIntentMessage(data.message);
+          upsertIntentMessage(data.message, undefined, data.structured);
         },
         onIntentFramingChunk: (chunk) => {
           // Streaming intent framing - accumulate and update in real-time
@@ -918,7 +925,11 @@ export function useAgentState() {
     let streamedIntentContent = "";
     let streamedCommentaryContent = "";
 
-    const upsertIntentMessage = (content: string, intentOverride?: string) => {
+    const upsertIntentMessage = (
+      content: string,
+      intentOverride?: string,
+      structured?: import("../../services/api/agent").IntentFramingOutput
+    ) => {
       const trimmedContent = content.trim();
       if (!trimmedContent) return;
       const intentMessage: AgentMessage = {
@@ -929,6 +940,7 @@ export function useAgentState() {
         stage: "intent",
         intent: intentOverride || intent,
         messageType: "AGENT_INTENT_MESSAGE",
+        intentFraming: structured,
       };
       const exists = workingMessages.some((msg) => msg.id === intentMessageId);
       if (exists) {
@@ -957,7 +969,7 @@ export function useAgentState() {
             if (streamSessionRef.current !== sessionId) return;
             if (!data.message || data.message.trim().length === 0) return;
             streamedIntentContent = data.message;
-            upsertIntentMessage(data.message);
+            upsertIntentMessage(data.message, undefined, data.structured);
           },
           onIntentFramingChunk: (chunk) => {
             if (streamSessionRef.current !== sessionId) return;
@@ -1279,7 +1291,11 @@ export function useAgentState() {
       let streamedIntentContent = "";
       let streamedCommentaryContent = "";
 
-      const upsertIntentMessage = (content: string, intentOverride?: string) => {
+      const upsertIntentMessage = (
+        content: string,
+        intentOverride?: string,
+        structured?: import("../../services/api/agent").IntentFramingOutput
+      ) => {
         const trimmedContent = content.trim();
         if (!trimmedContent) return;
         const intentMessage: AgentMessage = {
@@ -1290,6 +1306,7 @@ export function useAgentState() {
           stage: "intent",
           intent: intentOverride || intent,
           messageType: "AGENT_INTENT_MESSAGE",
+          intentFraming: structured,
           retryOf: opts?.retryOf,
         };
         const exists = workingMessages.some((msg) => msg.id === intentMessageId);
@@ -1320,7 +1337,7 @@ export function useAgentState() {
           if (streamSessionRef.current !== activeSessionId) return;
           if (!data.message || data.message.trim().length === 0) return;
           streamedIntentContent = data.message;
-          upsertIntentMessage(data.message);
+          upsertIntentMessage(data.message, undefined, data.structured);
         },
         onIntentFramingChunk: (chunk) => {
           if (streamSessionRef.current !== activeSessionId) return;

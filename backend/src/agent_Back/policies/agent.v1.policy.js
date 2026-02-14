@@ -1,11 +1,11 @@
-'use strict';
+"use strict";
 
-const { INTENTS } = require('../intents');
+const { INTENTS } = require("../intents");
 
 const agentV1Policy = {
-  version: 'v1',
+  version: "v1",
   documentHandling: {
-    mode: 'text', // deterministic text extraction for readable documents
+    mode: "text", // deterministic text extraction for readable documents
   },
   allowedIntents: [
     INTENTS.GENERAL_CHAT,
@@ -13,12 +13,13 @@ const agentV1Policy = {
     INTENTS.SUMMARIZE_SESSION,
     INTENTS.DRAFT_INVITATION,
     INTENTS.DRAFT_CLIENT_EMAIL,
+    INTENTS.DRAFT_GENERIC,
   ],
-  allowedToolCategories: ['read', 'analysis', 'draft'],
+  allowedToolCategories: ["read", "analysis", "draft"],
   allowExecution: false,
   allowExternalSearch: true,
   allowEnrichment: false,
-  defaultReasoner: 'rule',
+  defaultReasoner: "rule",
 };
 
 module.exports = agentV1Policy;

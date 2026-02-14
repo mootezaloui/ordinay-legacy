@@ -86,11 +86,12 @@ function isOverdueClientEmailIntent(intent, userMessage) {
   return keywords.some((keyword) => message.includes(keyword));
 }
 
-function inferWorkspaceScope(requestContext = {}) {
-  const activeType = String(
-    requestContext?.activeEntity?.type || "",
-  ).toLowerCase();
-  const activeId = requestContext?.activeEntity?.id || null;
+function inferWorkspaceScope(requestContext = {}, options = {}) {
+  const allowActiveEntity = options?.allowActiveEntity !== false;
+  const activeType = allowActiveEntity
+    ? String(requestContext?.activeEntity?.type || "").toLowerCase()
+    : "";
+  const activeId = allowActiveEntity ? requestContext?.activeEntity?.id || null : null;
   return {
     clientId:
       requestContext?.clientId ||
@@ -256,7 +257,9 @@ async function discoverOverdueClientSuggestions(
   { policy, requestContext, now },
   runtime,
 ) {
-  const scope = inferWorkspaceScope(requestContext);
+  const scope = inferWorkspaceScope(requestContext, {
+    allowActiveEntity: false,
+  });
   const params = { limit: 5 };
   if (scope.clientId) params.clientId = Number(scope.clientId);
 
@@ -267,35 +270,47 @@ async function discoverOverdueClientSuggestions(
   );
   const rows = Array.isArray(result?.clients) ? result.clients : [];
 
-  return rows.map((row) => {
-    const overdueCount = Number(row?.overdue_count || 0);
-    const totalOverdueAmount = Number(row?.total_overdue_amount || 0);
-    const oldestDueDate = row?.oldest_due_date || null;
-    const daysLate = computeDaysLate(oldestDueDate, now);
-    const clientId = Number(row?.client_id || 0);
-    const clientName = row?.client_name || `Client #${clientId}`;
-    return {
-      entityType: "client",
-      entityId: clientId,
-      label: clientName,
-      score: overdueCount * 1000 + totalOverdueAmount,
-      signal: `${overdueCount} overdue invoice(s), total overdue ${totalOverdueAmount}, oldest due ${formatIsoDate(oldestDueDate)}`,
-      metadata: {
-        clientId,
-        clientName,
-        overdueCount,
-        totalOverdueAmount,
-        daysLate,
-      },
-    };
-  });
+  return rows
+    .map((row) => {
+      const overdueCount = Number(row?.overdue_count || 0);
+      if (overdueCount <= 0) return null;
+      const totalOverdueAmount = Number(row?.total_overdue_amount || 0);
+      const oldestDueDate = row?.oldest_due_date || null;
+      const daysLate = computeDaysLate(oldestDueDate, now);
+      const clientId = Number(row?.client_id || 0);
+      const clientName = row?.client_name || `Client #${clientId}`;
+      return {
+        entityType: "client",
+        entityId: clientId,
+        label: clientName,
+        score: overdueCount * 1000 + totalOverdueAmount,
+        signal: `${overdueCount} overdue invoice(s), total overdue ${totalOverdueAmount}, oldest due ${formatIsoDate(oldestDueDate)}`,
+        metadata: {
+          clientId,
+          clientName,
+          overdueCount,
+          totalOverdueAmount,
+          oldestDueDate,
+          daysLate,
+        },
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => {
+      if (b.metadata.overdueCount !== a.metadata.overdueCount) {
+        return b.metadata.overdueCount - a.metadata.overdueCount;
+      }
+      return b.metadata.totalOverdueAmount - a.metadata.totalOverdueAmount;
+    });
 }
 
 async function discoverRecentClientSuggestions(
   { policy, requestContext, now },
   runtime,
 ) {
-  const scope = inferWorkspaceScope(requestContext);
+  const scope = inferWorkspaceScope(requestContext, {
+    allowActiveEntity: false,
+  });
   const result = await runtime.readTool("listClients", { limit: 200 }, policy);
   const clients = Array.isArray(result?.clients) ? result.clients : [];
 
@@ -452,20 +467,18 @@ async function getContextSuggestions(intent, missingEntities, context = {}) {
 
   if (entities.has("client")) {
     if (isOverdueClientEmailIntent(intent, userMessage)) {
-      console.log("[SuggestionEngine] Using overdue-aware resolver");
+      console.log("[OverdueResolver] Using overdue invoice resolver");
       const overdueSuggestions = await discoverOverdueClientSuggestions(
         { intent, policy, requestContext, now, userMessage },
         runtime,
       );
       console.log(
-        `[SuggestionEngine] Results: ${Array.isArray(overdueSuggestions) ? overdueSuggestions.length : 0} clients`,
+        `[OverdueResolver] Results: ${Array.isArray(overdueSuggestions) ? overdueSuggestions.length : 0} clients`,
       );
-
       if (Array.isArray(overdueSuggestions) && overdueSuggestions.length > 0) {
         return overdueSuggestions;
       }
-
-      console.log("[SuggestionEngine] No overdue clients found, falling back");
+      console.log("[OverdueResolver] No overdue clients found, falling back");
       return await discoverRecentClientSuggestions(
         { intent, policy, requestContext, now, userMessage },
         runtime,
@@ -516,4 +529,5 @@ module.exports = {
   getContextSuggestions,
   formatSuggestionResponse,
   lexicalSimilarity,
+  isOverdueClientEmailIntent,
 };

@@ -5,6 +5,7 @@ import type {
   ActionProposal,
   FollowUpIntent,
   CommentaryOutput,
+  IntentFramingOutput,
   ClarificationOutput,
   CollectionOutput,
   ProposalOutput,
@@ -61,6 +62,7 @@ export interface AgentMessage {
    * Optional semantic message type (first-class agent interactions).
    */
   messageType?: AgentMessageType;
+  intentFraming?: IntentFramingOutput;
   /**
    * For status messages, the current action being performed.
    * e.g., "Reading tasks…", "Analyzing dossier status…"

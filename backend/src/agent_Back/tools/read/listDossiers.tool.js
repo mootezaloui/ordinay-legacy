@@ -8,6 +8,7 @@
  */
 
 const dossiersService = require('../../../services/dossiers.service');
+const clientsService = require('../../../services/clients.service');
 const { TOOL_CATEGORIES } = require('../tool.registry');
 
 const inputSchema = {
@@ -56,6 +57,11 @@ const outputSchema = {
 
 async function handler({ query = null, status = null, clientId = null, limit = 50 } = {}) {
   let dossiers = dossiersService.list();
+  const clientNameById = new Map(
+    clientsService
+      .list()
+      .map((client) => [Number(client.id), String(client.name || "").trim()]),
+  );
 
   if (clientId !== null) {
     dossiers = dossiers.filter(dossier => dossier.client_id === clientId);
@@ -80,7 +86,21 @@ async function handler({ query = null, status = null, clientId = null, limit = 5
     return bUpdated - aUpdated;
   });
 
-  const limited = dossiers.slice(0, limit);
+  const limited = dossiers.slice(0, limit).map((dossier) => {
+    const resolvedClientName =
+      String(
+        dossier.client_name ||
+          dossier.clientName ||
+          clientNameById.get(Number(dossier.client_id)) ||
+          "",
+      ).trim() || null;
+    if (!resolvedClientName) return dossier;
+    return {
+      ...dossier,
+      client_name: resolvedClientName,
+      clientName: resolvedClientName,
+    };
+  });
 
   return {
     dossiers: limited,

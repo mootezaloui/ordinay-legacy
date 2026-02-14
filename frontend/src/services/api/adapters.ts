@@ -376,8 +376,10 @@ export function adaptFinancialEntry(
   const rawStatus = api.status;
   const mappedStatus = normalizeFinancialStatus(rawStatus);
 
-  // Determine if entry is paid (has paidAt set)
-  const isPaid = mappedStatus === "paid";
+  // Canonical payment state: paid_at is the source of truth.
+  // Keep legacy fallback for old rows that still carry status='paid'.
+  const isPaid =
+    Boolean(api.paid_at) || String(rawStatus || "").toLowerCase() === "paid";
   
   // Map entry_type to frontend type
   const type = api.entry_type === "income" ? "revenue" : "expense";

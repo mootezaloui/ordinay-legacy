@@ -1,13 +1,38 @@
 "use strict";
 
 const express = require("express");
+const Ajv = require("ajv");
+const addFormats = require("ajv-formats");
 const AgentEngine = require("./agent.engine");
 const { getAvailableCommands } = require("./intent.classifier");
-const { streamIntentFramingMessage, streamWebSearchAiSummary } = require("./llm.client");
-const { streamCommentary } = require("./commentary.generator");
+const { streamLLM } = require("./llm/stream.provider");
+const eventEnvelopeSchema = require("./schemas/event-envelope.schema.json");
+const intentSchema = require("./schemas/intent.schema.json");
+const commentarySchema = require("./schemas/commentary.schema.json");
+const failureSchema = require("./schemas/failure.schema.json");
 
 const router = express.Router();
 const agentEngine = new AgentEngine();
+const streamAjv = new Ajv({
+  allErrors: true,
+  strict: true,
+  allowUnionTypes: true,
+});
+addFormats(streamAjv);
+
+const validateEnvelope = streamAjv.compile(eventEnvelopeSchema);
+const validateIntent = streamAjv.compile(intentSchema);
+const validateCommentary = streamAjv.compile(commentarySchema);
+const validateFailure = streamAjv.compile(failureSchema);
+
+const DELTA_MAX_CHARS = Math.min(
+  Math.max(parseInt(process.env.AGENT_STREAM_DELTA_MAX_CHARS || "32", 10), 20),
+  40,
+);
+const DELTA_FLUSH_MS = Math.min(
+  Math.max(parseInt(process.env.AGENT_STREAM_DELTA_FLUSH_MS || "80", 10), 50),
+  120,
+);
 
 // ============================================================================
 // Unified SSE Event Lifecycle
@@ -835,15 +860,639 @@ router.post("/agent/confirm", async (req, res, next) => {
   }
 });
 
-/**
- * SSE streaming endpoint for chat responses
- *
- * Events sent:
- * - event: start    - Stream started, includes intent
- * - event: chunk    - Text chunk from LLM
- * - event: done     - Stream completed
- * - event: error    - Error occurred
- */
+function newEventId(prefix = "evt") {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function extractJsonObject(rawText) {
+  const raw = String(rawText || "").trim();
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const start = raw.indexOf("{");
+    const end = raw.lastIndexOf("}");
+    if (start < 0 || end < start) return null;
+    try {
+      return JSON.parse(raw.slice(start, end + 1));
+    } catch {
+      return null;
+    }
+  }
+}
+
+function cleanUserText(text, fallback = "") {
+  const raw = String(text || "").replace(/\s+/g, " ").trim();
+  if (!raw) return fallback;
+  const blocked = /\b(token|permission|confidence|assumption|risk flag|internal|auth|firewall)\b/i;
+  if (blocked.test(raw)) {
+    return fallback || "I understood your request and will proceed.";
+  }
+  return raw;
+}
+
+function normalizeQuestion(question, fallback = null) {
+  const q = cleanUserText(question, "").trim();
+  if (!q) return fallback;
+  if (/[?؟]$/.test(q)) return q;
+  return `${q.replace(/[.!\s]+$/g, "")}?`;
+}
+
+function coerceIntentPayload(payload, userMessage) {
+  const source = payload && typeof payload === "object" ? payload : {};
+  const contextEchoCandidate = cleanUserText(source.contextEcho || userMessage, "");
+  const summary =
+    cleanUserText(source.summary, "") ||
+    `Got it — you want me to handle "${cleanUserText(userMessage, "this request")}".`;
+  const rawNextQuestion = normalizeQuestion(source.nextQuestion, null);
+  const lowValueIdentifierQuestion =
+    rawNextQuestion &&
+    /\b(case number|reference|reference id|identifier|party names|more details|provide.*details)\b/i.test(
+      rawNextQuestion,
+    );
+  return {
+    kind: "intent",
+    summary,
+    contextEcho: contextEchoCandidate || null,
+    nextQuestion: lowValueIdentifierQuestion ? null : rawNextQuestion,
+  };
+}
+
+function buildCommentaryFallbackFromArtifact(output, userMessage) {
+  const artifact = output && typeof output === "object" ? output : {};
+  const type = String(artifact.type || "").toLowerCase();
+  const fallback = {
+    kind: "commentary",
+    lines: [],
+    options: [],
+    question: null,
+  };
+
+  if (type === "context_suggestion") {
+    const suggestions = Array.isArray(artifact.suggestions)
+      ? artifact.suggestions
+      : [];
+    const entityType = cleanUserText(artifact.entityType, "item");
+    const messageLine =
+      cleanUserText(artifact.message, "") ||
+      `I found ${suggestions.length} possible ${entityType} matches.`;
+    fallback.lines = [messageLine];
+    fallback.options = suggestions.slice(0, 8).map((item) => ({
+      label:
+        cleanUserText(item?.label, "") ||
+        `${cleanUserText(item?.entityType, entityType)} ${String(item?.entityId || "").trim()}`,
+      value: String(item?.id || item?.entityId || "").trim(),
+    })).filter((item) => item.label && item.value);
+    fallback.question = "Which one do you mean?";
+    return fallback;
+  }
+
+  if (type === "collection") {
+    const items = Array.isArray(artifact.items) ? artifact.items : [];
+    const entity = cleanUserText(artifact.entityType, "item");
+    const summary = cleanUserText(artifact.summary, "");
+    fallback.lines = [
+      summary || `I found ${items.length} ${entity}${items.length === 1 ? "" : "s"}.`,
+    ];
+    if (items.length > 1) {
+      fallback.options = items.slice(0, 8).map((item) => ({
+        label:
+          cleanUserText(item?.title, "") ||
+          cleanUserText(item?.subtitle, "") ||
+          `${entity} ${String(item?.id || "").trim()}`,
+        value: String(item?.entityId || item?.id || "").trim(),
+      })).filter((row) => row.label && row.value);
+      fallback.question =
+        fallback.options.length > 0 ? "Which one do you mean?" : null;
+    }
+    return fallback;
+  }
+
+  if (type === "clarification" || type === "routing_clarification") {
+    const candidates = Array.isArray(artifact.candidates) ? artifact.candidates : [];
+    const promptLine =
+      cleanUserText(artifact.prompt || artifact.message, "") ||
+      "I need one more detail to continue.";
+    fallback.lines = [promptLine];
+    fallback.options = candidates.slice(0, 8).map((item) => ({
+      label:
+        cleanUserText(item?.label, "") ||
+        `${cleanUserText(item?.entityType, "Option")} ${String(item?.id || "").trim()}`,
+      value: String(item?.id || "").trim(),
+    })).filter((item) => item.label && item.value);
+    fallback.question = normalizeQuestion(artifact.prompt, "Could you clarify your selection?");
+    return fallback;
+  }
+
+  if (type === "web_search_results" || type === "web_deep_search_results") {
+    const count = Number.isFinite(artifact.resultCount)
+      ? Number(artifact.resultCount)
+      : Array.isArray(artifact.results)
+        ? artifact.results.length
+        : 0;
+    const query = cleanUserText(artifact.query, cleanUserText(userMessage, "your request"));
+    fallback.lines = [
+      `I found ${count} source${count === 1 ? "" : "s"} for "${query}".`,
+    ];
+    fallback.question = null;
+    return fallback;
+  }
+
+  if (type === "draft" || type === "client_email" || type === "invitation") {
+    fallback.lines = ["Here is the draft. You can review and edit it before sending."];
+    fallback.question = null;
+    return fallback;
+  }
+
+  const summary = cleanUserText(artifact.summary || artifact.message, "");
+  if (summary) {
+    fallback.lines = [summary];
+  } else {
+    fallback.lines = ["I found the relevant information and organized it for you."];
+  }
+  return fallback;
+}
+
+function dedupeLines(lines = []) {
+  const seen = new Set();
+  const out = [];
+  for (const line of lines) {
+    const key = String(line || "").trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(String(line).trim());
+  }
+  return out;
+}
+
+function deriveKnownResultCount(output) {
+  if (!output || typeof output !== "object") return null;
+  if (typeof output.resultCount === "number" && Number.isFinite(output.resultCount)) {
+    return output.resultCount;
+  }
+  if (Array.isArray(output.items)) return output.items.length;
+  if (Array.isArray(output.results)) return output.results.length;
+  if (Array.isArray(output.suggestions)) return output.suggestions.length;
+  return null;
+}
+
+function hasCountContradiction(lines = [], count = null) {
+  if (!Array.isArray(lines) || lines.length === 0 || typeof count !== "number") {
+    return false;
+  }
+  const text = lines.join(" ").toLowerCase();
+  const noResultsClaim =
+    /\b(no\b|none|couldn.?t find|didn.?t find|not found|aucun|introuvable|لا يوجد|لم يتم العثور)\b/i.test(
+      text,
+    );
+  const foundClaim = /\b(found|identified|located|retrieved|تم العثور)\b/i.test(text);
+  if (count > 0 && noResultsClaim) return true;
+  if (count === 0 && foundClaim && !noResultsClaim) return true;
+  const numericMatch = text.match(/\b(\d+)\b/);
+  if (numericMatch) {
+    const claimed = parseInt(numericMatch[1], 10);
+    if (Number.isFinite(claimed) && claimed !== count) return true;
+  }
+  return false;
+}
+
+function isGenericOptionLabel(label) {
+  const normalized = String(label || "").trim().toLowerCase();
+  if (!normalized) return true;
+  return /^(option|item|result|choice|selection|record|entry|client|dossier|case)\s*[-:#]?\s*\d+$/.test(
+    normalized,
+  );
+}
+
+function extractReferenceToken(text) {
+  const raw = String(text || "");
+  if (!raw) return "";
+  const match = raw.match(/\b([A-Z]{2,10}-\d{2,8}(?:-\d{1,8})?)\b/i);
+  return match ? String(match[1]).trim() : "";
+}
+
+function extractClientName(text) {
+  const raw = String(text || "");
+  if (!raw) return "";
+  const prefixed = raw.match(/\bclient\s*:\s*([^|]+)/i);
+  if (prefixed && prefixed[1]) return String(prefixed[1]).trim();
+  return "";
+}
+
+function splitSubtitleParts(subtitle) {
+  return String(subtitle || "")
+    .split("|")
+    .map((part) => cleanUserText(part, ""))
+    .filter(Boolean);
+}
+
+function normalizeDetailPart(part) {
+  return String(part || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\u0600-\u06ff]+/g, "")
+    .trim();
+}
+
+function dedupeDetailParts(parts = []) {
+  const out = [];
+  const seen = new Set();
+  for (const part of parts) {
+    const clean = cleanUserText(part, "");
+    if (!clean) continue;
+    const key = normalizeDetailPart(clean);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(clean);
+  }
+  return out;
+}
+
+function buildCanonicalOptionPool(output) {
+  const artifact = output && typeof output === "object" ? output : {};
+  const pool = [];
+
+  const withDetails = (label, details = []) => {
+    const base = cleanUserText(label, "");
+    const extras = dedupeDetailParts(Array.isArray(details) ? details : []);
+    if (!base) return extras.join(" | ");
+    if (extras.length === 0) return base;
+    return `${base} (${extras.join(" | ")})`;
+  };
+
+  const pushOption = (label, value) => {
+    const cleanLabel = cleanUserText(label, "");
+    const cleanValue = String(value || "").trim();
+    if (!cleanLabel || !cleanValue) return;
+    if (pool.some((item) => item.value === cleanValue)) return;
+    pool.push({ label: cleanLabel, value: cleanValue });
+  };
+
+  const suggestions = Array.isArray(artifact.suggestions) ? artifact.suggestions : [];
+  for (const suggestion of suggestions) {
+    const subtitle = cleanUserText(suggestion?.subtitle || "", "");
+    const subtitleParts = splitSubtitleParts(subtitle);
+    const reference =
+      suggestion?.reference ||
+      suggestion?.metadata?.reference ||
+      extractReferenceToken(subtitleParts.join(" | "));
+    const client =
+      suggestion?.clientName ||
+      suggestion?.metadata?.clientName ||
+      suggestion?.metadata?.client_name ||
+      extractClientName(subtitleParts.join(" | "));
+    const extraDetails = subtitleParts.filter((part) => {
+      const normalized = part.toLowerCase();
+      if (reference && normalizeDetailPart(part) === normalizeDetailPart(reference)) {
+        return false;
+      }
+      if (client && normalized.includes(String(client).toLowerCase())) {
+        return false;
+      }
+      if (normalized.startsWith("client:")) return false;
+      return true;
+    });
+    pushOption(
+      withDetails(
+        suggestion?.label ||
+        `${cleanUserText(suggestion?.entityType, "Item")} ${String(suggestion?.entityId || "").trim()}`,
+        [reference, client ? `Client: ${client}` : "", ...extraDetails],
+      ),
+      suggestion?.id || suggestion?.entityId,
+    );
+  }
+
+  const items = Array.isArray(artifact.items) ? artifact.items : [];
+  for (const item of items) {
+    const reference = item?.reference || item?.subtitle || "";
+    const client = item?.client || item?.clientName || "";
+    pushOption(
+      withDetails(item?.title || item?.subtitle || item?.label, [
+        reference,
+        client,
+      ]),
+      item?.entityId || item?.id || item?.value,
+    );
+  }
+
+  const candidates = Array.isArray(artifact.candidates) ? artifact.candidates : [];
+  for (const candidate of candidates) {
+    const reference = candidate?.reference || candidate?.ref || "";
+    const client = candidate?.clientName || candidate?.client || "";
+    pushOption(
+      withDetails(
+        candidate?.label ||
+        `${cleanUserText(candidate?.entityType, "Option")} ${String(candidate?.id || "").trim()}`,
+        [reference, client],
+      ),
+      candidate?.id || candidate?.value,
+    );
+  }
+
+  const directOptions = Array.isArray(artifact.options) ? artifact.options : [];
+  for (const option of directOptions) {
+    pushOption(option?.label, option?.value || option?.id);
+  }
+
+  return pool;
+}
+
+function enforceNonGenericOptionLabels(options = [], output) {
+  if (!Array.isArray(options) || options.length === 0) return [];
+  const canonical = buildCanonicalOptionPool(output);
+  const byValue = new Map(canonical.map((item) => [item.value, item.label]));
+
+  const sanitized = options.map((option, index) => {
+    const value = String(option?.value || "").trim();
+    let label = cleanUserText(option?.label, "");
+    if (!value) return null;
+
+    const canonicalByValue = byValue.get(value);
+    const canonicalByIndex =
+      canonical[index] && String(canonical[index].value || "").trim() === value
+        ? canonical[index].label
+        : canonical[index]?.label;
+
+    if (isGenericOptionLabel(label)) {
+      label = canonicalByValue || canonicalByIndex || label;
+    }
+
+    return {
+      label: cleanUserText(label, canonicalByValue || canonicalByIndex || value),
+      value,
+    };
+  }).filter(Boolean);
+
+  const deduped = [];
+  const seen = new Set();
+  for (const option of sanitized) {
+    const key = String(option.value || "");
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(option);
+  }
+  return deduped;
+}
+
+function buildDisambiguatedOptionsFromOutput(output) {
+  const artifact = output && typeof output === "object" ? output : {};
+  const suggestions = Array.isArray(artifact.suggestions) ? artifact.suggestions : [];
+  if (suggestions.length === 0) return [];
+
+  return suggestions.slice(0, 8).map((s) => {
+    const title = cleanUserText(s?.label || s?.name || s?.title, "");
+    const subtitle = cleanUserText(s?.subtitle || "", "");
+    const subtitleParts = splitSubtitleParts(subtitle);
+    const reference =
+      cleanUserText(s?.reference || s?.metadata?.reference, "") ||
+      extractReferenceToken(subtitleParts.join(" | "));
+    const clientName =
+      cleanUserText(
+        s?.clientName ||
+          s?.metadata?.clientName ||
+          s?.metadata?.client_name ||
+          "",
+        "",
+      ) || extractClientName(subtitleParts.join(" | "));
+    const extraParts = subtitleParts.filter((part) => {
+      const normalized = part.toLowerCase();
+      if (reference && normalizeDetailPart(part) === normalizeDetailPart(reference)) {
+        return false;
+      }
+      if (clientName && normalized.includes(String(clientName).toLowerCase())) {
+        return false;
+      }
+      if (normalized.startsWith("client:")) return false;
+      return true;
+    });
+    const details = dedupeDetailParts([
+      reference,
+      clientName ? `Client: ${clientName}` : "",
+      ...extraParts,
+    ]);
+    const label = details.length > 0 ? `${title} (${details.join(" | ")})` : title;
+    return {
+      label: cleanUserText(label, title || String(s?.entityId || s?.id || "")),
+      value: String(s?.id || s?.entityId || "").trim(),
+    };
+  }).filter((o) => o.label && o.value);
+}
+
+function coerceCommentaryPayload(payload, output, userMessage) {
+  const source = payload && typeof payload === "object" ? payload : {};
+  const fallback = buildCommentaryFallbackFromArtifact(output, userMessage);
+  const rawLines = Array.isArray(source.lines) ? source.lines : [];
+  let lines = rawLines
+    .map((line) => cleanUserText(line, ""))
+    .filter(Boolean)
+    .slice(0, 6);
+  const rawOptions = Array.isArray(source.options) ? source.options : [];
+  const parsedOptions = rawOptions
+    .map((item) => ({
+      label: cleanUserText(item?.label, ""),
+      value: String(item?.value || "").trim(),
+    }))
+    .filter((item) => item.label && item.value)
+    .slice(0, 8);
+  lines = dedupeLines(lines);
+  const knownCount = deriveKnownResultCount(output);
+  if (hasCountContradiction(lines, knownCount)) {
+    lines = fallback.lines;
+  }
+
+  let question = normalizeQuestion(source.question, fallback.question);
+  const baseOptions = parsedOptions.length > 0 ? parsedOptions : fallback.options;
+  const strictDisambiguatedOptions = buildDisambiguatedOptionsFromOutput(output);
+  const finalOptions = strictDisambiguatedOptions.length > 1
+    ? strictDisambiguatedOptions
+    : enforceNonGenericOptionLabels(baseOptions, output);
+  if ((!question || !String(question).trim()) && finalOptions.length > 1) {
+    question = "Which one do you mean?";
+  }
+
+  return {
+    kind: "commentary",
+    lines: lines.length > 0 ? lines : fallback.lines,
+    options: finalOptions,
+    question,
+  };
+}
+
+function buildIntentPreview(payload) {
+  return String(payload.summary || "").trim();
+}
+
+function buildCommentaryPreview(payload) {
+  const line = Array.isArray(payload.lines) && payload.lines.length > 0
+    ? payload.lines[0]
+    : "";
+  const question = payload.question || "";
+  return [line, question].filter(Boolean).join(" ");
+}
+
+function buildArtifactDigest(output) {
+  if (!output || typeof output !== "object") return { type: "unknown" };
+  const digest = {
+    type: String(output.type || "unknown"),
+    summary: String(output.summary || output.message || "").slice(0, 360),
+  };
+  if (Array.isArray(output.items)) {
+    digest.itemCount = output.items.length;
+  }
+  if (Array.isArray(output.results)) {
+    digest.resultCount = output.results.length;
+  }
+  if (output.entityType) {
+    digest.entityType = output.entityType;
+  }
+  if (output.entityId) {
+    digest.entityId = output.entityId;
+  }
+  return digest;
+}
+
+function createDeltaEmitter(emitDelta) {
+  let buffer = "";
+  let lastFlushAt = Date.now();
+  return {
+    push(text) {
+      const value = String(text || "");
+      if (!value) return;
+      buffer += value;
+      while (buffer.length >= DELTA_MAX_CHARS) {
+        const chunk = buffer.slice(0, DELTA_MAX_CHARS);
+        buffer = buffer.slice(DELTA_MAX_CHARS);
+        lastFlushAt = Date.now();
+        emitDelta(chunk);
+      }
+      if (buffer.length > 0 && Date.now() - lastFlushAt >= DELTA_FLUSH_MS) {
+        const chunk = buffer;
+        buffer = "";
+        lastFlushAt = Date.now();
+        emitDelta(chunk);
+      }
+    },
+    flush() {
+      if (!buffer) return;
+      emitDelta(buffer);
+      buffer = "";
+      lastFlushAt = Date.now();
+    },
+  };
+}
+
+function buildIntentMessages({
+  message,
+  intentHint,
+  strictJson = false,
+}) {
+  const basePrompt = [
+    "Return only one JSON object.",
+    "No markdown, no prose, no extra keys, no internal/system details.",
+    "Schema:",
+    "{",
+    '  "kind": "intent",',
+    '  "summary": "string",',
+    '  "contextEcho": "string|null",',
+    '  "nextQuestion": "string|null"',
+    "}",
+    "Constraints:",
+    '- summary: one friendly conversational sentence for the user (for example: "Got it — you want ...").',
+    "- contextEcho: short echo of the user's exact topic/request when available, else null.",
+    "- nextQuestion: only if required to continue; must be a direct user-facing question; else null.",
+    "- Never include confidence, risk, assumptions, permissions, tokens, or internal process terms.",
+    strictJson
+      ? "STRICT: Output must be valid JSON with exact keys and types."
+      : "Keep values concise and user-friendly.",
+    `Intent hint: ${String(intentHint || "UNKNOWN")}`,
+    `User request: ${String(message || "").trim()}`,
+  ].join("\n");
+  return [
+    { role: "system", content: "You are a structured output generator." },
+    { role: "user", content: basePrompt },
+  ];
+}
+
+function buildCommentaryMessages({
+  message,
+  intent,
+  output,
+  strictJson = false,
+}) {
+  const digest = buildArtifactDigest(output);
+  const prompt = [
+    "Return only one JSON object.",
+    "No markdown, no prose outside JSON, no internal/system details.",
+    "Schema:",
+    "{",
+    '  "kind": "commentary",',
+    '  "lines": ["string"],',
+    '  "options": [{"label":"string","value":"string"}],',
+    '  "question": "string|null"',
+    "}",
+    "Constraints:",
+    "- lines: short user-facing conversational lines explaining what was found and what matters now.",
+    "- options: only when the user must choose between matches; label should be human-readable and concise.",
+    "- question: user-facing clarification question when needed, otherwise null.",
+    "- Never invent tool results not present in digest.",
+    "- Never include confidence, tokens, assumptions, risk flags, permissions, or internal workflow terms.",
+    '- For ambiguous matches, ask directly: "Which one do you mean?"',
+    strictJson
+      ? "STRICT: Output must be valid JSON and exactly match keys."
+      : "Use concise conversational language.",
+    `Intent: ${String(intent || "UNKNOWN")}`,
+    `User request: ${String(message || "").trim()}`,
+    `Artifact digest: ${JSON.stringify(digest)}`,
+  ].join("\n");
+  return [
+    { role: "system", content: "You generate typed reasoning blocks." },
+    { role: "user", content: prompt },
+  ];
+}
+
+async function generateStructuredPayload({
+  kind,
+  schema,
+  validate,
+  buildMessages,
+  signal,
+  onDelta,
+}) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const strictJson = attempt === 1;
+    const messages = buildMessages({ strictJson });
+    let raw = "";
+
+    for await (const part of streamLLM({
+      provider: process.env.LLM_PROVIDER || "auto",
+      model: process.env.LLM_MODEL,
+      mode: "json",
+      schema,
+      messages,
+      signal,
+      temperature: strictJson ? 0 : 0.1,
+      maxTokens: 420,
+    })) {
+      if (part?.kind === "delta" && part.text) {
+        raw += part.text;
+        onDelta?.(part.text);
+      }
+      if (part?.kind === "final_text" && typeof part.text === "string") {
+        raw = raw || part.text;
+      }
+    }
+
+    const parsed = extractJsonObject(raw);
+    if (parsed && validate(parsed)) {
+      return { ok: true, value: parsed };
+    }
+  }
+
+  return {
+    ok: false,
+    error: `${kind.toUpperCase()}_SCHEMA_VALIDATION_FAILED`,
+  };
+}
+
 router.post("/agent/stream", async (req, res) => {
   const {
     message,
@@ -857,123 +1506,141 @@ router.post("/agent/stream", async (req, res) => {
   } = req.body || {};
 
   const documentContext = resolveDocumentContext(sessionId, documentIds);
-
   const hasMessage = message && typeof message === "string" && message.trim();
-  const hasDocuments = documentContext && documentContext.documents && documentContext.documents.length > 0;
+  const hasDocuments =
+    documentContext &&
+    Array.isArray(documentContext.documents) &&
+    documentContext.documents.length > 0;
+
+  if (!hasMessage && !followUpIntent && !hasDocuments) {
+    res.status(400).json({ error: "Message is required" });
+    return;
+  }
+
   const requestContext = buildRequestContext(
     context,
     sessionId,
     documentContext,
     metadata,
   );
-  const chunkStreamingEnabled = resolveChunkStreamingEnabled(req, metadata);
-
-  // Validate message — allow file-only uploads to pass through
-  if (!hasMessage && !followUpIntent && !hasDocuments) {
-    res.status(400).json({ error: "Message is required" });
-    return;
-  }
   const effectiveMessage =
     hasMessage || followUpIntent || !hasDocuments ? message : "uploaded file";
+  const turnId = newEventId("turn");
 
-  // Set up SSE headers
   res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
-  res.setHeader("X-Accel-Buffering", "no"); // Disable nginx buffering
+  res.setHeader("X-Accel-Buffering", "no");
+  res.setHeader("Content-Encoding", "identity");
   res.flushHeaders();
 
-  // Disable Nagle's algorithm for real-time streaming
   if (res.socket) {
     res.socket.setNoDelay(true);
   }
 
-  // Helper to send SSE events with immediate flush
-  const sendEvent = (event, data) => {
-    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-    // Force flush if available (compression middleware)
+  let aborted = false;
+  const abortController = new AbortController();
+  res.on("close", () => {
+    aborted = true;
+    abortController.abort();
+  });
+
+  let seq = 0;
+  let didEnd = false;
+  let intentTerminal = false;
+  let artifactTerminal = false;
+  let commentaryTerminal = false;
+  let hasStageFailure = false;
+
+  const emit = (type, payload) => {
+    if (aborted) return;
+    const envelope = {
+      eventId: newEventId("evt"),
+      turnId,
+      seq: ++seq,
+      type,
+      timestamp: new Date().toISOString(),
+      payload: payload && typeof payload === "object" ? payload : {},
+    };
+    if (!validateEnvelope(envelope)) {
+      return;
+    }
+    res.write(`event: ${type}\ndata: ${JSON.stringify(envelope)}\n\n`);
     if (typeof res.flush === "function") {
       res.flush();
     }
   };
 
-  // Handle client disconnect - use res.on('close') instead of req.on('close')
-  // req.on('close') can fire prematurely in some cases
-  let aborted = false;
-  const abortController = new AbortController();
-  res.on("close", () => {
-    console.log("[SSE] Client disconnected (res.close event)");
-    aborted = true;
-    abortController.abort();
-  });
-
-  // TURN COMPLETION INVARIANT: Track terminal lifecycle envelopes
-  let hasArtifactBeenSent = false;
-  let hasErrorBeenSent = false;
-  let hasDoneBeenSent = false;
-  const trackingSendEvent = (event, data) => {
-    sendEvent(event, data);
-    if (event === "artifact") {
-      hasArtifactBeenSent = true;
+  const emitFailed = (eventName, failure) => {
+    hasStageFailure = true;
+    const safeFailure = {
+      stage: failure?.stage || "turn",
+      code: String(failure?.code || "UNKNOWN_ERROR"),
+      message: String(failure?.message || "Unknown stream failure"),
+      retryable: Boolean(failure?.retryable),
+      details:
+        failure?.details && typeof failure.details === "object"
+          ? failure.details
+          : {},
+    };
+    if (!validateFailure(safeFailure)) {
+      safeFailure.code = "FAILURE_SCHEMA_INVALID";
+      safeFailure.message = "Failure payload could not be validated";
+      safeFailure.retryable = false;
+      safeFailure.details = {};
     }
-    if (event === "error") {
-      hasErrorBeenSent = true;
-    }
-  };
-
-  const sendErrorEnvelope = (message, code = "STREAM_ERROR") => {
-    if (aborted || hasErrorBeenSent) return;
-    trackingSendEvent("error", {
-      error: message || "Unknown stream error",
-      code,
-      terminal: true,
-      timestamp: new Date().toISOString(),
-    });
-  };
-
-  const sendDoneEnvelope = (status = "success") => {
-    if (aborted || hasDoneBeenSent) return;
-    hasDoneBeenSent = true;
-    trackingSendEvent("done", {
-      status,
-      timestamp: new Date().toISOString(),
-    });
-  };
-
-  // TURN COMPLETION INVARIANT: Every turn ends with artifact OR error before done.
-  const sendDoneWithCompletionGuarantee = () => {
-    if (aborted) return;
-    if (!hasArtifactBeenSent && !hasErrorBeenSent) {
-      console.warn("[Turn Completion] Missing artifact envelope before done");
-      sendErrorEnvelope(
-        "Stream completed without artifact envelope",
-        "PROTOCOL_NO_ARTIFACT",
-      );
-    }
-    sendDoneEnvelope(hasErrorBeenSent ? "error" : "success");
+    emit(eventName, safeFailure);
   };
 
   try {
-    // Add user message to transcript immediately (before processing)
-    // This ensures the message is available for editing even while processing
-    if (effectiveMessage && requestContext && !followUpIntent) {
-      const conversationId = requestContext.conversationId || sessionId;
-      const userId = requestContext.userId || 'default';
-      if (conversationId && agentEngine.contextStore?._transcriptStore) {
-        agentEngine.contextStore._transcriptStore.updateOrAddTurn(conversationId, userId, {
-          userMessage: effectiveMessage,
-          agentIntent: null,  // Will be filled in during processing
-          agentOutput: null,   // Will be filled in during processing
+    emit("turn.start", {
+      agentVersion,
+      intent: "PENDING",
+    });
+
+    const intentDelta = createDeltaEmitter((chunk) =>
+      emit("intent.delta", { chunk }),
+    );
+    const intentResult = await generateStructuredPayload({
+      kind: "intent",
+      schema: intentSchema,
+      validate: validateIntent,
+      buildMessages: ({ strictJson }) =>
+        buildIntentMessages({
+          message: effectiveMessage,
+          intentHint: followUpIntent?.intent || "UNKNOWN",
+          strictJson,
+        }),
+      signal: abortController.signal,
+      onDelta: (chunk) => intentDelta.push(chunk),
+    });
+    intentDelta.flush();
+
+    if (!intentResult.ok) {
+      emitFailed("intent.failed", {
+        stage: "intent",
+        code: intentResult.error,
+        message: "Could not produce structured intent payload",
+        retryable: true,
+      });
+      intentTerminal = true;
+    } else {
+      const intentPayload = coerceIntentPayload(intentResult.value, effectiveMessage);
+      if (!validateIntent(intentPayload)) {
+        emitFailed("intent.failed", {
+          stage: "intent",
+          code: "INTENT_SCHEMA_INVALID",
+          message: "Intent payload failed schema validation",
+          retryable: false,
         });
+        intentTerminal = true;
+      } else {
+        emit("intent.final", intentPayload);
+        intentTerminal = true;
       }
     }
 
-    trackingSendEvent("start", {
-      intent: "PENDING",
-      agentVersion,
-    });
-
-    const unifiedResult = await agentEngine.run({
+    const runResult = await agentEngine.run({
       message: effectiveMessage,
       context: requestContext,
       agentVersion,
@@ -985,106 +1652,143 @@ router.post("/agent/stream", async (req, res) => {
       typeof agentEngine.contextStore?.consumeLifecycleEvent === "function"
         ? agentEngine.contextStore.consumeLifecycleEvent(requestContext)
         : null;
-    const unifiedResultWithLifecycle = contextLifecycle
-      ? { ...unifiedResult, contextLifecycle }
-      : unifiedResult;
-    const externalSearchFlow = isExternalSearchArtifact(unifiedResultWithLifecycle);
-    if (externalSearchFlow) {
-      console.log(
-        "[SearchFlow] External search artifact detected",
-        JSON.stringify({
-          intent: unifiedResultWithLifecycle?.intent,
-          type: unifiedResultWithLifecycle?.output?.type,
-          provider: unifiedResultWithLifecycle?.output?.provider || null,
-        }),
+    const unifiedResult = contextLifecycle
+      ? { ...runResult, contextLifecycle }
+      : runResult;
+
+    const artifactOutput = unifiedResult?.output;
+    if (!artifactOutput || typeof artifactOutput !== "object") {
+      emitFailed("artifact.failed", {
+        stage: "artifact",
+        code: "INVALID_ARTIFACT",
+        message: "Artifact payload missing from agent run result",
+        retryable: false,
+      });
+      artifactTerminal = true;
+    } else {
+      const artifactDelta = createDeltaEmitter((chunk) =>
+        emit("artifact.delta", { chunk }),
       );
+      artifactDelta.push(JSON.stringify(buildArtifactDigest(artifactOutput)));
+      artifactDelta.flush();
+
+      emit("artifact.final", {
+        intent: unifiedResult.intent,
+        output: artifactOutput,
+        contextLifecycle: unifiedResult.contextLifecycle || null,
+      });
+      artifactTerminal = true;
     }
 
-    // Unified lifecycle: start → intent → artifact → commentary → done
-
-    // Stream intent event
-    const contextSnapshot = agentEngine.contextStore.get(requestContext);
-    const framingPayload = buildIntentFramingPayload({
-      intent: unifiedResultWithLifecycle.intent,
-      userMessage: effectiveMessage,
-      result: unifiedResultWithLifecycle,
-      contextSnapshot,
-    });
-    if (
-      shouldSendIntentFraming(
-        unifiedResultWithLifecycle,
-        requestContext,
-        framingPayload,
-      )
-    ) {
-      if (externalSearchFlow) {
-        console.log("[SearchFlow] intent_start");
-      }
-      console.log(
-        "[LLM][IntentFraming] Invoked",
-        JSON.stringify({ intent: unifiedResultWithLifecycle?.intent }),
-      );
-      await streamIntentEvent(
-        trackingSendEvent,
-        framingPayload,
-        abortController.signal,
-        aborted,
-        { chunkStreaming: chunkStreamingEnabled },
-      );
-    }
-
-    // Send artifact event
-    const sentArtifact = sendArtifactEvent(
-      trackingSendEvent,
-      unifiedResultWithLifecycle,
-      aborted,
+    const commentaryDelta = createDeltaEmitter((chunk) =>
+      emit("commentary.delta", { chunk }),
     );
-    if (sentArtifact && externalSearchFlow) {
-      console.log(
-        "[SearchFlow] results_emitted",
-        `resultCount=${Array.isArray(unifiedResultWithLifecycle?.output?.results) ? unifiedResultWithLifecycle.output.results.length : 0}`,
-      );
-    }
-    if (!sentArtifact) {
-      sendErrorEnvelope("Agent response did not include valid output", "INVALID_OUTPUT");
-    }
 
-    // Stream commentary event
-    if (sentArtifact) {
-      if (externalSearchFlow) {
-        console.log("[SearchFlow] Using grounded search commentary stream");
-        await streamGroundedSearchCommentaryEvent(
-          trackingSendEvent,
-          unifiedResultWithLifecycle,
-          abortController.signal,
-          aborted,
-          { chunkStreaming: chunkStreamingEnabled },
-        );
+    if (!artifactOutput || typeof artifactOutput !== "object") {
+      emitFailed("commentary.failed", {
+        stage: "commentary",
+        code: "NO_ARTIFACT_FOR_COMMENTARY",
+        message: "Cannot derive commentary without artifact output",
+        retryable: false,
+      });
+      commentaryTerminal = true;
+    } else {
+      const commentaryResult = await generateStructuredPayload({
+        kind: "commentary",
+        schema: commentarySchema,
+        validate: validateCommentary,
+        buildMessages: ({ strictJson }) =>
+          buildCommentaryMessages({
+            message: effectiveMessage,
+            intent: unifiedResult.intent,
+            output: artifactOutput,
+            strictJson,
+          }),
+        signal: abortController.signal,
+        onDelta: (chunk) => commentaryDelta.push(chunk),
+      });
+      commentaryDelta.flush();
+
+      if (!commentaryResult.ok) {
+        emitFailed("commentary.failed", {
+          stage: "commentary",
+          code: commentaryResult.error,
+          message: "Could not produce structured commentary payload",
+          retryable: true,
+        });
+        commentaryTerminal = true;
       } else {
-        console.log(
-          "[LLM][Commentary] Invoked",
-          JSON.stringify({ intent: unifiedResultWithLifecycle?.intent }),
+        const commentaryPayload = coerceCommentaryPayload(
+          commentaryResult.value,
+          artifactOutput,
+          effectiveMessage,
         );
-        await streamCommentaryEvent(
-          trackingSendEvent,
-          unifiedResultWithLifecycle,
-          requestContext,
-          aborted,
-          abortController.signal,
-          { chunkStreaming: chunkStreamingEnabled },
-        );
+        if (!validateCommentary(commentaryPayload)) {
+          emitFailed("commentary.failed", {
+            stage: "commentary",
+            code: "COMMENTARY_SCHEMA_INVALID",
+            message: "Commentary payload failed schema validation",
+            retryable: false,
+          });
+          commentaryTerminal = true;
+        } else {
+          emit("commentary.final", {
+            ...commentaryPayload,
+            message: buildCommentaryPreview(commentaryPayload),
+          });
+          commentaryTerminal = true;
+        }
       }
     }
 
-    // Done (always sent)
-    sendDoneWithCompletionGuarantee();
+    emit("turn.end", {
+      status: hasStageFailure ? "error" : "success",
+      preview: {
+        intent: unifiedResult?.intent || "UNKNOWN",
+        intentText: intentResult.ok
+          ? buildIntentPreview(coerceIntentPayload(intentResult.value, effectiveMessage))
+          : null,
+      },
+    });
+    didEnd = true;
   } catch (err) {
-    if (!aborted) {
-      sendErrorEnvelope(err.message || "Unknown error", "STREAM_EXCEPTION");
-      sendDoneWithCompletionGuarantee();
+    if (!intentTerminal) {
+      emitFailed("intent.failed", {
+        stage: "intent",
+        code: "INTENT_ABORTED",
+        message: "Intent stage aborted before finalization",
+        retryable: false,
+      });
+      intentTerminal = true;
     }
+    if (!artifactTerminal) {
+      emitFailed("artifact.failed", {
+        stage: "artifact",
+        code: "ARTIFACT_ABORTED",
+        message: "Artifact stage aborted before finalization",
+        retryable: false,
+      });
+      artifactTerminal = true;
+    }
+    if (!commentaryTerminal) {
+      emitFailed("commentary.failed", {
+        stage: "commentary",
+        code: "COMMENTARY_ABORTED",
+        message: "Commentary stage aborted before finalization",
+        retryable: false,
+      });
+      commentaryTerminal = true;
+    }
+    emit("turn.end", {
+      status: "error",
+      error: String(err?.message || "Unknown stream error"),
+    });
+    didEnd = true;
   }
 
+  if (!didEnd) {
+    emit("turn.end", { status: "error", error: "Stream terminated unexpectedly" });
+  }
   res.end();
 });
 

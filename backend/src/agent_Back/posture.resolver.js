@@ -161,13 +161,14 @@ User message: "${message}"
 Reply with ONLY the posture name in ALL CAPS: ASSISTANT, WORK, or INSPECTION.`;
 
     const postureValues = Object.values(POSTURES);
-    const response = await classifyIntentWithLLM(null, { customPrompt: prompt, validationList: postureValues });
+    const response = await classifyIntentWithLLM(null, {
+      customPrompt: prompt,
+      validationList: postureValues,
+    });
     const mode = response?.trim().toUpperCase();
 
     if (Object.values(POSTURES).includes(mode)) {
-      console.log(
-        `[Posture] LLM classified as ${mode} (confidence: 0.7)`,
-      );
+      console.log(`[Posture] LLM classified as ${mode} (confidence: 0.7)`);
       return {
         mode,
         confidence: 0.7,
@@ -202,8 +203,9 @@ Reply with ONLY the posture name in ALL CAPS: ASSISTANT, WORK, or INSPECTION.`;
  * @param {Object} context - Request context (userId, scope, etc.)
  * @returns {Promise<{mode: string, confidence: number, signals: string[]}>}
  */
-async function resolveInteractionPosture(message, context = {}) {
+async function resolveInteractionPosture(message, context = {}, options = {}) {
   const normalized = message.toLowerCase().trim();
+  const allowLLM = options?.allowLLM !== false;
 
   // RULE 1: Generic domain language → ASSISTANT
   if (isGenericDomainUsage(normalized)) {
@@ -219,9 +221,7 @@ async function resolveInteractionPosture(message, context = {}) {
 
   // RULE 2: No entity keywords → ASSISTANT
   if (!hasEntityKeywords(normalized)) {
-    console.log(
-      "[Posture] No entity keywords → ASSISTANT (confidence: 0.9)",
-    );
+    console.log("[Posture] No entity keywords → ASSISTANT (confidence: 0.9)");
     return {
       mode: POSTURES.ASSISTANT,
       confidence: 0.9,
@@ -256,9 +256,7 @@ async function resolveInteractionPosture(message, context = {}) {
 
   // RULE 4: Work planning keywords → WORK
   if (hasWorkPlanningKeywords(normalized)) {
-    console.log(
-      "[Posture] Work planning keywords → WORK (confidence: 0.85)",
-    );
+    console.log("[Posture] Work planning keywords → WORK (confidence: 0.85)");
     return {
       mode: POSTURES.WORK,
       confidence: 0.85,
@@ -267,8 +265,17 @@ async function resolveInteractionPosture(message, context = {}) {
   }
 
   // FALLBACK: LLM classification for ambiguous cases
-  console.log("[Posture] Ambiguous case, using LLM fallback...");
-  return await classifyPostureWithLLM(message);
+  if (allowLLM) {
+    console.log("[Posture] Ambiguous case, using LLM fallback...");
+    return await classifyPostureWithLLM(message);
+  }
+
+  console.log("[Posture] Ambiguous case, LLM disabled → ASSISTANT");
+  return {
+    mode: POSTURES.ASSISTANT,
+    confidence: 0.5,
+    signals: ["llm_disabled"],
+  };
 }
 
 module.exports = {

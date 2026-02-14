@@ -45,6 +45,18 @@ const DRAFT_TYPE = Object.freeze({
    * Internal note or memo for file documentation
    */
   INTERNAL_NOTE: "INTERNAL_NOTE",
+
+  /**
+   * COURT_MOTION
+   * Formal motion or request submitted to court
+   */
+  COURT_MOTION: "COURT_MOTION",
+
+  /**
+   * CLIENT_NOTIFICATION
+   * Client notification or update
+   */
+  CLIENT_NOTIFICATION: "CLIENT_NOTIFICATION",
 });
 
 /**

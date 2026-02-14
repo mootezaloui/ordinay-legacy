@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["stage", "code", "message", "retryable"],
+  "properties": {
+    "stage": { "type": "string", "enum": ["intent", "artifact", "commentary", "turn"] },
+    "code": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "message": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "retryable": { "type": "boolean" },
+    "details": { "type": "object" }
+  }
+}

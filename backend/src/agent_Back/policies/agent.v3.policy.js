@@ -1,9 +1,9 @@
-'use strict';
+"use strict";
 
-const { INTENTS } = require('../intents');
+const { INTENTS } = require("../intents");
 
 const agentV3Policy = {
-  version: 'v3',
+  version: "v3",
   allowedIntents: [
     INTENTS.GENERAL_CHAT,
     INTENTS.EXPLAIN_ENTITY_STATE,
@@ -11,15 +11,16 @@ const agentV3Policy = {
     INTENTS.ANALYZE_OPERATIONAL_RISKS,
     INTENTS.DRAFT_INVITATION,
     INTENTS.DRAFT_CLIENT_EMAIL,
+    INTENTS.DRAFT_GENERIC,
     INTENTS.PROPOSE_ACTIONS,
   ],
-  allowedToolCategories: ['read', 'analysis', 'draft', 'execute', 'research'],
+  allowedToolCategories: ["read", "analysis", "draft", "execute", "research"],
   allowExecution: true,
-  requirePosture: 'WORK',
+  requirePosture: "WORK",
   executionRequiresConfirmation: true,
   allowExternalSearch: true,
   allowEnrichment: true,
-  defaultReasoner: 'rule',
+  defaultReasoner: "rule",
 };
 
 module.exports = agentV3Policy;

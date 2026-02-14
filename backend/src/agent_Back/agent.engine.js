@@ -24,6 +24,7 @@ const agentResponseSchema = require("./schemas/agentResponse.schema.json");
 const followUpIntentSchema = require("./schemas/followUpIntent.schema.json");
 const webSearchResultsSchema = require("./schemas/webSearchResults.schema.json");
 const webDeepSearchResultsSchema = require("./schemas/webDeepSearchResults.schema.json");
+const routingClarificationSchema = require("./schemas/routingClarification.schema.json");
 
 const pipeline = require("./engine/pipeline");
 const response = require("./engine/response");
@@ -88,6 +89,7 @@ class AgentEngine {
       follow_up_intent: this.ajv.compile(followUpIntentSchema),
       web_search_results: this.ajv.compile(webSearchResultsSchema),
       web_deep_search_results: this.ajv.compile(webDeepSearchResultsSchema),
+      routing_clarification: this.ajv.compile(routingClarificationSchema),
     };
   }
 }

@@ -11,9 +11,12 @@ class RuleReasoner extends BaseReasoner {
     super("rule");
   }
 
-  async chat({ message }) {
+  async chat({ message, context = {} }) {
     const timestamp = this._now();
-    const llmResponse = await generateChatResponse(message);
+    const llmResponse = await generateChatResponse(
+      message,
+      context.llmContext || null,
+    );
 
     return {
       type: "chat",
@@ -399,7 +402,6 @@ class RuleReasoner extends BaseReasoner {
       requires_validation: true,
     };
   }
-
 
   _buildSources(entityId, context) {
     const sources = [

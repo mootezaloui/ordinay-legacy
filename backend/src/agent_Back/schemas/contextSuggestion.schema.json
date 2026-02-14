@@ -14,7 +14,7 @@
   ],
   "properties": {
     "type": {
-      "const": "context_suggestion"
+      "enum": ["context_suggestion", "draft_type_selection"]
     },
     "message": {
       "type": "string",
@@ -25,6 +25,11 @@
       "type": "string",
       "minLength": 1,
       "description": "Type of entities being suggested"
+    },
+    "category": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional category for specialized selection flows"
     },
     "reason": {
       "type": "string",
@@ -42,6 +47,10 @@
     "originalMessage": {
       "type": "string",
       "description": "Original user message"
+    },
+    "capability": {
+      "type": "string",
+      "description": "Optional capability lock for this clarification"
     },
     "suggestions": {
       "type": "array",

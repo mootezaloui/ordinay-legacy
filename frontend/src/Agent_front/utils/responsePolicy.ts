@@ -75,36 +75,41 @@ export function getResultCountFromMessage(message: AgentMessage): number | null 
 
 export function decideCommentary(message: AgentMessage): CommentaryOutput | null {
   const commentary = message.commentary;
-  if (!commentary?.message) return null;
+  if (!commentary) return null;
+  const synthesizedMessage =
+    commentary.message ||
+    (Array.isArray(commentary.lines) ? commentary.lines[0] : "") ||
+    (typeof commentary.question === "string" ? commentary.question : "") ||
+    "";
+  if (!synthesizedMessage) return null;
+  const normalizedMessage = synthesizedMessage.toLowerCase();
 
   const explanation = message.data?.explanation;
   if (!explanation) {
-    const normalized = commentary.message.toLowerCase();
-    if (REDUNDANT_PHRASES.some((phrase) => normalized.includes(phrase))) {
+    if (REDUNDANT_PHRASES.some((phrase) => normalizedMessage.includes(phrase))) {
       return null;
     }
-    return { ...commentary, message: capSentences(commentary.message, 4) };
+    return { ...commentary, message: capSentences(synthesizedMessage, 4) };
   }
 
-  const normalized = commentary.message.toLowerCase();
-  if (REDUNDANT_PHRASES.some((phrase) => normalized.includes(phrase))) {
+  if (REDUNDANT_PHRASES.some((phrase) => normalizedMessage.includes(phrase))) {
     return null;
   }
 
   if (
-    isRedundant(commentary.message, explanation?.facts?.summary) ||
-    isRedundant(commentary.message, explanation?.interpretation?.summary)
+    isRedundant(synthesizedMessage, explanation?.facts?.summary) ||
+    isRedundant(synthesizedMessage, explanation?.interpretation?.summary)
   ) {
     return null;
   }
 
   // Assistive delta — reject messages that just narrate artifact content
   const restatementPattern = /\b(has|shows?|contains?|found|retrieved|there (?:are|is))\s+\d+\s+(task|session|hearing|dossier|mission)/i;
-  if (restatementPattern.test(commentary.message)) {
+  if (restatementPattern.test(synthesizedMessage)) {
     return null;
   }
 
-  return { ...commentary, message: capSentences(commentary.message, 4) };
+  return { ...commentary, message: capSentences(synthesizedMessage, 4) };
 }
 
 export function filterFollowUps(

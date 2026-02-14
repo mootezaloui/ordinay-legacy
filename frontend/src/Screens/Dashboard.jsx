@@ -935,25 +935,24 @@ export default function Dashboard() {
                 </div>
                 <div className="space-y-2">
                   {(() => {
-                    // Canonical: confirmed+paidAt = Paid, confirmed+no paidAt+future due = Pending, confirmed+no paidAt+past due = Overdue
+                    // Canonical: overdue/pending only if unpaid, due date present, and not cancelled/void.
                     const now = new Date();
                     const oneMonthAgo = new Date();
                     oneMonthAgo.setMonth(now.getMonth() - 1);
                     const paid = operationalFinancialEntries.filter(i =>
-                      i.status === "paid" &&
                       i.paidAt &&
                       new Date(i.paidAt) >= oneMonthAgo
                     ).length;
                     const pending = operationalFinancialEntries.filter(i =>
-                      i.status === "confirmed" &&
                       !i.paidAt &&
                       i.dueDate &&
+                      !["cancelled", "void"].includes(String(i.status || "").toLowerCase()) &&
                       new Date(i.dueDate) >= now
                     ).length;
                     const overdue = operationalFinancialEntries.filter(i =>
-                      i.status === "confirmed" &&
                       !i.paidAt &&
                       i.dueDate &&
+                      !["cancelled", "void"].includes(String(i.status || "").toLowerCase()) &&
                       new Date(i.dueDate) < now
                     ).length;
                     return [

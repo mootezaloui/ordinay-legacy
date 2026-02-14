@@ -21,6 +21,9 @@ function loadEnvFiles() {
 
 loadEnvFiles();
 
+const activeLlmModel = process.env.LLM_MODEL || "gpt-oss:120b-cloud";
+console.log(`[LLM] Active model: ${activeLlmModel}`);
+
 const app = require("./app");
 const { port } = require("./config/app.config");
 

@@ -70,6 +70,39 @@
         "scope": { "type": ["string", "null"] },
         "severity": { "type": ["string", "null"] }
       }
+    },
+    "selectionId": {
+      "type": ["string", "number"],
+      "description": "Optional selection identifier for specialized flows"
+    },
+    "selectionCategory": {
+      "type": "string",
+      "description": "Optional selection category for specialized flows"
+    },
+    "originalIntent": {
+      "type": "string",
+      "description": "Original intent to resume after a selection"
+    },
+    "originalDraftType": {
+      "type": "string",
+      "description": "Original draft type to resume after a selection"
+    },
+    "originalMessage": {
+      "type": "string",
+      "description": "Original user message for resolution context"
+    },
+    "resolvedEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string" },
+        "id": { "type": ["string", "number"] },
+        "label": { "type": "string" }
+      }
+    },
+    "capability": {
+      "type": "string",
+      "description": "Optional capability selection for routing clarification"
     }
   }
 }

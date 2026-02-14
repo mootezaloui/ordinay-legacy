@@ -42,16 +42,11 @@ function findClientsWithOverdueInvoices(limit = 5, { clientId = null } = {}) {
     c.deleted_at IS NULL
     AND fe.deleted_at IS NULL
     AND fe.scope = 'client'
-    AND fe.direction = 'receivable'
-    AND (
-      LOWER(COALESCE(fe.status, '')) = 'overdue'
-      OR (
-        fe.due_date IS NOT NULL
-        AND fe.due_date < CURRENT_TIMESTAMP
-        AND fe.paid_at IS NULL
-        AND LOWER(COALESCE(fe.status, '')) NOT IN ('cancelled', 'void')
-      )
-    )
+    AND (fe.direction = 'receivable' OR fe.direction IS NULL)
+    AND fe.due_date IS NOT NULL
+    AND fe.due_date < CURRENT_TIMESTAMP
+    AND fe.paid_at IS NULL
+    AND LOWER(COALESCE(fe.status, '')) NOT IN ('cancelled', 'void')
   `;
 
   if (clientId) {

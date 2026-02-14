@@ -57,10 +57,7 @@ function _buildPlan(intent, payload, policy, engineContext) {
     engineContext.documentContext.documents &&
     engineContext.documentContext.documents.length > 0 &&
     !engineContext._hasExplicitUserIntent;
-  if (
-    hasDocOnly &&
-    intent !== INTENTS.GENERAL_CHAT
-  ) {
+  if (hasDocOnly && intent !== INTENTS.GENERAL_CHAT) {
     this.ledger.record({
       type: "planner_downgrade_document_only",
       originalIntent: intent,
@@ -77,7 +74,8 @@ function _buildPlan(intent, payload, policy, engineContext) {
   // The _executeIntent switch no longer has DRAFT cases.
   if (
     intent === INTENTS.DRAFT_INVITATION ||
-    intent === INTENTS.DRAFT_CLIENT_EMAIL
+    intent === INTENTS.DRAFT_CLIENT_EMAIL ||
+    intent === INTENTS.DRAFT_GENERIC
   ) {
     this.ledger.record({
       type: "planner_downgrade_escaped_draft",
@@ -104,7 +102,8 @@ function _buildPlan(intent, payload, policy, engineContext) {
     permissionsRequired = [];
   } else {
     toolName = "_executeIntent";
-    toolCategory = executionMode === EXECUTION_MODE.execute ? "execute" : "read";
+    toolCategory =
+      executionMode === EXECUTION_MODE.execute ? "execute" : "read";
     description = `Execute ${intent} intent via reasoner with enriched context`;
     permissionsRequired = [toolCategory];
   }
@@ -114,7 +113,8 @@ function _buildPlan(intent, payload, policy, engineContext) {
     toolName,
     toolCategory,
     params: { intent },
-    expectedOutputType: intent === INTENTS.GENERAL_CHAT ? "chat" : "explanation",
+    expectedOutputType:
+      intent === INTENTS.GENERAL_CHAT ? "chat" : "explanation",
     description,
     dependsOn: [],
     optional: false,

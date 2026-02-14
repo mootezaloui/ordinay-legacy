@@ -36,6 +36,7 @@ import { FollowUpSuggestions } from "./artifacts/FollowUpSuggestions";
 import { CommentaryBubble } from "./artifacts/CommentaryBubble";
 import { ContextSuggestionRenderer } from "./artifacts/ContextSuggestionRenderer";
 import { MarkdownOutput } from "../../components/MarkdownOutput";
+import { useAgentSessions } from "../hooks/useAgentSessions";
 import {
   decideCommentary,
   filterFollowUps,
@@ -101,6 +102,8 @@ export function AgentWorkflow({
   onExampleClick,
   onConfirmWebSearch,
 }: AgentWorkflowProps) {
+  const { activeSessionId, activeSession, updateSessionMessages } =
+    useAgentSessions();
   const isStreaming = message.status === "sending";
   const isError = message.status === "error";
   const isComplete = message.status === "success";
@@ -225,7 +228,12 @@ export function AgentWorkflow({
 
   // Stage: intent framing — short LLM message before execution
   if (message.stage === "intent") {
-    return <IntentFramingMessage content={message.content} />;
+    return (
+      <IntentFramingMessage
+        content={message.content}
+        structured={message.intentFraming}
+      />
+    );
   }
 
   // For other stages (artifact, commentary, or undefined), continue with phase-based rendering
@@ -284,6 +292,9 @@ export function AgentWorkflow({
             onFollowUpClick={onFollowUpClick}
             onExampleClick={onExampleClick}
             onConfirmWebSearch={onConfirmWebSearch}
+            activeSessionId={activeSessionId}
+            activeSessionMessages={activeSession?.messages}
+            updateSessionMessages={updateSessionMessages}
           />
         </div>
 
@@ -309,6 +320,9 @@ export function AgentWorkflow({
         onFollowUpClick={onFollowUpClick}
         onExampleClick={onExampleClick}
         onConfirmWebSearch={onConfirmWebSearch}
+        activeSessionId={activeSessionId}
+        activeSessionMessages={activeSession?.messages}
+        updateSessionMessages={updateSessionMessages}
       />
 
       {/* Assistive reasoning — appears AFTER the artifact it references */}
@@ -1042,11 +1056,17 @@ function ArtifactBody({
   onFollowUpClick,
   onExampleClick,
   onConfirmWebSearch,
+  activeSessionId,
+  activeSessionMessages,
+  updateSessionMessages,
 }: {
   message: AgentMessage;
   onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
   onExampleClick?: (example: string) => void;
   onConfirmWebSearch?: (metadata: AgentRequestMetadata) => void;
+  activeSessionId?: string;
+  activeSessionMessages?: AgentMessage[];
+  updateSessionMessages?: (id: string, messages: AgentMessage[]) => void;
 }) {
   const isError = message.status === "error";
   const hasContent = !!(message.content && message.content.length > 0);
@@ -1068,29 +1088,45 @@ function ArtifactBody({
       <ContextSuggestionRenderer
         data={message.data.contextSuggestion}
         onSelect={(suggestion) => {
+          const selectionCategory = message.data?.contextSuggestion?.category;
+          const isInvoiceSelection = selectionCategory === "invoice_selection";
+          const selectionClientId = suggestion.scope?.clientId;
+          const resolvedEntity =
+            isInvoiceSelection && selectionClientId
+              ? {
+                  type: "client",
+                  id: selectionClientId,
+                  label: `Client #${selectionClientId}`,
+                }
+              : {
+                  type: suggestion.entityType,
+                  id: suggestion.entityId,
+                  label: suggestion.label,
+                };
           // Send resolution payload preserving original intent
           const payload = {
             intent: "RESOLVE_CONTEXT_AND_CONTINUE",
             originalIntent: message.data.contextSuggestion.originalIntent,
             originalDraftType: message.data.contextSuggestion.originalDraftType,
             originalMessage: message.data.contextSuggestion.originalMessage,
-            resolvedEntity: {
-              type: suggestion.entityType,
-              id: suggestion.entityId,
-              label: suggestion.label,
-            },
+            resolvedEntity,
             entityType: suggestion.entityType,
             entityId: suggestion.entityId,
             scope: suggestion.scope,
             label: suggestion.label,
+            selectionId: suggestion.id,
+            selectionCategory,
             reason: "User selected context suggestion",
             origin: {
               entity: suggestion.entityType.toUpperCase(),
               entityId: suggestion.entityId,
             },
           };
-          console.log('[DEBUG] Sending context resolution payload:', payload);
-          console.log('[DEBUG] contextSuggestion data:', message.data.contextSuggestion);
+          console.log("[DEBUG] Sending context resolution payload:", payload);
+          console.log(
+            "[DEBUG] contextSuggestion data:",
+            message.data.contextSuggestion,
+          );
           onFollowUpClick?.(payload);
         }}
       />
@@ -1120,7 +1156,38 @@ function ArtifactBody({
     return <RiskArtifact data={message.data.risks} />;
   }
   if (dataType === "draft" && message.data?.draft) {
-    return <DraftArtifact data={message.data.draft} />;
+    return (
+      <DraftArtifact
+        data={message.data.draft}
+        onSave={(sections) => {
+          if (!activeSessionId || !activeSessionMessages) return;
+          const updatedMessages = activeSessionMessages.map((msg) => {
+            if (msg.id !== message.id) return msg;
+            if (msg.data?.type !== "draft" || !msg.data?.draft) return msg;
+            return {
+              ...msg,
+              data: {
+                ...msg.data,
+                draft: {
+                  ...msg.data.draft,
+                  sections: {
+                    ...msg.data.draft.sections,
+                    subject: sections.subject,
+                    greeting: sections.greeting,
+                    body: sections.body,
+                    closing: sections.closing,
+                    signature: sections.signature,
+                  },
+                },
+              },
+            };
+          });
+          if (updateSessionMessages) {
+            updateSessionMessages(activeSessionId, updatedMessages);
+          }
+        }}
+      />
+    );
   }
   if (dataType === "actions" && message.data?.actionProposals) {
     return (
@@ -1154,13 +1221,16 @@ function ArtifactBody({
                   webSearchQuery: searchRequest?.query || message.content || "",
                   webSearchIntent: searchRequest?.searchIntent || "WEB_SEARCH",
                   webDeepSearchEnabled:
-                    (searchRequest?.searchIntent || "WEB_SEARCH") === "DEEP_SEARCH",
+                    (searchRequest?.searchIntent || "WEB_SEARCH") ===
+                    "DEEP_SEARCH",
                   webDeepSearchTrigger:
-                    (searchRequest?.searchIntent || "WEB_SEARCH") === "DEEP_SEARCH"
+                    (searchRequest?.searchIntent || "WEB_SEARCH") ===
+                    "DEEP_SEARCH"
                       ? "user_confirmed"
                       : undefined,
                   webDeepSearchQuery:
-                    (searchRequest?.searchIntent || "WEB_SEARCH") === "DEEP_SEARCH"
+                    (searchRequest?.searchIntent || "WEB_SEARCH") ===
+                    "DEEP_SEARCH"
                       ? searchRequest?.query || message.content || ""
                       : undefined,
                 })
@@ -1170,7 +1240,8 @@ function ArtifactBody({
     );
   }
   if (
-    (dataType === "web_search_results" || dataType === "web_deep_search_results") &&
+    (dataType === "web_search_results" ||
+      dataType === "web_deep_search_results") &&
     message.data?.webSearchResults
   ) {
     return <WebSearchResultsArtifact data={message.data.webSearchResults} />;
