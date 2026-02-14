@@ -25,6 +25,7 @@ const followUpIntentSchema = require("./schemas/followUpIntent.schema.json");
 const webSearchResultsSchema = require("./schemas/webSearchResults.schema.json");
 const webDeepSearchResultsSchema = require("./schemas/webDeepSearchResults.schema.json");
 const routingClarificationSchema = require("./schemas/routingClarification.schema.json");
+const dossierPrioritiesAnalysisSchema = require("./schemas/dossier_priorities_analysis.schema.json");
 
 const pipeline = require("./engine/pipeline");
 const response = require("./engine/response");
@@ -39,6 +40,7 @@ const followUpStage = require("./engine/stages/stage.followup");
 const draftStage = require("./engine/stages/stage.draft");
 const searchWebStage = require("./engine/stages/stage.searchWeb");
 const deepSearchStage = require("./engine/stages/stage.deepSearch");
+const analyzeStage = require("./engine/stages/stage.analyze");
 const state = require("./engine/state");
 const planner = require("./engine/planner");
 const executor = require("./engine/executor");
@@ -90,6 +92,9 @@ class AgentEngine {
       web_search_results: this.ajv.compile(webSearchResultsSchema),
       web_deep_search_results: this.ajv.compile(webDeepSearchResultsSchema),
       routing_clarification: this.ajv.compile(routingClarificationSchema),
+      dossier_priorities_analysis: this.ajv.compile(
+        dossierPrioritiesAnalysisSchema,
+      ),
     };
   }
 }
@@ -109,6 +114,7 @@ Object.assign(
   draftStage,
   searchWebStage,
   deepSearchStage,
+  analyzeStage,
   state,
   planner,
   executor,

@@ -315,11 +315,46 @@ console.log("TEST 14: READ capability - sessions list");
   console.log("✓ PASS: READ capability correctly routed to LIST_SESSIONS\n");
 }
 
+// TEST 15: ANALYZE capability - dossier priorities from work snapshot context
+console.log("TEST 15: ANALYZE capability - work snapshot priority review");
+{
+  const result = routeCapability({
+    message: "review immediate priorities",
+    context: {
+      workSnapshot: {
+        entityType: "dossier",
+        entityId: 77,
+        parent: { id: 77, reference: "DOS-2026-77" },
+      },
+    },
+    resumeContext: null,
+  });
+  assertRoutingResult(result, CAPABILITIES.ANALYZE, "ANALYZE_ENTITY");
+  assert.ok(
+    result.signals.includes("dossier_priority_rule"),
+    "Expected dossier_priority_rule signal",
+  );
+  assert.ok(result.metadata, "Expected routing metadata for analyze intent");
+  assert.strictEqual(
+    result.metadata.analysisType,
+    "dossier_priorities",
+    "Expected dossier priorities analysis type",
+  );
+  assert.strictEqual(
+    result.metadata.entityId,
+    77,
+    "Expected active dossier id from snapshot context",
+  );
+  console.log(
+    "✓ PASS: ANALYZE capability routed from work snapshot context\n",
+  );
+}
+
 // Summary
 console.log("\n=== All Tests Passed ✓ ===\n");
 console.log("Router Statistics:");
-console.log("- Total tests: 14");
-console.log("- Capability routing: 11 tests");
+console.log("- Total tests: 15");
+console.log("- Capability routing: 12 tests");
 console.log("- Routing clarification: 1 test");
 console.log("- Follow-up preservation: 1 test");
 console.log("- Regression tests: 1 test");

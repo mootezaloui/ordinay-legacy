@@ -1114,7 +1114,9 @@ function ArtifactBody({
             entityId: suggestion.entityId,
             scope: suggestion.scope,
             label: suggestion.label,
-            selectionId: suggestion.id,
+            selectionId: isInvoiceSelection
+              ? String(suggestion.entityId ?? suggestion.id)
+              : suggestion.id,
             selectionCategory,
             reason: "User selected context suggestion",
             origin: {

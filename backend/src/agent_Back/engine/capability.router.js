@@ -12,6 +12,7 @@ const {
 } = require("../contracts/capabilityRoute.contract");
 
 const CONFIDENCE_THRESHOLD = 0.8;
+const ANALYZE_ENTITY_INTENT = "ANALYZE_ENTITY";
 
 function hasSearchIntent(readIntent) {
   return (
@@ -52,6 +53,81 @@ function detectCaseScopeAmbiguity(message) {
   return !hasDossier && !hasLawsuit;
 }
 
+function resolveActiveDossierId(context = {}) {
+  const snapshotId =
+    context?.workSnapshot?.entityId ||
+    context?.workSnapshot?.scope?.dossierId ||
+    context?.workSnapshot?.parent?.id ||
+    context?.lastSnapshot?.entityId ||
+    context?.lastSnapshot?.scope?.dossierId ||
+    context?.lastSnapshot?.parent?.id ||
+    context?.workMode?.id ||
+    null;
+  const snapshotType =
+    String(
+      context?.workSnapshot?.entityType ||
+        context?.lastSnapshot?.entityType ||
+        context?.workMode?.type ||
+        "",
+    )
+      .toLowerCase()
+      .trim() || null;
+  if (snapshotId && snapshotType === "dossier") {
+    return Number(snapshotId);
+  }
+
+  if (
+    String(context?.activeEntityType || "").toLowerCase() === "dossier" &&
+    context?.activeEntityId
+  ) {
+    return Number(context.activeEntityId);
+  }
+  if (
+    context?.activeEntity &&
+    String(context.activeEntity.type || "").toLowerCase() === "dossier" &&
+    context.activeEntity.id
+  ) {
+    return Number(context.activeEntity.id);
+  }
+  if (context?.dossierId) {
+    return Number(context.dossierId);
+  }
+  return null;
+}
+
+function detectDossierPriorityAnalysis(message, context) {
+  const dossierId = resolveActiveDossierId(context);
+  if (!dossierId) return null;
+
+  const normalized = String(message || "").toLowerCase();
+  const prioritySignals = [
+    /\bpriorit(y|ies)\b/i,
+    /\bpriority\b/i,
+    /\bnext steps?\b/i,
+    /\burgent\b/i,
+    /\bimmediate\b/i,
+    /\breview\b/i,
+    /\bwhat should i do\b/i,
+    /\bwhat do i do\b/i,
+    /\bwhat do i do with (this )?dossier\b/i,
+  ];
+  const hasPrioritySignal =
+    /\bpriorit(y|ies)\b/i.test(normalized) ||
+    /\bpriority\b/i.test(normalized) ||
+    /\bwhat should i do\b/i.test(normalized) ||
+    /\bwhat do i do\b/i.test(normalized) ||
+    (/\bnext steps?\b/i.test(normalized) &&
+      (/\bdossier\b/i.test(normalized) || dossierId > 0)) ||
+    (/\breview\b/i.test(normalized) && /\bimmediate\b/i.test(normalized));
+  if (!hasPrioritySignal) return null;
+
+  return {
+    analysisType: "dossier_priorities",
+    entityType: "dossier",
+    entityId: dossierId,
+  };
+}
+
 function routeCapability({ message, context, resumeContext = null } = {}) {
   if (resumeContext?.capability) {
     return buildRoutingResult({
@@ -67,7 +143,19 @@ function routeCapability({ message, context, resumeContext = null } = {}) {
   const draftIntent = detectDraftIntent(message, context);
   const readIntent = draftIntent ? null : detectReadIntent(message, context);
   const analyzeSignals = detectAnalyzeSignals(message, context);
+  const dossierPriorityAnalysis = detectDossierPriorityAnalysis(message, context);
   const candidates = [];
+
+  if (dossierPriorityAnalysis) {
+    return buildRoutingResult({
+      capability: CAPABILITIES.ANALYZE,
+      intent: ANALYZE_ENTITY_INTENT,
+      confidence: 0.95,
+      signals: ["dossier_priority_rule"],
+      requires: { entity: true },
+      metadata: dossierPriorityAnalysis,
+    });
+  }
 
   if (draftIntent) {
     candidates.push({
@@ -77,6 +165,12 @@ function routeCapability({ message, context, resumeContext = null } = {}) {
       signals: ["draft_rule"],
       requires: {
         draftType: !draftIntent.draftType,
+      },
+      metadata: {
+        draftType: draftIntent.draftType || null,
+        entityHints: Array.isArray(draftIntent.entityHints)
+          ? draftIntent.entityHints
+          : [],
       },
     });
   }

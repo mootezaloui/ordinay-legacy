@@ -7,6 +7,7 @@ async function buildDraftContext({
   entityId,
   draftType,
   originalMessage,
+  invoiceSelection = null,
   policy,
 }) {
   const context = {
@@ -77,19 +78,27 @@ async function buildDraftContext({
     }
 
     if (overdue.overdueInvoices && overdue.overdueInvoices.length > 1) {
-      ambiguities.push({
-        type: "invoice_selection",
-        message:
-          "This client has multiple overdue invoices. Which should I reference?",
-        options: overdue.overdueInvoices.map((invoice) => ({
-          invoiceId: invoice.id,
-          label: _buildInvoiceLabel(invoice),
-          amount: invoice.amount ?? null,
-          currency: invoice.currency || null,
-          dueDate: invoice.dueDate || null,
-          daysLate: invoice.daysLate ?? null,
-        })),
-      });
+      const resolvedSelection = _resolveInvoiceSelection(
+        invoiceSelection,
+        overdue.overdueInvoices,
+      );
+      if (resolvedSelection) {
+        overdue.selection = resolvedSelection;
+      } else {
+        ambiguities.push({
+          type: "invoice_selection",
+          message:
+            "This client has multiple overdue invoices. Which should I reference?",
+          options: overdue.overdueInvoices.map((invoice) => ({
+            invoiceId: invoice.id,
+            label: _buildInvoiceLabel(invoice),
+            amount: invoice.amount ?? null,
+            currency: invoice.currency || null,
+            dueDate: invoice.dueDate || null,
+            daysLate: invoice.daysLate ?? null,
+          })),
+        });
+      }
     }
   }
 
@@ -103,6 +112,39 @@ async function buildDraftContext({
   }
 
   return { context, ambiguities, isComplete: ambiguities.length === 0 };
+}
+
+function _resolveInvoiceSelection(invoiceSelection, overdueInvoices = []) {
+  if (!invoiceSelection || !Array.isArray(overdueInvoices)) return null;
+  if (overdueInvoices.length === 0) return null;
+
+  const mode = String(invoiceSelection.mode || "").toLowerCase();
+  const selectionId = String(invoiceSelection.selectionId || "").toUpperCase();
+  const availableIds = overdueInvoices
+    .map((invoice) => Number(invoice.id))
+    .filter((id) => Number.isFinite(id) && id > 0);
+
+  if (mode === "all" || selectionId === "ALL_OVERDUE") {
+    return {
+      mode: "all",
+      invoiceIds: availableIds,
+    };
+  }
+
+  const requestedInvoiceId = Number(
+    invoiceSelection.invoiceId || invoiceSelection.selectionId,
+  );
+  if (!Number.isFinite(requestedInvoiceId) || requestedInvoiceId <= 0) {
+    return null;
+  }
+  if (!availableIds.includes(requestedInvoiceId)) {
+    return null;
+  }
+
+  return {
+    mode: "single",
+    invoiceIds: [requestedInvoiceId],
+  };
 }
 
 async function _fetchEntityByType(entityType, entityId, policy) {

@@ -64,6 +64,7 @@ function useDynamicSuggestions(): DynamicSuggestion[] {
   return useMemo(() => {
     const suggestions: DynamicSuggestion[] = [];
     const now = new Date();
+    const seenEntityKeys = new Set<string>();
 
     // Skip if data is still loading
     if (data?.loading) return [];
@@ -74,7 +75,15 @@ function useDynamicSuggestions(): DynamicSuggestion[] {
     const sessions = data?.sessions || [];
     const personalTasks = data?.personalTasks || [];
 
-    // ── Overdue Tasks (highest priority) ──
+    // Helper to avoid duplicate entity references
+    const addSuggestion = (suggestion: DynamicSuggestion, entityKey?: string) => {
+      if (entityKey && seenEntityKeys.has(entityKey)) return false;
+      if (entityKey) seenEntityKeys.add(entityKey);
+      suggestions.push(suggestion);
+      return true;
+    };
+
+    // ── 1. Overdue Tasks (highest priority) ──
     const overdueTasks = tasks.filter((t) => {
       if (!t.due_date) return false;
       if (t.status === "done" || t.status === "completed") return false;
@@ -82,123 +91,198 @@ function useDynamicSuggestions(): DynamicSuggestion[] {
     });
 
     if (overdueTasks.length > 0) {
-      suggestions.push({
-        id: "overdue-tasks",
+      const mostOverdue = overdueTasks.sort((a, b) => {
+        return new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime();
+      })[0];
+
+      addSuggestion({
+        id: `overdue-task-${mostOverdue.id}`,
         category: "Urgent",
-        prompt: "Show my overdue tasks",
+        prompt: `Show task "${mostOverdue.title || `#${mostOverdue.id}`}"`,
         reason: `${overdueTasks.length} task${overdueTasks.length > 1 ? "s" : ""} past due date`,
         icon: AlertCircle,
         priority: 0,
-      });
+      }, `task-${mostOverdue.id}`);
     }
 
-    // ── Upcoming Sessions (high priority) ──
-    const upcomingSessions = sessions.filter((s) => {
-      const date = s.scheduled_at || s.session_date;
-      if (!date) return false;
-      const sessionDate = new Date(date);
-      const daysUntil = Math.ceil(
-        (sessionDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
-      );
-      return daysUntil >= 0 && daysUntil <= 7;
-    });
-
-    if (upcomingSessions.length > 0) {
-      suggestions.push({
-        id: "upcoming-sessions",
-        category: "This Week",
-        prompt: "List my sessions this week",
-        reason: `${upcomingSessions.length} session${upcomingSessions.length > 1 ? "s" : ""} scheduled`,
-        icon: Calendar,
-        priority: 1,
-      });
-    }
-
-    // ── Active Dossiers ──
+    // ── 2. Dossier with nearest upcoming deadline ──
     const activeDossiers = dossiers.filter(
       (d) => d.status !== "closed" && d.status !== "archived",
     );
 
-    if (activeDossiers.length > 0) {
-      // Suggest viewing a specific recent dossier
-      const recentDossier = activeDossiers[0];
-      const dossierRef =
-        recentDossier.reference ||
-        recentDossier.title ||
-        `#${recentDossier.id}`;
+    const dossiersWithDeadlines = activeDossiers.filter((d: any) => d.deadline);
+    if (dossiersWithDeadlines.length > 0) {
+      const upcomingDossiers = dossiersWithDeadlines.filter((d: any) => new Date(d.deadline) >= now);
+      if (upcomingDossiers.length > 0) {
+        const nearest = upcomingDossiers.sort((a: any, b: any) => {
+          return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+        })[0];
 
-      suggestions.push({
-        id: "active-dossiers",
-        category: "Dossiers",
-        prompt: `Show dossier ${dossierRef}`,
-        reason: `${activeDossiers.length} active dossier${activeDossiers.length > 1 ? "s" : ""}`,
-        icon: FileText,
-        priority: 2,
-      });
-    } else if (dossiers.length === 0) {
-      // No dossiers at all - suggest listing clients first
-      if (clients.length > 0) {
-        suggestions.push({
-          id: "list-clients",
-          category: "Getting Started",
-          prompt: "List my clients",
-          reason: `${clients.length} client${clients.length > 1 ? "s" : ""} available`,
-          icon: Users,
-          priority: 2,
-        });
+        const dossierRef = nearest.reference || nearest.title || `#${nearest.id}`;
+        addSuggestion({
+          id: `dossier-deadline-${nearest.id}`,
+          category: "Deadline",
+          prompt: `Show dossier ${dossierRef}`,
+          reason: `Deadline approaching`,
+          icon: Calendar,
+          priority: 1,
+        }, `dossier-${nearest.id}`);
       }
     }
 
-    // ── Client Overview (if we have clients) ──
-    if (clients.length > 0 && suggestions.length < 3) {
-      const recentClient = clients[0];
-      const clientName =
-        recentClient.name || recentClient.reference || `#${recentClient.id}`;
+    // ── 3. High urgency dossier (if different from deadline one) ──
+    const highUrgencyDossiers = activeDossiers.filter((d: any) =>
+      d.urgency === "high" || d.priority === "high"
+    );
+    if (highUrgencyDossiers.length > 0) {
+      const urgentDossier = highUrgencyDossiers[
+        Math.floor(Math.random() * highUrgencyDossiers.length)
+      ];
+      const dossierRef = urgentDossier.reference || urgentDossier.title || `#${urgentDossier.id}`;
 
-      suggestions.push({
-        id: "client-overview",
-        category: "Clients",
-        prompt: `Show client ${clientName}`,
-        reason: `View client details and related dossiers`,
+      addSuggestion({
+        id: `dossier-urgent-${urgentDossier.id}`,
+        category: "High Priority",
+        prompt: `Show dossier ${dossierRef}`,
+        reason: `Requires attention`,
+        icon: AlertCircle,
+        priority: 1,
+      }, `dossier-${urgentDossier.id}`);
+    }
+
+    // ── 4. Client with highest number of active dossiers ──
+    if (clients.length > 0 && activeDossiers.length > 0) {
+      const clientDossierCounts = new Map<number, number>();
+      activeDossiers.forEach((d) => {
+        if (d.clientId) {
+          clientDossierCounts.set(d.clientId, (clientDossierCounts.get(d.clientId) || 0) + 1);
+        }
+      });
+
+      if (clientDossierCounts.size > 0) {
+        const topClientId = Array.from(clientDossierCounts.entries())
+          .sort((a, b) => b[1] - a[1])[0][0];
+        const topClient = clients.find((c) => c.id === topClientId);
+
+        if (topClient) {
+          const clientName = topClient.name || topClient.reference || `#${topClient.id}`;
+          const dossierCount = clientDossierCounts.get(topClientId) || 0;
+
+          addSuggestion({
+            id: `client-top-${topClient.id}`,
+            category: "Active Client",
+            prompt: `Show client ${clientName}`,
+            reason: `${dossierCount} active dossier${dossierCount > 1 ? "s" : ""}`,
+            icon: Users,
+            priority: 2,
+          }, `client-${topClient.id}`);
+        }
+      }
+    }
+
+    // ── 5. Random active client (fallback if slots available) ──
+    if (clients.length > 0 && suggestions.length < 3) {
+      const availableClients = clients.filter((c) => !seenEntityKeys.has(`client-${c.id}`));
+      if (availableClients.length > 0) {
+        const randomClient = availableClients[
+          Math.floor(Math.random() * availableClients.length)
+        ];
+        const clientName = randomClient.name || randomClient.reference || `#${randomClient.id}`;
+
+        addSuggestion({
+          id: `client-random-${randomClient.id}`,
+          category: "Clients",
+          prompt: `Show client ${clientName}`,
+          reason: `View client details`,
+          icon: Users,
+          priority: 3,
+        }, `client-${randomClient.id}`);
+      }
+    }
+
+    // ── 6. Random active dossier (fallback if slots available) ──
+    if (activeDossiers.length > 0 && suggestions.length < 4) {
+      const availableDossiers = activeDossiers.filter(
+        (d) => !seenEntityKeys.has(`dossier-${d.id}`)
+      );
+      if (availableDossiers.length > 0) {
+        const randomDossier = availableDossiers[
+          Math.floor(Math.random() * availableDossiers.length)
+        ];
+        const dossierRef = randomDossier.reference || randomDossier.title || `#${randomDossier.id}`;
+
+        addSuggestion({
+          id: `dossier-random-${randomDossier.id}`,
+          category: "Dossiers",
+          prompt: `Show dossier ${dossierRef}`,
+          reason: `${activeDossiers.length} active dossier${activeDossiers.length > 1 ? "s" : ""}`,
+          icon: FileText,
+          priority: 4,
+        }, `dossier-${randomDossier.id}`);
+      }
+    } else if (dossiers.length === 0 && clients.length > 0 && suggestions.length < 4) {
+      // No dossiers at all - suggest listing clients
+      addSuggestion({
+        id: "list-clients",
+        category: "Getting Started",
+        prompt: "List my clients",
+        reason: `${clients.length} client${clients.length > 1 ? "s" : ""} available`,
         icon: Users,
-        priority: 3,
+        priority: 4,
       });
     }
 
-    // ── Task Summary (if we have tasks) ──
+    // ── 7. Task summary (general, if slots available) ──
     const pendingTasks = tasks.filter(
       (t) => t.status !== "done" && t.status !== "completed",
     );
 
     if (pendingTasks.length > 0 && suggestions.length < 4) {
-      suggestions.push({
+      addSuggestion({
         id: "task-summary",
         category: "Tasks",
         prompt: "What are my pending tasks?",
         reason: `${pendingTasks.length} task${pendingTasks.length > 1 ? "s" : ""} pending`,
         icon: TrendingUp,
-        priority: 4,
+        priority: 5,
       });
     }
 
-    // ── Personal Tasks (if available) ──
+    // ── 8. Personal Tasks (if slots available) ──
     const pendingPersonal = personalTasks.filter(
       (t) => t.status !== "done" && t.status !== "completed",
     );
 
     if (pendingPersonal.length > 0 && suggestions.length < 4) {
-      suggestions.push({
+      addSuggestion({
         id: "personal-tasks",
         category: "Personal",
         prompt: "Show my personal tasks",
         reason: `${pendingPersonal.length} personal task${pendingPersonal.length > 1 ? "s" : ""}`,
         icon: TrendingUp,
-        priority: 5,
+        priority: 6,
       });
     }
 
-    // Sort by priority and take top 4
-    return suggestions.sort((a, b) => a.priority - b.priority).slice(0, 4);
+    // Sort by priority, shuffle slightly within same priority, take top 4
+    const grouped = new Map<number, DynamicSuggestion[]>();
+    suggestions.forEach((s) => {
+      if (!grouped.has(s.priority)) grouped.set(s.priority, []);
+      grouped.get(s.priority)!.push(s);
+    });
+
+    const shuffled: DynamicSuggestion[] = [];
+    Array.from(grouped.keys()).sort((a, b) => a - b).forEach((priority) => {
+      const group = grouped.get(priority)!;
+      // Fisher-Yates shuffle within same priority group
+      for (let i = group.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [group[i], group[j]] = [group[j], group[i]];
+      }
+      shuffled.push(...group);
+    });
+
+    return shuffled.slice(0, 4);
   }, [data]);
 }
 

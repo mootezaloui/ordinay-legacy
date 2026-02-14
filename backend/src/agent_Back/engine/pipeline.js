@@ -154,6 +154,34 @@ function buildResolutionScope(entityType, entityId) {
   return { [key]: id };
 }
 
+function inferCapabilityFromIntent(intent) {
+  const normalized = String(intent || "").toUpperCase();
+  if (!normalized) return null;
+  if (normalized.startsWith("DRAFT_")) return CAPABILITIES.DRAFT;
+  if (Object.values(READ_INTENTS).includes(normalized)) {
+    return normalized === READ_INTENTS.WEB_SEARCH ||
+      normalized === READ_INTENTS.DEEP_SEARCH
+      ? CAPABILITIES.SEARCH
+      : CAPABILITIES.READ;
+  }
+  if (normalized === "ANALYZE_ENTITY") return CAPABILITIES.ANALYZE;
+  return null;
+}
+
+function parseSelectionNumericId(value) {
+  if (value === null || value === undefined) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const asNumber = Number(raw);
+  if (Number.isFinite(asNumber) && asNumber > 0) {
+    return asNumber;
+  }
+  const match = raw.match(/(\d+)(?!.*\d)/);
+  if (!match) return null;
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
 function extractReferenceFromLabel(label) {
   const raw = String(label || "").trim();
   if (!raw) return null;
@@ -199,6 +227,7 @@ function buildResolutionContextSuggestion({
   originalMessage,
   reason = "multiple_matches",
   message,
+  capability = null,
 }) {
   const normalizedEntityType = String(entityType || "entity").toLowerCase();
   const safeCandidates = Array.isArray(candidates) ? candidates : [];
@@ -209,6 +238,7 @@ function buildResolutionContextSuggestion({
       `I found multiple ${normalizedEntityType} options that might match your request:`,
     entityType: normalizedEntityType,
     reason,
+    capability: capability || inferCapabilityFromIntent(originalIntent),
     originalIntent,
     originalDraftType,
     originalMessage,
@@ -423,6 +453,7 @@ async function run({
         lastIntent: conversationContextSnapshot.lastIntent || null,
         activeEntityType: conversationContextSnapshot.activeEntityType || null,
         activeEntityId: conversationContextSnapshot.activeEntityId || null,
+        workSnapshot: conversationContextSnapshot.workSnapshot || null,
       }
     : turnContext || {};
 
@@ -477,6 +508,7 @@ async function run({
     signals: routingResult.signals || [],
     requires: routingResult.requires || {},
     candidates: routingResult.candidates || [],
+    metadata: routingResult.metadata || null,
   };
 
   console.log("[CapabilityLock]", capabilityLock);
@@ -791,6 +823,7 @@ async function run({
           originalDraftType,
           originalMessage,
           reason: "multiple_matches",
+          capability: inferCapabilityFromIntent(originalIntent),
         }),
         needsClarification: true,
         resolutionMode: true,
@@ -823,6 +856,7 @@ async function run({
           originalMessage,
           reason: "missing_context",
           message: `No exact ${entityType} found for "${identifier}". Here are close matches:`,
+          capability: inferCapabilityFromIntent(originalIntent),
         }),
         needsClarification: true,
         resolutionMode: true,
@@ -948,7 +982,8 @@ async function run({
                 invoiceId:
                   String(selectionId) === "ALL_OVERDUE"
                     ? null
-                    : Number(selectionId),
+                    : parseSelectionNumericId(selectionId) ||
+                      parseSelectionNumericId(entityId),
                 selectionId: String(selectionId),
               },
             }
@@ -1019,12 +1054,31 @@ async function run({
   // ========== END FOLLOW-UP INTENT ==========
 
   // ========== ACTIVATION GUARD (runs AFTER capability lock, BEFORE tool execution) ===
+  const guardReadIntent =
+    capabilityLock.capability === CAPABILITIES.READ ||
+    capabilityLock.capability === CAPABILITIES.SEARCH
+      ? detectReadIntent(normalizedMessage, turnContext)
+      : null;
+  const guardDraftIntent =
+    capabilityLock.capability === CAPABILITIES.DRAFT
+      ? {
+          intent: capabilityLock.intent,
+          draftType: capabilityLock?.metadata?.draftType || null,
+          entityHints: Array.isArray(capabilityLock?.metadata?.entityHints)
+            ? capabilityLock.metadata.entityHints
+            : [],
+        }
+      : null;
+  const guardSearchIntent =
+    capabilityLock.capability === CAPABILITIES.SEARCH ? guardReadIntent : null;
+
   const activationResult = activationGuard({
-    capability: capabilityLock.capability,
-    intent: capabilityLock.intent,
+    routingResult: capabilityLock,
+    draftIntent: guardDraftIntent,
+    readIntent: guardReadIntent,
+    searchIntent: guardSearchIntent,
     message: normalizedMessage,
     context: turnContext,
-    requestMetadata: turnContext?.requestMetadata || {},
   });
 
   console.log("[ActivationGuard]", {
@@ -1226,21 +1280,23 @@ async function run({
     });
 
     engineContext.intent = capabilityLock.intent;
+    const lockedDraftIntent = activationResult?.draftIntent || {
+      intent: capabilityLock.intent,
+      draftType: capabilityLock?.metadata?.draftType || null,
+      entityHints: Array.isArray(capabilityLock?.metadata?.entityHints)
+        ? capabilityLock.metadata.entityHints
+        : [],
+    };
+
     this.ledger.record({
       type: "draft_intent_gate_triggered",
       intent: capabilityLock.intent,
-      draftType: capabilityLock.requires?.draftType || null,
+      draftType: lockedDraftIntent.draftType || null,
       timestamp: new Date().toISOString(),
     });
 
-    const draftIntent = {
-      intent: capabilityLock.intent,
-      draftType: capabilityLock.requires?.draftType || null,
-      entityHints: capabilityLock.requires?.entityHints || [],
-    };
-
     const draftResult = await this._executeDraftIntent(
-      draftIntent,
+      lockedDraftIntent,
       normalizedMessage,
       turnContext,
       policy,
@@ -1260,6 +1316,55 @@ async function run({
       posture: engineContext.posture,
       postureAuthority: engineContext.postureAuthority,
     };
+  }
+
+  // ANALYZE capability -> Deterministic dossier priorities analysis
+  if (capabilityDispatch === CAPABILITIES.ANALYZE) {
+    const analysisType = String(capabilityLock?.metadata?.analysisType || "");
+    if (analysisType === "dossier_priorities") {
+      this._ensureTurnGateAllowed(policy, {
+        gate: "analyze_entity",
+        intent: "ANALYZE_ENTITY",
+        requiresRead: true,
+      });
+
+      engineContext.intent = "ANALYZE_ENTITY";
+      this.ledger.record({
+        type: "analyze_entity_gate_triggered",
+        intent: "ANALYZE_ENTITY",
+        analysisType,
+        entityType: capabilityLock?.metadata?.entityType || null,
+        entityId: capabilityLock?.metadata?.entityId || null,
+        timestamp: new Date().toISOString(),
+      });
+
+      const analyzeResult = await this._executeDossierPrioritiesAnalysisIntent(
+        {
+          intent: "ANALYZE_ENTITY",
+          analysisType,
+          entityType: capabilityLock?.metadata?.entityType || "dossier",
+          entityId: capabilityLock?.metadata?.entityId || null,
+        },
+        normalizedMessage,
+        turnContext,
+        policy,
+        engineContext,
+      );
+
+      this._updateConversationContext(
+        turnContext,
+        normalizedMessage,
+        analyzeResult,
+        CONTEXT_SOURCES.READ_INTENT,
+        engineContext.posture,
+      );
+
+      return {
+        ...analyzeResult,
+        posture: engineContext.posture,
+        postureAuthority: engineContext.postureAuthority,
+      };
+    }
   }
 
   // ASSISTANT capability -> Fall through to LLM reasoner
@@ -2047,6 +2152,17 @@ function _ensureTurnGateAllowed(
   const readIntentValues = new Set(Object.values(READ_INTENTS));
 
   if (normalizedIntent === "COMMAND" || normalizedIntent === "FOLLOW_UP") {
+    return;
+  }
+
+  if (normalizedIntent === "ANALYZE_ENTITY") {
+    if (!policy.allowedToolCategories.includes("analysis")) {
+      const error = new Error(
+        `Intent ${normalizedIntent} requires analysis capability in policy ${policy.version}.`,
+      );
+      error.status = 403;
+      throw error;
+    }
     return;
   }
 

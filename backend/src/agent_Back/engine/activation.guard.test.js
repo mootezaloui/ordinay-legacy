@@ -174,8 +174,10 @@ console.log("TEST 6: DRAFT capability - activation ok (type provided)");
   console.log("✓ PASS: DRAFT activation ok when type provided\n");
 }
 
-// TEST 7: DRAFT capability - clarification needed (type missing)
-console.log("TEST 7: DRAFT capability - clarification needed (type missing)");
+// TEST 7: DRAFT capability - activation ok (type missing, stage handles ambiguity)
+console.log(
+  "TEST 7: DRAFT capability - activation ok (type missing, deferred to stage)",
+);
 {
   const result = activationGuard({
     routingResult: {
@@ -188,8 +190,8 @@ console.log("TEST 7: DRAFT capability - clarification needed (type missing)");
     message: "write something",
     context: {},
   });
-  assertRoutingClarification(result, "draft_type_selection");
-  console.log("✓ PASS: DRAFT clarification when type missing\n");
+  assertActivationOk(result);
+  console.log("✓ PASS: DRAFT activation ok when type missing (stage handles)\n");
 }
 
 // TEST 8: ASSISTANT capability - always ok

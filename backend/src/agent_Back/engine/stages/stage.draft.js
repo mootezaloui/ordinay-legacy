@@ -260,7 +260,7 @@ async function _executeDraftIntent(
   // ── Step 3: Clarification if no entity resolved ───────────────────
   // Skip context suggestion if entity was just resolved from a previous suggestion
   if (!resolvedEntity && !context._resolvedFromSuggestion) {
-    const missingEntities = hasHearingSignal
+    const missingEntities = effectiveDraftType === "HEARING_SUMMARY"
       ? ["session"]
       : _draftMissingEntities(effectiveDraftType);
     const primaryMissingEntity =
@@ -416,6 +416,7 @@ async function _executeDraftIntent(
     entityId: resolvedEntity.id,
     draftType: effectiveDraftType,
     originalMessage: message,
+    invoiceSelection: context?.invoiceSelection || null,
     policy,
   });
 

@@ -74,16 +74,6 @@ function activationGuard({
       });
     }
 
-    if (!draftIntent.draftType) {
-      return buildRoutingClarification({
-        message: "What type of document would you like me to draft?",
-        candidates: [],
-        confidence: 0,
-        signals: ["missing_draft_type"],
-        reason: "draft_type_selection",
-      });
-    }
-
     return buildActivationOk({
       capability,
       intent: draftIntent.intent,
