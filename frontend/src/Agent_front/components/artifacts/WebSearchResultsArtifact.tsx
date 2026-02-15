@@ -71,7 +71,7 @@ export function WebSearchResultsArtifact({ data }: WebSearchResultsArtifactProps
             <Search className="w-5 h-5 text-white" />
           </div>
           <div className="min-w-0 flex-1">
-            <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-1">
+            <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">
               {data.query}
             </h4>
             <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
@@ -187,7 +187,7 @@ export function WebSearchResultsArtifact({ data }: WebSearchResultsArtifactProps
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
-                          <h6 className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors line-clamp-2">
+                          <h6 className="text-sm font-semibold text-slate-800 dark:text-slate-200 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors line-clamp-2">
                             {result.title}
                           </h6>
                           <ExternalLink className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />

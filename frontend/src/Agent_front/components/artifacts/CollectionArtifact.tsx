@@ -259,7 +259,7 @@ function InspectorPanel({ item }: { item: CollectionItem }) {
   return (
     <div className="agent-collection-inspector">
       <div className="agent-collection-inspector-header">
-        <h5 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+        <h5 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
           {item.title}
         </h5>
         {item.subtitle && (
@@ -303,7 +303,7 @@ function InspectorPanel({ item }: { item: CollectionItem }) {
             {item.metrics.map((metric, idx) => (
               <div key={idx} className="agent-collection-inspector-metric">
                 <span className="agent-collection-inspector-label">{metric.label}</span>
-                <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
                   {metric.value}
                 </span>
               </div>
@@ -654,7 +654,7 @@ function DashboardLayout({
           <button
             type="button"
             onClick={() => setActiveFilter(null)}
-            className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+            className="text-xs text-[#3b82f6] dark:text-[#60a5fa] hover:underline"
           >
             Clear
           </button>
@@ -711,7 +711,7 @@ export function CollectionArtifact({ data, onFollowUpClick }: CollectionArtifact
             <LayoutList className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+            <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
               {data.totalCount} {entityLabel}
             </h4>
             {data.sortBy && (
@@ -727,7 +727,7 @@ export function CollectionArtifact({ data, onFollowUpClick }: CollectionArtifact
       <div className="px-5 py-5">
         {/* Summary */}
         <div className="artifact-build-section artifact-build-section-1">
-          <p className="artifact-build-summary text-[15px] font-medium text-slate-800 dark:text-slate-100 leading-relaxed">
+          <p className="artifact-build-summary text-[15px] font-medium text-slate-800 dark:text-slate-200 leading-relaxed">
             {data.summary}
           </p>
         </div>

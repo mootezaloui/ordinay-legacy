@@ -26,7 +26,7 @@ export function NavigationContext({
   const isChild = navigation.role === "child";
 
   return (
-    <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700/50">
+    <div className="mt-4 pt-4 border-t border-black/[0.05] dark:border-white/[0.05]">
       {/* Section header */}
       <div className="flex items-center gap-2 mb-2.5">
         <Network className="w-3.5 h-3.5 text-slate-400" />
@@ -48,7 +48,7 @@ export function NavigationContext({
             onClick={() => onNavigate(parentFollowUp)}
             className="agent-nav-chip agent-nav-chip-interactive group"
           >
-            <ArrowUp className="w-3 h-3 text-indigo-400 group-hover:text-indigo-500" />
+            <ArrowUp className="w-3 h-3 text-[#60a5fa] group-hover:text-[#3b82f6]" />
             <span className="agent-nav-chip-type">{navigation.parentPath.type}</span>
             <span className="agent-nav-chip-ref">
               {navigation.parentPath.reference || navigation.parentPath.name || navigation.parentPath.id}

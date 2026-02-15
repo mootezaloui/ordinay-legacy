@@ -99,7 +99,7 @@ export function AgentLayout({
   };
 
   return (
-    <div className="relative w-full h-full flex gap-0 bg-slate-50 dark:bg-slate-900">
+    <div className="relative w-full h-full flex gap-0 bg-[#f8fafc] dark:bg-[#0f172a]">
       {/* ══════════════════════════════════════════════════════════════════
           LEFT SIDEBAR - Conversation History
           Desktop: Static column | Mobile: Overlay drawer
@@ -116,7 +116,7 @@ export function AgentLayout({
       {showHistorySidebar && (
         <div className="absolute inset-0 z-40 lg:hidden">
           <div
-            className="absolute inset-0 bg-slate-900/40"
+            className="absolute inset-0 bg-black/40"
             onClick={() => setShowHistorySidebar(false)}
           />
           <div className="absolute inset-y-0 left-0 w-80 max-w-[85vw]">
@@ -195,7 +195,7 @@ export function AgentLayout({
       {showContextSidebar && (
         <div className="absolute inset-0 z-40 2xl:hidden">
           <div
-            className="absolute inset-0 bg-slate-900/40"
+            className="absolute inset-0 bg-black/40"
             onClick={() => setShowContextSidebar(false)}
           />
           <div className="absolute inset-y-0 right-0 w-80 max-w-[85vw]">

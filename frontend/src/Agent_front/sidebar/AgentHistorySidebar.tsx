@@ -303,13 +303,13 @@ export function AgentHistorySidebar({
   // ============================================================================
 
   return (
-    <div className="h-full w-full flex flex-col border-r border-slate-200/70 dark:border-slate-800/80 bg-white dark:bg-slate-950 agent-ui-text">
+    <div className="h-full w-full flex flex-col border-r border-black/[0.05] dark:border-white/[0.04] bg-[#f9fafb] dark:bg-[#0f172a] agent-ui-text">
       {/* Header with actions */}
-      <div className="p-4 border-b border-slate-200/70 dark:border-slate-800/80 space-y-2 flex-shrink-0">
+      <div className="p-4 border-b border-black/[0.05] dark:border-white/[0.04] space-y-2 flex-shrink-0">
         <button
           type="button"
           onClick={() => onNewChat(null)}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 text-sm font-semibold rounded-xl hover:bg-slate-800 dark:hover:bg-white transition-all shadow-sm"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#0f172a] text-white dark:bg-[#f1f5f9] dark:text-[#0f172a] text-sm font-semibold rounded-xl hover:bg-[#1e293b] dark:hover:bg-white transition-all shadow-sm"
         >
           <Plus className="w-4 h-4" />
           New Conversation
@@ -320,7 +320,7 @@ export function AgentHistorySidebar({
             setIsCreatingFolder(true);
             setPendingFolderName("");
           }}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 text-slate-600 dark:text-slate-300 text-sm font-medium rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/60 hover:bg-white dark:hover:bg-slate-900 transition-colors"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 text-slate-500 dark:text-slate-400 text-sm font-medium rounded-xl border border-black/[0.06] dark:border-white/[0.06] bg-white/60 dark:bg-white/[0.03] hover:bg-white dark:hover:bg-white/[0.05] transition-colors"
           disabled={isCreatingFolder}
         >
           <FolderPlus className="w-4 h-4" />
@@ -333,7 +333,7 @@ export function AgentHistorySidebar({
         {/* Pending folder input */}
         {isCreatingFolder && (
           <div className="space-y-1 mb-4">
-            <div className="flex items-center px-3 py-2 rounded-2xl bg-white/80 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-700/60 shadow-sm gap-2">
+            <div className="flex items-center px-3 py-2 rounded-2xl bg-white/80 dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.05] shadow-sm gap-2">
               <FolderPlus className="w-4.5 h-4.5 text-slate-500 flex-shrink-0" />
               <input
                 ref={pendingInputRef}
@@ -457,7 +457,7 @@ export function AgentHistorySidebar({
           <div
             className={`space-y-1 ${
               dropTargetFolderId === "root"
-                ? "ring-2 ring-slate-300/70 dark:ring-slate-600/70 ring-inset rounded-2xl p-2 bg-white/80 dark:bg-slate-900/50"
+                ? "ring-2 ring-slate-300/50 dark:ring-slate-600/50 ring-inset rounded-2xl p-2 bg-white/60 dark:bg-white/[0.03]"
                 : ""
             }`}
             onDragOver={handleRootDragOver}
@@ -511,7 +511,7 @@ export function AgentHistorySidebar({
             <div
               className={`border border-dashed rounded-2xl p-4 text-center text-sm transition-colors ${
                 dropTargetFolderId === "root"
-                  ? "border-slate-300/80 bg-white/80 dark:bg-slate-900/60 text-slate-600"
+                  ? "border-slate-300/80 bg-white/80 dark:bg-white/[0.04] text-slate-600"
                   : "border-slate-300/70 dark:border-slate-600/70 text-slate-400"
               }`}
               onDragOver={handleRootDragOver}

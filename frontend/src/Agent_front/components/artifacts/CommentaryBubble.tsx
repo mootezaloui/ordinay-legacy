@@ -39,16 +39,16 @@ export function CommentaryBubble({ commentary }: CommentaryBubbleProps) {
   }
 
   return (
-    <div className="agent-message-row animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <div className="agent-bubble agent-chat-text text-[15px] leading-relaxed text-slate-800 dark:text-slate-200 px-5 py-4 space-y-2">
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+      <div className="agent-chat-text text-sm leading-relaxed text-slate-600 dark:text-slate-400 px-1 pt-3 border-t border-black/[0.05] dark:border-white/[0.05] space-y-1.5">
         {hasLines &&
           commentary.lines.map((line, index) => (
-            <p key={`${line}-${index}`} className="m-0 text-sm">
+            <p key={`${line}-${index}`} className="m-0">
               {line}
             </p>
           ))}
         {hasOptions && (
-            <ul className="m-0 pl-4 space-y-1 text-sm text-slate-700 dark:text-slate-300">
+            <ul className="m-0 pl-4 space-y-1 text-slate-600 dark:text-slate-400">
               {commentary.options.map((option) => (
                 <li key={`${option.value}-${option.label}`} className="list-disc">
                   {option.label}

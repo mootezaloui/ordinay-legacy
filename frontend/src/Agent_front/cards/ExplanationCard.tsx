@@ -6,9 +6,9 @@ interface ExplanationCardProps {
 
 export function ExplanationCard({ data }: ExplanationCardProps) {
   return (
-    <div className="pt-3 border-t border-slate-200 dark:border-slate-700">
-      <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
-        <p className="text-sm text-slate-900 dark:text-white mb-3">
+    <div className="pt-3 border-t border-black/[0.06] dark:border-white/[0.06]">
+      <div className="p-4 bg-[#f9fafb] dark:bg-[#0f172a] rounded-xl border border-black/[0.06] dark:border-white/[0.06]">
+        <p className="text-sm text-[#0f172a] dark:text-[#f1f5f9] mb-3">
           {data.summary}
         </p>
         <ul className="space-y-2">

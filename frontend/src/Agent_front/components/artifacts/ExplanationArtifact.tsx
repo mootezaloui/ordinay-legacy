@@ -150,7 +150,7 @@ function ExpandedFactRenderer({ fact }: { fact: ParsedFact }) {
     return (
       <div className="agent-fact-card agent-fact-activity">
         <div className="agent-fact-header">
-          <Activity className="w-4 h-4 text-indigo-500" />
+          <Activity className="w-4 h-4 text-[#3b82f6]" />
           <span className="agent-fact-label">{fact.label}</span>
         </div>
         <div className="agent-activity-list">
@@ -298,7 +298,7 @@ export function ExplanationArtifact({
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+              <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
                 {entityLabel}
               </h4>
               {/* Hero badges inline in header */}
@@ -321,7 +321,7 @@ export function ExplanationArtifact({
       <div className="px-5 py-5">
         {/* ─── Section 1: FACTS ─── */}
         <div className="artifact-build-section artifact-build-section-1">
-          <p className="artifact-build-summary text-[15px] font-medium text-slate-800 dark:text-slate-100 leading-relaxed">
+          <p className="artifact-build-summary text-[15px] font-medium text-slate-800 dark:text-slate-200 leading-relaxed">
             {data.facts.summary}
           </p>
 
@@ -359,7 +359,7 @@ export function ExplanationArtifact({
 
         {/* ─── Related Summary (Child Counts) ─── */}
         {data.relatedSummary && data.relatedSummary.length > 0 && (
-          <div className="artifact-build-section artifact-build-section-related mt-5 pt-5 border-t border-slate-100 dark:border-slate-700/50">
+          <div className="artifact-build-section artifact-build-section-related mt-5 pt-5 border-t border-black/[0.05] dark:border-white/[0.05]">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3 block">
               Related Summary
             </span>
@@ -426,19 +426,19 @@ function LegacyExplanationArtifact({
           <div className="agent-icon-container agent-icon-container-indigo">
             <FileText className="w-5 h-5 text-white" />
           </div>
-          <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+          <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
             {data.title || entityLabel}
           </h4>
         </div>
       </div>
       <div className="px-5 py-5">
         {data.summary && (
-          <p className="text-[15px] font-medium text-slate-800 dark:text-slate-100 leading-relaxed">
+          <p className="text-[15px] font-medium text-slate-800 dark:text-slate-200 leading-relaxed">
             {data.summary}
           </p>
         )}
         {data.details && data.details.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700/50">
+          <div className="mt-4 pt-4 border-t border-black/[0.05] dark:border-white/[0.05]">
             <div className="agent-facts-grid">
               {data.details.map((detail, idx) => (
                 <div key={idx} className="agent-fact-card">

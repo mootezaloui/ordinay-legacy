@@ -13,6 +13,12 @@ const { parseJsonResponse } = require("./llm.validation");
 
 const LLM_BASE_URL = process.env.LLM_BASE_URL || "http://127.0.0.1:11434";
 const LLM_MODEL = process.env.LLM_MODEL || "gpt-oss:120b-cloud";
+const OPENAI_API_KEY =
+  process.env.LLM_API_KEY || process.env.OPENAI_API_KEY || "";
+const OPENAI_BASE_URL =
+  process.env.OPENAI_BASE_URL ||
+  process.env.LLM_OPENAI_BASE_URL ||
+  "https://api.openai.com";
 const LLM_TIMEOUT = parseInt(process.env.LLM_TIMEOUT || "45000", 10);
 const OLLAMA_STREAMING = process.env.OLLAMA_STREAMING !== "false";
 const INTENT_FRAMING_TIMEOUT = parseInt(
@@ -34,6 +40,15 @@ const WEB_SEARCH_STREAM_TIMEOUT = Math.max(
 const WEB_SEARCH_SUMMARY_MAX_ITEMS = 5;
 const WEB_SEARCH_SUMMARY_MAX_TEXT = 400;
 const WEB_SEARCH_SUMMARY_MAX_RETRIES = 1;
+
+function normalizeBase(url) {
+  return String(url || "").replace(/\/+$/, "");
+}
+
+function normalizeOpenAiBase(url) {
+  const base = normalizeBase(url);
+  return base.endsWith("/v1") ? base : `${base}/v1`;
+}
 
 async function classifyIntentWithLLM(
   message,
@@ -311,6 +326,139 @@ async function generateChatResponse(message, historyContext = null) {
     clearTimeout(timeoutId);
     return null;
   }
+}
+
+async function generateToolCallingTurn({
+  messages = [],
+  tools = [],
+  model = LLM_MODEL,
+  signal,
+  temperature = 0.1,
+  maxTokens = 800,
+} = {}) {
+  const openAiUrl = `${normalizeOpenAiBase(OPENAI_BASE_URL)}/chat/completions`;
+  const requestBody = {
+    model,
+    messages: Array.isArray(messages) ? messages : [],
+    tools: Array.isArray(tools) ? tools : [],
+    tool_choice: "auto",
+    temperature,
+    max_tokens: maxTokens,
+    stream: false,
+  };
+  try {
+    const response = await fetch(openAiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(OPENAI_API_KEY ? { Authorization: `Bearer ${OPENAI_API_KEY}` } : {}),
+      },
+      body: JSON.stringify(requestBody),
+      signal,
+    });
+
+    if (response.ok) {
+      const payload = await response.json();
+      const assistant = payload?.choices?.[0]?.message || {};
+      return {
+        role: assistant.role || "assistant",
+        content: typeof assistant.content === "string" ? assistant.content : "",
+        tool_calls: Array.isArray(assistant.tool_calls)
+          ? assistant.tool_calls
+          : [],
+      };
+    }
+  } catch {
+    // Fallback to local chat model.
+  }
+
+  // Fallback 1: Ollama OpenAI-compatible endpoint (often more stable for tool calls)
+  try {
+    const response = await fetch(
+      `${normalizeBase(LLM_BASE_URL)}/v1/chat/completions`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+        signal,
+      },
+    );
+    if (response.ok) {
+      const payload = await response.json();
+      const assistant = payload?.choices?.[0]?.message || {};
+      return {
+        role: assistant.role || "assistant",
+        content: typeof assistant.content === "string" ? assistant.content : "",
+        tool_calls: Array.isArray(assistant.tool_calls)
+          ? assistant.tool_calls
+          : [],
+      };
+    }
+  } catch {
+    // Continue to /api/chat fallback
+  }
+
+  const ollamaResponse = await fetch(`${normalizeBase(LLM_BASE_URL)}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model,
+      messages: Array.isArray(messages) ? messages : [],
+      tools: Array.isArray(tools) ? tools : [],
+      stream: false,
+      options: {
+        temperature,
+        num_predict: maxTokens,
+      },
+    }),
+    signal,
+  });
+
+  if (!ollamaResponse.ok) {
+    let errorBody = "";
+    try {
+      errorBody = await ollamaResponse.text();
+    } catch {
+      errorBody = "";
+    }
+    console.warn(
+      "[LLM][ToolCalling] /api/chat failed, returning safe fallback",
+      JSON.stringify({
+        status: ollamaResponse.status,
+        detail: String(errorBody || "").slice(0, 240),
+      }),
+    );
+    return {
+      role: "assistant",
+      content:
+        "I cannot access operational tools right now. Please try again in a moment.",
+      tool_calls: [],
+    };
+  }
+
+  const payload = await ollamaResponse.json();
+  const message = payload?.message || {};
+  const toolCalls = Array.isArray(message?.tool_calls)
+    ? message.tool_calls.map((call, index) => {
+        const fn = call?.function || {};
+        const args = fn.arguments;
+        return {
+          id: call?.id || `tool_${Date.now()}_${index}`,
+          type: "function",
+          function: {
+            name: fn.name,
+            arguments:
+              typeof args === "string" ? args : JSON.stringify(args || {}),
+          },
+        };
+      })
+    : [];
+
+  return {
+    role: "assistant",
+    content: typeof message?.content === "string" ? message.content : "",
+    tool_calls: toolCalls,
+  };
 }
 
 function buildMissingEntityQuestion(missingEntities = []) {
@@ -1185,6 +1333,7 @@ ${JSON.stringify(structuredSearchContext)}`;
 module.exports = {
   classifyIntentWithLLM,
   generateChatResponse,
+  generateToolCallingTurn,
   streamChatResponse,
   streamChatWithCallbacks,
   isLLMAvailable,

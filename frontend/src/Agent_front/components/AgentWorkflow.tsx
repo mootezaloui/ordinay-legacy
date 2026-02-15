@@ -284,7 +284,7 @@ export function AgentWorkflow({
     const filteredFollowUps = filterFollowUps(followUps, resultCount);
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-2">
         {/* Artifact reveal — primary factual output */}
         <div className="artifact-reveal agent-artifact-focus">
           <ArtifactBody
@@ -314,7 +314,7 @@ export function AgentWorkflow({
     isComplete && filteredFollowUps.length > 0 && onFollowUpClick;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       <ArtifactBody
         message={message}
         onFollowUpClick={onFollowUpClick}
@@ -450,7 +450,7 @@ function WorkingPhase({
                   cy="20"
                 />
                 <circle
-                  className="text-indigo-500 dark:text-indigo-400 agent-pipeline-progress-ring"
+                  className="text-[#3b82f6] dark:text-[#60a5fa] agent-pipeline-progress-ring"
                   strokeWidth="3"
                   strokeLinecap="round"
                   stroke="currentColor"
@@ -468,7 +468,7 @@ function WorkingPhase({
               <span className="agent-pipeline-percent">{totalProgress}%</span>
             </div>
             <div className="flex-1">
-              <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+              <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
                 {acknowledgment}
               </h4>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -556,7 +556,7 @@ function WorkingPhase({
                     isComplete
                       ? "text-slate-600 dark:text-slate-300"
                       : isActive
-                        ? "text-slate-800 dark:text-slate-100 font-medium"
+                        ? "text-slate-800 dark:text-slate-200 font-medium"
                         : "text-slate-400 dark:text-slate-500"
                   }`}
                 >
@@ -604,7 +604,7 @@ function WorkingPhase({
                           isComplete
                             ? "text-emerald-500"
                             : isActive
-                              ? "text-indigo-500 animate-pulse"
+                              ? "text-[#3b82f6] animate-pulse"
                               : "text-slate-400"
                         }`}
                       />
@@ -615,13 +615,13 @@ function WorkingPhase({
                     <p className="text-xs text-slate-500 dark:text-slate-400">
                       {stage.description}
                     </p>
-                    <div className="mt-2 h-1 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                    <div className="mt-2 h-1 rounded-full bg-black/[0.04] dark:bg-white/[0.06] overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-300 ${
                           isComplete
                             ? "bg-emerald-500"
                             : isActive
-                              ? "bg-indigo-500"
+                              ? "bg-[#3b82f6]"
                               : "bg-slate-300 dark:bg-slate-600"
                         }`}
                         style={{ width: `${stageProgress[idx]}%` }}
@@ -666,7 +666,7 @@ function WorkingPhase({
               <div className="agent-activity-dot" />
               <div className="agent-activity-dot" />
             </div>
-            <p className="text-sm text-indigo-700 dark:text-indigo-300">
+            <p className="text-sm text-[#2563eb] dark:text-[#93c5fd]">
               {PIPELINE_STAGES[activeStage].description}...
             </p>
           </div>

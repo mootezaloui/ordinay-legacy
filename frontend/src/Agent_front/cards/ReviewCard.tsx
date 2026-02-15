@@ -16,14 +16,14 @@ export function ReviewCard({ data }: ReviewCardProps) {
   };
 
   return (
-    <div className="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+    <div className="space-y-3 pt-3 border-t border-black/[0.06] dark:border-white/[0.06]">
       {data.items.map((item, idx) => (
         <div
           key={idx}
-          className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700"
+          className="p-4 bg-[#f9fafb] dark:bg-[#0f172a] rounded-xl border border-black/[0.06] dark:border-white/[0.06]"
         >
           <div className="flex items-start justify-between mb-2">
-            <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
+            <h4 className="text-sm font-semibold text-[#0f172a] dark:text-[#f1f5f9]">
               {item.title}
             </h4>
             <span

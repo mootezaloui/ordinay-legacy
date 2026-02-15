@@ -28,9 +28,9 @@ const SEVERITY_STYLES: Record<string, { bg: string; text: string; border: string
     badge: "agent-status-badge-in-progress",
   },
   LOW: {
-    bg: "bg-slate-50 dark:bg-slate-800/50",
+    bg: "bg-black/[0.03] dark:bg-white/[0.04]",
     text: "text-slate-600 dark:text-slate-400",
-    border: "border-slate-200 dark:border-slate-700",
+    border: "border-black/[0.06] dark:border-white/[0.06]",
     dot: "bg-slate-400",
     badge: "agent-status-badge-pending",
   },
@@ -71,7 +71,7 @@ export function RiskArtifact({ data }: RiskArtifactProps) {
             <Shield className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+            <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
               Risk Analysis
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -87,7 +87,7 @@ export function RiskArtifact({ data }: RiskArtifactProps) {
 
       {/* Summary sentence if provided */}
       {data.summary && (
-        <div className="artifact-build-section artifact-build-section-1 px-5 py-4 border-b border-slate-100 dark:border-slate-700/50">
+        <div className="artifact-build-section artifact-build-section-1 px-5 py-4 border-b border-black/[0.05] dark:border-white/[0.05]">
           <p className="text-[15px] text-slate-700 dark:text-slate-200 leading-relaxed">{data.summary}</p>
         </div>
       )}
@@ -125,7 +125,7 @@ export function RiskArtifact({ data }: RiskArtifactProps) {
                               {risk.category.replace(/_/g, " ")}
                             </span>
                           </div>
-                          <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">
+                          <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed">
                             {risk.description}
                           </p>
                         </div>

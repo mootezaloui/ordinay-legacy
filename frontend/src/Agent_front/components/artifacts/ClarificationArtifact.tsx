@@ -80,7 +80,7 @@ export function ClarificationArtifact({ data, onConfirmWebSearch }: Clarificatio
               {data.options?.map((option, idx) => (
                 <div
                   key={`${option.action}-${idx}`}
-                  className="artifact-build-statement px-3 py-1.5 text-xs font-semibold rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                  className="artifact-build-statement px-3 py-1.5 text-xs font-semibold rounded-full bg-black/[0.04] dark:bg-white/[0.05] text-slate-600 dark:text-slate-300"
                   style={{ animationDelay: `${0.3 + idx * 0.08}s` }}
                 >
                   {option.action}
@@ -99,7 +99,7 @@ export function ClarificationArtifact({ data, onConfirmWebSearch }: Clarificatio
               {data.signals?.map((signal, idx) => (
                 <div
                   key={`${signal.type}-${idx}`}
-                  className="artifact-build-statement px-3 py-1.5 text-xs rounded-full bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400"
+                  className="artifact-build-statement px-3 py-1.5 text-xs rounded-full bg-[#f9fafb] dark:bg-[#0f172a] text-slate-500 dark:text-slate-400"
                   style={{ animationDelay: `${0.45 + idx * 0.08}s` }}
                 >
                   {renderSignal(signal)}
@@ -114,7 +114,7 @@ export function ClarificationArtifact({ data, onConfirmWebSearch }: Clarificatio
             <button
               type="button"
               onClick={onConfirmWebSearch}
-              className="px-3 py-2 rounded-lg text-xs font-semibold bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+              className="px-3 py-2 rounded-lg text-xs font-semibold bg-[#0f172a] text-white dark:bg-[#f1f5f9] dark:text-[#0f172a]"
             >
               Search The Web
             </button>

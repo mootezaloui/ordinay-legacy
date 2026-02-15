@@ -182,7 +182,7 @@ export function ActionArtifact({
             <Zap className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+            <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
               Proposed Actions
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -247,7 +247,7 @@ export function ActionArtifact({
                             ? "bg-emerald-100 dark:bg-emerald-900/30"
                             : isRejected
                               ? "bg-red-100 dark:bg-red-900/30"
-                              : "bg-slate-100 dark:bg-slate-800"
+                              : "bg-black/[0.04] dark:bg-white/[0.05]"
                   }`}
                 >
                   {isCompleted ? (
@@ -275,7 +275,7 @@ export function ActionArtifact({
                         className={`text-[15px] font-medium leading-snug ${
                           isRejected
                             ? "text-slate-400 dark:text-slate-500 line-through"
-                            : "text-slate-800 dark:text-slate-100"
+                            : "text-slate-800 dark:text-slate-200"
                         }`}
                       >
                         {action.action}

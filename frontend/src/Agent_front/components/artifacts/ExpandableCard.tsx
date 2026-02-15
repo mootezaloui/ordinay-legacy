@@ -104,7 +104,7 @@ export function ExpandableCard({
         >
           <div className="agent-modal-container">
             <div className="agent-modal-header">
-              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
                 {modalTitle}
               </h3>
               <button

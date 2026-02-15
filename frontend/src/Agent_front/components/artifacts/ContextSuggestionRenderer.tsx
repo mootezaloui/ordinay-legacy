@@ -144,7 +144,7 @@ export function ContextSuggestionRenderer({
                 </div>
 
                 {/* Arrow indicator */}
-                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 dark:group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-[#3b82f6] dark:group-hover:text-[#60a5fa] group-hover:translate-x-0.5 transition-all flex-shrink-0" />
               </button>
             );
           })}

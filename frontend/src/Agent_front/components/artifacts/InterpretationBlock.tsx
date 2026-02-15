@@ -29,8 +29,8 @@ const levelConfig = {
   },
   neutral: {
     icon: CheckCircle,
-    borderColor: "border-l-slate-400",
-    bgColor: "bg-slate-50 dark:bg-slate-800/50",
+    borderColor: "border-l-neutral-400",
+    bgColor: "bg-black/[0.03] dark:bg-white/[0.04]",
     iconColor: "text-slate-400",
     labelColor: "text-slate-600 dark:text-slate-400",
   },
@@ -58,7 +58,7 @@ export function InterpretationBlock({ interpretation }: InterpretationBlockProps
       : "text-slate-600 dark:text-slate-400";
 
   return (
-    <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700/50">
+    <div className="mt-4 pt-4 border-t border-black/[0.05] dark:border-white/[0.05]">
       {/* Section header */}
       <div className="flex items-center gap-2 mb-3">
         {hasCritical ? (

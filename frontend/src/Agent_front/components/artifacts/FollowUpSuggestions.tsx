@@ -26,7 +26,7 @@ export function FollowUpSuggestions({
   const { t } = useTranslation("common");
 
   return (
-    <div className="agent-followups-section mt-5 pt-5 border-t border-slate-200/70 dark:border-slate-700/50">
+    <div className="agent-followups-section mt-5 pt-5 border-t border-black/[0.05] dark:border-white/[0.05]">
       {/* Section header */}
       <div className="flex items-center gap-2 mb-4">
         <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-violet-100 to-indigo-100 dark:from-violet-900/30 dark:to-indigo-900/30 flex items-center justify-center">
@@ -50,7 +50,7 @@ export function FollowUpSuggestions({
             <span className="agent-followup-btn-text">
               {buildFollowUpLabel(followUp, t)}
             </span>
-            <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 dark:group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all" />
+            <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#3b82f6] dark:group-hover:text-[#60a5fa] group-hover:translate-x-0.5 transition-all" />
           </button>
         ))}
       </div>

@@ -33,13 +33,13 @@ const STATUS_STYLES: Record<TimelineItemStatus, { icon: typeof Circle; color: st
   },
   current: {
     icon: Circle,
-    color: "text-indigo-600 dark:text-indigo-400",
-    bg: "bg-indigo-100 dark:bg-indigo-900/30",
+    color: "text-[#3b82f6] dark:text-[#60a5fa]",
+    bg: "bg-blue-100 dark:bg-blue-900/30",
   },
   upcoming: {
     icon: Clock,
     color: "text-slate-400 dark:text-slate-500",
-    bg: "bg-slate-100 dark:bg-slate-800",
+    bg: "bg-black/[0.04] dark:bg-white/[0.05]",
   },
   warning: {
     icon: AlertCircle,
@@ -130,7 +130,7 @@ export function Timeline({
                     className={`text-sm font-medium ${
                       status === "upcoming"
                         ? "text-slate-400 dark:text-slate-500"
-                        : "text-slate-800 dark:text-slate-100"
+                        : "text-slate-800 dark:text-slate-200"
                     }`}
                   >
                     {item.title}

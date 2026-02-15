@@ -100,18 +100,18 @@ export function AgentSessionItem({
         onDragLeave={onDragLeave}
         onDrop={onDrop}
         onClick={!isEditing ? onClick : undefined}
-        className={`group relative p-3 rounded-2xl cursor-pointer border border-slate-200/70 dark:border-slate-700/60 bg-white/85 dark:bg-slate-900/60 hover:bg-white dark:hover:bg-slate-900/80 transition-all ${
+        className={`group relative p-3 rounded-2xl cursor-pointer border border-transparent hover:bg-white/80 dark:hover:bg-white/[0.04] transition-all ${
           isDragging ? "opacity-50 shadow-lg" : ""
         } ${
-          isDropTarget ? "ring-2 ring-slate-300/70 dark:ring-slate-600/70 ring-inset" : ""
+          isDropTarget ? "ring-2 ring-slate-300/50 dark:ring-slate-600/50 ring-inset" : ""
         } ${
-          active ? "agent-session-active border-slate-400/80 dark:border-slate-500/70 shadow-sm" : ""
+          active ? "agent-session-active bg-white/90 dark:bg-white/[0.05] border-black/[0.04] dark:border-white/[0.04]" : ""
         }`}
       >
         <div className="flex items-start justify-between gap-2 mb-1">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <div
-              className="opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing p-0.5 -ml-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-opacity"
+              className="opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing p-0.5 -ml-1 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] rounded transition-opacity"
               onClick={(e) => e.stopPropagation()}
             >
               <GripVertical className="w-3.5 h-3.5 text-slate-400" />
@@ -131,7 +131,7 @@ export function AgentSessionItem({
                   onKeyDown={handleKeyDown}
                   onBlur={handleSaveEdit}
                   aria-label="Conversation title"
-                  className="flex-1 min-w-0 text-sm font-medium bg-white/90 dark:bg-slate-900/70 border border-slate-300/70 dark:border-slate-600/70 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-slate-400/20"
+                  className="flex-1 min-w-0 text-sm font-medium bg-white/90 dark:bg-[#1e293b]/70 border border-black/[0.06] dark:border-white/[0.06] rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-slate-400/20"
                 />
                 <button
                   type="button"
@@ -154,8 +154,8 @@ export function AgentSessionItem({
               <h4
                 className={`text-sm font-medium truncate ${
                   active
-                    ? "text-slate-900 dark:text-slate-100"
-                    : "text-slate-900 dark:text-white"
+                    ? "text-[#0f172a] dark:text-[#f1f5f9]"
+                    : "text-[#0f172a] dark:text-[#f1f5f9]"
                 }`}
               >
                 {session.title}
@@ -169,12 +169,12 @@ export function AgentSessionItem({
                   type="button"
                   onClick={(e) => e.stopPropagation()}
                   title="More options"
-                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all"
+                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] rounded-full transition-all"
                 >
                   <MoreVertical className="w-3.5 h-3.5 text-slate-400" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40 bg-white/95 dark:bg-slate-900/95 border border-slate-200/70 dark:border-slate-700/70 shadow-xl rounded-2xl z-50">
+              <DropdownMenuContent align="end" className="w-40 bg-white/95 dark:bg-[#1e293b]/95 border border-black/[0.06] dark:border-white/[0.06] shadow-xl rounded-2xl z-50">
                 <DropdownMenuItem onClick={handleStartEdit}>
                   <Edit2 className="w-3.5 h-3.5 mr-2" />
                   Rename
@@ -211,7 +211,7 @@ export function AgentSessionItem({
             <button
               type="button"
               onClick={() => setShowDeleteDialog(false)}
-              className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white/80 dark:bg-slate-900/60 hover:bg-white dark:hover:bg-slate-800 rounded-full border border-slate-200/70 dark:border-slate-700/60 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white/80 dark:bg-[#0f172a]/60 hover:bg-white dark:hover:bg-[#1e293b] rounded-full border border-black/[0.05] dark:border-white/[0.06] transition-colors"
             >
               Cancel
             </button>

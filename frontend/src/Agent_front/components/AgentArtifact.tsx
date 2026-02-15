@@ -100,7 +100,7 @@ function ArtifactFooter({ message }: { message: AgentMessage }) {
         type="button"
         aria-label={copied ? "Copied" : "Copy"}
         onClick={handleCopy}
-        className="p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+        className="p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors"
       >
         {copied ? (
           <Check className="w-3.5 h-3.5 text-green-600" />
@@ -113,7 +113,7 @@ function ArtifactFooter({ message }: { message: AgentMessage }) {
         aria-label="Retry"
         onClick={handleRetry}
         disabled={isLoading}
-        className="p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-30"
+        className="p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors disabled:opacity-30"
       >
         <RotateCw className="w-3.5 h-3.5" />
       </button>

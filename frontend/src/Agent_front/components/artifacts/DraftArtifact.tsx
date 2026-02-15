@@ -73,7 +73,7 @@ export function DraftArtifact({ data, onSave }: DraftArtifactProps) {
             <FileText className="w-4 h-4 text-white" />
           </div>
           <div>
-            <h4 className="text-xs font-semibold text-slate-800 dark:text-slate-100">
+            <h4 className="text-xs font-semibold text-slate-800 dark:text-slate-200">
               Draft Document
             </h4>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -90,11 +90,11 @@ export function DraftArtifact({ data, onSave }: DraftArtifactProps) {
       <div className="artifact-build-section artifact-build-section-1 px-4 py-4">
         <div
           ref={paperRef}
-          className="p-4 rounded-lg border border-slate-200/80 dark:border-slate-700/60 bg-white dark:bg-slate-900/70 shadow-sm"
+          className="p-4 rounded-lg border border-black/[0.06] dark:border-white/[0.06] bg-white dark:bg-[#0f172a]/70 shadow-sm"
         >
           {isEditing ? (
             <textarea
-              className="w-full min-h-[12rem] rounded-lg border border-slate-200/80 dark:border-slate-700/70 bg-white/90 dark:bg-slate-900/70 text-sm text-slate-900 dark:text-white px-3 py-2 focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-400/20 whitespace-pre-wrap"
+              className="w-full min-h-[12rem] rounded-lg border border-black/[0.06] dark:border-white/[0.06] bg-white/90 dark:bg-[#0f172a]/70 text-sm text-[#0f172a] dark:text-[#f1f5f9] px-3 py-2 focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-400/20 whitespace-pre-wrap"
               value={[
                 sections.subject,
                 sections.greeting,
@@ -120,11 +120,11 @@ export function DraftArtifact({ data, onSave }: DraftArtifactProps) {
           ) : (
             <>
               {sections.subject && (
-                <div className="artifact-build-section artifact-build-section-2 mb-3 pb-2 border-b border-slate-100 dark:border-slate-700/50">
+                <div className="artifact-build-section artifact-build-section-2 mb-3 pb-2 border-b border-black/[0.05] dark:border-white/[0.05]">
                   <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                     Subject
                   </span>
-                  <p className="text-sm font-semibold text-slate-800 dark:text-white mt-1">
+                  <p className="text-sm font-semibold text-[#0f172a] dark:text-white mt-1">
                     {sections.subject}
                   </p>
                 </div>

@@ -16,7 +16,7 @@ export default function AgentScreen() {
           type="button"
           aria-label="Close navigation"
           onClick={closeMobile}
-          className="fixed inset-0 z-30 bg-slate-900/50 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-30 bg-[#0f172a]/50 backdrop-blur-sm md:hidden"
         />
       )}
 

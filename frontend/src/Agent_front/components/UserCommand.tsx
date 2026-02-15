@@ -120,7 +120,7 @@ export function UserCommand({
         <div className="w-full max-w-[44rem]">
           <textarea
             aria-label="Edit your message"
-            className="w-full min-h-[4rem] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/70 bg-white/90 dark:bg-slate-900/70 text-sm text-slate-900 dark:text-white resize-vertical focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-400/20"
+            className="w-full min-h-[4rem] p-4 rounded-2xl border border-black/[0.06] dark:border-white/[0.06] bg-white/90 dark:bg-[#0f172a]/70 text-sm text-[#0f172a] dark:text-[#f1f5f9] resize-vertical focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-400/20"
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
             autoFocus
@@ -128,14 +128,14 @@ export function UserCommand({
           <div className="flex gap-2 mt-2 justify-end">
             <button
               type="button"
-              className="px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-full hover:bg-slate-800 transition-colors"
+              className="px-3 py-1.5 bg-[#0f172a] text-white text-xs font-medium rounded-full hover:bg-[#334155] transition-colors"
               onClick={saveEdit}
             >
               Save
             </button>
             <button
               type="button"
-              className="px-3 py-1.5 bg-white/80 dark:bg-slate-800/70 text-slate-700 dark:text-slate-300 text-xs font-medium rounded-full hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-600 transition-colors"
+              className="px-3 py-1.5 bg-white/80 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 text-xs font-medium rounded-full hover:bg-black/[0.03] dark:hover:bg-white/[0.08] border border-black/[0.06] dark:border-white/[0.06] transition-colors"
               onClick={cancelEdit}
             >
               Cancel
@@ -167,7 +167,7 @@ export function UserCommand({
               }
               onClick={startEdit}
               disabled={editingDisabled}
-              className={`p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-white/70 dark:hover:bg-slate-800 transition-colors ${
+              className={`p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-white/70 dark:hover:bg-white/[0.05] transition-colors ${
                 isLoading
                   ? "opacity-30 cursor-not-allowed"
                   : "opacity-0 group-hover:opacity-100"

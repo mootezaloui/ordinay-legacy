@@ -14,29 +14,29 @@ export function AgentTopBar({
   onToggleContext,
 }: AgentTopBarProps) {
   return (
-    <div className="h-14 flex-shrink-0 border-b border-slate-200/70 dark:border-slate-800/80 bg-white/90 dark:bg-slate-950/70 backdrop-blur px-3 sm:px-4 flex items-center justify-between gap-3">
+    <div className="h-14 flex-shrink-0 border-b border-black/[0.05] dark:border-white/[0.05] bg-white/80 dark:bg-[#0f172a]/80 backdrop-blur px-3 sm:px-4 flex items-center justify-between gap-3">
       <div className="flex items-center gap-2 min-w-0">
         {!showHistorySidebar && (
           <button
             onClick={onToggleHistory}
-            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+            className="p-2 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] rounded-lg transition-colors"
           >
-            <ChevronRight className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+            <ChevronRight className="w-4 h-4 text-slate-500 dark:text-slate-400" />
           </button>
         )}
         {showHistorySidebar && (
           <button
             onClick={onToggleHistory}
-            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+            className="p-2 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] rounded-lg transition-colors"
           >
-            <ChevronLeft className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+            <ChevronLeft className="w-4 h-4 text-slate-500 dark:text-slate-400" />
           </button>
         )}
         <div className="flex items-center gap-2 min-w-0">
-          <div className="p-1.5 bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 rounded-lg flex-shrink-0">
+          <div className="p-1.5 bg-[#0f172a] text-white dark:bg-[#f1f5f9] dark:text-[#0f172a] rounded-lg flex-shrink-0">
             <Sparkles className="w-3.5 h-3.5" />
           </div>
-          <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+          <span className="text-sm font-semibold text-[#0f172a] dark:text-[#f1f5f9] truncate">
             <span className="hidden sm:inline">Ordinay Intelligence</span>
             <span className="sm:hidden">Ordinay Agent</span>
           </span>
@@ -45,7 +45,7 @@ export function AgentTopBar({
 
       <button
         onClick={onToggleContext}
-        className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors whitespace-nowrap"
+        className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] rounded-lg transition-colors whitespace-nowrap"
         aria-label={
           showContextSidebar ? "Hide context panel" : "Show context panel"
         }

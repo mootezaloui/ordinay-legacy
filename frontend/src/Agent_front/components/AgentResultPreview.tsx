@@ -381,8 +381,8 @@ export function AgentResultPreview({
   };
 
   return (
-    <div className="h-full w-full flex flex-col border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
-      <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex-shrink-0">
+    <div className="h-full w-full flex flex-col border-l border-black/[0.05] dark:border-white/[0.04] bg-[#f9fafb] dark:bg-[#0f172a] overflow-hidden">
+      <div className="p-4 border-b border-black/[0.05] dark:border-white/[0.04] flex-shrink-0">
         <button
           type="button"
           onClick={handleToggleAll}
@@ -390,7 +390,7 @@ export function AgentResultPreview({
             ${
               Object.values(dataAccess).some(Boolean)
                 ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 cursor-pointer"
-                : "bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 cursor-pointer"
+                : "bg-black/[0.04] dark:bg-white/[0.05] border-slate-300 dark:border-slate-600 cursor-pointer"
             }`}
           aria-pressed={Object.values(dataAccess).some(Boolean) ? "true" : "false"}
         >
@@ -417,10 +417,10 @@ export function AgentResultPreview({
         </button>
       </div>
 
-      <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex-shrink-0">
+      <div className="p-4 border-b border-black/[0.05] dark:border-white/[0.04] flex-shrink-0">
         <div className="flex items-center gap-2 mb-3">
           <Database className="w-4 h-4 text-slate-600 dark:text-slate-400" />
-          <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wide">
+          <h3 className="text-xs font-bold text-[#0f172a] dark:text-[#f1f5f9] uppercase tracking-wide">
             Data Access
           </h3>
         </div>
@@ -445,10 +445,10 @@ export function AgentResultPreview({
                 key={source.id}
                 type="button"
                 onClick={() => handleToggleSource(source.id as keyof DataAccessPermissions)}
-                className={`relative p-3 w-full text-left bg-slate-50 dark:bg-slate-800 rounded-lg transition-colors border-2 ${
+                className={`relative p-3 w-full text-left bg-black/[0.03] dark:bg-white/[0.04] rounded-lg transition-colors border-2 ${
                   enabled
-                    ? "border-green-200 dark:border-green-800 hover:bg-slate-100 dark:hover:bg-slate-750"
-                    : "border-slate-300 dark:border-slate-700 opacity-60"
+                    ? "border-green-200 dark:border-green-800 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+                    : "border-slate-300 dark:border-slate-600 opacity-60"
                 }`}
                 aria-pressed={enabled ? "true" : "false"}
                 tabIndex={0}
@@ -468,7 +468,7 @@ export function AgentResultPreview({
                 <div
                   className={`text-xs font-medium ${
                     enabled
-                      ? "text-slate-900 dark:text-white"
+                      ? "text-[#0f172a] dark:text-[#f1f5f9]"
                       : "text-slate-400 dark:text-slate-500"
                   }`}
                 >
@@ -494,7 +494,7 @@ export function AgentResultPreview({
         <div className="flex-1 overflow-y-auto p-4">
           <div className="flex items-center gap-2 mb-3">
             <Zap className="w-4 h-4 text-slate-600 dark:text-slate-400" />
-            <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wide">
+            <h3 className="text-xs font-bold text-[#0f172a] dark:text-[#f1f5f9] uppercase tracking-wide">
               Quick Actions
             </h3>
           </div>
@@ -504,11 +504,11 @@ export function AgentResultPreview({
               return (
                 <div
                   key={capability.id}
-                  className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
+                  className="p-3 bg-black/[0.03] dark:bg-white/[0.04] rounded-lg"
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <IconComponent className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                    <span className="text-xs font-semibold text-slate-900 dark:text-white">
+                    <IconComponent className="w-3.5 h-3.5 text-[#3b82f6] dark:text-[#60a5fa]" />
+                    <span className="text-xs font-semibold text-[#0f172a] dark:text-[#f1f5f9]">
                       {capability.title}
                     </span>
                   </div>
@@ -518,7 +518,7 @@ export function AgentResultPreview({
                         key={idx}
                         type="button"
                         onClick={() => onExampleClick(example.prompt)}
-                        className="group flex items-center justify-between w-full text-left text-xs text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                        className="group flex items-center justify-between w-full text-left text-xs text-slate-600 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#60a5fa] transition-colors"
                       >
                         <span className="truncate">• {example.prompt}</span>
                         <span className="text-[10px] text-slate-400 dark:text-slate-500 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">

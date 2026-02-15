@@ -199,8 +199,8 @@ export function AgentMessage({
             isUser
               ? "bg-gradient-to-br from-blue-600 to-purple-600 user-message-bubble text-white shadow-lg"
               : isError
-                ? "bg-red-50 dark:bg-red-900/20 text-slate-900 dark:text-slate-100 border border-red-200 dark:border-red-800 shadow-sm"
-                : "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 shadow-sm"
+                ? "bg-red-50 dark:bg-red-900/20 text-[#0f172a] dark:text-[#f1f5f9] border border-red-200 dark:border-red-800 shadow-sm"
+                : "bg-white dark:bg-[#1e293b] text-[#0f172a] dark:text-[#f1f5f9] border border-black/[0.06] dark:border-white/[0.06] shadow-sm"
           } rounded-2xl px-6 py-4`}
         >
           {/* Streaming: show content with cursor, or spinner if no content yet */}
@@ -251,7 +251,7 @@ export function AgentMessage({
                   <div>
                     <textarea
                       aria-label="Edit your message"
-                      className="w-full min-h-[4rem] p-3 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white resize-vertical"
+                      className="w-full min-h-[4rem] p-3 rounded-md border border-black/[0.06] dark:border-white/[0.06] bg-white dark:bg-[#1e293b] text-sm text-[#0f172a] dark:text-[#f1f5f9] resize-vertical"
                       value={editContent}
                       onChange={(e) => setEditContent(e.target.value)}
                     />
@@ -265,7 +265,7 @@ export function AgentMessage({
                       </button>
                       <button
                         type="button"
-                        className="px-3 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600"
+                        className="px-3 py-1.5 bg-white dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 text-xs font-medium rounded-lg hover:bg-black/[0.03] dark:hover:bg-white/[0.08] border border-black/[0.06] dark:border-white/[0.06]"
                         onClick={cancelEdit}
                       >
                         Cancel
@@ -308,8 +308,8 @@ export function AgentMessage({
 
           {/* Intent badge for agent messages */}
           {!isUser && message.intent && !isStreaming && (
-            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
-              <span className="text-xs px-2 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-full">
+            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-black/[0.06] dark:border-white/[0.06]">
+              <span className="text-xs px-2 py-1 bg-black/[0.04] dark:bg-white/[0.06] text-slate-600 dark:text-slate-400 rounded-full">
                 {message.intent.replace(/_/g, " ").toLowerCase()}
               </span>
             </div>
@@ -347,7 +347,7 @@ export function AgentMessage({
                 }
                 onClick={startEdit}
                 disabled={editingDisabled || isEditing}
-                className={`p-1 rounded text-slate-500 bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-slate-300 ${
+                className={`p-1 rounded text-slate-500 bg-black/[0.04] dark:bg-white/[0.05] focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-slate-300 ${
                   isLoading
                     ? "opacity-40 cursor-not-allowed"
                     : "opacity-0 group-hover:opacity-100 focus:opacity-100 pointer-events-none group-hover:pointer-events-auto focus:pointer-events-auto"
@@ -369,7 +369,7 @@ export function AgentMessage({
                   }
                 }}
                 disabled={!canCopy}
-                className={`p-1 rounded text-slate-500 bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-slate-300 ${
+                className={`p-1 rounded text-slate-500 bg-black/[0.04] dark:bg-white/[0.05] focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-slate-300 ${
                   !canCopy
                     ? "opacity-40 cursor-not-allowed"
                     : "opacity-0 group-hover:opacity-100 focus:opacity-100 pointer-events-none group-hover:pointer-events-auto focus:pointer-events-auto"
@@ -440,7 +440,7 @@ function RetryButton({ message }: { message: AgentMessageType }) {
       }
       onClick={handleRetry}
       disabled={disabled}
-      className={`p-1 rounded text-slate-500 bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-slate-300 ${
+      className={`p-1 rounded text-slate-500 bg-black/[0.04] dark:bg-white/[0.05] focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-slate-300 ${
         disabled
           ? "opacity-40 cursor-not-allowed"
           : "opacity-0 group-hover:opacity-100 focus:opacity-100 pointer-events-none group-hover:pointer-events-auto focus:pointer-events-auto"
@@ -454,15 +454,15 @@ function RetryButton({ message }: { message: AgentMessageType }) {
 // Explanation Section Component
 function ExplanationSection({ data }: { data: ExplanationOutput }) {
   return (
-    <div className="pt-3 border-t border-slate-200 dark:border-slate-700 agent-animate-scaffold">
+    <div className="pt-3 border-t border-black/[0.06] dark:border-white/[0.06] agent-animate-scaffold">
       <div className="flex items-center gap-2 mb-3 agent-animate-item agent-animate-item-delay-1">
         <Lightbulb className="w-4 h-4 text-amber-500" />
         <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
           {data.title || "Explanation"}
         </span>
       </div>
-      <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 agent-animate-item agent-animate-item-delay-2">
-        <p className="text-sm text-slate-900 dark:text-white mb-3">
+      <div className="p-4 bg-[#f9fafb] dark:bg-[#0f172a] rounded-xl border border-black/[0.06] dark:border-white/[0.06] agent-animate-item agent-animate-item-delay-2">
+        <p className="text-sm text-[#0f172a] dark:text-[#f1f5f9] mb-3">
           {data.summary}
         </p>
         {data.details && data.details.length > 0 && (
@@ -494,7 +494,7 @@ function RiskSection({ data }: { data: RiskAnalysisOutput }) {
   };
 
   return (
-    <div className="pt-3 border-t border-slate-200 dark:border-slate-700 agent-animate-scaffold">
+    <div className="pt-3 border-t border-black/[0.06] dark:border-white/[0.06] agent-animate-scaffold">
       <div className="flex items-center justify-between mb-3 agent-animate-item agent-animate-item-delay-1">
         <div className="flex items-center gap-2">
           <Shield className="w-4 h-4 text-orange-500" />
@@ -514,10 +514,10 @@ function RiskSection({ data }: { data: RiskAnalysisOutput }) {
         {data.risks?.map((risk: RiskItem, idx: number) => (
           <div
             key={idx}
-            className={`p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 agent-animate-item agent-animate-item-delay-${Math.min(idx + 2, 8)}`}
+            className={`p-4 bg-[#f9fafb] dark:bg-[#0f172a] rounded-xl border border-black/[0.06] dark:border-white/[0.06] agent-animate-item agent-animate-item-delay-${Math.min(idx + 2, 8)}`}
           >
             <div className="flex items-start justify-between mb-2">
-              <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
+              <h4 className="text-sm font-semibold text-[#0f172a] dark:text-[#f1f5f9]">
                 {risk.category}
               </h4>
               <span
@@ -546,7 +546,7 @@ function RiskSection({ data }: { data: RiskAnalysisOutput }) {
 // Draft Section Component
 function DraftSection({ data }: { data: DraftOutput }) {
   return (
-    <div className="pt-3 border-t border-slate-200 dark:border-slate-700 agent-animate-scaffold">
+    <div className="pt-3 border-t border-black/[0.06] dark:border-white/[0.06] agent-animate-scaffold">
       <div className="flex items-center gap-2 mb-3 agent-animate-item agent-animate-item-delay-1">
         <FileText className="w-4 h-4 text-blue-500" />
         <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
@@ -559,7 +559,7 @@ function DraftSection({ data }: { data: DraftOutput }) {
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
               Subject:
             </span>
-            <p className="text-sm font-medium text-slate-900 dark:text-white">
+            <p className="text-sm font-medium text-[#0f172a] dark:text-[#f1f5f9]">
               {data.sections.subject}
             </p>
           </div>
@@ -591,7 +591,7 @@ function DraftSection({ data }: { data: DraftOutput }) {
           </button>
           <button
             type="button"
-            className="px-4 py-2 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors border border-slate-200 dark:border-slate-600"
+            className="px-4 py-2 bg-white dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 text-xs font-medium rounded-lg hover:bg-black/[0.03] dark:hover:bg-white/[0.08] transition-colors border border-black/[0.06] dark:border-white/[0.06]"
           >
             Edit
           </button>
@@ -604,7 +604,7 @@ function DraftSection({ data }: { data: DraftOutput }) {
 // Actions Section Component
 function ActionsSection({ data }: { data: ActionProposal[] }) {
   return (
-    <div className="pt-3 border-t border-slate-200 dark:border-slate-700 agent-animate-scaffold">
+    <div className="pt-3 border-t border-black/[0.06] dark:border-white/[0.06] agent-animate-scaffold">
       <div className="flex items-center gap-2 mb-3 agent-animate-item agent-animate-item-delay-1">
         <ListTodo className="w-4 h-4 text-green-500" />
         <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
@@ -615,10 +615,10 @@ function ActionsSection({ data }: { data: ActionProposal[] }) {
         {data.map((action: ActionProposal, idx: number) => (
           <div
             key={idx}
-            className={`p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-between agent-animate-item agent-animate-item-delay-${Math.min(idx + 2, 8)}`}
+            className={`p-3 bg-[#f9fafb] dark:bg-[#0f172a] rounded-lg border border-black/[0.06] dark:border-white/[0.06] flex items-center justify-between agent-animate-item agent-animate-item-delay-${Math.min(idx + 2, 8)}`}
           >
             <div>
-              <p className="text-sm font-medium text-slate-900 dark:text-white">
+              <p className="text-sm font-medium text-[#0f172a] dark:text-[#f1f5f9]">
                 {action.action}
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -684,7 +684,7 @@ function InlineAttachments({
               className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${
                 isUserBubble
                   ? "user-attachment-card"
-                  : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                  : "bg-black/[0.04] dark:bg-white/[0.05] border-black/[0.06] dark:border-white/[0.06]"
               }`}
             >
               <div
@@ -699,7 +699,7 @@ function InlineAttachments({
               <div className="flex-1 min-w-0">
                 <div
                   className={`text-xs font-medium truncate max-w-[160px] ${
-                    isUserBubble ? "" : "text-slate-900 dark:text-white"
+                    isUserBubble ? "" : "text-[#0f172a] dark:text-[#f1f5f9]"
                   }`}
                 >
                   {att.name}

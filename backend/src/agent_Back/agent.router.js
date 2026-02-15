@@ -4,6 +4,7 @@ const express = require("express");
 const Ajv = require("ajv");
 const addFormats = require("ajv-formats");
 const AgentEngine = require("./agent.engine");
+const { ChatAgentService } = require("./chat/chat.agent.service");
 const { getAvailableCommands } = require("./intent.classifier");
 const { streamLLM } = require("./llm/stream.provider");
 const eventEnvelopeSchema = require("./schemas/event-envelope.schema.json");
@@ -13,6 +14,7 @@ const failureSchema = require("./schemas/failure.schema.json");
 
 const router = express.Router();
 const agentEngine = new AgentEngine();
+let chatAgentService = new ChatAgentService({ engine: agentEngine });
 const streamAjv = new Ajv({
   allErrors: true,
   strict: true,
@@ -736,6 +738,100 @@ router.post("/agent/run", async (req, res, next) => {
     next(err);
   }
 });
+
+router.post("/agent/chat", async (req, res) => {
+  const {
+    message,
+    context,
+    agentVersion,
+    sessionId,
+    metadata,
+  } = req.body || {};
+
+  const hasMessage =
+    typeof message === "string" && String(message).trim().length > 0;
+  if (!hasMessage) {
+    res.status(400).json({ error: "Message is required" });
+    return;
+  }
+
+  const requestContext = buildRequestContext(context, sessionId, null, metadata);
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+
+  if (res.socket) {
+    res.socket.setNoDelay(true);
+  }
+
+  let aborted = false;
+  const abortController = new AbortController();
+  res.on("close", () => {
+    aborted = true;
+    abortController.abort();
+  });
+
+  const emit = (event, payload) => {
+    if (aborted) return;
+    res.write(`event: ${event}\ndata: ${JSON.stringify(payload || {})}\n\n`);
+    if (typeof res.flush === "function") {
+      res.flush();
+    }
+  };
+
+  try {
+    emit("start", {
+      intent: "CHATBOT_AGENT_MODE",
+      agentVersion: agentVersion || "v3",
+      timestamp: new Date().toISOString(),
+    });
+
+    const result = await chatAgentService.run({
+      message,
+      context: requestContext,
+      sessionId,
+      agentVersion: agentVersion || "v3",
+      metadata,
+      userId: req.user?.id || null,
+      tenantId: req.user?.tenantId || requestContext?.tenantId || null,
+      signal: abortController.signal,
+    });
+
+    emit("chunk", {
+      content: result.message,
+      timestamp: new Date().toISOString(),
+    });
+    emit("done", {
+      timestamp: new Date().toISOString(),
+      mode: "chatbot",
+      toolCalls: result.toolExecutions.length,
+    });
+  } catch (error) {
+    emit("error", {
+      error: String(error?.message || "Chat mode execution failed"),
+      code: error?.status || 500,
+      timestamp: new Date().toISOString(),
+    });
+    emit("done", {
+      timestamp: new Date().toISOString(),
+      mode: "chatbot",
+      status: "error",
+    });
+  } finally {
+    if (!aborted) {
+      res.end();
+    }
+  }
+});
+
+router.__setChatAgentServiceForTests = (service) => {
+  if (service && typeof service.run === "function") {
+    chatAgentService = service;
+  }
+};
 
 /**
  * POST /agent/edit - Edit the last user message

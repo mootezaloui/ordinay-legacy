@@ -1059,7 +1059,7 @@ export function streamAgentMessage(
         }
       }
       
-      const response = await fetch(`${apiBase}/agent/stream`, {
+      const response = await fetch(`${apiBase}/agent/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request),
@@ -1086,6 +1086,7 @@ export function streamAgentMessage(
       let hasResultEnvelope = false;
       let hasErrorEnvelope = false;
       let hasDoneEnvelope = false;
+      let hasChunkEnvelope = false;
 
       const processCurrentEvent = () => {
         if (!currentEvent || !currentData) return;
@@ -1207,6 +1208,7 @@ export function streamAgentMessage(
               callbacks.onIntentFramingChunk?.(data.chunk);
               break;
             case 'chunk':
+              hasChunkEnvelope = true;
               callbacks.onChunk?.(data.content);
               break;
             case 'result':
@@ -1222,7 +1224,9 @@ export function streamAgentMessage(
               break;
             case 'done':
               hasDoneEnvelope = true;
-              if (!hasResultEnvelope && !hasErrorEnvelope) {
+              // Chatbot mode (/agent/chat) can validly terminate with start -> chunk -> done
+              // without artifact/result envelopes.
+              if (!hasResultEnvelope && !hasErrorEnvelope && !hasChunkEnvelope) {
                 callbacks.onError?.('Protocol violation: done received before result/error envelope');
               }
               callbacks.onDone?.(data);
