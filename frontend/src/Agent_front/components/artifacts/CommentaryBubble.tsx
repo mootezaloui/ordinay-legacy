@@ -40,7 +40,7 @@ export function CommentaryBubble({ commentary }: CommentaryBubbleProps) {
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <div className="agent-chat-text text-sm leading-relaxed text-slate-600 dark:text-slate-400 px-1 pt-3 border-t border-black/[0.05] dark:border-white/[0.05] space-y-1.5">
+      <div className="agent-chat-text text-[15px] leading-relaxed text-slate-700 dark:text-slate-300 px-1 pt-3 border-t border-black/[0.05] dark:border-white/[0.05] space-y-1.5">
         {hasLines &&
           commentary.lines.map((line, index) => (
             <p key={`${line}-${index}`} className="m-0">
@@ -57,10 +57,10 @@ export function CommentaryBubble({ commentary }: CommentaryBubbleProps) {
             </ul>
           )}
         {hasQuestion && (
-          <p className="m-0 text-sm font-medium">{commentary.question}</p>
+          <p className="m-0 text-[15px] font-medium">{commentary.question}</p>
         )}
         {!hasStructured && commentary.message && (
-          <p className="m-0 text-xs text-slate-600 dark:text-slate-300">
+          <p className="m-0 text-[15px] text-slate-700 dark:text-slate-300">
             {commentary.message}
           </p>
         )}

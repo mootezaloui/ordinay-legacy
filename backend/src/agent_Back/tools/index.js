@@ -39,8 +39,6 @@ const getNotificationTool = require("./read/getNotification.tool");
 const listHistoryEventsTool = require("./read/listHistoryEvents.tool");
 const getHistoryEventTool = require("./read/getHistoryEvent.tool");
 const getTimelineTool = require("./read/getTimeline.tool");
-const webSearchTool = require("./read/webSearch.tool");
-const legalResearchTool = require("./read/legalResearch.tool");
 const mcpWebSearchTool = require("./read/mcpWebSearch.tool");
 const mcpLegalSearchTool = require("./read/mcpLegalSearch.tool");
 const mcpDeepSearchTool = require("./read/mcpDeepSearch.tool");
@@ -110,8 +108,6 @@ function initializeToolRegistry() {
   registry.register(listHistoryEventsTool);
   registry.register(getHistoryEventTool);
   registry.register(getTimelineTool);
-  registry.register(webSearchTool);
-  registry.register(legalResearchTool);
   // MCP-backed external search tools. These are routed only by explicit SEARCH_WEB gate.
   registry.register(mcpWebSearchTool);
   registry.register(mcpLegalSearchTool);

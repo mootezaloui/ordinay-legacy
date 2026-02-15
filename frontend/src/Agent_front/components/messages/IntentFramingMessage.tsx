@@ -23,17 +23,17 @@ export function IntentFramingMessage({ content, structured }: IntentFramingMessa
 
   return (
     <div className="intent-framing-message agent-message-row animate-in fade-in slide-in-from-bottom-1 duration-150">
-      <div className="agent-chat-text text-sm leading-relaxed text-slate-500 dark:text-slate-400 px-1 py-1 space-y-1">
+      <div className="agent-chat-text text-[15px] leading-relaxed text-slate-600 dark:text-slate-300 px-1 py-1 space-y-1">
         {hasStructured ? (
           <>
             <p className="m-0">{structured.summary}</p>
             {structured.contextEcho && (
-              <p className="m-0 text-xs text-slate-400 dark:text-slate-500">
+              <p className="m-0 text-[15px] text-slate-500 dark:text-slate-400">
                 {structured.contextEcho}
               </p>
             )}
             {structured.nextQuestion && (
-              <p className="m-0 text-xs text-slate-400 dark:text-slate-500">
+              <p className="m-0 text-[15px] text-slate-500 dark:text-slate-400">
                 {structured.nextQuestion}
               </p>
             )}

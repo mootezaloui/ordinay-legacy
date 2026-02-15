@@ -251,7 +251,7 @@ const SLASH_COMMANDS = Object.freeze({
     command: "/web-search",
     description: "Run an explicit web search",
     usage: "/web-search <query>",
-    tools: ["webSearch"],
+    tools: ["mcpWebSearch"],
     params: { requiresArg: true, argType: "query" },
     category: "web_search",
   },
@@ -259,7 +259,7 @@ const SLASH_COMMANDS = Object.freeze({
     command: "/deep-search",
     description: "Run an explicit deep legal search",
     usage: "/deep-search <query>",
-    tools: ["legalResearch"],
+    tools: ["mcpDeepSearch"],
     params: { requiresArg: true, argType: "query" },
     category: "deep_search",
   },
@@ -996,7 +996,7 @@ function detectReadIntent(message, context = {}) {
     return {
       intent: READ_INTENTS.DEEP_SEARCH,
       requiresLocalData: true,
-      allowedTools: ["legalResearch"],
+      allowedTools: ["mcpDeepSearch"],
       filters: {
         query,
         researchType: inferDeepResearchTypeFromQuery(query),
@@ -1009,7 +1009,7 @@ function detectReadIntent(message, context = {}) {
     return {
       intent: READ_INTENTS.WEB_SEARCH,
       requiresLocalData: true,
-      allowedTools: ["webSearch"],
+      allowedTools: ["mcpWebSearch"],
       filters: {
         query,
         category: inferWebSearchCategoryFromQuery(query),

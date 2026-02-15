@@ -690,6 +690,141 @@ function shouldSendIntentFraming(result, requestContext, framingPayload) {
   return true;
 }
 
+async function generateChatIntentFramingMessage(message, signal) {
+  const intentResult = await generateStructuredPayload({
+    kind: "intent",
+    schema: intentSchema,
+    validate: validateIntent,
+    buildMessages: ({ strictJson }) =>
+      buildIntentMessages({
+        message,
+        intentHint: "CHATBOT_AGENT_MODE",
+        strictJson,
+      }),
+    signal,
+  });
+  if (intentResult.ok) {
+    const intentPayload = coerceIntentPayload(intentResult.value, message);
+    if (validateIntent(intentPayload)) {
+      const summary = String(intentPayload.summary || "").trim();
+      const nextQuestion = String(intentPayload.nextQuestion || "").trim();
+      return [summary, nextQuestion].filter(Boolean).join(" ");
+    }
+  }
+  return "Understood. I will review your request.";
+}
+
+async function generateChatCommentaryMessage(message, finalResponse, signal) {
+  const commentaryResult = await generateStructuredPayload({
+    kind: "commentary",
+    schema: commentarySchema,
+    validate: validateCommentary,
+    buildMessages: ({ strictJson }) =>
+      buildCommentaryMessages({
+        message,
+        intent: "CHATBOT_AGENT_MODE",
+        output: {
+          type: "chat",
+          summary: String(finalResponse || "").slice(0, 600),
+        },
+        strictJson,
+      }),
+    signal,
+  });
+
+  if (commentaryResult.ok) {
+    const payload = coerceCommentaryPayload(
+      commentaryResult.value,
+      { type: "chat", summary: finalResponse || "" },
+      message,
+    );
+    if (validateCommentary(payload)) {
+      const lines = Array.isArray(payload.lines) ? payload.lines : [];
+      const question = payload.question ? [payload.question] : [];
+      const out = [...lines, ...question].join(" ").trim();
+      if (out) return out;
+    }
+  }
+  return "";
+}
+
+function normalizeChatSearchArtifact(entry) {
+  const output = entry?.result;
+  if (!output || typeof output !== "object") return null;
+
+  const existingType = String(output?.type || "").toLowerCase();
+  if (
+    existingType === "web_search_results" ||
+    existingType === "web_deep_search_results"
+  ) {
+    return output;
+  }
+
+  const toolName = String(entry?.toolName || "").trim();
+  const isMcpWeb = toolName === "mcpWebSearch";
+  const isMcpDeep = toolName === "mcpDeepSearch";
+  if (!isMcpWeb && !isMcpDeep) return null;
+
+  const rows = Array.isArray(output.results)
+    ? output.results
+        .map((item, idx) => ({
+          id: String(item?.id || idx + 1),
+          title: String(item?.title || "Untitled result"),
+          snippet: String(item?.snippet || ""),
+          url: String(item?.url || "").trim(),
+          source: item?.source ? String(item.source) : null,
+          publishedDate: item?.publishedDate
+            ? String(item.publishedDate)
+            : item?.datePublished
+              ? String(item.datePublished)
+              : null,
+        }))
+        .filter((item) => item.url)
+    : [];
+
+  const base = {
+    query: String(output?.query || ""),
+    triggeredBy: String(output?.triggeredBy || "explicit_language"),
+    provider: String(output?.provider || "langsearch"),
+    results: rows,
+    resultCount:
+      typeof output?.resultCount === "number" ? output.resultCount : rows.length,
+    message: null,
+    sources: rows.slice(0, 10).map((row) => ({
+      sourceType: "web",
+      reference: row.url,
+      note: row.source || row.title,
+    })),
+    timestamp: new Date().toISOString(),
+    status: String(output?.status || "complete"),
+    aiSummary: null,
+    source: "chat_tool",
+    requires_validation: true,
+  };
+
+  if (isMcpDeep) {
+    return {
+      type: "web_deep_search_results",
+      searchIntent: "DEEP_SEARCH",
+      queries: Array.isArray(output?.queries)
+        ? output.queries.map((q) => String(q))
+        : [String(output?.query || "")],
+      totalEstimatedMatches:
+        typeof output?.totalEstimatedMatches === "number"
+          ? output.totalEstimatedMatches
+          : rows.length,
+      reason: output?.reason ? String(output.reason) : null,
+      ...base,
+    };
+  }
+
+  return {
+    type: "web_search_results",
+    searchIntent: "WEB_SEARCH",
+    ...base,
+  };
+}
+
 router.post("/agent/run", async (req, res, next) => {
   const {
     message,
@@ -800,10 +935,44 @@ router.post("/agent/chat", async (req, res) => {
       signal: abortController.signal,
     });
 
-    emit("chunk", {
-      content: result.message,
-      timestamp: new Date().toISOString(),
-    });
+    const searchArtifact = Array.isArray(result?.toolExecutions)
+      ? result.toolExecutions
+          .filter((entry) => entry?.ok === true)
+          .map((entry) => normalizeChatSearchArtifact(entry))
+          .find((output) => Boolean(output)) || null
+      : null;
+
+    if (searchArtifact) {
+      const chatIntentMessage = await generateChatIntentFramingMessage(
+        message,
+        abortController.signal,
+      );
+      emit("intent", {
+        message: chatIntentMessage,
+        action: "CHATBOT_AGENT_MODE",
+        missingEntities: [],
+      });
+      emit("result", {
+        output: searchArtifact,
+        intent: "CHATBOT_AGENT_MODE",
+      });
+      const chatCommentaryMessage = await generateChatCommentaryMessage(
+        message,
+        result.message,
+        abortController.signal,
+      );
+      if (chatCommentaryMessage) {
+        emit("commentary", {
+          message: chatCommentaryMessage,
+          signals: [],
+        });
+      }
+    } else {
+      emit("chunk", {
+        content: result.message,
+        timestamp: new Date().toISOString(),
+      });
+    }
     emit("done", {
       timestamp: new Date().toISOString(),
       mode: "chatbot",

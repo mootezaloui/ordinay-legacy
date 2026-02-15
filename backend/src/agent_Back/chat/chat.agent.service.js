@@ -258,7 +258,16 @@ class ChatAgentService {
   }
 
   _selectToolsForMessage(userMessage, tools) {
-    const list = Array.isArray(tools) ? tools : [];
+    let list = Array.isArray(tools) ? tools : [];
+    const hasMcpWebSearch = list.some((tool) => tool.name === "mcpWebSearch");
+    const hasMcpDeepSearch = list.some((tool) => tool.name === "mcpDeepSearch");
+    const hasMcpLegalSearch = list.some((tool) => tool.name === "mcpLegalSearch");
+    if (hasMcpWebSearch) {
+      list = list.filter((tool) => tool.name !== "webSearch");
+    }
+    if (hasMcpDeepSearch || hasMcpLegalSearch) {
+      list = list.filter((tool) => tool.name !== "legalResearch");
+    }
     if (list.length <= 12) return list;
 
     const text = String(userMessage || "").toLowerCase();
@@ -286,6 +295,14 @@ class ChatAgentService {
       return filtered.slice(0, 12);
     }
 
+    const preferred = list.filter((tool) => {
+      const domain = TOOL_DOMAIN_MAP[tool.name] || "";
+      return domain === "web" || domain === "legal";
+    });
+    if (preferred.length > 0) {
+      const picked = [...preferred, ...list.filter((tool) => !preferred.includes(tool))];
+      return picked.slice(0, 12);
+    }
     return list.slice(0, 12);
   }
 
