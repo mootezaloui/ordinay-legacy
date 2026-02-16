@@ -70,7 +70,7 @@ function useContextSuggestions(): ContextSuggestion[] {
     // Suggest a specific client if available
     if (clients.length > 0) {
       const client = clients[0];
-      const name = client.name || client.reference || `#${client.id}`;
+      const name = client.name || client.reference || "selected client";
       suggestions.push({
         prompt: `Show client ${name}`,
         reason: `${clients.length} client${clients.length > 1 ? "s" : ""} available`,
@@ -83,7 +83,7 @@ function useContextSuggestions(): ContextSuggestion[] {
     );
     if (activeDossiers.length > 0) {
       const dossier = activeDossiers[0];
-      const ref = dossier.reference || dossier.title || `#${dossier.id}`;
+      const ref = dossier.reference || dossier.title || "selected dossier";
       suggestions.push({
         prompt: `Show dossier ${ref}`,
         reason: `${activeDossiers.length} active dossier${activeDossiers.length > 1 ? "s" : ""}`,
@@ -91,7 +91,7 @@ function useContextSuggestions(): ContextSuggestion[] {
     } else if (dossiers.length > 0) {
       // Fall back to any dossier
       const dossier = dossiers[0];
-      const ref = dossier.reference || dossier.title || `#${dossier.id}`;
+      const ref = dossier.reference || dossier.title || "selected dossier";
       suggestions.push({
         prompt: `Show dossier ${ref}`,
         reason: `${dossiers.length} dossier${dossiers.length > 1 ? "s" : ""} total`,

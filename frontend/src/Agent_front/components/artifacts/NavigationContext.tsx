@@ -51,7 +51,7 @@ export function NavigationContext({
             <ArrowUp className="w-3 h-3 text-[#60a5fa] group-hover:text-[#3b82f6]" />
             <span className="agent-nav-chip-type">{navigation.parentPath.type}</span>
             <span className="agent-nav-chip-ref">
-              {navigation.parentPath.reference || navigation.parentPath.name || navigation.parentPath.id}
+              {navigation.parentPath.reference || navigation.parentPath.name || navigation.parentPath.type}
             </span>
           </button>
         )}
@@ -61,7 +61,7 @@ export function NavigationContext({
             <ArrowUp className="w-3 h-3 text-slate-400" />
             <span className="agent-nav-chip-type">{navigation.parentPath.type}</span>
             <span className="agent-nav-chip-ref">
-              {navigation.parentPath.reference || navigation.parentPath.name || navigation.parentPath.id}
+              {navigation.parentPath.reference || navigation.parentPath.name || navigation.parentPath.type}
             </span>
           </span>
         )}

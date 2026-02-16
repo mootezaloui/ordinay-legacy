@@ -303,6 +303,33 @@ function streamTextAsChunks(text, onChunk) {
   }
 }
 
+function isClarificationStyleChat(text) {
+  const value = String(text || "").trim().toLowerCase();
+  if (!value) return false;
+  return (
+    /\b(please\s+(share|provide|specify)|exact\s+(entity|client|dossier|id)|which\s+one\s+do\s+you\s+mean)\b/i.test(
+      value,
+    ) ||
+    /\b(i need|we need)\b.*\b(id|identifier|clarif|clarification)\b/i.test(value)
+  );
+}
+
+function normalizeForRedundancy(text) {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isRedundantWithFinalResponse(commentaryText, finalResponse) {
+  const commentary = normalizeForRedundancy(commentaryText);
+  const finalText = normalizeForRedundancy(finalResponse);
+  if (!commentary || !finalText) return false;
+  if (commentary === finalText) return true;
+  return commentary.includes(finalText) || finalText.includes(commentary);
+}
+
 async function streamTextAsChunksWithPacing(
   text,
   onChunk,
@@ -897,6 +924,7 @@ router.post("/agent/chat", async (req, res) => {
     agentVersion,
     sessionId,
     metadata,
+    followUpIntent,
   } = req.body || {};
 
   const hasMessage =
@@ -943,6 +971,7 @@ router.post("/agent/chat", async (req, res) => {
     const result = await chatAgentService.run({
       message,
       context: requestContext,
+      followUpIntent,
       sessionId,
       agentVersion: agentVersion || "v3",
       metadata,
@@ -976,8 +1005,12 @@ router.post("/agent/chat", async (req, res) => {
       missingEntities: [],
     });
     for (const row of stepCommentaries) {
+      const stepMessage = String(row.message || "").trim();
+      if (!stepMessage) continue;
+      if (isClarificationStyleChat(result.message)) continue;
+      if (isRedundantWithFinalResponse(stepMessage, result.message)) continue;
       emit("commentary", {
-        message: String(row.message).trim(),
+        message: stepMessage,
         source: row.source || "llm",
         kind: row.kind || "tool_step",
         toolName: row.toolName || null,
@@ -986,21 +1019,48 @@ router.post("/agent/chat", async (req, res) => {
       });
     }
 
-    if (searchArtifact) {
+    if (result?.ambiguityArtifact) {
       emit("result", {
-        output: searchArtifact,
+        output: result.ambiguityArtifact,
         intent: "CHATBOT_AGENT_MODE",
       });
       const chatCommentaryMessage = await generateChatCommentaryMessage(
         message,
-        result.message,
+        String(result?.ambiguityArtifact?.message || result?.message || ""),
         abortController.signal,
       );
-      if (chatCommentaryMessage) {
+      if (
+        chatCommentaryMessage &&
+        !isRedundantWithFinalResponse(
+          chatCommentaryMessage,
+          String(result?.ambiguityArtifact?.message || result?.message || ""),
+        )
+      ) {
         emit("commentary", {
           message: chatCommentaryMessage,
           signals: [],
         });
+      }
+    } else if (searchArtifact) {
+      emit("result", {
+        output: searchArtifact,
+        intent: "CHATBOT_AGENT_MODE",
+      });
+      if (!isClarificationStyleChat(result.message)) {
+        const chatCommentaryMessage = await generateChatCommentaryMessage(
+          message,
+          result.message,
+          abortController.signal,
+        );
+        if (
+          chatCommentaryMessage &&
+          !isRedundantWithFinalResponse(chatCommentaryMessage, result.message)
+        ) {
+          emit("commentary", {
+            message: chatCommentaryMessage,
+            signals: [],
+          });
+        }
       }
     } else {
       await streamTextAsChunksWithPacing(
@@ -1014,16 +1074,21 @@ router.post("/agent/chat", async (req, res) => {
         },
         { delayMs: 14, shouldStop: () => aborted },
       );
-      const chatCommentaryMessage = await generateChatCommentaryMessage(
-        message,
-        result.message,
-        abortController.signal,
-      );
-      if (chatCommentaryMessage) {
-        emit("commentary", {
-          message: chatCommentaryMessage,
-          signals: [],
-        });
+      if (!isClarificationStyleChat(result.message)) {
+        const chatCommentaryMessage = await generateChatCommentaryMessage(
+          message,
+          result.message,
+          abortController.signal,
+        );
+        if (
+          chatCommentaryMessage &&
+          !isRedundantWithFinalResponse(chatCommentaryMessage, result.message)
+        ) {
+          emit("commentary", {
+            message: chatCommentaryMessage,
+            signals: [],
+          });
+        }
       }
     }
     emit("done", {

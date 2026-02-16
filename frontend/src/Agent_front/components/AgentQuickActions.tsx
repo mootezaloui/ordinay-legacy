@@ -98,7 +98,7 @@ function useDynamicSuggestions(): DynamicSuggestion[] {
       addSuggestion({
         id: `overdue-task-${mostOverdue.id}`,
         category: "Urgent",
-        prompt: `Show task "${mostOverdue.title || `#${mostOverdue.id}`}"`,
+        prompt: `Show task "${mostOverdue.title || "pending task"}"`,
         reason: `${overdueTasks.length} task${overdueTasks.length > 1 ? "s" : ""} past due date`,
         icon: AlertCircle,
         priority: 0,
@@ -118,7 +118,7 @@ function useDynamicSuggestions(): DynamicSuggestion[] {
           return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
         })[0];
 
-        const dossierRef = nearest.reference || nearest.title || `#${nearest.id}`;
+        const dossierRef = nearest.reference || nearest.title || "selected dossier";
         addSuggestion({
           id: `dossier-deadline-${nearest.id}`,
           category: "Deadline",
@@ -138,7 +138,7 @@ function useDynamicSuggestions(): DynamicSuggestion[] {
       const urgentDossier = highUrgencyDossiers[
         Math.floor(Math.random() * highUrgencyDossiers.length)
       ];
-      const dossierRef = urgentDossier.reference || urgentDossier.title || `#${urgentDossier.id}`;
+      const dossierRef = urgentDossier.reference || urgentDossier.title || "selected dossier";
 
       addSuggestion({
         id: `dossier-urgent-${urgentDossier.id}`,
@@ -165,7 +165,7 @@ function useDynamicSuggestions(): DynamicSuggestion[] {
         const topClient = clients.find((c) => c.id === topClientId);
 
         if (topClient) {
-          const clientName = topClient.name || topClient.reference || `#${topClient.id}`;
+          const clientName = topClient.name || topClient.reference || "selected client";
           const dossierCount = clientDossierCounts.get(topClientId) || 0;
 
           addSuggestion({
@@ -187,7 +187,7 @@ function useDynamicSuggestions(): DynamicSuggestion[] {
         const randomClient = availableClients[
           Math.floor(Math.random() * availableClients.length)
         ];
-        const clientName = randomClient.name || randomClient.reference || `#${randomClient.id}`;
+        const clientName = randomClient.name || randomClient.reference || "selected client";
 
         addSuggestion({
           id: `client-random-${randomClient.id}`,
@@ -209,7 +209,7 @@ function useDynamicSuggestions(): DynamicSuggestion[] {
         const randomDossier = availableDossiers[
           Math.floor(Math.random() * availableDossiers.length)
         ];
-        const dossierRef = randomDossier.reference || randomDossier.title || `#${randomDossier.id}`;
+        const dossierRef = randomDossier.reference || randomDossier.title || "selected dossier";
 
         addSuggestion({
           id: `dossier-random-${randomDossier.id}`,

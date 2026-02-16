@@ -83,6 +83,7 @@ export function decideCommentary(message: AgentMessage): CommentaryOutput | null
     "";
   if (!synthesizedMessage) return null;
   const normalizedMessage = synthesizedMessage.toLowerCase();
+  const normalizedContent = String(message.content || "").toLowerCase().trim();
 
   const explanation = message.data?.explanation;
   if (!explanation) {
@@ -94,6 +95,15 @@ export function decideCommentary(message: AgentMessage): CommentaryOutput | null
 
   if (REDUNDANT_PHRASES.some((phrase) => normalizedMessage.includes(phrase))) {
     return null;
+  }
+
+  // Suppress near-duplicate commentary for plain chat responses.
+  if (!explanation && normalizedContent) {
+    const a = normalizedMessage.replace(/[^a-z0-9\s]/g, " ").trim();
+    const b = normalizedContent.replace(/[^a-z0-9\s]/g, " ").trim();
+    if (a === b || a.includes(b) || b.includes(a)) {
+      return null;
+    }
   }
 
   if (

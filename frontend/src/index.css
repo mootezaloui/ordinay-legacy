@@ -4217,10 +4217,7 @@
   align-items: center;
   justify-content: space-between;
   height: 40px;
-  background: linear-gradient(to bottom,
-      rgba(255, 255, 255, 0.95) 0%,
-      rgba(248, 250, 252, 0.98) 100%);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: #f8fafc;
   position: fixed;
   top: 0;
   left: 0;
@@ -4228,15 +4225,10 @@
   z-index: 9999;
   -webkit-user-select: none;
   user-select: none;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
 }
 
 .dark .titlebar {
-  background: linear-gradient(to bottom,
-      rgba(17, 19, 24, 0.95) 0%,
-      rgba(17, 19, 24, 0.98) 100%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: #0f172a;
 }
 
 /* Left section */

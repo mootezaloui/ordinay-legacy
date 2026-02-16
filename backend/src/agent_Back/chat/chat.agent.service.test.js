@@ -28,6 +28,56 @@ function createEngine() {
   };
 
   registry.register({
+    name: "getEntityGraph",
+    category: TOOL_CATEGORIES.READ,
+    description: "Get deterministic entity graph",
+    inputSchema: {
+      type: "object",
+      properties: {
+        entityType: { type: "string" },
+        entityId: { type: "integer", minimum: 1 },
+        depth: { type: "integer" },
+        direction: { type: "string" },
+      },
+      required: ["entityType", "entityId"],
+      additionalProperties: true,
+    },
+    outputSchema: baseObjectOutputSchema,
+    reversibility: false,
+    sideEffects: false,
+    allowedAgentVersions: ["v3"],
+    handler: async (params) => ({
+      root: {
+        type: params.entityType,
+        id: params.entityId,
+        title: "Divorce Case",
+        status: "open",
+        priority: "high",
+        keyDates: { nextUpcoming: "2026-02-20T09:00:00.000Z" },
+      },
+      parents: {
+        client: { id: 7, name: "Youssef Daly" },
+      },
+      children: {
+        lawsuits: [{ id: 2, title: "Criminal Theft", status: "in_progress" }],
+        tasks: [{ id: 124, title: "Review contract", status: "todo" }],
+        missions: [],
+        sessions: [],
+        dossiers: [],
+      },
+      metrics: {
+        totalDossiers: 0,
+        totalLawsuits: 1,
+        totalTasks: 1,
+        totalMissions: 0,
+        totalSessions: 0,
+        overdueDeadlines: 1,
+        upcomingWithin7Days: 1,
+      },
+    }),
+  });
+
+  registry.register({
     name: "listTasks",
     category: TOOL_CATEGORIES.READ,
     description: "List tasks by status",
@@ -45,6 +95,107 @@ function createEngine() {
     handler: async (params) => ({
       items: [{ id: 1, status: params.status || "open" }, { id: 2, status: "open" }],
       count: 2,
+    }),
+  });
+
+  registry.register({
+    name: "listDossiers",
+    category: TOOL_CATEGORIES.READ,
+    description: "List dossiers",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string" },
+        limit: { type: "integer", minimum: 1 },
+      },
+      additionalProperties: false,
+    },
+    outputSchema: baseObjectOutputSchema,
+    reversibility: false,
+    sideEffects: false,
+    allowedAgentVersions: ["v3"],
+    handler: async (params) => {
+      const all = [
+        { id: 10, title: "Divorce Case", reference: "DOS-10" },
+        { id: 11, title: "Commercial Case", reference: "DOS-11" },
+      ];
+      if (!params?.query) return { dossiers: all };
+      const q = String(params.query).toLowerCase();
+      return {
+        dossiers: all.filter((d) => String(d.title).toLowerCase().includes(q)),
+      };
+    },
+  });
+
+  registry.register({
+    name: "listLawsuits",
+    category: TOOL_CATEGORIES.READ,
+    description: "List lawsuits",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string" },
+        limit: { type: "integer", minimum: 1 },
+      },
+      additionalProperties: false,
+    },
+    outputSchema: baseObjectOutputSchema,
+    reversibility: false,
+    sideEffects: false,
+    allowedAgentVersions: ["v3"],
+    handler: async () => ({
+      lawsuits: [
+        { id: 20, title: "Criminal Theft", reference: "LAW-20" },
+        { id: 21, title: "Administrative Dispute", reference: "LAW-21" },
+      ],
+    }),
+  });
+
+  registry.register({
+    name: "listSessions",
+    category: TOOL_CATEGORIES.READ,
+    description: "List sessions",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string" },
+        limit: { type: "integer", minimum: 1 },
+      },
+      additionalProperties: false,
+    },
+    outputSchema: baseObjectOutputSchema,
+    reversibility: false,
+    sideEffects: false,
+    allowedAgentVersions: ["v3"],
+    handler: async () => ({
+      sessions: [
+        { id: 30, title: "Initial Hearing" },
+        { id: 31, title: "Follow Up Hearing" },
+      ],
+    }),
+  });
+
+  registry.register({
+    name: "listMissions",
+    category: TOOL_CATEGORIES.READ,
+    description: "List missions",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string" },
+        limit: { type: "integer", minimum: 1 },
+      },
+      additionalProperties: false,
+    },
+    outputSchema: baseObjectOutputSchema,
+    reversibility: false,
+    sideEffects: false,
+    allowedAgentVersions: ["v3"],
+    handler: async () => ({
+      missions: [
+        { id: 40, title: "Mission One" },
+        { id: 41, title: "Mission Two" },
+      ],
     }),
   });
 
@@ -176,6 +327,84 @@ function createEngine() {
         success: true,
       });
       return { result, trace: { toolName } };
+    },
+    async _callReadTool(toolName, params, policy) {
+      const permission = this.toolFirewall.checkPermission({
+        toolName,
+        policy,
+        context: { ...params, confirmed: true, dataAccess: buildDataAccess() },
+        params,
+      });
+      if (!permission.permitted) {
+        const err = new Error(permission.message);
+        err.reason = permission.reason;
+        throw err;
+      }
+      const tool = this.toolRegistry.get(toolName);
+      return tool.handler(params || {});
+    },
+    async resolveEntity({ entityType, identifier, mode }) {
+      const text = String(identifier || "").toLowerCase();
+      if (entityType === "dossier" && mode === "id" && Number(identifier) === 10) {
+        return { found: true, entityId: 10, entity: { id: 10, title: "Divorce Case" } };
+      }
+      if (entityType === "task" && mode === "id" && Number(identifier) === 9) {
+        return { found: true, entityId: 9, entity: { id: 9, title: "Task 9" } };
+      }
+      if (entityType === "dossier" && text.includes("commercial")) {
+        return { found: true, entityId: 11, entity: { id: 11, title: "Commercial Case" } };
+      }
+      if (entityType === "dossier" && text.includes("case")) {
+        return {
+          found: false,
+          reason: "ambiguous",
+          candidates: [
+            { id: 10, name: "Divorce Case", score: 0.93 },
+            { id: 11, name: "Commercial Case", score: 0.91 },
+          ],
+        };
+      }
+      if (entityType === "lawsuit" && text.includes("case")) {
+        return {
+          found: false,
+          reason: "ambiguous",
+          candidates: [
+            { id: 20, name: "Criminal Theft", score: 0.92 },
+            { id: 21, name: "Administrative Dispute", score: 0.88 },
+          ],
+        };
+      }
+      if (entityType === "task" && text.includes("task")) {
+        return {
+          found: false,
+          reason: "ambiguous",
+          candidates: [
+            { id: 1, name: "Task A", score: 0.91 },
+            { id: 2, name: "Task B", score: 0.89 },
+          ],
+        };
+      }
+      if (entityType === "session" && text.includes("hearing")) {
+        return {
+          found: false,
+          reason: "ambiguous",
+          candidates: [
+            { id: 30, name: "Initial Hearing", score: 0.92 },
+            { id: 31, name: "Follow Up Hearing", score: 0.86 },
+          ],
+        };
+      }
+      if (entityType === "mission" && text.includes("mission")) {
+        return {
+          found: false,
+          reason: "ambiguous",
+          candidates: [
+            { id: 40, name: "Mission One", score: 0.92 },
+            { id: 41, name: "Mission Two", score: 0.90 },
+          ],
+        };
+      }
+      return { found: false, reason: "not_found" };
     },
     storeProposal(proposal) {
       storedProposals.push(proposal);
@@ -355,9 +584,12 @@ async function testMutationCreatesProposal() {
     },
   });
 
-  assert.strictEqual(result.toolExecutions.length, 1);
-  assert.strictEqual(result.toolExecutions[0].ok, true);
-  assert.strictEqual(result.toolExecutions[0].result.requiresConfirmation, true);
+  const mutationExecution = result.toolExecutions.find(
+    (entry) => entry.toolName === "universalMutation",
+  );
+  assert.ok(mutationExecution, "Expected universalMutation execution");
+  assert.strictEqual(mutationExecution.ok, true);
+  assert.strictEqual(mutationExecution.result.requiresConfirmation, true);
   assert.strictEqual(storedProposals.length, 1);
   assert.strictEqual(storedProposals[0].proposalId, "prop_9");
 }
@@ -451,12 +683,195 @@ async function testSchemaValidationFailure() {
   );
 }
 
+async function testAmbiguousDossierReturnsContextSuggestion() {
+  const { engine } = createEngine();
+  const service = new ChatAgentService({
+    engine,
+    llmClient: async () => ({ role: "assistant", content: "unused", tool_calls: [] }),
+  });
+  const result = await service.run({
+    message: "Show dossier case",
+    sessionId: "s_amb_dossier",
+    context: { posture: "WORK", dataAccess: buildDataAccess() },
+  });
+  assert.strictEqual(result.toolExecutions.length, 0);
+  assert.ok(result.ambiguityArtifact);
+  assert.strictEqual(result.ambiguityArtifact.type, "context_suggestion");
+  assert.ok(result.ambiguityArtifact.suggestions.length >= 2);
+}
+
+async function testMissingDraftTargetReturnsSuggestion() {
+  const { engine } = createEngine();
+  const service = new ChatAgentService({
+    engine,
+    llmClient: async () => ({ role: "assistant", content: "unused", tool_calls: [] }),
+  });
+  const result = await service.run({
+    message: "draft client email",
+    sessionId: "s_missing_draft",
+    context: { posture: "WORK", dataAccess: buildDataAccess() },
+  });
+  assert.ok(result.ambiguityArtifact);
+  assert.strictEqual(result.ambiguityArtifact.entityType, "client");
+}
+
+async function testAmbiguousExecuteReturnsSuggestion() {
+  const { engine } = createEngine();
+  const service = new ChatAgentService({
+    engine,
+    llmClient: async () => ({ role: "assistant", content: "unused", tool_calls: [] }),
+  });
+  const result = await service.run({
+    message: "update task task",
+    sessionId: "s_amb_exec",
+    context: { posture: "WORK", dataAccess: buildDataAccess() },
+  });
+  assert.ok(result.ambiguityArtifact);
+  assert.strictEqual(result.ambiguityArtifact.entityType, "task");
+}
+
+async function testResolvedEntityScopeContinuesToolCalls() {
+  const { engine } = createEngine();
+  const service = new ChatAgentService({
+    engine,
+    llmClient: createSequenceClient([
+      {
+        role: "assistant",
+        content: "",
+        tool_calls: [
+          {
+            id: "tc_1",
+            type: "function",
+            function: {
+              name: "listTasks",
+              arguments: JSON.stringify({ status: "open" }),
+            },
+          },
+        ],
+      },
+      { role: "assistant", content: "ok", tool_calls: [] },
+    ]),
+  });
+  const result = await service.run({
+    message: "show dossier commercial",
+    sessionId: "s_resolved_scope",
+    context: { posture: "WORK", dataAccess: buildDataAccess() },
+  });
+  assert.strictEqual(result.ambiguityArtifact, null);
+  assert.strictEqual(result.toolExecutions.length, 1);
+}
+
+async function testAmbiguousEntityVariants() {
+  const { engine } = createEngine();
+  const service = new ChatAgentService({
+    engine,
+    llmClient: async () => ({ role: "assistant", content: "unused", tool_calls: [] }),
+  });
+  const scenarios = [
+    { message: "show lawsuit case", expected: "lawsuit" },
+    { message: "show session hearing", expected: "session" },
+    { message: "show mission mission", expected: "mission" },
+  ];
+  for (const scenario of scenarios) {
+    const result = await service.run({
+      message: scenario.message,
+      sessionId: `s_var_${scenario.expected}`,
+      context: { posture: "WORK", dataAccess: buildDataAccess() },
+    });
+    assert.ok(result.ambiguityArtifact);
+    assert.strictEqual(result.ambiguityArtifact.entityType, scenario.expected);
+  }
+}
+
+async function testResolvedFollowUpSelectionSkipsAmbiguity() {
+  const { engine } = createEngine();
+  const service = new ChatAgentService({
+    engine,
+    llmClient: createSequenceClient([
+      {
+        role: "assistant",
+        content: "",
+        tool_calls: [
+          {
+            id: "tc_followup",
+            type: "function",
+            function: {
+              name: "listTasks",
+              arguments: JSON.stringify({ status: "open" }),
+            },
+          },
+        ],
+      },
+      { role: "assistant", content: "Focused on selected dossier.", tool_calls: [] },
+    ]),
+  });
+
+  const result = await service.run({
+    message: "Divorce Case",
+    followUpIntent: {
+      intent: "RESOLVE_CONTEXT_AND_CONTINUE",
+      originalIntent: "READ_DOSSIER",
+      originalMessage: "show dossier divorce case",
+      resolvedEntity: { type: "dossier", id: 10, label: "Divorce Case" },
+      scope: { dossierId: 10 },
+    },
+    sessionId: "s_followup_selected",
+    context: { posture: "WORK", dataAccess: buildDataAccess() },
+  });
+
+  assert.strictEqual(result.ambiguityArtifact, null);
+  assert.ok(result.toolExecutions.length >= 1);
+  assert.ok(
+    result.toolExecutions.some((entry) => entry.toolName === "listTasks"),
+  );
+  assert.strictEqual(result.resolutionMeta.chosenId, 10);
+}
+
+async function testResolvedSelectionForcesGroundedAnswerWhenLlmIsAmbiguous() {
+  const { engine } = createEngine();
+  const service = new ChatAgentService({
+    engine,
+    llmClient: createSequenceClient([
+      {
+        role: "assistant",
+        content: "I need the exact entity before I can continue.",
+        tool_calls: [],
+      },
+    ]),
+  });
+
+  const result = await service.run({
+    message: "Divorce Case",
+    followUpIntent: {
+      intent: "RESOLVE_CONTEXT_AND_CONTINUE",
+      originalIntent: "READ_DOSSIER",
+      originalMessage: "show dossier divorce case",
+      resolvedEntity: { type: "dossier", id: 10, label: "Divorce Case" },
+      scope: { dossierId: 10 },
+    },
+    sessionId: "s_followup_grounded",
+    context: { posture: "WORK", dataAccess: buildDataAccess() },
+  });
+
+  assert.strictEqual(result.ambiguityArtifact, null);
+  assert.match(result.message, /Divorce Case/i);
+  assert.match(result.message, /Client:\s+Youssef Daly/i);
+  assert.match(result.message, /Related:/i);
+}
+
 async function run() {
   await testReadToolUsage();
   await testMultiStepToolChaining();
   await testMutationCreatesProposal();
   await testDisabledToolNotAccessible();
   await testSchemaValidationFailure();
+  await testAmbiguousDossierReturnsContextSuggestion();
+  await testMissingDraftTargetReturnsSuggestion();
+  await testAmbiguousExecuteReturnsSuggestion();
+  await testResolvedEntityScopeContinuesToolCalls();
+  await testAmbiguousEntityVariants();
+  await testResolvedFollowUpSelectionSkipsAmbiguity();
+  await testResolvedSelectionForcesGroundedAnswerWhenLlmIsAmbiguous();
   console.log("chat.agent.service tests passed");
 }
 
@@ -464,4 +879,3 @@ run().catch((error) => {
   console.error(error);
   process.exit(1);
 });
-

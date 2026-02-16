@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   X,
+  Plus,
   Paperclip,
   Image,
   FileText,
@@ -99,7 +100,9 @@ export function AgentInput({
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [showDocumentPicker, setShowDocumentPicker] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
-  const [searchModeArmed, setSearchModeArmed] = useState<"web" | "deep" | null>(null);
+  const [searchModeArmed, setSearchModeArmed] = useState<"web" | "deep" | null>(
+    null,
+  );
   const [documentSearch, setDocumentSearch] = useState("");
   const [systemDocuments, setSystemDocuments] = useState<SystemDocument[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
@@ -108,6 +111,14 @@ export function AgentInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const attachmentIdRef = useRef(0);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 200) + "px";
+  }, [input, inputRef]);
 
   const getNextAttachmentId = useCallback(() => {
     attachmentIdRef.current += 1;
@@ -211,6 +222,21 @@ export function AgentInput({
     };
   }, [input, searchModeArmed]);
 
+  const handleSendMessage = useCallback(
+    (e: React.SyntheticEvent) => {
+      const currentAttachments = [...attachedFiles];
+      const metadata = buildWebSearchMetadata();
+      setAttachedFiles([]);
+      setSearchModeArmed(null);
+      onSubmit(
+        e,
+        currentAttachments.length > 0 ? currentAttachments : undefined,
+        metadata,
+      );
+    },
+    [attachedFiles, buildWebSearchMetadata, onSubmit],
+  );
+
   const handleKeyDownWithCommands = useCallback(
     (e: React.KeyboardEvent) => {
       if (showDropdown && filteredCommands.length > 0) {
@@ -240,15 +266,7 @@ export function AgentInput({
       // Intercept Enter key to include attachments in submit
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        const currentAttachments = [...attachedFiles];
-        const metadata = buildWebSearchMetadata();
-        setAttachedFiles([]);
-        setSearchModeArmed(null);
-        onSubmit(
-          e,
-          currentAttachments.length > 0 ? currentAttachments : undefined,
-          metadata,
-        );
+        handleSendMessage(e);
         return;
       }
       onKeyDown(e);
@@ -259,9 +277,7 @@ export function AgentInput({
       selectedIndex,
       selectCommand,
       onKeyDown,
-      attachedFiles,
-      buildWebSearchMetadata,
-      onSubmit,
+      handleSendMessage,
     ],
   );
 
@@ -381,8 +397,8 @@ export function AgentInput({
   };
 
   return (
-    <div className="w-full border-t border-black/[0.04] dark:border-white/[0.04] bg-[#f1f5f9] dark:bg-[#0f172a] backdrop-blur">
-      <div className="max-w-[52rem] mx-auto px-4 py-3 sm:px-8 sm:py-4">
+    <div className="w-full bg-[#e2e8f0] dark:bg-[#0f172a]">
+      <div className="max-w-[52rem] mx-auto px-4 pb-3 pt-2 sm:px-6">
         {context && (
           <div className="mb-3 flex items-center gap-2">
             <span className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 dark:bg-[#0f172a]/60 border border-black/[0.06] dark:border-white/[0.06] rounded-full text-sm font-medium text-slate-700 dark:text-slate-300 shadow-sm">
@@ -396,7 +412,7 @@ export function AgentInput({
         )}
 
         <div>
-          <div className="relative bg-white dark:bg-[#020617] rounded-2xl shadow-[0_1px_4px_rgba(0,0,0,0.06)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.15)] border border-black/[0.06] dark:border-white/[0.06] focus-within:border-[#60a5fa]/40 focus-within:ring-2 focus-within:ring-[#60a5fa]/10 transition-all">
+          <div className="relative bg-white/60 dark:bg-[#020617] rounded-xl border border-black/[0.04] dark:border-white/[0.08] focus-within:border-[#60a5fa]/30 focus-within:ring-1 focus-within:ring-[#60a5fa]/10 transition-all">
             {showDropdown && (
               <div className="absolute bottom-full left-0 right-0 mb-3 bg-white/95 dark:bg-[#1e293b]/95 border border-black/[0.06] dark:border-white/[0.06] rounded-2xl shadow-xl max-h-80 overflow-y-auto z-50">
                 <div className="p-2">
@@ -441,7 +457,7 @@ export function AgentInput({
               >
                 <div className="p-2">
                   <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-3 py-2 uppercase tracking-[0.2em] bg-black/[0.02] dark:bg-white/[0.03] rounded-xl mb-1">
-                    Add Attachment
+                    Attachments
                   </div>
                   <button
                     type="button"
@@ -487,6 +503,109 @@ export function AgentInput({
                         JPG, PNG, GIF, etc.
                       </div>
                     </div>
+                  </button>
+
+                  <div className="my-1 mx-3 border-t border-black/[0.04] dark:border-white/[0.04]" />
+
+                  <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-3 py-2 uppercase tracking-[0.2em] bg-black/[0.02] dark:bg-white/[0.03] rounded-xl mb-1">
+                    Tools
+                  </div>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setShowAttachMenu(false);
+                      handleSlashClick();
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-black/[0.03] dark:hover:bg-white/[0.04] transition-all group"
+                  >
+                    <div className="w-10 h-10 flex items-center justify-center bg-black/[0.04] dark:bg-white/[0.06] text-slate-600 dark:text-slate-300 rounded-xl group-hover:scale-105 transition-transform text-lg font-mono font-bold">
+                      /
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-semibold">Commands</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                        Slash commands
+                      </div>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isStreaming}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      if (isStreaming) return;
+                      setSearchModeArmed((prev) =>
+                        prev === "web" ? null : "web",
+                      );
+                      setShowAttachMenu(false);
+                      inputRef.current?.focus();
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-black/[0.03] dark:hover:bg-white/[0.04] transition-all group ${
+                      searchModeArmed === "web"
+                        ? "text-blue-600 dark:text-blue-400"
+                        : "text-slate-700 dark:text-slate-300"
+                    }`}
+                  >
+                    <div
+                      className={`w-10 h-10 flex items-center justify-center rounded-xl group-hover:scale-105 transition-transform ${
+                        searchModeArmed === "web"
+                          ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                          : "bg-black/[0.04] dark:bg-white/[0.06] text-slate-600 dark:text-slate-300"
+                      }`}
+                    >
+                      <Globe className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-semibold">Web Search</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                        {searchModeArmed === "web"
+                          ? "Active — click to disable"
+                          : "Search the web"}
+                      </div>
+                    </div>
+                    {searchModeArmed === "web" && (
+                      <Check className="w-4 h-4 text-blue-500" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isStreaming}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      if (isStreaming) return;
+                      setSearchModeArmed((prev) =>
+                        prev === "deep" ? null : "deep",
+                      );
+                      setShowAttachMenu(false);
+                      inputRef.current?.focus();
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-black/[0.03] dark:hover:bg-white/[0.04] transition-all group ${
+                      searchModeArmed === "deep"
+                        ? "text-blue-600 dark:text-blue-400"
+                        : "text-slate-700 dark:text-slate-300"
+                    }`}
+                  >
+                    <div
+                      className={`w-10 h-10 flex items-center justify-center rounded-xl group-hover:scale-105 transition-transform ${
+                        searchModeArmed === "deep"
+                          ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                          : "bg-black/[0.04] dark:bg-white/[0.06] text-slate-600 dark:text-slate-300"
+                      }`}
+                    >
+                      <Search className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-semibold">Deep Search</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                        {searchModeArmed === "deep"
+                          ? "Active — click to disable"
+                          : "Thorough web research"}
+                      </div>
+                    </div>
+                    {searchModeArmed === "deep" && (
+                      <Check className="w-4 h-4 text-blue-500" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -659,89 +778,28 @@ export function AgentInput({
               </div>
             )}
 
-            <div className="flex items-start gap-2 p-3">
-              <div className="flex items-center gap-1 pt-2">
+            <div className="flex items-center gap-2 px-3 py-2">
+              <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onMouseDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    // Close command menu when opening attachment menu
-                    if (!showAttachMenu) {
-                      setManualDropdownOpen(false);
-                    }
+                    setManualDropdownOpen(false);
                     setShowAttachMenu(!showAttachMenu);
-                    // Refocus textarea to prevent blur from closing the menu
                     setTimeout(() => inputRef.current?.focus(), 0);
                   }}
-                  title="Add attachment"
-                  className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all ${
+                  title="Tools & attachments"
+                  aria-label="Tools and attachments"
+                  className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${
                     showAttachMenu
-                      ? "bg-[#0f172a] text-white dark:bg-[#f1f5f9] dark:text-[#0f172a] shadow-sm"
-                      : "bg-black/[0.04] dark:bg-white/[0.05] text-slate-500 dark:text-slate-400 hover:bg-black/[0.07] dark:hover:bg-white/[0.08]"
+                      ? "bg-[#0f172a] text-white dark:bg-[#f1f5f9] dark:text-[#0f172a] rotate-45"
+                      : searchModeArmed
+                        ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
+                        : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
                   }`}
                 >
-                  <Paperclip className="w-4 h-4" />
-                </button>
-
-                <button
-                  type="button"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    handleSlashClick();
-                  }}
-                  title="Show commands"
-                  className={`w-9 h-9 flex items-center justify-center rounded-xl text-lg font-mono font-bold transition-all ${
-                    showDropdown
-                      ? "bg-[#0f172a] text-white dark:bg-[#f1f5f9] dark:text-[#0f172a] shadow-sm"
-                      : "bg-black/[0.04] dark:bg-white/[0.05] text-slate-500 dark:text-slate-400 hover:bg-black/[0.07] dark:hover:bg-white/[0.08]"
-                  }`}
-                >
-                  /
-                </button>
-
-                <button
-                  type="button"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    if (isStreaming) return;
-                    setSearchModeArmed((prev) => (prev === "web" ? null : "web"));
-                  }}
-                  title={
-                    searchModeArmed === "web"
-                      ? "Disable Web Search for next message"
-                      : "Enable Web Search for next message"
-                  }
-                  disabled={isStreaming}
-                  className={`w-9 h-9 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed rounded-xl transition-all ${
-                    searchModeArmed === "web"
-                      ? "bg-[#3b82f6] text-white dark:bg-[#60a5fa] dark:text-[#020617] shadow-sm"
-                      : "bg-black/[0.04] dark:bg-white/[0.05] text-slate-500 dark:text-slate-400 hover:bg-black/[0.07] dark:hover:bg-white/[0.08]"
-                  }`}
-                >
-                  <Globe className="w-4 h-4" />
-                </button>
-
-                <button
-                  type="button"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    if (isStreaming) return;
-                    setSearchModeArmed((prev) => (prev === "deep" ? null : "deep"));
-                  }}
-                  title={
-                    searchModeArmed === "deep"
-                      ? "Disable Deep Search for next message"
-                      : "Enable Deep Search for next message"
-                  }
-                  disabled={isStreaming}
-                  className={`w-9 h-9 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed rounded-xl transition-all ${
-                    searchModeArmed === "deep"
-                      ? "bg-[#2563eb] text-white dark:bg-[#60a5fa] dark:text-[#020617] shadow-sm"
-                      : "bg-black/[0.04] dark:bg-white/[0.05] text-slate-500 dark:text-slate-400 hover:bg-black/[0.07] dark:hover:bg-white/[0.08]"
-                  }`}
-                >
-                  <Search className="w-4 h-4" />
+                  <Plus className="w-4.5 h-4.5" />
                 </button>
               </div>
 
@@ -764,18 +822,19 @@ export function AgentInput({
                     }
                   }, 150);
                 }}
-                rows={3}
+                rows={1}
                 placeholder="Ask Ordinay anything about your lawsuits, clients, tasks, or request reports and analysis..."
-                className="flex-1 resize-none bg-transparent px-2 py-2 text-[15px] leading-relaxed text-[#0f172a] dark:text-[#f1f5f9] placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
+                className="flex-1 resize-none bg-transparent px-2 py-0 text-[14px] leading-8 text-[#0f172a] dark:text-[#f1f5f9] placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none overflow-y-auto"
               />
 
-              <div className="flex items-center gap-1 pt-2">
+              <div className="flex items-center gap-1">
                 {input.trim() && !isStreaming && (
                   <button
                     type="button"
                     onClick={onClear}
                     title="Clear input"
-                    className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 dark:text-slate-500 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:text-slate-600 dark:hover:text-slate-400 transition-all"
+                    aria-label="Clear input"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:text-slate-600 dark:hover:text-slate-400 transition-all"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -786,31 +845,22 @@ export function AgentInput({
                     type="button"
                     onClick={onStopGeneration}
                     title="Stop generation"
-                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold rounded-xl transition-all shadow-sm flex items-center gap-2"
+                    aria-label="Stop generation"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-slate-700 dark:hover:bg-slate-300 transition-all"
                   >
-                    <div className="w-3 h-3 bg-white rounded-sm" />
-                    Stop
+                    <div className="w-3 h-3 bg-current rounded-sm" />
                   </button>
                 ) : (
                   <button
                     type="button"
                     onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
                       event.preventDefault();
-                      const currentAttachments = [...attachedFiles];
-                      const metadata = buildWebSearchMetadata();
-                      // Clear attachments immediately to prevent them sticking
-                      setAttachedFiles([]);
-                      setSearchModeArmed(null);
-                      onSubmit(
-                        event,
-                        currentAttachments.length > 0
-                          ? currentAttachments
-                          : undefined,
-                        metadata,
-                      );
+                      handleSendMessage(event);
                     }}
                     disabled={!input.trim() && attachedFiles.length === 0}
-                    className="px-5 py-2 bg-[#0f172a] text-white dark:bg-[#f1f5f9] dark:text-[#0f172a] text-sm font-semibold rounded-xl hover:bg-[#1e293b] dark:hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm flex items-center gap-2"
+                    title="Send message"
+                    aria-label="Send message"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#0f172a] text-white dark:bg-[#f1f5f9] dark:text-[#0f172a] hover:bg-[#1e293b] dark:hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                   >
                     <svg
                       className="w-4 h-4"
@@ -822,10 +872,9 @@ export function AgentInput({
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2.5}
-                        d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                        d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18"
                       />
                     </svg>
-                    Send
                   </button>
                 )}
               </div>
@@ -833,30 +882,30 @@ export function AgentInput({
           </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-slate-400 dark:text-slate-500">
-          <span className="flex items-center gap-1.5">
-            <kbd className="px-2 py-1 bg-white/80 dark:bg-white/[0.06] rounded-full text-slate-500 dark:text-slate-400 font-mono font-semibold shadow-sm border border-black/[0.06] dark:border-white/[0.06]">
+        <div className="mt-2 flex items-center justify-center gap-x-3 text-[11px] text-slate-400/80 dark:text-slate-500/80">
+          <span>
+            <kbd className="font-mono text-slate-500 dark:text-slate-400">
               Enter
-            </kbd>
+            </kbd>{" "}
             to send
           </span>
           <span className="hidden sm:inline text-slate-300 dark:text-slate-600">
-            •
+            ·
           </span>
-          <span className="flex items-center gap-1.5">
-            <kbd className="px-2 py-1 bg-white/80 dark:bg-white/[0.06] rounded-full text-slate-500 dark:text-slate-400 font-mono font-semibold shadow-sm border border-black/[0.06] dark:border-white/[0.06]">
+          <span className="hidden sm:inline">
+            <kbd className="font-mono text-slate-500 dark:text-slate-400">
               Shift+Enter
-            </kbd>
-            for new line
+            </kbd>{" "}
+            new line
           </span>
           <span className="hidden sm:inline text-slate-300 dark:text-slate-600">
-            •
+            ·
           </span>
-          <span className="flex items-center gap-1.5">
-            <kbd className="px-2 py-1 bg-white/80 dark:bg-white/[0.06] rounded-full text-slate-500 dark:text-slate-400 font-mono font-semibold shadow-sm border border-black/[0.06] dark:border-white/[0.06]">
+          <span className="hidden sm:inline">
+            <kbd className="font-mono text-slate-500 dark:text-slate-400">
               /
-            </kbd>
-            for commands
+            </kbd>{" "}
+            commands
           </span>
         </div>
       </div>

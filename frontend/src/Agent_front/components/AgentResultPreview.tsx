@@ -152,7 +152,7 @@ function useDynamicCapabilities(): DynamicCapability[] {
     // Dossier summaries
     if (activeDossiers.length > 0) {
       const dossier = activeDossiers[0];
-      const ref = dossier.reference || dossier.title || `#${dossier.id}`;
+      const ref = dossier.reference || dossier.title || "selected dossier";
       reportExamples.push({
         prompt: `Summarize dossier ${ref}`,
         reason: "Get case overview",
@@ -162,7 +162,7 @@ function useDynamicCapabilities(): DynamicCapability[] {
     // Client summaries
     if (clients.length > 0) {
       const client = clients[0];
-      const name = client.name || client.reference || `#${client.id}`;
+      const name = client.name || client.reference || "selected client";
       reportExamples.push({
         prompt: `Show client ${name}`,
         reason: "View client details",

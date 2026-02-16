@@ -96,6 +96,48 @@ async function testChatHttpSuccess() {
   }
 }
 
+async function testChatHttpFollowUpIntentForwarding() {
+  let captured = null;
+  agentRouter.__setChatAgentServiceForTests({
+    async run(payload) {
+      captured = payload;
+      return {
+        message: "Follow-up handled",
+        toolExecutions: [],
+      };
+    },
+  });
+
+  const { server, baseUrl } = await startServer();
+  try {
+    const response = await fetch(`${baseUrl}/agent/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: "selected dossier",
+        sessionId: "sess-http-followup",
+        followUpIntent: {
+          intent: "RESOLVE_CONTEXT_AND_CONTINUE",
+          originalIntent: "READ_DOSSIER",
+          resolvedEntity: { type: "dossier", id: 10, label: "Divorce Case" },
+          scope: { dossierId: 10 },
+        },
+      }),
+    });
+
+    assert.strictEqual(response.status, 200);
+    await readSse(response);
+    assert(captured);
+    assert.strictEqual(
+      captured.followUpIntent?.intent,
+      "RESOLVE_CONTEXT_AND_CONTINUE",
+    );
+    assert.strictEqual(captured.followUpIntent?.scope?.dossierId, 10);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+}
+
 async function testChatHttpValidationError() {
   const { server, baseUrl } = await startServer();
   try {
@@ -147,10 +189,83 @@ async function testChatHttpServiceError() {
   }
 }
 
+async function testChatHttpAmbiguityArtifact() {
+  agentRouter.__setChatAgentServiceForTests({
+    async run() {
+      return {
+        message: "I found multiple dossiers. Please choose one.",
+        toolExecutions: [],
+        ambiguityArtifact: {
+          type: "context_suggestion",
+          message: "I found multiple dossiers. Please choose one.",
+          entityType: "dossier",
+          reason: "multiple_matches",
+          originalIntent: "READ_DOSSIER",
+          originalMessage: "show dossier case",
+          suggestions: [
+            {
+              id: "dossier-10-0",
+              entityType: "dossier",
+              entityId: 10,
+              label: "Divorce Case",
+              subtitle: "DOS-10",
+              metadata: { score: 0.93, signal: "match 93%" },
+              intent: "RESOLVE_CONTEXT_AND_CONTINUE",
+              scope: { dossierId: 10 },
+            },
+            {
+              id: "dossier-11-1",
+              entityType: "dossier",
+              entityId: 11,
+              label: "Commercial Case",
+              subtitle: "DOS-11",
+              metadata: { score: 0.91, signal: "match 91%" },
+              intent: "RESOLVE_CONTEXT_AND_CONTINUE",
+              scope: { dossierId: 11 },
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          source: "rule-based",
+          allowManualInput: true,
+          manualInputHint: "Provide dossier ID if not listed.",
+        },
+      };
+    },
+  });
+
+  const { server, baseUrl } = await startServer();
+  try {
+    const response = await fetch(`${baseUrl}/agent/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: "show dossier case",
+        sessionId: "sess-http-amb",
+      }),
+    });
+
+    assert.strictEqual(response.status, 200);
+    const frames = await readSse(response);
+    assert(frames.some((f) => f.event === "start"));
+    const resultFrame = frames.find((f) => f.event === "result");
+    assert(resultFrame);
+    assert.strictEqual(resultFrame.data?.output?.type, "context_suggestion");
+    assert(frames.some((f) => f.event === "done"));
+    assert.strictEqual(
+      frames.some((f) => f.event === "chunk"),
+      false,
+    );
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+}
+
 async function run() {
   await testChatHttpSuccess();
+  await testChatHttpFollowUpIntentForwarding();
   await testChatHttpValidationError();
   await testChatHttpServiceError();
+  await testChatHttpAmbiguityArtifact();
   console.log("chat.route.http tests passed");
 }
 

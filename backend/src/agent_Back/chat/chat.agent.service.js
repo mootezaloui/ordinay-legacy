@@ -4,6 +4,7 @@ const { TOOL_DOMAIN_MAP } = require("../tools/tool.firewall");
 const { generateToolCallingTurn, generateChatResponse } = require("../llm.client");
 const { resolveInteractionPosture, POSTURES } = require("../posture.resolver");
 const { filterToolsForChat } = require("./chat.tool.exposure");
+const { resolveChatAmbiguity } = require("./chat.ambiguity.resolver");
 
 const MAX_TOOL_ROUNDS = Math.max(
   1,
@@ -41,6 +42,7 @@ class ChatAgentService {
   async run({
     message,
     context = {},
+    followUpIntent = null,
     sessionId,
     agentVersion = "v3",
     metadata = {},
@@ -55,6 +57,13 @@ class ChatAgentService {
       throw error;
     }
 
+    const resolvedSelection = this._extractResolvedSelection(followUpIntent);
+    const effectiveUserMessage = resolvedSelection
+      ? String(
+          `show ${resolvedSelection.entityType} ${resolvedSelection.label || resolvedSelection.entityId}`,
+        ).trim()
+      : String(followUpIntent?.originalMessage || userMessage).trim() || userMessage;
+
     const policy = this.engine._resolvePolicy(agentVersion);
     const requestContext = {
       ...(context || {}),
@@ -65,12 +74,21 @@ class ChatAgentService {
       requestMetadata:
         metadata && typeof metadata === "object" ? { ...metadata } : undefined,
     };
+    if (resolvedSelection) {
+      Object.assign(requestContext, resolvedSelection.scope);
+      requestContext.resolvedEntity = {
+        type: resolvedSelection.entityType,
+        id: resolvedSelection.entityId,
+        label: resolvedSelection.label,
+      };
+      requestContext._resolvedFromSuggestion = true;
+    }
     const llmHistory =
       typeof this.engine.contextStore?.getContextForLLMInjection === "function"
         ? this.engine.contextStore.getContextForLLMInjection(requestContext)
         : {};
     const posture = await this._resolvePosture({
-      message: userMessage,
+      message: effectiveUserMessage,
       context: requestContext,
       llmHistory,
     });
@@ -88,19 +106,95 @@ class ChatAgentService {
 
     const allExposedTools = this._buildExposedTools(policy, executionContext);
     const exposedTools = this._selectToolsForMessage(
-      userMessage,
+      effectiveUserMessage,
       allExposedTools,
     );
+    const ambiguityResolution = resolvedSelection
+      ? {
+          status: "resolved",
+          resolvedScope: resolvedSelection.scope,
+          resolutionMeta: {
+            status: "resolved",
+            entityType: resolvedSelection.entityType,
+            candidatesCount: 1,
+            autoPicked: false,
+            chosenId: resolvedSelection.entityId,
+          },
+        }
+      : await resolveChatAmbiguity({
+          engine: this.engine,
+          message: effectiveUserMessage,
+          policy,
+          executionContext,
+          exposedTools,
+        });
+
+    if (ambiguityResolution?.status === "resolved" && ambiguityResolution?.resolvedScope) {
+      Object.assign(executionContext, ambiguityResolution.resolvedScope);
+      Object.assign(requestContext, ambiguityResolution.resolvedScope);
+    }
+
+    if (
+      ["ambiguous", "missing", "not_found"].includes(
+        String(ambiguityResolution?.status || ""),
+      ) &&
+      ambiguityResolution?.suggestionArtifact
+    ) {
+      const finalMessage =
+        String(ambiguityResolution.suggestionArtifact?.message || "").trim() ||
+        "I need one more detail to continue.";
+      this._recordTranscript({
+        requestContext,
+        userMessage,
+        finalMessage,
+        posture,
+        toolExecutions: [],
+        artifactType: "context_suggestion",
+        artifact: ambiguityResolution.suggestionArtifact,
+      });
+      this.engine.ledger.record({
+        type: "chat_mode_ambiguity_resolved",
+        status: ambiguityResolution.status,
+        entityType: ambiguityResolution?.resolutionMeta?.entityType || null,
+        candidatesCount:
+          ambiguityResolution?.resolutionMeta?.candidatesCount || 0,
+        autoPicked: Boolean(ambiguityResolution?.resolutionMeta?.autoPicked),
+        timestamp: new Date().toISOString(),
+      });
+      return {
+        message: finalMessage,
+        agentVersion: policy.version,
+        posture,
+        toolExecutions: [],
+        stepCommentaries: [],
+        rounds: 0,
+        ambiguityArtifact: ambiguityResolution.suggestionArtifact,
+        resolutionMeta: ambiguityResolution.resolutionMeta || null,
+        availableTools: exposedTools.map((tool) => ({
+          name: tool.name,
+          category: tool.category,
+        })),
+      };
+    }
+
     const messages = this._buildModelMessages({
-      userMessage,
+      userMessage: effectiveUserMessage,
       llmHistory,
       posture,
       requestContext,
       exposedTools,
     });
+    if (resolvedSelection) {
+      messages.push({
+        role: "system",
+        content:
+          `Resolved user selection: ${resolvedSelection.label || resolvedSelection.entityType}. ` +
+          "Do not ask the user to choose again. Focus only on this selected entity.",
+      });
+    }
     const toolExecutions = [];
     const deterministicGrounding = await this._runDeterministicGrounding({
-      userMessage,
+      userMessage: effectiveUserMessage,
       exposedTools,
       policy,
       executionContext,
@@ -162,6 +256,7 @@ class ChatAgentService {
         if (TOOL_STEP_COMMENTARY_ENABLED) {
           const toolStepCommentary = await this._generateToolStepCommentary({
             userMessage,
+            effectiveUserMessage,
             execution,
             stepIndex: toolExecutions.length,
           });
@@ -188,15 +283,20 @@ class ChatAgentService {
         "I completed the available tool calls but could not produce a final response.";
     }
     finalMessage = this._applyGroundingSafety({
-      userMessage,
+      userMessage: effectiveUserMessage,
       finalMessage,
       deterministicGrounding,
       toolExecutions,
     });
+    finalMessage = this._enforceResolvedSelectionAnswer({
+      finalMessage,
+      resolvedSelection,
+      deterministicGrounding,
+    });
 
     this._recordTranscript({
       requestContext,
-      userMessage,
+      userMessage: effectiveUserMessage,
       finalMessage,
       posture,
       toolExecutions,
@@ -219,6 +319,8 @@ class ChatAgentService {
       toolExecutions,
       stepCommentaries,
       rounds,
+      ambiguityArtifact: null,
+      resolutionMeta: ambiguityResolution?.resolutionMeta || null,
       availableTools: exposedTools.map((tool) => ({
         name: tool.name,
         category: tool.category,
@@ -263,6 +365,7 @@ class ChatAgentService {
         "You are the planner and tool caller.",
         "Use only exposed tools when needed; do not invent tools.",
         "Validate facts with tool results before answering.",
+        "Never expose internal numeric IDs in user-facing text. Use names, titles, and references.",
         "For entity-specific legal work, call getEntityGraph first to ground parent/child context before synthesis.",
         "For execute operations, call universalMutation to create proposals. Never claim execution happened.",
         "If a requested capability is unavailable, explain constraint briefly.",
@@ -530,6 +633,8 @@ class ChatAgentService {
     finalMessage,
     posture,
     toolExecutions,
+    artifactType = "chat",
+    artifact = null,
   }) {
     const conversationId = requestContext.conversationId;
     const userId = requestContext.userId || "default";
@@ -543,12 +648,15 @@ class ChatAgentService {
         userMessage,
         agentIntent: "CHATBOT_AGENT_MODE",
         agentOutput: {
-          type: "chat",
+          type: artifactType === "context_suggestion" ? "context_suggestion" : "chat",
           message: finalMessage,
           posture,
           toolCalls: toolExecutions.length,
+          ...(artifactType === "context_suggestion" && artifact
+            ? { suggestion: artifact }
+            : {}),
         },
-        artifactType: "chat",
+        artifactType,
       });
     }
 
@@ -585,10 +693,82 @@ class ChatAgentService {
     }
 
     if (deterministicGrounding && deterministicGrounding.reason === "entity_ambiguous") {
-      return "I need the exact entity before I can give grounded advice. Please share the client ID (or exact dossier/lawsuit/task/mission ID).";
+      return "I need the exact entity before I can give grounded advice. Please share the client name or the dossier/lawsuit/task/mission reference.";
     }
 
-    return "I could not load grounded entity data for this request. Please provide the exact entity ID (for example: client #12), then I can give a precise priority plan.";
+    return "I could not load grounded entity data for this request. Please provide the exact client name or dossier/lawsuit reference, then I can give a precise priority plan.";
+  }
+
+  _enforceResolvedSelectionAnswer({
+    finalMessage,
+    resolvedSelection,
+    deterministicGrounding,
+  }) {
+    const base = String(finalMessage || "").trim();
+    if (!resolvedSelection) return base;
+
+    const looksUnresolved =
+      !base ||
+      /\b(which one|exact entity|provide .*reference|share .*reference|could not load grounded)\b/i.test(
+        base,
+      );
+    if (!looksUnresolved) return base;
+
+    const snapshot = deterministicGrounding?.snapshot;
+    if (!snapshot || typeof snapshot !== "object") {
+      return "I have your selection. I can now show the full record details for this item.";
+    }
+    return this._buildEntityGraphResponse(snapshot);
+  }
+
+  _buildEntityGraphResponse(snapshot) {
+    const root = snapshot?.root || {};
+    const display = root?.title || root?.name || "Selected record";
+    const lines = [];
+    lines.push(`${display}`);
+    lines.push(`Type: ${root?.type || "entity"}`);
+    if (root?.status) lines.push(`Status: ${root.status}`);
+    if (root?.priority) lines.push(`Priority: ${root.priority}`);
+    if (root?.keyDates?.nextUpcoming) {
+      lines.push(`Next date: ${String(root.keyDates.nextUpcoming).slice(0, 10)}`);
+    }
+    const parents = snapshot?.parents || {};
+    if (parents?.client?.name || parents?.client?.title) {
+      lines.push(`Client: ${parents.client.name || parents.client.title}`);
+    }
+    const metrics = snapshot?.metrics || {};
+    lines.push(
+      `Related: ${metrics.totalDossiers || 0} dossiers, ${metrics.totalLawsuits || 0} lawsuits, ${metrics.totalTasks || 0} tasks, ${metrics.totalMissions || 0} missions, ${metrics.totalSessions || 0} sessions`,
+    );
+    if (Number(metrics.overdueDeadlines || 0) > 0) {
+      lines.push(`Overdue deadlines: ${metrics.overdueDeadlines}`);
+    }
+    if (Number(metrics.upcomingWithin7Days || 0) > 0) {
+      lines.push(`Upcoming within 7 days: ${metrics.upcomingWithin7Days}`);
+    }
+
+    const children = snapshot?.children || {};
+    const renderTop = (key, label) => {
+      const rows = Array.isArray(children[key]) ? children[key] : [];
+      if (!rows.length) return;
+      const preview = rows
+        .slice(0, 3)
+        .map((row) => {
+          const name = row?.title || row?.name || label;
+          const status = row?.status ? ` (${row.status})` : "";
+          return `- ${name}${status}`;
+        })
+        .join("\n");
+      lines.push(`${label}:`);
+      lines.push(preview);
+    };
+    renderTop("dossiers", "Dossiers");
+    renderTop("lawsuits", "Lawsuits");
+    renderTop("tasks", "Tasks");
+    renderTop("missions", "Missions");
+    renderTop("sessions", "Sessions");
+
+    return lines.join("\n");
   }
 
   async _runDeterministicGrounding({
@@ -599,6 +779,33 @@ class ChatAgentService {
   }) {
     const hasGraphTool = exposedTools.some((tool) => tool.name === "getEntityGraph");
     if (!hasGraphTool) return null;
+
+    const resolvedEntity = executionContext?.resolvedEntity;
+    if (
+      resolvedEntity &&
+      typeof resolvedEntity === "object" &&
+      resolvedEntity.type &&
+      Number(resolvedEntity.id) > 0
+    ) {
+      const execution = await this._executeToolByName({
+        toolName: "getEntityGraph",
+        args: {
+          entityType: String(resolvedEntity.type),
+          entityId: Number(resolvedEntity.id),
+          depth: 2,
+          direction: "both",
+        },
+        policy,
+        executionContext,
+      });
+      if (execution?.ok) {
+        return {
+          snapshot: execution.result,
+          execution,
+          reason: "resolved_selection",
+        };
+      }
+    }
 
     const message = String(userMessage || "").trim();
     if (!message || !this._looksEntityScopedRequest(message)) return null;
@@ -824,6 +1031,45 @@ class ChatAgentService {
     } catch (_) {
       return "Structured result";
     }
+  }
+
+  _extractResolvedSelection(followUpIntent) {
+    if (!followUpIntent || typeof followUpIntent !== "object") return null;
+    if (String(followUpIntent.intent || "").toUpperCase() !== "RESOLVE_CONTEXT_AND_CONTINUE") {
+      return null;
+    }
+    const resolved = followUpIntent.resolvedEntity || {};
+    const entityType = String(resolved.type || followUpIntent.entityType || "")
+      .trim()
+      .toLowerCase();
+    const entityId = Number(resolved.id || followUpIntent.entityId || 0);
+    if (!entityType || !Number.isFinite(entityId) || entityId <= 0) return null;
+    const scope = {
+      ...(followUpIntent.scope && typeof followUpIntent.scope === "object"
+        ? followUpIntent.scope
+        : {}),
+    };
+    const keyMap = {
+      client: "clientId",
+      dossier: "dossierId",
+      lawsuit: "lawsuitId",
+      task: "taskId",
+      personal_task: "personalTaskId",
+      session: "sessionId",
+      mission: "missionId",
+      financial_entry: "financialEntryId",
+      notification: "notificationId",
+      history_event: "historyEventId",
+      officer: "officerId",
+    };
+    const scopeKey = keyMap[entityType];
+    if (scopeKey && !scope[scopeKey]) scope[scopeKey] = entityId;
+    return {
+      entityType,
+      entityId,
+      scope,
+      label: String(resolved.label || followUpIntent.label || "").trim() || null,
+    };
   }
 }
 

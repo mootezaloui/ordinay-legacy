@@ -8,6 +8,9 @@
  */
 
 const tasksService = require('../../../services/tasks.service');
+const dossiersService = require('../../../services/dossiers.service');
+const lawsuitsService = require('../../../services/lawsuits.service');
+const clientsService = require('../../../services/clients.service');
 const { TOOL_CATEGORIES } = require('../tool.registry');
 
 const inputSchema = {
@@ -74,6 +77,19 @@ async function handler({
   limit = 50,
 }) {
   let tasks = tasksService.list();
+  const dossiers = dossiersService.list();
+  const lawsuits = lawsuitsService.list();
+  const clients = clientsService.list();
+
+  const dossiersById = new Map(
+    dossiers.map((dossier) => [Number(dossier.id), dossier]),
+  );
+  const lawsuitsById = new Map(
+    lawsuits.map((lawsuit) => [Number(lawsuit.id), lawsuit]),
+  );
+  const clientsById = new Map(
+    clients.map((client) => [Number(client.id), client]),
+  );
 
   if (dossierId !== null) {
     tasks = tasks.filter(task => task.dossier_id === dossierId);
@@ -107,10 +123,60 @@ async function handler({
   });
 
   const limited = tasks.slice(0, limit);
+  const enriched = limited.map((task) => {
+    const dossierId = Number(task.dossier_id || 0);
+    const lawsuitId = Number(task.lawsuit_id || 0);
+    const linkedDossier = dossierId > 0 ? dossiersById.get(dossierId) || null : null;
+    const linkedLawsuit = lawsuitId > 0 ? lawsuitsById.get(lawsuitId) || null : null;
+    const lawsuitDossierId = Number(linkedLawsuit?.dossier_id || 0);
+    const inferredDossier =
+      linkedDossier ||
+      (lawsuitDossierId > 0 ? dossiersById.get(lawsuitDossierId) || null : null);
+    const linkedClient = inferredDossier?.client_id
+      ? clientsById.get(Number(inferredDossier.client_id)) || null
+      : null;
+
+    return {
+      ...task,
+      linked_dossier: inferredDossier
+        ? {
+            id: Number(inferredDossier.id),
+            reference: inferredDossier.reference || null,
+            title: inferredDossier.title || null,
+            client_name: linkedClient?.name || null,
+            label:
+              inferredDossier.reference || inferredDossier.title
+                ? [inferredDossier.reference, inferredDossier.title]
+                    .filter(Boolean)
+                    .join(' - ')
+                : `Dossier #${Number(inferredDossier.id)}`,
+          }
+        : null,
+      linked_lawsuit: linkedLawsuit
+        ? {
+            id: Number(linkedLawsuit.id),
+            reference: linkedLawsuit.reference || null,
+            lawsuit_number: linkedLawsuit.lawsuit_number || null,
+            title: linkedLawsuit.title || null,
+            label:
+              linkedLawsuit.reference ||
+              linkedLawsuit.lawsuit_number ||
+              linkedLawsuit.title
+                ? [
+                    linkedLawsuit.reference || linkedLawsuit.lawsuit_number,
+                    linkedLawsuit.title,
+                  ]
+                    .filter(Boolean)
+                    .join(' - ')
+                : `Lawsuit #${Number(linkedLawsuit.id)}`,
+          }
+        : null,
+    };
+  });
 
   return {
-    tasks: limited,
-    count: limited.length,
+    tasks: enriched,
+    count: enriched.length,
   };
 }
 

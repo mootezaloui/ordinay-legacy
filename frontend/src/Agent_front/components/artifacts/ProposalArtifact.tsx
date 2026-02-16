@@ -35,6 +35,17 @@ function renderFieldDiff(field: string, from: any, to: any): JSX.Element {
  */
 function renderOperationDetails(proposal: any): JSX.Element {
   const { actionType, params } = proposal;
+  const entityLabel = (entity: any, fallbackType = "entity") => {
+    if (!entity || typeof entity !== "object") return fallbackType;
+    return (
+      entity.reference ||
+      entity.title ||
+      entity.name ||
+      entity.label ||
+      entity.type ||
+      fallbackType
+    );
+  };
 
   // CREATE_ENTITY: Show all payload fields
   if (actionType === "CREATE_ENTITY" && params) {
@@ -61,7 +72,7 @@ function renderOperationDetails(proposal: any): JSX.Element {
     return (
       <div className="operation-details">
         <div className="operation-type">
-          Update {params.entityType} #{params.entityId}
+          Update {params.entityLabel || params.reference || params.title || params.entityType}
         </div>
         <div className="operation-diffs">
           {params.changes &&
@@ -79,7 +90,7 @@ function renderOperationDetails(proposal: any): JSX.Element {
       <div className="operation-details">
         <div className="operation-type operation-type-delete">
           <Trash2 className="w-4 h-4 inline-block mr-1" />
-          Delete {params.entityType} #{params.entityId}
+          Delete {params.entityLabel || params.reference || params.title || params.entityType}
         </div>
         <div className="delete-impact text-xs text-red-600 dark:text-red-400 mt-1">
           Soft-delete — record will be marked as deleted but can be restored
@@ -93,7 +104,7 @@ function renderOperationDetails(proposal: any): JSX.Element {
     return (
       <div className="operation-details">
         <div className="operation-type">
-          Attach {params.attachmentType} to {params.target?.type} #{params.target?.id}
+          Attach {params.attachmentType} to {entityLabel(params.target, params.target?.type || "entity")}
         </div>
         {params.attachmentType === "note" && params.payload?.content && (
           <div className="attachment-preview">{params.payload.content}</div>
@@ -116,9 +127,9 @@ function renderOperationDetails(proposal: any): JSX.Element {
       <div className="operation-details">
         <div className="operation-type">
           <LinkIcon className="w-4 h-4 inline-block mr-1" />
-          {isRemove ? "Unlink" : "Link"} {params.sourceType} #{params.sourceId}
+          {isRemove ? "Unlink" : "Link"} {params.sourceLabel || params.sourceReference || params.sourceTitle || params.sourceType}
           {isRemove ? " from " : " to "}
-          {params.targetType} #{params.targetId}
+          {params.targetLabel || params.targetReference || params.targetTitle || params.targetType}
         </div>
         {params.linkField && (
           <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -250,7 +261,7 @@ export function ProposalArtifact({ data, onConfirm, onCancel }: ProposalArtifact
                 <div className="proposal-snapshot flex items-center gap-2 text-xs text-gray-500 dark:text-gray-500 mb-3">
                   <Clock className="w-3 h-3" />
                   <span>
-                    {proposal.snapshot.scope} #{proposal.snapshot.scopeId}
+                    {proposal.snapshot.scope}
                     {" • "}
                     {new Date(proposal.snapshot.timestamp).toLocaleString()}
                   </span>
@@ -265,8 +276,7 @@ export function ProposalArtifact({ data, onConfirm, onCancel }: ProposalArtifact
                       key={idx}
                       className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300"
                     >
-                      {entity.type} #{entity.id}
-                      {entity.reference && <span className="text-violet-600 dark:text-violet-400">({entity.reference})</span>}
+                      {entity.reference || entity.title || entity.name || entity.type}
                     </span>
                   ))}
                 </div>

@@ -247,11 +247,6 @@ export function ExplanationArtifact({
           .replace(/^\w/, (c) => c.toUpperCase())
       : "Entity";
 
-  const entityIdLabel =
-    data.entityId && !data.entityId.startsWith("list:")
-      ? data.entityId
-      : null;
-
   // Check if we have the new mandatory structure
   const hasNewStructure = data.facts && data.interpretation && data.navigation;
   const hasInterpretation =
@@ -308,11 +303,6 @@ export function ExplanationArtifact({
                 </span>
               ))}
             </div>
-            {entityIdLabel && (
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-mono">
-                {entityIdLabel}
-              </p>
-            )}
           </div>
         </div>
       </div>

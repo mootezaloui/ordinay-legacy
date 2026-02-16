@@ -1088,6 +1088,12 @@ function ArtifactBody({
       <ContextSuggestionRenderer
         data={message.data.contextSuggestion}
         onSelect={(suggestion) => {
+          const selectionDisplayLabel = [
+            String(suggestion.label || "").trim(),
+            String(suggestion.subtitle || "").trim(),
+          ]
+            .filter(Boolean)
+            .join("\n");
           const selectionCategory = message.data?.contextSuggestion?.category;
           const isInvoiceSelection = selectionCategory === "invoice_selection";
           const selectionClientId = suggestion.scope?.clientId;
@@ -1096,12 +1102,12 @@ function ArtifactBody({
               ? {
                   type: "client",
                   id: selectionClientId,
-                  label: `Client #${selectionClientId}`,
+                  label: selectionDisplayLabel || suggestion.label || "Selected client",
                 }
               : {
                   type: suggestion.entityType,
                   id: suggestion.entityId,
-                  label: suggestion.label,
+                  label: selectionDisplayLabel || suggestion.label,
                 };
           // Send resolution payload preserving original intent
           const payload = {
@@ -1113,7 +1119,7 @@ function ArtifactBody({
             entityType: suggestion.entityType,
             entityId: suggestion.entityId,
             scope: suggestion.scope,
-            label: suggestion.label,
+            label: selectionDisplayLabel || suggestion.label,
             selectionId: isInvoiceSelection
               ? String(suggestion.entityId ?? suggestion.id)
               : suggestion.id,
