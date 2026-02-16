@@ -15,6 +15,7 @@ import { getDashboardSummary } from "../services/api/dashboard";
 import { filterOperationalEntities } from "../utils/importState";
 import { calculateNextHearing } from "../utils/deadlineUtils";
 import { getGreetingKey, getContextMessage } from "../utils/greetings";
+import DashboardSkeleton from "../components/skeleton/DashboardSkeleton";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -517,6 +518,9 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {isLoadingSummary ? (
+        <DashboardSkeleton />
+      ) : (
       <div className="space-y-8">
         {/* Stats Grid - Primary Focus */}
         <div>
@@ -979,6 +983,7 @@ export default function Dashboard() {
           </ContentSection>
         </div>
       </div>
+      )}
     </PageLayout>
   );
 }

@@ -21,7 +21,7 @@ import FormModal from "../components/FormModal/FormModal";
 import { useGridPagination } from "../hooks/useGridPagination";
 import StatCard from "../components/dashboard/StatCard";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
-import LoadingScreen from "../components/loading/LoadingScreen";
+import ListPageSkeleton from "../components/skeleton/ListPageSkeleton";
 import { clientFormFields } from "../components/FormModal/formConfigs";
 import { useData } from "../contexts/DataContext";
 import BlockerModal from "../components/ui/BlockerModal";
@@ -211,7 +211,7 @@ export default function Clients() {
             </div>
           </ContentSection>
         )}
-        <LoadingScreen variant="page" message={t("page.loading")} />
+        <ListPageSkeleton />
       </PageLayout>
     );
   }

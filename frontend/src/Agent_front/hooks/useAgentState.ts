@@ -133,6 +133,10 @@ function saveDataAccessToStorage(dataAccess: DataAccessPermissions): void {
   }
 }
 
+function createMessageId(prefix: "u" | "a" | "i"): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 export function useAgentState() {
   const { t } = useTranslation("common");
   const {
@@ -489,7 +493,7 @@ export function useAgentState() {
       : undefined;
 
     const userMessage: AgentMessage = {
-      id: `u-${Date.now()}`,
+      id: createMessageId("u"),
       role: "user",
       content: trimmed,
       timestamp: new Date(),
@@ -498,8 +502,8 @@ export function useAgentState() {
 
     // ========== STAGE 1: IMMEDIATE ACKNOWLEDGEMENT (EPHEMERAL) ==========
     // Show ACK status instantly, but do not persist it in the conversation.
-    const agentMessageId = `a-${Date.now()}`;
-    const intentMessageId = `i-${Date.now()}`;
+    const agentMessageId = createMessageId("a");
+    const intentMessageId = createMessageId("i");
     // Capture current messages for updates
     const baseMessages = [...currentMessages, userMessage];
     let workingMessages = [...baseMessages];
@@ -562,7 +566,14 @@ export function useAgentState() {
     let streamedCommentaryContent = "";
 
     const appendMessage = (message: AgentMessage) => {
-      workingMessages = [...workingMessages, message];
+      const idx = workingMessages.findIndex((m) => m.id === message.id);
+      if (idx !== -1) {
+        workingMessages = workingMessages.map((m) =>
+          m.id === message.id ? message : m
+        );
+      } else {
+        workingMessages = [...workingMessages, message];
+      }
       updateSessionMessages(sessionId, workingMessages);
     };
 
@@ -880,7 +891,7 @@ export function useAgentState() {
     }
 
     const userMessage: AgentMessage = {
-      id: `u-${Date.now()}`,
+      id: createMessageId("u"),
       role: "user",
       content: followUpLabel,
       timestamp: new Date(),
@@ -888,8 +899,8 @@ export function useAgentState() {
     };
 
     // ========== STAGE 1: IMMEDIATE ACKNOWLEDGEMENT (EPHEMERAL) ==========
-    const agentMessageId = `a-${Date.now()}`;
-    const intentMessageId = `i-${Date.now()}`;
+    const agentMessageId = createMessageId("a");
+    const intentMessageId = createMessageId("i");
     const baseMessages = [...currentMessages, userMessage];
     let workingMessages = [...baseMessages];
     updateSessionMessages(sessionId, workingMessages);
@@ -898,7 +909,14 @@ export function useAgentState() {
     setSessionStatus(sessionId, { action: "Processing follow-up…", phase: "init" });
 
     const appendMessage = (message: AgentMessage) => {
-      workingMessages = [...workingMessages, message];
+      const idx = workingMessages.findIndex((m) => m.id === message.id);
+      if (idx !== -1) {
+        workingMessages = workingMessages.map((m) =>
+          m.id === message.id ? message : m
+        );
+      } else {
+        workingMessages = [...workingMessages, message];
+      }
       updateSessionMessages(sessionId, workingMessages);
     };
 
@@ -1236,8 +1254,8 @@ export function useAgentState() {
     if (!userContent || !activeSessionId || isLoading || streamRegistry.isStreaming) return;
 
     // ========== STAGE 1: ATOMIC MESSAGE UPDATE FOR EDITS ==========
-    const agentMessageId = `a-${Date.now()}`;
-    const intentMessageId = `i-${Date.now()}`;
+    const agentMessageId = createMessageId("a");
+    const intentMessageId = createMessageId("i");
     const baseMessages = [...(activeSession?.messages || [])];
 
     // ATOMIC UPDATE: Remove ALL old assistant messages AND update user message (if edit)
@@ -1263,6 +1281,25 @@ export function useAgentState() {
       );
     }
 
+    // If this is a regenerate/retry replacement, clear existing assistant message content in place
+    // so the old answer disappears immediately and the new stream reuses the same slot.
+    if (opts?.replaceMessageId) {
+      workingMessages = workingMessages.map((m) =>
+        m.id === opts.replaceMessageId
+          ? {
+              ...m,
+              content: "",
+              status: "sending",
+              stage: "commentary",
+              data: undefined,
+              commentary: undefined,
+              retryOf: opts?.retryOf,
+              timestamp: new Date(),
+            }
+          : m
+      );
+    }
+
     updateSessionMessages(activeSessionId, workingMessages);
     safeSetIsLoading(true);
     // Show immediate loading indicator while waiting for backend
@@ -1270,7 +1307,14 @@ export function useAgentState() {
     streamSessionRef.current = activeSessionId;
 
     const appendMessage = (message: AgentMessage) => {
-      workingMessages = [...workingMessages, message];
+      const idx = workingMessages.findIndex((m) => m.id === message.id);
+      if (idx !== -1) {
+        workingMessages = workingMessages.map((m) =>
+          m.id === message.id ? message : m
+        );
+      } else {
+        workingMessages = [...workingMessages, message];
+      }
       updateSessionMessages(activeSessionId, workingMessages);
     };
 
@@ -1296,6 +1340,7 @@ export function useAgentState() {
         intentOverride?: string,
         structured?: import("../../services/api/agent").IntentFramingOutput
       ) => {
+        if (opts?.replaceMessageId) return;
         const trimmedContent = content.trim();
         if (!trimmedContent) return;
         const intentMessage: AgentMessage = {
@@ -1353,7 +1398,7 @@ export function useAgentState() {
           if (streamSessionRef.current !== activeSessionId) return;
           streamedContent += content;
           const updatedMessage: AgentMessage = {
-            id: agentMessageId,
+            id: opts?.replaceMessageId || agentMessageId,
             role: "agent",
             content: streamedContent,
             timestamp: new Date(),
@@ -1422,7 +1467,7 @@ export function useAgentState() {
           }
 
           const resultMessage: AgentMessage = {
-            id: agentMessageId,
+            id: opts?.replaceMessageId || agentMessageId,
             role: "agent",
             content: streamedContent,
             timestamp: new Date(),
@@ -1443,12 +1488,22 @@ export function useAgentState() {
         onCommentary: (data) => {
           // ========== STAGE 4: COMMENTARY ==========
           if (streamSessionRef.current !== activeSessionId) return;
-          commentary = data;
-          streamedCommentaryContent = data.message || "";
+          const incoming = String(data?.message || "").trim();
+          const existing = String(commentary?.message || "").trim();
+          const mergedMessage =
+            incoming && existing && existing !== incoming
+              ? `${existing}\n${incoming}`
+              : incoming || existing;
+          commentary = {
+            ...(commentary || {}),
+            ...(data || {}),
+            message: mergedMessage,
+          };
+          streamedCommentaryContent = mergedMessage;
 
           // Update message with commentary (artifact already rendered)
           const messageWithCommentary: AgentMessage = {
-            id: agentMessageId,
+            id: opts?.replaceMessageId || agentMessageId,
             role: "agent",
             content: streamedContent,
             timestamp: new Date(),
@@ -1477,7 +1532,7 @@ export function useAgentState() {
           };
 
           const messageWithStreamingCommentary: AgentMessage = {
-            id: agentMessageId,
+            id: opts?.replaceMessageId || agentMessageId,
             role: "agent",
             content: streamedContent,
             timestamp: new Date(),
@@ -1506,7 +1561,7 @@ export function useAgentState() {
           }
 
           const finalMessage: AgentMessage = {
-            id: agentMessageId,
+            id: opts?.replaceMessageId || agentMessageId,
             role: "agent",
             content: streamedContent,
             timestamp: new Date(),
@@ -1531,7 +1586,7 @@ export function useAgentState() {
           if (streamSessionRef.current !== activeSessionId) return;
 
           const errorMessage: AgentMessage = {
-            id: agentMessageId,
+            id: opts?.replaceMessageId || agentMessageId,
             role: "agent",
             content: error,
             timestamp: new Date(),

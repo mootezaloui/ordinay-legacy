@@ -51,7 +51,8 @@
     },
     "urgentTasks": {
       "title": "Urgent Tasks ({{count}})",
-      "empty": "No urgent tasks! Great job staying on top of things."
+      "empty": "No urgent tasks! Great job staying on top of things.",
+      "viewAll": "View all tasks ({{count}})"
     },
     "upcomingEvents": {
       "title": "Upcoming Events ({{count}})",

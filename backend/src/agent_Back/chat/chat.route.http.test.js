@@ -83,7 +83,11 @@ async function testChatHttpSuccess() {
     assert.strictEqual(response.status, 200);
     const frames = await readSse(response);
     assert(frames.some((f) => f.event === "start"));
-    assert(frames.some((f) => f.event === "chunk" && f.data.content === "Chatbot answer"));
+    const streamed = frames
+      .filter((f) => f.event === "chunk")
+      .map((f) => String(f.data?.content || ""))
+      .join("");
+    assert.strictEqual(streamed.trim(), "Chatbot answer");
     assert(frames.some((f) => f.event === "done"));
     assert(captured);
     assert.strictEqual(captured.context.dataAccess.dossiers, false);
@@ -154,4 +158,3 @@ run().catch((error) => {
   console.error(error);
   process.exit(1);
 });
-

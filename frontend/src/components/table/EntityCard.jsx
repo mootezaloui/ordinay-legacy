@@ -100,7 +100,7 @@ const EntityCard = memo(function EntityCard({
                 {cell.label}
               </span>
               {/* Emphasized values */}
-              <span className="text-sm text-slate-900 dark:text-white text-right font-medium break-words overflow-wrap-anywhere flex-1">
+              <span className="text-sm text-slate-900 dark:text-white text-left font-medium break-words overflow-wrap-anywhere flex-1">
                 {cell.content}
               </span>
             </div>

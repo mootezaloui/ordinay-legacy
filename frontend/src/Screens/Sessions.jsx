@@ -28,6 +28,7 @@ import BlockerModal from "../components/ui/BlockerModal";
 import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
 import { canPerformAction } from "../services/domainRules";
 import { resolveDetailRoute } from "../utils/routeResolver";
+import ListPageSkeleton from "../components/skeleton/ListPageSkeleton";
 import { logEntityCreation, logHistoryEvent, EVENT_TYPES } from "../services/historyService";
 import { useSettings } from "../contexts/SettingsContext";
 import { useListViewMode } from "../hooks/useListViewMode";
@@ -51,6 +52,8 @@ export default function Sessions() {
     addSession,
     updateSession,
     deleteSession,
+    loading,
+    loadError,
   } = useData();
   const { formatDate } = useSettings();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -508,6 +511,22 @@ export default function Sessions() {
     : dossiers.length === 0
       ? t("table.emptyNoDossiers")
       : t("table.empty");
+
+  if (loading) {
+    return (
+      <PageLayout>
+        <PageHeader title={t("page.title")} />
+        {loadError && (
+          <ContentSection>
+            <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">
+              {loadError}
+            </div>
+          </ContentSection>
+        )}
+        <ListPageSkeleton />
+      </PageLayout>
+    );
+  }
 
   return (
     <PageLayout>

@@ -24,7 +24,7 @@ import { dossierFormFields } from "../components/FormModal/formConfigs";
 import StatCard from "../components/dashboard/StatCard";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
 import InlinePrioritySelector from "../components/InlineSelectors/InlinePrioritySelector";
-import LoadingScreen from "../components/loading/LoadingScreen";
+import ListPageSkeleton from "../components/skeleton/ListPageSkeleton";
 import BlockerModal from "../components/ui/BlockerModal";
 import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
 import { canPerformAction } from "../services/domainRules";
@@ -97,6 +97,7 @@ export default function Dossiers() {
       label: t("table.columns.number"),
       sortable: true,
       locked: true,
+      mobileRole: "meta",
       mobilePriority: 1,
       render: (dossier) => (
         <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">
@@ -251,7 +252,7 @@ export default function Dossiers() {
             </div>
           </ContentSection>
         )}
-        <LoadingScreen variant="page" message={t("page.loading")} />
+        <ListPageSkeleton />
       </PageLayout>
     );
   }

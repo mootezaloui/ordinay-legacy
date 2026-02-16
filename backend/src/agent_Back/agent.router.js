@@ -303,6 +303,22 @@ function streamTextAsChunks(text, onChunk) {
   }
 }
 
+async function streamTextAsChunksWithPacing(
+  text,
+  onChunk,
+  { delayMs = 14, shouldStop } = {},
+) {
+  if (!text || typeof text !== "string") return;
+  const tokens = text.match(/\S+\s*/g) || [];
+  for (const token of tokens) {
+    if (typeof shouldStop === "function" && shouldStop()) return;
+    onChunk(token);
+    if (delayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+}
+
 function extractDomain(url) {
   try {
     const parsed = new URL(String(url || "").trim());
@@ -941,17 +957,36 @@ router.post("/agent/chat", async (req, res) => {
           .map((entry) => normalizeChatSearchArtifact(entry))
           .find((output) => Boolean(output)) || null
       : null;
+    const stepCommentaries = Array.isArray(result?.stepCommentaries)
+      ? result.stepCommentaries.filter(
+          (row) =>
+            row &&
+            typeof row.message === "string" &&
+            row.message.trim().length > 0,
+        )
+      : [];
+
+    const chatIntentMessage = await generateChatIntentFramingMessage(
+      message,
+      abortController.signal,
+    );
+    emit("intent", {
+      message: chatIntentMessage,
+      action: "CHATBOT_AGENT_MODE",
+      missingEntities: [],
+    });
+    for (const row of stepCommentaries) {
+      emit("commentary", {
+        message: String(row.message).trim(),
+        source: row.source || "llm",
+        kind: row.kind || "tool_step",
+        toolName: row.toolName || null,
+        stepIndex: row.stepIndex ?? null,
+        signals: ["tool_step_commentary"],
+      });
+    }
 
     if (searchArtifact) {
-      const chatIntentMessage = await generateChatIntentFramingMessage(
-        message,
-        abortController.signal,
-      );
-      emit("intent", {
-        message: chatIntentMessage,
-        action: "CHATBOT_AGENT_MODE",
-        missingEntities: [],
-      });
       emit("result", {
         output: searchArtifact,
         intent: "CHATBOT_AGENT_MODE",
@@ -968,10 +1003,28 @@ router.post("/agent/chat", async (req, res) => {
         });
       }
     } else {
-      emit("chunk", {
-        content: result.message,
-        timestamp: new Date().toISOString(),
-      });
+      await streamTextAsChunksWithPacing(
+        String(result.message || ""),
+        (token) => {
+          if (aborted) return;
+          emit("chunk", {
+            content: token,
+            timestamp: new Date().toISOString(),
+          });
+        },
+        { delayMs: 14, shouldStop: () => aborted },
+      );
+      const chatCommentaryMessage = await generateChatCommentaryMessage(
+        message,
+        result.message,
+        abortController.signal,
+      );
+      if (chatCommentaryMessage) {
+        emit("commentary", {
+          message: chatCommentaryMessage,
+          signals: [],
+        });
+      }
     }
     emit("done", {
       timestamp: new Date().toISOString(),

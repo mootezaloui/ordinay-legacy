@@ -86,6 +86,9 @@ const SPECIFIC_REFERENCE_PATTERNS = [
   /\bTSK-\d+/i, // Task reference
   /\bclient\s+#?\d+/i, // Client ID
   /\bdossier\s+#?\d+/i, // Dossier ID
+  /\b(our|my|this|that)\s+(client|dossier|lawsuit|task|mission)\b/i,
+  /\bwith\s+(our|my|the)\s+client\s+[\p{L}\p{M}][\p{L}\p{M}'’.-]*(?:\s+[\p{L}\p{M}][\p{L}\p{M}'’.-]*){0,3}\b/iu,
+  /\bclient\s+[\p{L}\p{M}][\p{L}\p{M}'’.-]*(?:\s+[\p{L}\p{M}][\p{L}\p{M}'’.-]*){0,3}\b/iu,
 ];
 
 /**
@@ -95,7 +98,9 @@ const WORK_PLANNING_KEYWORDS = [
   /\bplan\s+(my|the)\s+(day|week|work)/i,
   /\bwhat\s+should\s+i\s+(do|work\s+on)\s+(today|now|next)/i,
   /\bmy\s+(priorities|workload|schedule)/i,
-  /\bfocus\s+on\s+[A-Z]/i, // "focus on Emma"
+  /\bfocus\s+on\s+[\p{L}\p{M}]/iu, // "focus on emma" / "focus on yassine"
+  /\bwhat\s+do\s+i\s+focus\s+on\b/i,
+  /\bwhat\s+do\s+we\s+do\s+with\b/i,
 ];
 
 /**

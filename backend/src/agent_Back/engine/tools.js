@@ -67,7 +67,7 @@ async function executeAction(toolName, params, policy, context = {}) {
 
   // Execute tool handler
   try {
-    const result = await tool.handler(params);
+    const result = await tool.handler(params, context);
 
     // Log successful execution
     this.ledger.record({

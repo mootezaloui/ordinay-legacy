@@ -6,7 +6,7 @@ import { useData } from "../../contexts/DataContext";
 import { useTutorialSafe } from "../../contexts/TutorialContext";
 import PageLayout from "../layout/PageLayout";
 import PageHeader from "../layout/PageHeader";
-import { PageLoader } from "../brand/OrdinayDataLoader";
+import DetailSkeleton from "../skeleton/DetailSkeleton";
 import { getEntityConfig } from "./config/entityConfigs";
 import OverviewTab from "./tabs/OverviewTab";
 import DocumentsTab from "./tabs/DocumentsTab";
@@ -231,7 +231,7 @@ export default function DetailView({ entityType }) {
   if (loading || globalLoading) {
     return (
       <PageLayout>
-        <PageLoader message={t("status.loading", { ns: "common" })} />
+        <DetailSkeleton />
       </PageLayout>
     );
   }

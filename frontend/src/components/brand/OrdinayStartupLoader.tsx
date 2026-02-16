@@ -6,7 +6,7 @@
  */
 
 /* eslint-disable react-refresh/only-export-components */
-import { useEffect, useMemo, useState, memo } from 'react';
+import { useEffect, useState, memo } from 'react';
 import { i18nInstance } from '../../i18n';
 
 export interface OrdinayStartupLoaderProps {
@@ -21,13 +21,32 @@ const OrdinayStartupLoader = memo(function OrdinayStartupLoader({
   message,
 }: OrdinayStartupLoaderProps) {
   const [isVisible, setIsVisible] = useState(true);
-  const resolvedMessage = useMemo(() => {
-    if (typeof message === 'string') return message;
-    return i18nInstance.t('common:startup.splashMessage', {
-      defaultValue: 'Finding natural balance...',
-    });
-  }, [message]);
+  const [, setI18nVersion] = useState(0);
+  const fallbackMessage = 'Finding natural balance...';
+  const resolvedMessage =
+    typeof message === 'string'
+      ? message
+      : i18nInstance.isInitialized
+        ? i18nInstance.t('startup.splashMessage', {
+            ns: 'common',
+            defaultValue: fallbackMessage,
+          })
+        : fallbackMessage;
   const isFadingOut = !isLoading && isVisible;
+
+  useEffect(() => {
+    const refresh = () => setI18nVersion((v) => v + 1);
+
+    i18nInstance.on('initialized', refresh);
+    i18nInstance.on('loaded', refresh);
+    i18nInstance.on('languageChanged', refresh);
+
+    return () => {
+      i18nInstance.off('initialized', refresh);
+      i18nInstance.off('loaded', refresh);
+      i18nInstance.off('languageChanged', refresh);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isLoading && isVisible) {

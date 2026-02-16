@@ -429,6 +429,7 @@ function RetryButton({ message }: { message: AgentMessageType }) {
       retryOf: message.id,
       sourceUserId: userMsg.id,
       followUpIntent: userMsg.followUpIntent,
+      replaceMessageId: message.id,
     });
   };
 

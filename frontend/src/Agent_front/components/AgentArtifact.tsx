@@ -88,6 +88,7 @@ function ArtifactFooter({ message }: { message: AgentMessage }) {
     startAgentStream?.(userMsg.content, {
       retryOf: message.id,
       sourceUserId: userMsg.id,
+      replaceMessageId: message.id,
     });
   };
 

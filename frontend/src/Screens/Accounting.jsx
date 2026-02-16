@@ -43,6 +43,7 @@ import {
 } from "../services/historyService";
 import { useListViewMode } from "../hooks/useListViewMode";
 import { useSettings } from "../contexts/SettingsContext";
+import ListPageSkeleton from "../components/skeleton/ListPageSkeleton";
 
 export default function Accounting() {
   const navigate = useNavigate();
@@ -912,6 +913,22 @@ export default function Accounting() {
       return field;
     });
   }, [entryFields, t, categoryLabelMap, statusLabelMap]);
+
+  if (loading) {
+    return (
+      <PageLayout>
+        <PageHeader title={t("page.title")} icon="fas fa-calculator" />
+        {loadError && (
+          <ContentSection>
+            <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">
+              {loadError}
+            </div>
+          </ContentSection>
+        )}
+        <ListPageSkeleton />
+      </PageLayout>
+    );
+  }
 
   return (
     <PageLayout>

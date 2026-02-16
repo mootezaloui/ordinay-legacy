@@ -5024,6 +5024,24 @@ input[type="week"]::-webkit-calendar-picker-indicator {
 }
 
 /* --------------------------
+   Skeleton Loading
+-------------------------- */
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+.skeleton-pulse {
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  background-color: #e2e8f0;
+}
+
+.dark .skeleton-pulse {
+  background-color: #334155;
+}
+
+/* --------------------------
    Logo Class Variants (for external styling)
 -------------------------- */
 

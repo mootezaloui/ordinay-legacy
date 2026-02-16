@@ -51,6 +51,7 @@ const TOOL_DOMAIN_MAP = Object.freeze({
   listTasks: "tasks",
   getTask: "tasks",
   getTimeline: "dossiers", // Timeline is dossier-scoped
+  getEntityGraph: null, // Multi-domain read with explicit accessFilter and context.dataAccess
   listPersonalTasks: "personalTasks",
   getPersonalTask: "personalTasks",
   listMissions: "missions",

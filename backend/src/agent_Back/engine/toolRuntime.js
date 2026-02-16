@@ -96,7 +96,7 @@ async function executeToolV2(toolName, params, policy, context = {}) {
   let result;
   let executionError = null;
   try {
-    result = await tool.handler(params);
+    result = await tool.handler(params, context);
   } catch (err) {
     executionError = err;
   }

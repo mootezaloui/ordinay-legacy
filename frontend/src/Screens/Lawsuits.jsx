@@ -22,7 +22,7 @@ import FormModal from "../components/FormModal/FormModal";
 import { useGridPagination } from "../hooks/useGridPagination";
 import { lawsuitFormFields } from "../components/FormModal/formConfigs";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
-import LoadingScreen from "../components/loading/LoadingScreen";
+import ListPageSkeleton from "../components/skeleton/ListPageSkeleton";
 import BlockerModal from "../components/ui/BlockerModal";
 import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
 import { canPerformAction } from "../services/domainRules";
@@ -81,6 +81,7 @@ export default function Lawsuits() {
       label: t("table.columns.lawsuitNumber"),
       sortable: true,
       locked: true,
+      mobileRole: "meta",
       mobilePriority: 1,
       render: (lawsuitItem) => (
         <span className="font-mono text-xs font-semibold text-purple-600 dark:text-purple-400">
@@ -261,7 +262,7 @@ export default function Lawsuits() {
             </div>
           </ContentSection>
         )}
-        <LoadingScreen variant="page" message={t("page.loading")} />
+        <ListPageSkeleton />
       </PageLayout>
     );
   }
