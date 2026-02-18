@@ -704,6 +704,12 @@ export function useAgentState() {
           } else if (output.type === "proposal") {
             agentData = { type: "proposal", proposal: output };
             streamedContent = "";
+          } else if (output.type === "document_generation_missing_fields") {
+            agentData = {
+              type: "document_generation_missing_fields",
+              documentGenerationMissingFields: output,
+            };
+            streamedContent = "";
           } else if (output.type === "web_search_results" || output.type === "web_deep_search_results") {
             agentData = {
               type: output.type,
@@ -1067,6 +1073,12 @@ export function useAgentState() {
             streamedContent = "";
           } else if (output.type === "proposal") {
             agentData = { type: "proposal", proposal: output };
+            streamedContent = "";
+          } else if (output.type === "document_generation_missing_fields") {
+            agentData = {
+              type: "document_generation_missing_fields",
+              documentGenerationMissingFields: output,
+            };
             streamedContent = "";
           } else if (output.type === "web_search_results" || output.type === "web_deep_search_results") {
             agentData = {
@@ -1454,6 +1466,12 @@ export function useAgentState() {
             streamedContent = "";
           } else if (output.type === "proposal") {
             agentData = { type: "proposal", proposal: output };
+            streamedContent = "";
+          } else if (output.type === "document_generation_missing_fields") {
+            agentData = {
+              type: "document_generation_missing_fields",
+              documentGenerationMissingFields: output,
+            };
             streamedContent = "";
           } else if (output.type === "web_search_results" || output.type === "web_deep_search_results") {
             agentData = {

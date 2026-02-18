@@ -9,6 +9,10 @@
  */
 
 const agentDocumentsService = require("../services/agentDocuments.service");
+const {
+  subscribeDocumentEvents,
+  getLatestDocumentEvent,
+} = require("../doc_intel/progressEvents");
 
 /**
  * POST /agent/sessions/:sessionId/documents/upload
@@ -140,6 +144,116 @@ async function clear(req, res, next) {
   }
 }
 
+/**
+ * GET /agent/sessions/:sessionId/documents/:documentId/artifacts
+ * Get multimodal analysis artifacts for one document in session.
+ */
+async function getArtifacts(req, res, next) {
+  try {
+    const { sessionId, documentId } = req.params;
+    const result = agentDocumentsService.getDocumentArtifacts(
+      sessionId,
+      Number(documentId),
+    );
+    if (!result) {
+      return res.status(404).json({ error: "Document artifacts not found" });
+    }
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * POST /agent/sessions/:sessionId/documents/:documentId/retry
+ * Re-run extraction/understanding for one session document.
+ */
+async function retryAnalysis(req, res, next) {
+  try {
+    const { sessionId, documentId } = req.params;
+    const result = agentDocumentsService.retryDocumentAnalysis(
+      sessionId,
+      Number(documentId),
+    );
+    if (!result) {
+      return res.status(404).json({ error: "Document not found in session" });
+    }
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function continueAnalysis(req, res, next) {
+  try {
+    const { sessionId, documentId } = req.params;
+    const { mode, pages } = req.body || {};
+    const result = agentDocumentsService.continueDocumentAnalysis(
+      sessionId,
+      Number(documentId),
+      { mode, pages },
+    );
+    if (!result) {
+      return res.status(404).json({ error: "Document not found in session" });
+    }
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function cancelAnalysis(req, res, next) {
+  try {
+    const { sessionId, documentId } = req.params;
+    const cancelled = agentDocumentsService.cancelDocumentAnalysis(
+      sessionId,
+      Number(documentId),
+    );
+    if (!cancelled) {
+      return res.status(404).json({ error: "Document not found in session" });
+    }
+    res.json({ cancelled: true });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function progress(req, res, next) {
+  try {
+    const { documentId } = req.params;
+    const id = Number(documentId);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ error: "Invalid document id" });
+    }
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders();
+
+    const send = (event) => {
+      res.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+      if (typeof res.flush === "function") res.flush();
+    };
+    const latest = getLatestDocumentEvent(id);
+    if (latest) send(latest);
+
+    const unsubscribe = subscribeDocumentEvents(id, send);
+    const heartbeat = setInterval(() => {
+      res.write(": heartbeat\n\n");
+      if (typeof res.flush === "function") res.flush();
+    }, 15000);
+    req.on("close", () => {
+      clearInterval(heartbeat);
+      unsubscribe();
+      res.end();
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   upload,
   bind,
@@ -147,4 +261,9 @@ module.exports = {
   getContext,
   unbind,
   clear,
+  getArtifacts,
+  retryAnalysis,
+  continueAnalysis,
+  cancelAnalysis,
+  progress,
 };

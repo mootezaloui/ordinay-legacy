@@ -52,6 +52,7 @@ const scanOperationalRisksTool = require("./analysis/scanOperationalRisks.tool")
 
 // DRAFT tools
 const genericDraftTool = require("./draft/genericDraft.tool");
+const planGeneratedDocumentTool = require("./draft/planGeneratedDocument.tool");
 
 // PLAN tools
 const detectPrioritySignalsTool = require("./plan/detectPrioritySignals.tool");
@@ -123,6 +124,7 @@ function initializeToolRegistry() {
 
   // Register DRAFT tools
   registry.register(genericDraftTool);
+  registry.register(planGeneratedDocumentTool);
 
   // Register PLAN tools
   registry.register(detectPrioritySignalsTool);

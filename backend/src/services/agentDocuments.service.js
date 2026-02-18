@@ -20,6 +20,8 @@
 const db = require("../db/connection");
 const documentsService = require("./documents.service");
 const documentStorage = require("./documentStorage");
+const documentIngestion = require("./documentIngestion");
+const { getLatestDocumentEvent } = require("../doc_intel/progressEvents");
 // Note: documentIngestion is NOT imported here because documentsService.create()
 // automatically schedules text ingestion (native extraction + OCR fallback).
 
@@ -233,6 +235,13 @@ function listBySession(sessionId, { includeText = false } = {}) {
       d.text_status,
       d.text_source,
       d.text_failure_reason,
+      d.analysis_status,
+      d.analysis_provider,
+      d.analysis_confidence,
+      d.analysis_version,
+      d.artifact_json,
+      d.failure_stage,
+      d.failure_detail,
       d.unreadable_text,
       COALESCE(d.text_length, LENGTH(d.document_text)) as text_length,
       ${textColumn},
@@ -260,6 +269,15 @@ function listBySession(sessionId, { includeText = false } = {}) {
     text_status: row.text_status || "processing",
     text_source: row.text_source,
     text_failure_reason: row.text_failure_reason,
+    analysis_status: row.analysis_status || null,
+    analysis_provider: row.analysis_provider || null,
+    understanding_confidence: Number.isFinite(row.analysis_confidence)
+      ? row.analysis_confidence
+      : null,
+    analysis_version: row.analysis_version || null,
+    artifacts: row.artifact_json ? safeJsonParse(row.artifact_json) : null,
+    failure_stage: row.failure_stage || null,
+    failure_detail: row.failure_detail || null,
     has_text: row.text_status === "readable" && (row.text_length || 0) > 0,
     unreadable_text: row.text_status === "unreadable",
     text_length: row.text_status === "readable" ? row.text_length : null,
@@ -289,6 +307,11 @@ function getSessionDocumentTexts(sessionId) {
       d.mime_type,
       d.text_status,
       d.text_source,
+      d.analysis_status,
+      d.analysis_provider,
+      d.analysis_confidence,
+      d.analysis_version,
+      d.artifact_json,
       d.document_text,
       COALESCE(d.text_length, LENGTH(d.document_text)) as text_length,
       asd.role,
@@ -308,6 +331,13 @@ function getSessionDocumentTexts(sessionId) {
     mime_type: row.mime_type,
     text_status: row.text_status || "processing",
     text_source: row.text_source,
+    analysis_status: row.analysis_status || null,
+    analysis_provider: row.analysis_provider || null,
+    understanding_confidence: Number.isFinite(row.analysis_confidence)
+      ? row.analysis_confidence
+      : null,
+    analysis_version: row.analysis_version || null,
+    artifacts: row.artifact_json ? safeJsonParse(row.artifact_json) : null,
     has_text:
       row.text_status === "readable" &&
       row.document_text &&
@@ -339,19 +369,34 @@ function buildAgentDocumentContext(sessionId) {
     readableCount: readable.length,
     processingCount: processing.length,
     unreadableCount: unreadable.length,
-    documents: docs.map((d) => ({
-      document_id: d.document_id,
-      title: d.title,
-      original_filename: d.original_filename,
-      mime_type: d.mime_type,
-      text_status: d.text_status,
-      text_source: d.text_source,
-      has_text: d.has_text,
-      text_length: d.text_length,
-      text: d.text,
-      role: d.role,
-      supportedOperations: buildSupportedOperations(d),
-    })),
+    documents: docs.map((d) => {
+      const artifact = d.artifacts && typeof d.artifacts === "object" ? d.artifacts : null;
+      const latest = getLatestDocumentEvent(d.document_id);
+      return {
+        document_id: d.document_id,
+        title: d.title,
+        original_filename: d.original_filename,
+        mime_type: d.mime_type,
+        text_status: d.text_status,
+        text_source: d.text_source,
+        understanding_status: d.analysis_status || d.text_status,
+        understanding_confidence: d.understanding_confidence,
+        analysis_provider: d.analysis_provider,
+        has_text: d.has_text,
+        text_length: d.text_length,
+        text: d.text,
+        artifacts: d.artifacts,
+        needs_user_continue: Boolean(artifact?.needsUserContinue),
+        pages_processed: Array.isArray(artifact?.pages) ? artifact.pages.length : null,
+        pages_total:
+          artifact && artifact.processingStats && Number.isFinite(artifact.processingStats.totalPages)
+            ? artifact.processingStats.totalPages
+            : null,
+        progress_stage: latest?.stage || null,
+        role: d.role,
+        supportedOperations: buildSupportedOperations(d),
+      };
+    }),
   };
 }
 
@@ -363,6 +408,15 @@ function buildSupportedOperations(doc) {
 
   if (doc.has_text) {
     ops.push("summarize", "extract_key_points", "search_content", "analyze");
+  }
+  if (doc.artifacts && doc.artifacts.visual_summary) {
+    ops.push("interpret_evidence_image", "cross-check_file_claims_with_message");
+  }
+  if (doc.mime_type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
+    ops.push("extract_table_from_spreadsheet");
+  }
+  if (doc.mime_type === "application/pdf" && doc.text_source === "ocr+rasterized_pdf") {
+    ops.push("summarize_scanned_document");
   }
 
   if (doc.text_status === "processing") {
@@ -412,6 +466,110 @@ function clearSession(sessionId) {
   return result.changes;
 }
 
+function getDocumentArtifacts(sessionId, documentId) {
+  if (!sessionId || !documentId) return null;
+  const row = db
+    .prepare(
+      `SELECT d.id, d.title, d.original_filename, d.mime_type, d.text_status, d.text_source,
+              d.analysis_status, d.analysis_provider, d.analysis_confidence, d.analysis_version,
+              d.artifact_json, d.failure_stage, d.failure_detail
+       FROM agent_session_documents asd
+       JOIN documents d ON d.id = asd.document_id AND d.deleted_at IS NULL
+       WHERE asd.session_id = @sessionId AND d.id = @documentId
+       LIMIT 1`
+    )
+    .get({ sessionId, documentId: Number(documentId) });
+  if (!row) return null;
+  const artifacts = row.artifact_json ? safeJsonParse(row.artifact_json) : null;
+  return {
+    document_id: row.id,
+    title: row.title,
+    original_filename: row.original_filename,
+    mime_type: row.mime_type,
+    text_status: row.text_status || "processing",
+    text_source: row.text_source || null,
+    understanding_status: row.analysis_status || row.text_status || "processing",
+    understanding_confidence: Number.isFinite(row.analysis_confidence)
+      ? row.analysis_confidence
+      : null,
+    analysis_provider: row.analysis_provider || null,
+    analysis_version: row.analysis_version || null,
+    failure_stage: row.failure_stage || null,
+    failure_detail: row.failure_detail || null,
+    artifacts,
+    needs_user_continue: Boolean(artifacts?.needsUserContinue),
+    pages_processed: Array.isArray(artifacts?.pages) ? artifacts.pages.length : null,
+    pages_total:
+      artifacts && artifacts.processingStats && Number.isFinite(artifacts.processingStats.totalPages)
+        ? artifacts.processingStats.totalPages
+        : null,
+  };
+}
+
+function retryDocumentAnalysis(sessionId, documentId) {
+  if (!sessionId || !documentId) return null;
+  const row = db
+    .prepare(
+      `SELECT d.id, d.file_path, d.mime_type
+       FROM agent_session_documents asd
+       JOIN documents d ON d.id = asd.document_id AND d.deleted_at IS NULL
+       WHERE asd.session_id = @sessionId AND d.id = @documentId
+       LIMIT 1`
+    )
+    .get({ sessionId, documentId: Number(documentId) });
+  if (!row) return null;
+
+  documentsService.scheduleIngestion(row.id, row.file_path, row.mime_type || null, {
+    mode: "auto",
+    force: true,
+  });
+
+  return getDocumentArtifacts(sessionId, row.id);
+}
+
+function continueDocumentAnalysis(sessionId, documentId, options = {}) {
+  if (!sessionId || !documentId) return null;
+  const row = db
+    .prepare(
+      `SELECT d.id, d.file_path, d.mime_type
+       FROM agent_session_documents asd
+       JOIN documents d ON d.id = asd.document_id AND d.deleted_at IS NULL
+       WHERE asd.session_id = @sessionId AND d.id = @documentId
+       LIMIT 1`
+    )
+    .get({ sessionId, documentId: Number(documentId) });
+  if (!row) return null;
+
+  const mode =
+    options.mode === "full" || options.mode === "pages" ? options.mode : "full";
+  const pages = Array.isArray(options.pages)
+    ? options.pages
+        .map((p) => Number(p))
+        .filter((p) => Number.isInteger(p) && p > 0)
+    : [];
+
+  documentsService.scheduleIngestion(row.id, row.file_path, row.mime_type || null, {
+    mode,
+    pages,
+  });
+  return getDocumentArtifacts(sessionId, row.id);
+}
+
+function cancelDocumentAnalysis(sessionId, documentId) {
+  if (!sessionId || !documentId) return false;
+  const row = db
+    .prepare(
+      `SELECT d.id
+       FROM agent_session_documents asd
+       JOIN documents d ON d.id = asd.document_id AND d.deleted_at IS NULL
+       WHERE asd.session_id = @sessionId AND d.id = @documentId
+       LIMIT 1`
+    )
+    .get({ sessionId, documentId: Number(documentId) });
+  if (!row) return false;
+  return documentIngestion.cancelDocumentIngestion(row.id);
+}
+
 // ============================================================================
 // Helpers
 // ============================================================================
@@ -448,5 +606,17 @@ module.exports = {
   buildAgentDocumentContext,
   unbind,
   clearSession,
+  getDocumentArtifacts,
+  retryDocumentAnalysis,
+  continueDocumentAnalysis,
+  cancelDocumentAnalysis,
   ensureSchema,
 };
+
+function safeJsonParse(value) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}

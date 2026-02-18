@@ -1,9 +1,10 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { AgentTopBar } from "./components/AgentTopBar";
 import { AgentInput } from "./components/AgentInput";
 import { AgentConversation } from "./components/AgentConversation";
 import { AgentQuickActions } from "./components/AgentQuickActions";
 import { AgentResultPreview } from "./components/AgentResultPreview";
+import { AgentSessionDocumentsPanel } from "./components/AgentSessionDocumentsPanel";
 import { AgentHistorySidebar } from "./sidebar/AgentHistorySidebar";
 import { useAgentState } from "./hooks/useAgentState";
 import { useAgentSessions } from "./hooks/useAgentSessions";
@@ -16,6 +17,9 @@ interface AgentLayoutProps {
 export function AgentLayout({
   isGlobalSidebarCollapsed = false,
 }: AgentLayoutProps = {}) {
+  const [rightPanelTab, setRightPanelTab] = useState<"context" | "documents">(
+    "context",
+  );
   const {
     input,
     setInput,
@@ -187,7 +191,41 @@ export function AgentLayout({
       {/* Desktop - Static */}
       {showContextSidebar && (
         <div className="hidden 2xl:block w-80 flex-shrink-0 h-full">
-          <AgentResultPreview {...contextProps} />
+          <div className="h-full flex flex-col">
+            <div className="flex-shrink-0 p-2 border-l border-b border-black/[0.05] dark:border-white/[0.04] bg-[#f8fafc] dark:bg-[#0f172a]">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRightPanelTab("context")}
+                  className={`text-xs px-3 py-1.5 rounded border transition-colors ${
+                    rightPanelTab === "context"
+                      ? "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700"
+                      : "bg-white text-slate-600 border-slate-300 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700"
+                  }`}
+                >
+                  Context
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRightPanelTab("documents")}
+                  className={`text-xs px-3 py-1.5 rounded border transition-colors ${
+                    rightPanelTab === "documents"
+                      ? "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-900/20 dark:text-indigo-300 dark:border-indigo-700"
+                      : "bg-white text-slate-600 border-slate-300 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700"
+                  }`}
+                >
+                  Documents
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0">
+              {rightPanelTab === "context" ? (
+                <AgentResultPreview {...contextProps} />
+              ) : (
+                <AgentSessionDocumentsPanel sessionId={activeSessionId} />
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -199,7 +237,41 @@ export function AgentLayout({
             onClick={() => setShowContextSidebar(false)}
           />
           <div className="absolute inset-y-0 right-0 w-80 max-w-[85vw]">
-            <AgentResultPreview {...contextProps} />
+            <div className="h-full flex flex-col">
+              <div className="flex-shrink-0 p-2 border-l border-b border-black/[0.05] dark:border-white/[0.04] bg-[#f8fafc] dark:bg-[#0f172a]">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRightPanelTab("context")}
+                    className={`text-xs px-3 py-1.5 rounded border transition-colors ${
+                      rightPanelTab === "context"
+                        ? "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700"
+                        : "bg-white text-slate-600 border-slate-300 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700"
+                    }`}
+                  >
+                    Context
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRightPanelTab("documents")}
+                    className={`text-xs px-3 py-1.5 rounded border transition-colors ${
+                      rightPanelTab === "documents"
+                        ? "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-900/20 dark:text-indigo-300 dark:border-indigo-700"
+                        : "bg-white text-slate-600 border-slate-300 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700"
+                    }`}
+                  >
+                    Documents
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 min-h-0">
+                {rightPanelTab === "context" ? (
+                  <AgentResultPreview {...contextProps} />
+                ) : (
+                  <AgentSessionDocumentsPanel sessionId={activeSessionId} />
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

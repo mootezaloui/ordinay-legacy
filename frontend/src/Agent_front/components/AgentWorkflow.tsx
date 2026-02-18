@@ -1268,6 +1268,20 @@ function ArtifactBody({
       />
     );
   }
+  if (
+    dataType === "document_generation_missing_fields" &&
+    message.data?.documentGenerationMissingFields
+  ) {
+    const missing = message.data.documentGenerationMissingFields.missingFields || [];
+    return (
+      <ErrorArtifact
+        content={`${message.data.documentGenerationMissingFields.message}\n${missing
+          .map((f) => `- ${f.label || f.path}`)
+          .join("\n")}`}
+        onExampleClick={onExampleClick}
+      />
+    );
+  }
   if (hasContent) {
     return <ChatArtifact content={message.content} />;
   }

@@ -23,6 +23,19 @@ export interface AgentSessionDocument {
   text_status: 'processing' | 'readable' | 'unreadable';
   text_source: string | null;
   text_failure_reason: string | null;
+  analysis_status?: string | null;
+  analysis_provider?: string | null;
+  understanding_confidence?: number | null;
+  analysis_version?: string | null;
+  artifacts?: {
+    extracted_text?: string;
+    visual_summary?: string;
+    key_entities?: Array<Record<string, unknown>>;
+    risk_flags?: string[];
+    provenance?: Record<string, unknown>;
+  } | null;
+  failure_stage?: string | null;
+  failure_detail?: string | null;
   has_text: boolean;
   unreadable_text: boolean;
   text_length: number | null;
@@ -47,9 +60,17 @@ export interface AgentDocumentContext {
     mime_type: string;
     text_status: string;
     text_source: string | null;
+    understanding_status?: string | null;
+    understanding_confidence?: number | null;
+    analysis_provider?: string | null;
     has_text: boolean;
     text_length: number | null;
     text: string | null;
+    needs_user_continue?: boolean;
+    pages_processed?: number | null;
+    pages_total?: number | null;
+    progress_stage?: string | null;
+    artifacts?: AgentSessionDocument['artifacts'];
     role: string;
     supportedOperations: string[];
   }>;
@@ -71,6 +92,8 @@ const SUPPORTED_MIME_TYPES = new Set([
   'application/pdf',
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   'text/plain',
   'text/csv',
   'text/markdown',
@@ -78,6 +101,8 @@ const SUPPORTED_MIME_TYPES = new Set([
   'image/jpeg',
   'image/webp',
   'image/tiff',
+  'image/heic',
+  'image/heif',
 ]);
 
 // ============================================================================
@@ -175,6 +200,86 @@ export async function clearSessionDocuments(
 ): Promise<{ cleared: number }> {
   return apiClient.delete(
     `/agent/sessions/${encodeURIComponent(sessionId)}/documents`,
+  );
+}
+
+/**
+ * Get multimodal artifacts for a specific session document.
+ */
+export async function getSessionDocumentArtifacts(
+  sessionId: string,
+  documentId: number,
+): Promise<{
+  document_id: number;
+  title: string;
+  original_filename: string;
+  mime_type: string;
+  text_status: string;
+  text_source: string | null;
+  understanding_status: string;
+  understanding_confidence: number | null;
+  analysis_provider: string | null;
+  analysis_version: string | null;
+  failure_stage: string | null;
+  failure_detail: string | null;
+  artifacts: AgentSessionDocument['artifacts'];
+  needs_user_continue?: boolean;
+  pages_processed?: number | null;
+  pages_total?: number | null;
+}> {
+  return apiClient.get(
+    `/agent/sessions/${encodeURIComponent(sessionId)}/documents/${documentId}/artifacts`,
+  );
+}
+
+/**
+ * Retry extraction/understanding for a specific session document.
+ */
+export async function retrySessionDocumentAnalysis(
+  sessionId: string,
+  documentId: number,
+): Promise<{
+  document_id: number;
+  title: string;
+  original_filename: string;
+  mime_type: string;
+  text_status: string;
+  text_source: string | null;
+  understanding_status: string;
+  understanding_confidence: number | null;
+  analysis_provider: string | null;
+  analysis_version: string | null;
+  failure_stage: string | null;
+  failure_detail: string | null;
+  artifacts: AgentSessionDocument['artifacts'];
+  needs_user_continue?: boolean;
+  pages_processed?: number | null;
+  pages_total?: number | null;
+}> {
+  return apiClient.post(
+    `/agent/sessions/${encodeURIComponent(sessionId)}/documents/${documentId}/retry`,
+    {},
+  );
+}
+
+export async function continueSessionDocumentAnalysis(
+  sessionId: string,
+  documentId: number,
+  payload: { mode: "full" | "pages"; pages?: number[] },
+): Promise<void> {
+  await apiClient.post(
+    `/agent/sessions/${encodeURIComponent(sessionId)}/documents/${documentId}/continue`,
+    payload,
+  );
+}
+
+export async function cancelSessionDocumentAnalysis(
+  sessionId: string,
+  documentId: number,
+): Promise<void> {
+  await apiClient.post(
+    `/agent/sessions/${encodeURIComponent(sessionId)}/documents/${documentId}/cancel`,
+    {},
   );
 }
 

@@ -1,0 +1,742 @@
+import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  FileText,
+  Info,
+  Tags,
+} from "lucide-react";
+import {
+  getSessionDocumentContext,
+  getSessionDocumentArtifacts,
+  removeSessionDocument,
+  retrySessionDocumentAnalysis,
+  continueSessionDocumentAnalysis,
+  cancelSessionDocumentAnalysis,
+  type AgentDocumentContext,
+} from "../../services/api/agentDocuments";
+import { getApiBase, getBackendConfig, isElectron } from "../../lib/apiConfig";
+
+interface AgentSessionDocumentsPanelProps {
+  sessionId?: string | null;
+}
+
+function toPercent(value?: number | null): string | null {
+  if (!Number.isFinite(value)) return null;
+  const bounded = Math.max(0, Math.min(1, Number(value)));
+  return `${Math.round(bounded * 100)}%`;
+}
+
+function renderStatusTone(status?: string | null): string {
+  const normalized = String(status || "").toLowerCase();
+  if (normalized === "readable" || normalized === "completed") {
+    return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300";
+  }
+  if (normalized === "unreadable" || normalized === "failed") {
+    return "bg-rose-100 text-rose-700 dark:bg-rose-900/20 dark:text-rose-300";
+  }
+  return "bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300";
+}
+
+type ArtifactShape = {
+  visual_summary?: string;
+  key_entities?: Array<Record<string, unknown>>;
+  risk_flags?: string[];
+  extracted_text?: string;
+  provenance?: Record<string, unknown>;
+};
+
+function asArtifact(value: unknown): ArtifactShape | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as ArtifactShape;
+}
+
+export function AgentSessionDocumentsPanel({
+  sessionId,
+}: AgentSessionDocumentsPanelProps) {
+  const [context, setContext] = useState<AgentDocumentContext | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [actionBusyByDoc, setActionBusyByDoc] = useState<Record<number, string>>(
+    {},
+  );
+  const [openedArtifactByDoc, setOpenedArtifactByDoc] = useState<
+    Record<number, unknown>
+  >({});
+  const [progressByDoc, setProgressByDoc] = useState<
+    Record<
+      number,
+      {
+        stage?: string | null;
+        pageIndex?: number;
+        totalPages?: number;
+        percent?: number;
+        warning?: string | null;
+      }
+    >
+  >({});
+
+  const setDocBusy = (documentId: number, action: string | null) => {
+    setActionBusyByDoc((prev) => {
+      const next = { ...prev };
+      if (!action) {
+        delete next[documentId];
+      } else {
+        next[documentId] = action;
+      }
+      return next;
+    });
+  };
+
+  const loadContext = async () => {
+    if (!sessionId) {
+      setContext(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+    setLoading(true);
+    try {
+      const next = await getSessionDocumentContext(sessionId);
+      setContext(next);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load documents");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const load = async () => {
+      if (!sessionId) {
+        if (mounted) {
+          setContext(null);
+          setLoading(false);
+          setError(null);
+        }
+        return;
+      }
+      if (mounted) setLoading(true);
+      try {
+        const next = await getSessionDocumentContext(sessionId);
+        if (!mounted) return;
+        setContext(next);
+        setError(null);
+      } catch (err) {
+        if (!mounted) return;
+        setError(err instanceof Error ? err.message : "Failed to load documents");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+      if (mounted) {
+        timer = setTimeout(load, 5000);
+      }
+    };
+
+    load();
+    return () => {
+      mounted = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!sessionId || !context?.documents?.length) return;
+    const sources: EventSource[] = [];
+    const resolveHttpBase = () => {
+      if (isElectron()) {
+        const backend = getBackendConfig();
+        if (backend?.httpApiUrl) return backend.httpApiUrl;
+      }
+      return getApiBase();
+    };
+    const base = resolveHttpBase();
+
+    for (const doc of context.documents) {
+      const url = `${base}/agent/sessions/${encodeURIComponent(
+        sessionId,
+      )}/documents/${doc.document_id}/progress`;
+      const source = new EventSource(url);
+      const onStageStart = (event: MessageEvent) => {
+        try {
+          const payload = JSON.parse(event.data);
+          setProgressByDoc((prev) => ({
+            ...prev,
+            [doc.document_id]: {
+              ...(prev[doc.document_id] || {}),
+              stage: payload.stage || null,
+            },
+          }));
+        } catch {}
+      };
+      const onPageProgress = (event: MessageEvent) => {
+        try {
+          const payload = JSON.parse(event.data);
+          setProgressByDoc((prev) => ({
+            ...prev,
+            [doc.document_id]: {
+              ...(prev[doc.document_id] || {}),
+              stage: payload.stage || "ocr_pages",
+              pageIndex: payload.pageIndex,
+              totalPages: payload.totalPages,
+              percent: payload.percent,
+            },
+          }));
+        } catch {}
+      };
+      const onWarning = (event: MessageEvent) => {
+        try {
+          const payload = JSON.parse(event.data);
+          setProgressByDoc((prev) => ({
+            ...prev,
+            [doc.document_id]: {
+              ...(prev[doc.document_id] || {}),
+              warning: payload.message || payload.code || "warning",
+            },
+          }));
+        } catch {}
+      };
+      const onResult = () => {
+        setProgressByDoc((prev) => ({
+          ...prev,
+          [doc.document_id]: {
+            ...(prev[doc.document_id] || {}),
+            stage: "completed",
+            percent: 100,
+          },
+        }));
+        void loadContext();
+      };
+      const onError = () => {
+        // Polling fallback remains active.
+      };
+      source.addEventListener("stage_start", onStageStart as EventListener);
+      source.addEventListener("page_progress", onPageProgress as EventListener);
+      source.addEventListener("warning", onWarning as EventListener);
+      source.addEventListener("result", onResult as EventListener);
+      source.addEventListener("error", onError as EventListener);
+      sources.push(source);
+    }
+
+    return () => {
+      for (const source of sources) source.close();
+    };
+  }, [sessionId, context?.documents?.length]);
+
+  const handleOpenArtifacts = async (documentId: number) => {
+    if (!sessionId) return;
+    if (openedArtifactByDoc[documentId]) {
+      setOpenedArtifactByDoc((prev) => {
+        const next = { ...prev };
+        delete next[documentId];
+        return next;
+      });
+      return;
+    }
+    try {
+      setDocBusy(documentId, "artifacts");
+      const detail = await getSessionDocumentArtifacts(sessionId, documentId);
+      setOpenedArtifactByDoc((prev) => ({
+        ...prev,
+        [documentId]: detail.artifacts || null,
+      }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to open artifacts");
+    } finally {
+      setDocBusy(documentId, null);
+    }
+  };
+
+  const handleRetry = async (documentId: number) => {
+    if (!sessionId) return;
+    try {
+      setDocBusy(documentId, "retry");
+      await retrySessionDocumentAnalysis(sessionId, documentId);
+      await loadContext();
+      setOpenedArtifactByDoc((prev) => {
+        const next = { ...prev };
+        delete next[documentId];
+        return next;
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to retry analysis");
+    } finally {
+      setDocBusy(documentId, null);
+    }
+  };
+
+  const handleRemove = async (documentId: number) => {
+    if (!sessionId) return;
+    try {
+      setDocBusy(documentId, "remove");
+      await removeSessionDocument(sessionId, documentId);
+      setOpenedArtifactByDoc((prev) => {
+        const next = { ...prev };
+        delete next[documentId];
+        return next;
+      });
+      await loadContext();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to remove document");
+    } finally {
+      setDocBusy(documentId, null);
+    }
+  };
+
+  const handleContinueAll = async (documentId: number) => {
+    if (!sessionId) return;
+    try {
+      setDocBusy(documentId, "continue");
+      await continueSessionDocumentAnalysis(sessionId, documentId, { mode: "full" });
+      await loadContext();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to continue OCR");
+    } finally {
+      setDocBusy(documentId, null);
+    }
+  };
+
+  const handleContinuePages = async (documentId: number) => {
+    if (!sessionId) return;
+    const raw = window.prompt("Enter pages (example: 6,7,10):");
+    if (!raw) return;
+    const pages = raw
+      .split(",")
+      .map((v) => Number(v.trim()))
+      .filter((v) => Number.isInteger(v) && v > 0);
+    if (!pages.length) {
+      setError("No valid page numbers provided");
+      return;
+    }
+    try {
+      setDocBusy(documentId, "continue_pages");
+      await continueSessionDocumentAnalysis(sessionId, documentId, {
+        mode: "pages",
+        pages,
+      });
+      await loadContext();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to continue OCR pages");
+    } finally {
+      setDocBusy(documentId, null);
+    }
+  };
+
+  const handleCancel = async (documentId: number) => {
+    if (!sessionId) return;
+    try {
+      setDocBusy(documentId, "cancel");
+      await cancelSessionDocumentAnalysis(sessionId, documentId);
+      await loadContext();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to cancel analysis");
+    } finally {
+      setDocBusy(documentId, null);
+    }
+  };
+
+  const sortedDocuments = useMemo(() => {
+    if (!context?.documents) return [];
+    return [...context.documents].sort((a, b) => {
+      const aProc = a.text_status === "processing" ? 0 : 1;
+      const bProc = b.text_status === "processing" ? 0 : 1;
+      if (aProc !== bProc) return aProc - bProc;
+      return String(a.title || "").localeCompare(String(b.title || ""));
+    });
+  }, [context]);
+
+  return (
+    <div className="h-full w-full flex flex-col border-l border-black/[0.05] dark:border-white/[0.04] bg-[#f8fafc] dark:bg-[#0b1220] overflow-hidden">
+      <div className="px-4 py-3 border-b border-black/[0.05] dark:border-white/[0.04]">
+        <p className="text-xs font-semibold tracking-wide text-slate-800 dark:text-slate-100 uppercase">
+          Session Documents
+        </p>
+        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+          OCR + multimodal understanding in this chat.
+        </p>
+      </div>
+
+      <div className="px-4 py-3 border-b border-black/[0.05] dark:border-white/[0.04] grid grid-cols-4 gap-2 text-center">
+        <Stat value={context?.totalDocuments ?? 0} label="Total" />
+        <Stat value={context?.readableCount ?? 0} label="Readable" />
+        <Stat value={context?.processingCount ?? 0} label="Processing" />
+        <Stat value={context?.unreadableCount ?? 0} label="Unreadable" />
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+        {!sessionId ? (
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Start a session and upload files to see document understanding.
+          </p>
+        ) : loading && sortedDocuments.length === 0 ? (
+          <p className="text-xs text-slate-500 dark:text-slate-400">Loading documents...</p>
+        ) : error ? (
+          <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>
+        ) : sortedDocuments.length === 0 ? (
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            No documents attached in this session yet.
+          </p>
+        ) : (
+          sortedDocuments.map((doc) => {
+            const understandingStatus =
+              doc.understanding_status || doc.text_status || "processing";
+            const confidence = toPercent(doc.understanding_confidence ?? null);
+            const artifacts = asArtifact(doc.artifacts || null);
+            const visualSummary = artifacts?.visual_summary || null;
+            const riskFlags = Array.isArray(artifacts?.risk_flags)
+              ? artifacts?.risk_flags || []
+              : [];
+            const progress = progressByDoc[doc.document_id] || null;
+            const needsContinue =
+              Boolean((artifacts as { needsUserContinue?: boolean } | null)?.needsUserContinue) ||
+              Boolean((doc as { needs_user_continue?: boolean }).needs_user_continue);
+
+            return (
+              <div
+                key={doc.document_id}
+                className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 p-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-slate-900 dark:text-slate-100 truncate">
+                      {doc.title || doc.original_filename || `Document #${doc.document_id}`}
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                      {doc.mime_type}
+                    </p>
+                  </div>
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded ${renderStatusTone(
+                      understandingStatus,
+                    )}`}
+                  >
+                    {understandingStatus}
+                  </span>
+                </div>
+
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {doc.text_source ? (
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                      source: {doc.text_source}
+                    </span>
+                  ) : null}
+                  {confidence ? (
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300">
+                      confidence {confidence}
+                    </span>
+                  ) : null}
+                </div>
+
+                {visualSummary ? (
+                  <p className="mt-2 text-[11px] leading-relaxed text-slate-700 dark:text-slate-200">
+                    {visualSummary}
+                  </p>
+                ) : null}
+
+                {riskFlags.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {riskFlags.slice(0, 4).map((flag) => (
+                      <span
+                        key={`${doc.document_id}-${flag}`}
+                        className="text-[10px] px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300"
+                      >
+                        {String(flag).replace(/_/g, " ")}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+
+                {progress ? (
+                  <div className="mt-2 rounded border border-sky-200 dark:border-sky-800/50 bg-sky-50 dark:bg-sky-950/20 px-2 py-1.5">
+                    <p className="text-[10px] text-sky-700 dark:text-sky-300">
+                      stage: {progress.stage || "processing"}
+                      {Number.isFinite(progress.percent) ? ` • ${progress.percent}%` : ""}
+                    </p>
+                    {Number.isFinite(progress.pageIndex) && Number.isFinite(progress.totalPages) ? (
+                      <p className="text-[10px] text-sky-700/90 dark:text-sky-300/90">
+                        page {progress.pageIndex}/{progress.totalPages}
+                      </p>
+                    ) : null}
+                    {progress.warning ? (
+                      <p className="text-[10px] text-amber-700 dark:text-amber-300">
+                        {progress.warning}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                <div className="mt-3 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenArtifacts(doc.document_id)}
+                    disabled={Boolean(actionBusyByDoc[doc.document_id])}
+                    className="text-[11px] px-2 py-1 rounded border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-60"
+                  >
+                    {openedArtifactByDoc[doc.document_id] ? "Close artifacts" : "Open artifacts"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRetry(doc.document_id)}
+                    disabled={Boolean(actionBusyByDoc[doc.document_id])}
+                    className="text-[11px] px-2 py-1 rounded border border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 disabled:opacity-60"
+                  >
+                    Retry analysis
+                  </button>
+                  {needsContinue ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleContinueAll(doc.document_id)}
+                        disabled={Boolean(actionBusyByDoc[doc.document_id])}
+                        className="text-[11px] px-2 py-1 rounded border border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-900/20 disabled:opacity-60"
+                      >
+                        Continue OCR
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleContinuePages(doc.document_id)}
+                        disabled={Boolean(actionBusyByDoc[doc.document_id])}
+                        className="text-[11px] px-2 py-1 rounded border border-cyan-300 dark:border-cyan-700 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 disabled:opacity-60"
+                      >
+                        OCR pages...
+                      </button>
+                    </>
+                  ) : null}
+                  {understandingStatus === "processing" ? (
+                    <button
+                      type="button"
+                      onClick={() => handleCancel(doc.document_id)}
+                      disabled={Boolean(actionBusyByDoc[doc.document_id])}
+                      className="text-[11px] px-2 py-1 rounded border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 disabled:opacity-60"
+                    >
+                      Cancel
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => handleRemove(doc.document_id)}
+                    disabled={Boolean(actionBusyByDoc[doc.document_id])}
+                    className="text-[11px] px-2 py-1 rounded border border-rose-300 dark:border-rose-700 text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/20 disabled:opacity-60"
+                  >
+                    Remove from session
+                  </button>
+                </div>
+
+                {actionBusyByDoc[doc.document_id] ? (
+                  <p className="mt-2 text-[10px] text-slate-500 dark:text-slate-400">
+                    Working: {actionBusyByDoc[doc.document_id]}...
+                  </p>
+                ) : null}
+
+                {openedArtifactByDoc[doc.document_id] ? (
+                  <ArtifactDetails artifact={openedArtifactByDoc[doc.document_id]} />
+                ) : null}
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Stat({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/40 px-2 py-1.5">
+      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{value}</p>
+      <p className="text-[10px] text-slate-500 dark:text-slate-400">{label}</p>
+    </div>
+  );
+}
+
+function ArtifactDetails({ artifact }: { artifact: unknown }) {
+  const [open, setOpen] = useState({
+    visual: true,
+    entities: true,
+    flags: true,
+    text: false,
+    provenance: false,
+  });
+  const parsed = asArtifact(artifact);
+  if (!parsed) {
+    return (
+      <div className="mt-3 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/40 p-2">
+        <p className="text-[10px] font-medium text-slate-700 dark:text-slate-300 mb-1">
+          Artifact payload
+        </p>
+        <pre className="text-[10px] leading-relaxed text-slate-700 dark:text-slate-200 whitespace-pre-wrap break-words overflow-auto max-h-56">
+{JSON.stringify(artifact, null, 2)}
+        </pre>
+      </div>
+    );
+  }
+
+  const entities = Array.isArray(parsed.key_entities) ? parsed.key_entities : [];
+  const flags = Array.isArray(parsed.risk_flags) ? parsed.risk_flags : [];
+  const extractedText = String(parsed.extracted_text || "").trim();
+  const provenance = parsed.provenance && typeof parsed.provenance === "object"
+    ? parsed.provenance
+    : null;
+
+  return (
+    <div className="mt-3 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/40 p-2 space-y-2">
+      {parsed.visual_summary ? (
+        <CollapsibleSection
+          title="Visual Summary"
+          icon={Eye}
+          tone="blue"
+          open={open.visual}
+          onToggle={() => setOpen((prev) => ({ ...prev, visual: !prev.visual }))}
+        >
+          <p className="text-[11px] text-slate-700 dark:text-slate-200 mt-1 leading-relaxed">
+            {parsed.visual_summary}
+          </p>
+        </CollapsibleSection>
+      ) : null}
+
+      {entities.length > 0 ? (
+        <CollapsibleSection
+          title="Key Entities"
+          icon={Tags}
+          tone="emerald"
+          open={open.entities}
+          onToggle={() => setOpen((prev) => ({ ...prev, entities: !prev.entities }))}
+          badge={`${entities.length}`}
+        >
+          <div className="mt-1 space-y-1">
+            {entities.slice(0, 6).map((entity, idx) => (
+              <div
+                key={`entity-${idx}`}
+                className="text-[11px] text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 bg-white dark:bg-slate-900/50"
+              >
+                {Object.entries(entity)
+                  .map(([k, v]) => `${k}: ${String(v)}`)
+                  .join(" | ")}
+              </div>
+            ))}
+          </div>
+        </CollapsibleSection>
+      ) : null}
+
+      {flags.length > 0 ? (
+        <CollapsibleSection
+          title="Risk Flags"
+          icon={AlertTriangle}
+          tone="amber"
+          open={open.flags}
+          onToggle={() => setOpen((prev) => ({ ...prev, flags: !prev.flags }))}
+          badge={`${flags.length}`}
+        >
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {flags.map((flag) => (
+              <span
+                key={flag}
+                className="text-[10px] px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300"
+              >
+                {String(flag).replace(/_/g, " ")}
+              </span>
+            ))}
+          </div>
+        </CollapsibleSection>
+      ) : null}
+
+      {extractedText ? (
+        <CollapsibleSection
+          title="Extracted Text Preview"
+          icon={FileText}
+          tone="violet"
+          open={open.text}
+          onToggle={() => setOpen((prev) => ({ ...prev, text: !prev.text }))}
+        >
+          <p className="mt-1 text-[11px] text-slate-700 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">
+            {extractedText.slice(0, 600)}
+            {extractedText.length > 600 ? "..." : ""}
+          </p>
+        </CollapsibleSection>
+      ) : null}
+
+      {provenance ? (
+        <CollapsibleSection
+          title="Provenance"
+          icon={Info}
+          tone="slate"
+          open={open.provenance}
+          onToggle={() =>
+            setOpen((prev) => ({ ...prev, provenance: !prev.provenance }))
+          }
+        >
+          <div className="mt-1 text-[11px] text-slate-700 dark:text-slate-200">
+            {Object.entries(provenance)
+              .map(([k, v]) => `${k}: ${String(v)}`)
+              .join(" | ")}
+          </div>
+        </CollapsibleSection>
+      ) : null}
+    </div>
+  );
+}
+
+function CollapsibleSection({
+  title,
+  icon: Icon,
+  tone,
+  open,
+  onToggle,
+  badge,
+  children,
+}: {
+  title: string;
+  icon: ComponentType<{ className?: string }>;
+  tone: "blue" | "emerald" | "amber" | "violet" | "slate";
+  open: boolean;
+  onToggle: () => void;
+  badge?: string;
+  children: ReactNode;
+}) {
+  const toneClass =
+    tone === "blue"
+      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
+      : tone === "emerald"
+        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300"
+        : tone === "amber"
+          ? "bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
+          : tone === "violet"
+            ? "bg-violet-100 text-violet-700 dark:bg-violet-900/20 dark:text-violet-300"
+            : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
+
+  return (
+    <section className="border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-900/40">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full px-2 py-1.5 flex items-center justify-between gap-2 text-left"
+      >
+        <span className="flex items-center gap-2 min-w-0">
+          <span className={`p-1 rounded ${toneClass}`}>
+            <Icon className="w-3 h-3" />
+          </span>
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300 truncate">
+            {title}
+          </span>
+          {badge ? (
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+              {badge}
+            </span>
+          ) : null}
+        </span>
+        {open ? (
+          <ChevronDown className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+        ) : (
+          <ChevronRight className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+        )}
+      </button>
+      {open ? <div className="px-2 pb-2">{children}</div> : null}
+    </section>
+  );
+}

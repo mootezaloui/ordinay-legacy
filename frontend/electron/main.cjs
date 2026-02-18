@@ -303,6 +303,16 @@ async function startBackend() {
     throw new Error(`Backend server script not found: ${serverScript}`);
   }
 
+  const devDocIntelAssets = path.join(__dirname, "..", "build", "doc-intel");
+  const prodDocIntelAssets = path.join(process.resourcesPath, "doc-intel");
+  const resolvedDocIntelAssets = fs.existsSync(
+    isDev ? devDocIntelAssets : prodDocIntelAssets,
+  )
+    ? isDev
+      ? devDocIntelAssets
+      : prodDocIntelAssets
+    : "";
+
   // Environment variables for the backend
     const env = {
       ...process.env,
@@ -311,6 +321,9 @@ async function startBackend() {
       DB_FILE: DB_PATH,
       ORDINAY_USER_DATA: USER_DATA_PATH,
       ORDINAY_DOCUMENTS_PATH: DOCUMENTS_PATH,
+      ...(resolvedDocIntelAssets
+        ? { ORDINAY_DOC_INTEL_ASSETS_PATH: resolvedDocIntelAssets }
+        : {}),
       NODE_ENV: isDev ? "development" : "production",
     };
 

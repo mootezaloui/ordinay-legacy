@@ -546,21 +546,6 @@ User
           -> LLM Client -> Ollama -> Local Model
 ```
 
-### B) Office Management System (Domain Relationships)
-
-```text
-Clients
-  -> Dossiers / Matters
-      -> Hearings / Sessions
-      -> Missions / Tasks
-      -> Documents
-
-Hearings / Sessions -> Missions / Tasks
-Missions / Tasks -> Accounting
-Accounting -> Invoices / Payments
-Clients -> Invoices / Payments
-```
-
 ### C) Agent Architecture
 
 ```text

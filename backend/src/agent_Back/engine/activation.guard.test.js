@@ -208,11 +208,30 @@ console.log("TEST 8: ASSISTANT capability - always ok");
   console.log("✓ PASS: ASSISTANT capability always activates\n");
 }
 
+// TEST 9: ANALYZE capability - activation ok when routing metadata already has entity
+console.log(
+  "TEST 9: ANALYZE capability - activation ok when locked entity metadata is provided",
+);
+{
+  const result = activationGuard({
+    routingResult: {
+      capability: CAPABILITIES.ANALYZE,
+      requires: { entity: true },
+      metadata: { analysisType: "dossier_priorities", entityType: "dossier", entityId: 77 },
+      intent: "ANALYZE_ENTITY",
+    },
+    message: "review dossier priorities",
+    context: {},
+  });
+  assertActivationOk(result);
+  console.log("✓ PASS: ANALYZE activation ok from locked metadata entity\n");
+}
+
 // Summary
 console.log("\n=== All Tests Passed ✓ ===\n");
 console.log("Guard Statistics:");
-console.log("- Total tests: 8");
-console.log("- Activation OK: 6 tests");
+console.log("- Total tests: 9");
+console.log("- Activation OK: 7 tests");
 console.log("- Clarification required: 2 tests");
 console.log("\nConclusion: Activation guard correctly enforces preconditions.");
 console.log(

@@ -1,5 +1,7 @@
 const service = require('../services/documents.service');
 const storage = require('../services/documentStorage');
+const documentAiSettings = require('../services/documentAiSettings.service');
+const documentGenerationService = require('../services/documentGeneration/documentGeneration.service');
 const { parseId } = require('./_utils');
 
 async function list(req, res, next) {
@@ -90,6 +92,144 @@ async function remove(req, res, next) {
   }
 }
 
+async function planGeneration(req, res, next) {
+  try {
+    const result = documentGenerationService.planDocument(req.body || {});
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function generate(req, res, next) {
+  try {
+    const result = await documentGenerationService.generateDocument(req.body || {}, {
+      createdBy: req.user?.id ? String(req.user.id) : null,
+    });
+    res.status(201).json(result);
+  } catch (error) {
+    if (error.code === 'MISSING_REQUIRED_FIELDS') {
+      return res.status(400).json({
+        message: error.message,
+        code: error.code,
+        missingFields: Array.isArray(error.details) ? error.details : [],
+      });
+    }
+    next(error);
+  }
+}
+
+async function getGeneration(req, res, next) {
+  try {
+    const generationId = parseId(req.params.generationId);
+    const generation = documentGenerationService.getGeneration(generationId);
+    if (!generation) {
+      return res.status(404).json({ message: 'Generation not found' });
+    }
+    res.json(generation);
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function generationProgress(req, res, next) {
+  try {
+    const generationId = parseId(req.params.generationId);
+    const generation = documentGenerationService.getGeneration(generationId);
+    if (!generation) {
+      return res.status(404).json({ message: 'Generation not found' });
+    }
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    const send = (event) => {
+      res.write(`event: progress\ndata: ${JSON.stringify(event)}\n\n`);
+      if (typeof res.flush === 'function') res.flush();
+    };
+
+    const latest = documentGenerationService.getLatestGenerationEvent(generationId);
+    if (latest) send(latest);
+
+    const unsubscribe = documentGenerationService.subscribeGenerationEvents(
+      generationId,
+      send,
+    );
+
+    const heartbeat = setInterval(() => {
+      res.write(': heartbeat\n\n');
+      if (typeof res.flush === 'function') res.flush();
+    }, 15000);
+
+    req.on('close', () => {
+      clearInterval(heartbeat);
+      unsubscribe();
+      res.end();
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function download(req, res, next) {
+  try {
+    const id = parseId(req.params.id);
+    const document = service.get(id);
+    if (!document) return res.status(404).json({ message: 'Document not found' });
+    if (!document.file_path) {
+      return res.status(404).json({ message: 'Document file path not found' });
+    }
+    const filename = document.original_filename || document.title || `document-${id}`;
+    res.download(document.file_path, filename);
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function getAiSettings(req, res, next) {
+  try {
+    const settings = documentAiSettings.getDocumentAiSettings();
+    res.json({
+      ...settings,
+      document_ai_enabled: false,
+      document_ai_provider: "local",
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function updateAiSettings(req, res, next) {
+  try {
+    const patch = {
+      ...(req.body || {}),
+      document_ai_enabled: false,
+      document_ai_provider: "local",
+    };
+    const updated = documentAiSettings.updateDocumentAiSettings(patch);
+    res.json({
+      ...updated,
+      document_ai_enabled: false,
+      document_ai_provider: "local",
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function listAiAuditLogs(req, res, next) {
+  try {
+    const limit = req.query?.limit ? Number.parseInt(String(req.query.limit), 10) : 100;
+    const logs = documentAiSettings.listDocumentAiAuditLogs({ limit });
+    res.json({ logs });
+  } catch (error) {
+    next(error);
+  }
+}
+
 function parseEntityFilters(query = {}) {
   const filters = {};
   if (query.client_id) filters.client_id = parseInt(query.client_id, 10);
@@ -112,6 +252,14 @@ module.exports = {
   get,
   create,
   upload,
+  planGeneration,
+  generate,
+  getGeneration,
+  generationProgress,
+  download,
+  getAiSettings,
+  updateAiSettings,
+  listAiAuditLogs,
   update,
   remove,
 };

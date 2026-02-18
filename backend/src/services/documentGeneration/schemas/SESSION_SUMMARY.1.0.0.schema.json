@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["documentType", "schemaVersion", "language", "targetEntity", "content"],
+  "properties": {
+    "documentType": { "const": "SESSION_SUMMARY" },
+    "schemaVersion": { "const": "1.0.0" },
+    "language": { "type": "string", "enum": ["ar", "en"] },
+    "targetEntity": {
+      "type": "object",
+      "required": ["type", "id"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string" },
+        "id": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "content": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "sessionDate", "participants", "summary", "outcome"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "sessionDate": { "type": "string", "format": "date" },
+        "participants": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "summary": { "type": "string", "minLength": 1 },
+        "outcome": { "type": "string", "minLength": 1 },
+        "nextSessionDate": { "type": "string", "format": "date" }
+      }
+    }
+  }
+}

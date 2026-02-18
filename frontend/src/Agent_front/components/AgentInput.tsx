@@ -707,7 +707,7 @@ export function AgentInput({
               multiple
               onChange={handleFileUpload}
               className="hidden"
-              accept=".pdf,.doc,.docx,.txt,.xls,.xlsx"
+              accept=".pdf,.doc,.docx,.txt,.csv,.md,.json,.xls,.xlsx,.ppt,.pptx"
             />
             <input
               ref={imageInputRef}

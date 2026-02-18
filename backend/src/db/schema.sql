@@ -309,6 +309,15 @@ CREATE TABLE IF NOT EXISTS documents (
     text_status TEXT NOT NULL DEFAULT 'processing',
     text_source TEXT,
     text_failure_reason TEXT,
+    analysis_status TEXT,
+    analysis_provider TEXT,
+    analysis_confidence REAL,
+    analysis_version TEXT,
+    artifact_json TEXT,
+    processing_started_at DATETIME,
+    processing_finished_at DATETIME,
+    failure_stage TEXT,
+    failure_detail TEXT,
     copy_type TEXT,
     uploaded_by TEXT,
     client_id INTEGER,
@@ -358,6 +367,30 @@ CREATE INDEX IF NOT EXISTS idx_documents_personal_task_id ON documents(personal_
 CREATE INDEX IF NOT EXISTS idx_documents_financial_entry_id ON documents(financial_entry_id);
 CREATE INDEX IF NOT EXISTS idx_documents_officer_id ON documents(officer_id);
 CREATE INDEX IF NOT EXISTS idx_documents_uploaded_at ON documents(uploaded_at);
+
+CREATE TABLE IF NOT EXISTS document_generations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    generation_uid TEXT NOT NULL UNIQUE,
+    document_id INTEGER,
+    target_type TEXT NOT NULL,
+    target_id INTEGER NOT NULL,
+    document_type TEXT NOT NULL,
+    schema_version TEXT NOT NULL,
+    template_key TEXT NOT NULL,
+    language TEXT NOT NULL,
+    format TEXT NOT NULL,
+    content_json TEXT NOT NULL,
+    status TEXT NOT NULL,
+    error_code TEXT,
+    error_message TEXT,
+    created_by TEXT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_document_generations_target ON document_generations(target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_document_generations_document_id ON document_generations(document_id);
+CREATE INDEX IF NOT EXISTS idx_document_generations_status ON document_generations(status);
 
 CREATE TABLE IF NOT EXISTS notifications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -314,6 +314,19 @@ class DocumentService {
    */
   transformBackendDocument(backendDoc) {
     const extension = backendDoc.title.split(".").pop() || "";
+    const artifactValue = backendDoc.artifact_json || backendDoc.artifacts || null;
+    let parsedArtifacts = null;
+    if (artifactValue) {
+      if (typeof artifactValue === "string") {
+        try {
+          parsedArtifacts = JSON.parse(artifactValue);
+        } catch {
+          parsedArtifacts = null;
+        }
+      } else if (typeof artifactValue === "object") {
+        parsedArtifacts = artifactValue;
+      }
+    }
     return {
       id: backendDoc.id.toString(),
       name: backendDoc.title,
@@ -329,6 +342,19 @@ class DocumentService {
       textSource: backendDoc.text_source || backendDoc.source || null,
       textFailureReason:
         backendDoc.text_failure_reason || backendDoc.failure_reason || null,
+      understandingStatus:
+        backendDoc.analysis_status || backendDoc.understanding_status || null,
+      understandingConfidence:
+        Number.isFinite(backendDoc.analysis_confidence)
+          ? backendDoc.analysis_confidence
+          : Number.isFinite(backendDoc.understanding_confidence)
+            ? backendDoc.understanding_confidence
+            : null,
+      analysisProvider: backendDoc.analysis_provider || null,
+      analysisVersion: backendDoc.analysis_version || null,
+      failureStage: backendDoc.failure_stage || null,
+      failureDetail: backendDoc.failure_detail || null,
+      artifacts: parsedArtifacts,
       // Note: backend doesn't store these, but UI may expect them
       metadata: {
         isDeleted: !!backendDoc.deleted_at,

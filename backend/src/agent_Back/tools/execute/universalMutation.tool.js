@@ -32,6 +32,7 @@ const ATTACHMENT_TYPES = Object.freeze({
   NOTE: 'note',
   DOC_DRAFT: 'doc_draft',
   FILE_REF: 'file_ref',
+  GENERATED_DOCUMENT: 'generated_document',
 });
 
 const LINK_MODES = Object.freeze({
@@ -345,6 +346,14 @@ async function handler(input, executionContext = {}) {
       if (attachmentType === ATTACHMENT_TYPES.FILE_REF && (!payload.filePath || !payload.fileName)) {
         throw new Error('file_ref attachment requires payload.filePath and payload.fileName');
       }
+      if (attachmentType === ATTACHMENT_TYPES.GENERATED_DOCUMENT) {
+        if (!payload.documentType || !payload.templateKey || !payload.language || !payload.format) {
+          throw new Error('generated_document attachment requires payload.documentType, templateKey, language, and format');
+        }
+        if (!payload.schemaVersion || !payload.contentJson) {
+          throw new Error('generated_document attachment requires payload.schemaVersion and contentJson');
+        }
+      }
 
       // Compute snapshot hash of target entity
       const attachHash = computeSnapshotHash(target.type, target.id);
@@ -392,7 +401,7 @@ async function handler(input, executionContext = {}) {
 module.exports = {
   name: 'universalMutation',
   category: TOOL_CATEGORIES.EXECUTE,
-  description: 'Universal mutation framework for CREATE_ENTITY, UPDATE_ENTITY, DELETE_ENTITY, LINK_ENTITIES (add/remove), ATTACH_TO_ENTITY (note/doc_draft/file_ref)',
+  description: 'Universal mutation framework for CREATE_ENTITY, UPDATE_ENTITY, DELETE_ENTITY, LINK_ENTITIES (add/remove), ATTACH_TO_ENTITY (note/doc_draft/file_ref/generated_document)',
   inputSchema,
   outputSchema,
   reversibility: true, // Determined per operation

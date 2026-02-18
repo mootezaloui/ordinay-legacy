@@ -5,6 +5,8 @@ const { generateToolCallingTurn, generateChatResponse } = require("../llm.client
 const { resolveInteractionPosture, POSTURES } = require("../posture.resolver");
 const { filterToolsForChat } = require("./chat.tool.exposure");
 const { resolveChatAmbiguity } = require("./chat.ambiguity.resolver");
+const { detectDraftIntent } = require("../intent.classifier");
+const operatorsService = require("../../services/operators.service");
 
 const MAX_TOOL_ROUNDS = Math.max(
   1,
@@ -19,7 +21,7 @@ const TOOL_STEP_COMMENTARY_ENABLED =
 const ENTITY_FOCUS_PATTERN =
   /\b(client|dossier|lawsuit|task|mission)\s*(#\s*\d+|\d+)\b/i;
 const ENTITY_NAMED_PATTERN =
-  /\b(our|this|that|my)\s+(client|dossier|lawsuit|task|mission)\b|\b(client|dossier|lawsuit|task|mission)\s+([A-Za-z\u00C0-\u024F\u0600-\u06FF][^?.,!\n]{1,60})/i;
+  /\b(our|this|that|my)\s+(client|dossier|lawsuit|task|mission)\b|\b(client|dossier|lawsuit|task|mission)\s+([A-Za-z\u00C0-\u024F\u0600-\u06FF][^?.,!\n]{1,90})|\b(قضية|ملف)\s+([\u0600-\u06FF][^?.,!\n]{1,90})/iu;
 
 function toErrorCode(message, fallback = "TOOL_EXECUTION_FAILED") {
   const raw = String(message || "").trim();
@@ -65,6 +67,7 @@ class ChatAgentService {
       : String(followUpIntent?.originalMessage || userMessage).trim() || userMessage;
 
     const policy = this.engine._resolvePolicy(agentVersion);
+    const draftIntent = detectDraftIntent(effectiveUserMessage, context || {});
     const requestContext = {
       ...(context || {}),
       conversationId:
@@ -134,6 +137,12 @@ class ChatAgentService {
       Object.assign(requestContext, ambiguityResolution.resolvedScope);
     }
 
+    const draftRequiresGrounding = this._requiresGroundedDraft({
+      userMessage: effectiveUserMessage,
+      draftIntent,
+      scopeContext: executionContext,
+    });
+
     if (
       ["ambiguous", "missing", "not_found"].includes(
         String(ambiguityResolution?.status || ""),
@@ -177,12 +186,37 @@ class ChatAgentService {
       };
     }
 
+    const documentFallback = this._buildDocumentContextFallback({
+      requestContext,
+      userMessage: effectiveUserMessage,
+      policyVersion: policy.version,
+      posture,
+    });
+    if (documentFallback) {
+      this._recordTranscript({
+        requestContext,
+        userMessage: effectiveUserMessage,
+        finalMessage: documentFallback.message,
+        posture,
+        toolExecutions: [],
+      });
+      this.engine.ledger.record({
+        type: "chat_mode_document_fallback",
+        agentVersion: policy.version,
+        posture,
+        conversationId: requestContext.conversationId || null,
+        timestamp: new Date().toISOString(),
+      });
+      return documentFallback;
+    }
+
     const messages = this._buildModelMessages({
       userMessage: effectiveUserMessage,
       llmHistory,
       posture,
       requestContext,
       exposedTools,
+      draftIntent,
     });
     if (resolvedSelection) {
       messages.push({
@@ -198,6 +232,7 @@ class ChatAgentService {
       exposedTools,
       policy,
       executionContext,
+      requireGrounding: draftRequiresGrounding,
     });
     if (deterministicGrounding?.snapshot) {
       messages.push({
@@ -205,6 +240,46 @@ class ChatAgentService {
         content: `Authoritative grounding snapshot (do not contradict): ${JSON.stringify(deterministicGrounding.snapshot)}`,
       });
       toolExecutions.push(deterministicGrounding.execution);
+    }
+
+    const officialDraftGuard = this._buildOfficialDraftGuard({
+      userMessage: effectiveUserMessage,
+      draftIntent,
+      deterministicGrounding,
+    });
+    if (officialDraftGuard?.systemMessage) {
+      messages.push({
+        role: "system",
+        content: officialDraftGuard.systemMessage,
+      });
+    }
+
+    if (draftRequiresGrounding && !deterministicGrounding?.snapshot) {
+      const blockedMessage = this._buildDraftGroundingBlockedMessage({
+        userMessage: effectiveUserMessage,
+        deterministicGrounding,
+      });
+      this._recordTranscript({
+        requestContext,
+        userMessage: effectiveUserMessage,
+        finalMessage: blockedMessage,
+        posture,
+        toolExecutions,
+      });
+      return {
+        message: blockedMessage,
+        agentVersion: policy.version,
+        posture,
+        toolExecutions,
+        stepCommentaries: [],
+        rounds: 0,
+        ambiguityArtifact: null,
+        resolutionMeta: ambiguityResolution?.resolutionMeta || null,
+        availableTools: exposedTools.map((tool) => ({
+          name: tool.name,
+          category: tool.category,
+        })),
+      };
     }
 
     this.engine.ledger.record({
@@ -358,6 +433,7 @@ class ChatAgentService {
     posture,
     requestContext,
     exposedTools,
+    draftIntent,
   }) {
     const systemInstruction = {
       mode: "CHATBOT_AGENT_MODE",
@@ -369,6 +445,8 @@ class ChatAgentService {
         "For entity-specific legal work, call getEntityGraph first to ground parent/child context before synthesis.",
         "For execute operations, call universalMutation to create proposals. Never claim execution happened.",
         "If a requested capability is unavailable, explain constraint briefly.",
+        "You are not allowed to fabricate legal references or leave placeholders. If information is missing, ask.",
+        "Prefer real grounded values. If a required value is missing, bracket placeholders are allowed.",
       ],
       posture,
       allowedEntityScope: {
@@ -396,6 +474,14 @@ class ChatAgentService {
           },
         },
       },
+      draftPolicy:
+        draftIntent && draftIntent.intent
+          ? {
+              draftIntent: draftIntent.intent,
+              draftType: draftIntent.draftType || null,
+              noPlaceholderPolicy: true,
+            }
+          : null,
     };
 
     const messages = [
@@ -404,6 +490,52 @@ class ChatAgentService {
         content: `Return concise, user-facing responses.\n${JSON.stringify(systemInstruction)}`,
       },
     ];
+
+    const docCtx = requestContext?.documentContext;
+    if (
+      docCtx &&
+      Array.isArray(docCtx.documents) &&
+      docCtx.documents.length > 0
+    ) {
+      const readableDocs = docCtx.documents.filter(
+        (doc) => doc && (doc.has_text || (typeof doc.text === "string" && doc.text.trim().length > 0)),
+      );
+      const docPayload = {
+        sessionId: docCtx.sessionId || requestContext?.sessionId || null,
+        totalDocuments: docCtx.totalDocuments || docCtx.documents.length,
+        readableCount: docCtx.readableCount || readableDocs.length,
+        processingCount: docCtx.processingCount || 0,
+        unreadableCount: docCtx.unreadableCount || 0,
+        documents: docCtx.documents.map((doc) => ({
+          title: doc.title || doc.original_filename || `document_${doc.document_id}`,
+          mime_type: doc.mime_type || null,
+          text_status: doc.text_status || null,
+          text_source: doc.text_source || null,
+          understanding_status: doc.understanding_status || doc.text_status || null,
+          understanding_confidence: Number.isFinite(doc.understanding_confidence)
+            ? doc.understanding_confidence
+            : null,
+          text: typeof doc.text === "string" ? doc.text.slice(0, 8000) : null,
+          visual_summary:
+            doc.artifacts && typeof doc.artifacts === "object"
+              ? String(doc.artifacts.visual_summary || "").slice(0, 1000)
+              : null,
+          risk_flags:
+            doc.artifacts && typeof doc.artifacts === "object" && Array.isArray(doc.artifacts.risk_flags)
+              ? doc.artifacts.risk_flags.slice(0, 10)
+              : [],
+        })),
+      };
+
+      messages.push({
+        role: "system",
+        content:
+          "Attached session documents are already available. " +
+          "Use this context directly when the user asks about an image/file. " +
+          "Do not ask the user to upload the same file again unless document context is empty/unreadable.\n" +
+          JSON.stringify(docPayload),
+      });
+    }
 
     const turns = Array.isArray(llmHistory?.recentTurns) ? llmHistory.recentTurns : [];
     const recentTurns = turns.slice(-6);
@@ -686,7 +818,10 @@ class ChatAgentService {
     }
 
     const hasEntityGraphExecution = (toolExecutions || []).some(
-      (execution) => execution?.ok && execution?.toolName === "getEntityGraph",
+      (execution) =>
+        execution?.ok &&
+        (execution?.toolName === "getEntityGraph" ||
+          execution?.toolName === "getDossier"),
     );
     if (hasEntityGraphExecution) {
       return finalMessage;
@@ -727,6 +862,12 @@ class ChatAgentService {
     const lines = [];
     lines.push(`${display}`);
     lines.push(`Type: ${root?.type || "entity"}`);
+    if (root?.reference || root?.dossier_reference) {
+      lines.push(`Reference: ${root.reference || root.dossier_reference}`);
+    }
+    if (root?.court || root?.court_name) {
+      lines.push(`Court: ${root.court || root.court_name}`);
+    }
     if (root?.status) lines.push(`Status: ${root.status}`);
     if (root?.priority) lines.push(`Priority: ${root.priority}`);
     if (root?.keyDates?.nextUpcoming) {
@@ -776,9 +917,11 @@ class ChatAgentService {
     exposedTools,
     policy,
     executionContext,
+    requireGrounding = false,
   }) {
     const hasGraphTool = exposedTools.some((tool) => tool.name === "getEntityGraph");
-    if (!hasGraphTool) return null;
+    const hasGetDossierTool = exposedTools.some((tool) => tool.name === "getDossier");
+    if (!hasGraphTool && !hasGetDossierTool) return null;
 
     const resolvedEntity = executionContext?.resolvedEntity;
     if (
@@ -807,8 +950,52 @@ class ChatAgentService {
       }
     }
 
+    const scopedEntity = this._extractScopedEntityFromContext(executionContext);
+    if (scopedEntity && hasGraphTool) {
+      const execution = await this._executeToolByName({
+        toolName: "getEntityGraph",
+        args: {
+          entityType: scopedEntity.entityType,
+          entityId: scopedEntity.entityId,
+          depth: 2,
+          direction: "both",
+        },
+        policy,
+        executionContext,
+      });
+      if (execution?.ok) {
+        return {
+          snapshot: execution.result,
+          execution,
+          reason: "scoped_context_resolved",
+        };
+      }
+    }
+    if (
+      scopedEntity &&
+      scopedEntity.entityType === "dossier" &&
+      hasGetDossierTool &&
+      !hasGraphTool
+    ) {
+      const execution = await this._executeToolByName({
+        toolName: "getDossier",
+        args: { dossierId: scopedEntity.entityId },
+        policy,
+        executionContext,
+      });
+      if (execution?.ok) {
+        return {
+          snapshot: execution.result,
+          execution,
+          reason: "scoped_dossier_resolved",
+        };
+      }
+    }
+
     const message = String(userMessage || "").trim();
-    if (!message || !this._looksEntityScopedRequest(message)) return null;
+    if (!message || !this._looksEntityScopedRequest(message)) {
+      return requireGrounding ? { reason: "entity_ambiguous" } : null;
+    }
 
     const explicitRef = this._extractExplicitEntityReference(message);
     if (explicitRef) {
@@ -872,6 +1059,151 @@ class ChatAgentService {
       execution,
       reason: "client_name_resolved",
     };
+  }
+
+  _extractScopedEntityFromContext(executionContext = {}) {
+    const keyMap = [
+      ["dossierId", "dossier"],
+      ["lawsuitId", "lawsuit"],
+      ["taskId", "task"],
+      ["missionId", "mission"],
+      ["sessionId", "session"],
+      ["clientId", "client"],
+    ];
+    for (const [scopeKey, entityType] of keyMap) {
+      const id = Number(executionContext?.[scopeKey] || 0);
+      if (Number.isInteger(id) && id > 0) {
+        return { entityType, entityId: id };
+      }
+    }
+    return null;
+  }
+
+  _requiresGroundedDraft({ userMessage, draftIntent, scopeContext }) {
+    if (!draftIntent || !draftIntent.intent) return false;
+    const hasScopedContext = Boolean(this._extractScopedEntityFromContext(scopeContext));
+    const hasEntityHints =
+      Array.isArray(draftIntent.entityHints) &&
+      draftIntent.entityHints.some((hint) =>
+        ["id", "name", "reference"].includes(String(hint?.type || "")),
+      );
+    return hasScopedContext || hasEntityHints || this._looksEntityScopedRequest(userMessage);
+  }
+
+  _buildDraftGroundingBlockedMessage({ deterministicGrounding }) {
+    if (deterministicGrounding?.reason === "entity_ambiguous") {
+      return "I cannot draft this yet. I need to read and confirm the exact entity first. Please provide the client name and/or dossier title/reference.";
+    }
+    return "I cannot draft this yet because entity grounding is not confirmed. I need to read the referenced record first (getEntityGraph/getDossier).";
+  }
+
+  _isOfficialDraftRequest({ userMessage, draftIntent }) {
+    if (!draftIntent || !draftIntent.intent) return false;
+    const draftType = String(draftIntent.draftType || "").toUpperCase();
+    if (["COURT_MOTION", "HEARING_REQUEST"].includes(draftType)) return true;
+    const text = String(userMessage || "").toLowerCase();
+    return (
+      /\b(court|motion|petition|official request|judicial request)\b/.test(text) ||
+      /محكمة|طلب\s+رسمي|عريضة/.test(text)
+    );
+  }
+
+  _buildOfficialDraftGuard({ userMessage, draftIntent, deterministicGrounding }) {
+    if (!this._isOfficialDraftRequest({ userMessage, draftIntent })) {
+      return null;
+    }
+    const snapshot = deterministicGrounding?.snapshot;
+    if (!snapshot || typeof snapshot !== "object") return null;
+
+    const operator = this._getOperatorDraftIdentity();
+
+    const dossierReference = this._extractDossierReferenceFromSnapshot(snapshot);
+    const legalReference = this._extractLegalReferenceFromSnapshot(snapshot);
+    const courtName = this._extractCourtNameFromSnapshot(snapshot);
+    return {
+      systemMessage: `Official draft binding data (use real values when available; placeholders allowed only for missing values): ${JSON.stringify({
+        lawyer: operator.profile,
+        dossierReference: dossierReference || null,
+        courtName: courtName || null,
+        legalReference: legalReference || null,
+        missingLawyerFields: operator.missing,
+      })}`,
+    };
+  }
+
+  _getOperatorDraftIdentity() {
+    let operator = null;
+    try {
+      operator = operatorsService.getCurrentOperator();
+    } catch (_) {
+      operator = null;
+    }
+    const profile = {
+      lawyerName: operator?.name || null,
+      licenseNumber: operator?.bar_number || operator?.bar_id || null,
+      officeAddress: operator?.office_address || null,
+      contactEmail: operator?.email || null,
+      contactPhone: operator?.phone || operator?.mobile || null,
+      officeName: operator?.office_name || operator?.office || null,
+    };
+    const missing = [];
+    if (!profile.lawyerName) missing.push("lawyer name");
+    if (!profile.licenseNumber) missing.push("license number");
+    if (!profile.officeAddress) missing.push("office address");
+    if (!profile.contactEmail && !profile.contactPhone) {
+      missing.push("contact information");
+    }
+    return { profile, missing };
+  }
+
+  _extractDossierReferenceFromSnapshot(snapshot) {
+    const root = snapshot?.root || {};
+    const parents = snapshot?.parents || {};
+    const children = snapshot?.children || {};
+    return (
+      root.reference ||
+      root.dossier_reference ||
+      parents?.dossier?.reference ||
+      (Array.isArray(children.dossiers) && children.dossiers[0]?.reference) ||
+      null
+    );
+  }
+
+  _extractCourtNameFromSnapshot(snapshot) {
+    const root = snapshot?.root || {};
+    const parents = snapshot?.parents || {};
+    return root.court || root.court_name || parents?.lawsuit?.court || null;
+  }
+
+  _extractLegalReferenceFromSnapshot(snapshot) {
+    const fields = [
+      "legal_article",
+      "legalArticle",
+      "article",
+      "article_number",
+      "articleNumber",
+      "legal_reference",
+      "legalReference",
+    ];
+    const queue = [snapshot?.root, snapshot?.parents, snapshot?.children];
+    for (const node of queue) {
+      if (!node || typeof node !== "object") continue;
+      const stack = [node];
+      while (stack.length > 0) {
+        const current = stack.pop();
+        if (!current || typeof current !== "object") continue;
+        for (const field of fields) {
+          if (current[field] !== null && current[field] !== undefined) {
+            const value = String(current[field]).trim();
+            if (value) return value;
+          }
+        }
+        Object.values(current).forEach((value) => {
+          if (value && typeof value === "object") stack.push(value);
+        });
+      }
+    }
+    return null;
   }
 
   _extractExplicitEntityReference(message) {
@@ -1070,6 +1402,125 @@ class ChatAgentService {
       scope,
       label: String(resolved.label || followUpIntent.label || "").trim() || null,
     };
+  }
+
+  _buildDocumentContextFallback({
+    requestContext,
+    userMessage,
+    policyVersion,
+    posture,
+  }) {
+    const docCtx = requestContext?.documentContext;
+    if (!docCtx || !Array.isArray(docCtx.documents) || docCtx.documents.length === 0) {
+      return null;
+    }
+    if (!this._isDocumentFocusedPrompt(userMessage)) {
+      return null;
+    }
+
+    const docs = docCtx.documents.filter(Boolean);
+    const readableDocs = docs.filter(
+      (doc) =>
+        Boolean(doc.has_text) ||
+        (typeof doc.text === "string" && doc.text.trim().length > 0) ||
+        (doc.artifacts &&
+          typeof doc.artifacts === "object" &&
+          typeof doc.artifacts.visual_summary === "string" &&
+          doc.artifacts.visual_summary.trim().length > 0),
+    );
+    if (readableDocs.length > 0) {
+      return null;
+    }
+
+    const unreadableDocs = docs.filter(
+      (doc) =>
+        ["unreadable", "failed"].includes(
+          String(doc.text_status || "").toLowerCase(),
+        ) ||
+        ["unreadable", "failed"].includes(
+          String(doc.understanding_status || "").toLowerCase(),
+        ),
+    );
+    const processingDocs = docs.filter(
+      (doc) => {
+        const understanding = String(doc.understanding_status || "").toLowerCase();
+        if (["failed", "completed", "unreadable", "readable"].includes(understanding)) {
+          return false;
+        }
+        return (
+          String(doc.text_status || "").toLowerCase() === "processing" ||
+          understanding === "processing"
+        );
+      },
+    );
+
+    let message = "";
+    if (unreadableDocs.length > 0) {
+      const lines = unreadableDocs.slice(0, 2).map((doc) => {
+        const name = doc.title || doc.original_filename || `document_${doc.document_id}`;
+        const confidence = Number.isFinite(doc.understanding_confidence)
+          ? `, confidence ${Math.round(doc.understanding_confidence * 100)}%`
+          : "";
+        const riskFlags =
+          doc.artifacts &&
+          typeof doc.artifacts === "object" &&
+          Array.isArray(doc.artifacts.risk_flags)
+            ? doc.artifacts.risk_flags
+                .filter((flag) => typeof flag === "string" && flag.trim())
+                .slice(0, 3)
+            : [];
+        const reason = riskFlags.length ? ` Reasons: ${riskFlags.join("; ")}.` : "";
+        return `- ${name} (${String(doc.understanding_status || doc.text_status || "unreadable")}${confidence}).${reason}`;
+      });
+      const processingSuffix =
+        processingDocs.length > 0
+          ? ` ${processingDocs.length} other attachment(s) are still processing.`
+          : "";
+      message = [
+        "I can see your attached file(s), but I could not extract readable content from at least one file in the current environment.",
+        ...lines,
+        `You can retry analysis, upload a clearer/text-based version, or verify offline OCR assets/dependencies are installed correctly on this machine.${processingSuffix}`,
+      ].join("\n");
+    } else if (processingDocs.length > 0) {
+      const names = processingDocs
+        .slice(0, 3)
+        .map((doc) => doc.title || doc.original_filename || `document_${doc.document_id}`)
+        .join(", ");
+      message =
+        `I can see your attached file(s), but analysis is still processing for ${processingDocs.length} document(s): ${names}. ` +
+        "Please retry in a few seconds.";
+    } else {
+      message =
+        "I can see your attached file(s), but readable content is not available yet. Please retry analysis.";
+    }
+
+    return {
+      message,
+      agentVersion: policyVersion || "v3",
+      posture: posture || POSTURES.ASSISTANT,
+      toolExecutions: [],
+      stepCommentaries: [],
+      rounds: 0,
+      ambiguityArtifact: null,
+      resolutionMeta: null,
+      availableTools: [],
+      suppressIntentFraming: true,
+      suppressCommentary: true,
+      documentFallback: true,
+    };
+  }
+
+  _isDocumentFocusedPrompt(message) {
+    const text = String(message || "").toLowerCase();
+    if (!text) return false;
+    return (
+      /\b(file|document|pdf|image|photo|picture|scan|scanned|attachment|attached|ocr)\b/.test(
+        text,
+      ) ||
+      /\bwhat does this (file|document|image|pdf)\b/.test(text) ||
+      /\bwhat (is|does) .*written\b/.test(text) ||
+      /\bsummar(?:y|ize).*(file|document|pdf|image)\b/.test(text)
+    );
   }
 }
 

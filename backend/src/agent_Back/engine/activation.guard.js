@@ -115,7 +115,13 @@ function activationGuard({
   }
 
   if (capability === CAPABILITIES.ANALYZE) {
+    const metadataEntityId = Number(routingResult?.metadata?.entityId || 0);
+    const hasLockedAnalyzeEntity =
+      routingResult?.requires?.entity === true &&
+      Number.isInteger(metadataEntityId) &&
+      metadataEntityId > 0;
     const hasContext = Boolean(
+      hasLockedAnalyzeEntity ||
       context?._dataEnriched ||
       context?.activeEntity ||
       context?.dossierId ||

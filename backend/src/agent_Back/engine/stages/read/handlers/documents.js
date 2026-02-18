@@ -22,6 +22,16 @@ function normalizeText(value) {
   return String(value || "").toLowerCase().trim();
 }
 
+function hasSubstantiveDocumentText(value) {
+  const text = String(value || "").trim();
+  if (!text) return false;
+  const matches = text.match(/[\p{L}\p{N}]/gu);
+  const alnumCount = Array.isArray(matches) ? matches.length : 0;
+  if (alnumCount < 12) return false;
+  const ratio = alnumCount / Math.max(1, text.length);
+  return ratio >= 0.2;
+}
+
 function extractDocumentQuery(message) {
   const text = String(message || "").trim();
   if (!text) return null;
@@ -147,7 +157,14 @@ function describeUnreadableReason(doc) {
       ocr_empty: "OCR produced no readable text",
       legacy_unreadable: "document was previously marked unreadable",
     };
-    return friendly[reason] || reason.replace(/_/g, " ");
+    if (friendly[reason]) return friendly[reason];
+    // Preserve technical error payloads (paths, stack fragments, codes).
+    const looksTechnical =
+      reason.includes("\\") ||
+      reason.includes("/") ||
+      reason.includes(":") ||
+      reason.includes("Require stack");
+    return looksTechnical ? reason : reason.replace(/_/g, " ");
   }
   return "document unreadable";
 }
@@ -391,7 +408,7 @@ async function handleSummarizeDocument(state) {
             : typeof sessionDoc.text === "string" && sessionDoc.text.trim()
               ? sessionDoc.text
               : null;
-        if (inlineText) {
+        if (inlineText && hasSubstantiveDocumentText(inlineText)) {
           let summaryText = await summarizeDocumentText({
             title: selectedLabel,
             text: inlineText,
@@ -418,6 +435,13 @@ async function handleSummarizeDocument(state) {
           data = { ...sessionDoc, id: sessionDoc.document_id };
           return { data, title, summary };
         }
+        if (inlineText && !hasSubstantiveDocumentText(inlineText)) {
+          summary = `${selectedLabel} was parsed, but extracted text is too limited to summarize reliably.`;
+          details.push(`${selectedLabel} - extracted text appears non-substantive (symbols/layout only)`);
+          sources.push({ sourceType: "system", reference: "documents.metadata", note: "Session documents" });
+          data = { ...sessionDoc, id: sessionDoc.document_id };
+          return { data, title, summary };
+        }
 
         const textResult = this._loadDocumentTexts([sessionDoc.document_id], context);
         if (!textResult.permitted) {
@@ -436,7 +460,7 @@ async function handleSummarizeDocument(state) {
             data = { ...sessionDoc, id: sessionDoc.document_id };
             return { data, title, summary };
           }
-          if (textDoc && textDoc.document_text) {
+          if (textDoc && textDoc.document_text && hasSubstantiveDocumentText(textDoc.document_text)) {
             let summaryText = await summarizeDocumentText({
               title: selectedLabel,
               text: textDoc.document_text,
@@ -460,6 +484,13 @@ async function handleSummarizeDocument(state) {
             }
             sources.push({ sourceType: "system", reference: "documents.text", note: "Document text" });
             sources.push({ sourceType: "system", reference: "documents.metadata", note: "Document metadata" });
+            data = { ...sessionDoc, id: sessionDoc.document_id };
+            return { data, title, summary };
+          }
+          if (textDoc && textDoc.document_text && !hasSubstantiveDocumentText(textDoc.document_text)) {
+            summary = `${selectedLabel} was parsed, but extracted text is too limited to summarize reliably.`;
+            details.push(`${selectedLabel} - extracted text appears non-substantive (symbols/layout only)`);
+            sources.push({ sourceType: "system", reference: "documents.metadata", note: "Session documents" });
             data = { ...sessionDoc, id: sessionDoc.document_id };
             return { data, title, summary };
           }
@@ -608,6 +639,13 @@ async function handleSummarizeDocument(state) {
     const unreadableReason = describeUnreadableReason(textDoc || selectedDoc);
     summary = buildUnreadableSummary(selectedLabel, textDoc || selectedDoc);
     details.push(`${selectedLabel} - ${unreadableReason}`);
+    data = { ...selectedDoc, id: selectedDoc.document_id };
+    return { data, title, summary };
+  }
+
+  if (!hasSubstantiveDocumentText(textDoc.document_text)) {
+    summary = `${selectedLabel} was parsed, but extracted text is too limited to summarize reliably.`;
+    details.push(`${selectedLabel} - extracted text appears non-substantive (symbols/layout only)`);
     data = { ...selectedDoc, id: selectedDoc.document_id };
     return { data, title, summary };
   }

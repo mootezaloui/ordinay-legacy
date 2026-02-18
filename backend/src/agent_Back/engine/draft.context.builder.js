@@ -54,6 +54,8 @@ async function buildDraftContext({
   }
 
   context.author = _resolveAuthorIdentity();
+  context.matter = _buildMatterContext(entityType, entity);
+  context.legalReference = _extractLegalReference(entity) || null;
 
   const isOverduePaymentEmail = _isOverduePaymentEmail(
     draftType,
@@ -319,7 +321,7 @@ function _computeDaysLate(dueDate, now = new Date()) {
 function _buildInvoiceLabel(invoice) {
   const amount = _formatAmount(invoice.amount, invoice.currency);
   const dueDate = _formatDueDate(invoice.dueDate);
-  return `Invoice ${invoice.id} - ${amount || "[Amount]"} - Due ${dueDate}`;
+  return `Invoice ${invoice.id} - ${amount || "amount not specified"} - Due ${dueDate}`;
 }
 
 function _formatAmount(amount, currency) {
@@ -331,34 +333,80 @@ function _formatAmount(amount, currency) {
 }
 
 function _formatDueDate(value) {
-  if (!value) return "[Due Date]";
+  if (!value) return "date not specified";
   const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "[Due Date]";
+  if (!Number.isFinite(date.getTime())) return "date not specified";
   return date.toLocaleDateString("fr-FR");
 }
 
 function _resolveAuthorIdentity() {
-  const placeholders = {
-    name: "[Your Name]",
-    position: "[Your Title]",
-    firmName: "[Firm Name]",
-    phone: "[Phone]",
-    email: "[Email]",
-  };
-
   try {
     const operator = operatorsService.getCurrentOperator();
     return {
-      name: operator?.name || placeholders.name,
-      position: operator?.title || operator?.role || placeholders.position,
-      firmName:
-        operator?.office_name || operator?.office || placeholders.firmName,
-      phone: operator?.phone || operator?.mobile || placeholders.phone,
-      email: operator?.email || placeholders.email,
+      name: operator?.name || null,
+      position: operator?.title || operator?.role || null,
+      firmName: operator?.office_name || operator?.office || null,
+      officeAddress: operator?.office_address || null,
+      phone: operator?.phone || operator?.mobile || null,
+      email: operator?.email || null,
+      licenseNumber: operator?.bar_number || operator?.bar_id || null,
     };
   } catch (err) {
-    return { ...placeholders };
+    return {
+      name: null,
+      position: null,
+      firmName: null,
+      officeAddress: null,
+      phone: null,
+      email: null,
+      licenseNumber: null,
+    };
   }
+}
+
+function _extractLegalReference(entity) {
+  if (!entity || typeof entity !== "object") return null;
+  const fields = [
+    "legal_article",
+    "legalArticle",
+    "article",
+    "article_number",
+    "articleNumber",
+    "statute_article",
+    "legal_reference",
+    "legalReference",
+  ];
+  for (const field of fields) {
+    const value = entity[field];
+    if (value !== null && value !== undefined && String(value).trim()) {
+      return String(value).trim();
+    }
+  }
+  return null;
+}
+
+function _buildMatterContext(entityType, entity) {
+  if (!entity || typeof entity !== "object") {
+    return {
+      dossierReference: null,
+      courtName: null,
+    };
+  }
+  const dossierReference =
+    entity.reference ||
+    entity.dossier_reference ||
+    entity.dossierReference ||
+    entity.court_reference ||
+    null;
+
+  const courtName = entity.court || entity.court_name || entity.courtName || null;
+
+  return {
+    entityType: entityType || null,
+    entityId: entity.id || null,
+    dossierReference: dossierReference ? String(dossierReference) : null,
+    courtName: courtName ? String(courtName) : null,
+  };
 }
 
 function _buildRecipientIdentity(entityType, entity, client) {

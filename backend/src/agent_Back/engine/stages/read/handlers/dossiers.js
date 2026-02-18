@@ -733,6 +733,9 @@ async function handleListDossiers(state) {
         `${d.reference || "Dossier"} — ${d.title || "Untitled"} (${d.status || "open"}, ${d.priority || "medium"})`,
       );
     });
+    if (details.length === 0) {
+      details.push("Dossier list is empty for the current scope.");
+    }
     sources.push({
       sourceType: "system",
       reference: "tool:listDossiers",

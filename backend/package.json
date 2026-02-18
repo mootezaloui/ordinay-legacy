@@ -7,15 +7,21 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "mcp:websearch": "node scripts/run-mcp-websearch-server.js"
+    "mcp:websearch": "node scripts/run-mcp-websearch-server.js",
+    "test:doc-intel": "node --test src/doc_intel/*.test.js"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^0.1.67",
     "ajv": "^8.12.0",
     "ajv-formats": "^2.1.1",
     "better-sqlite3": "^9.6.0",
     "cors": "^2.8.5",
+    "docx": "^9.5.1",
     "express": "^4.19.2",
-    "nodemailer": "^6.10.1"
+    "nodemailer": "^6.10.1",
+    "pdfjs-dist": "^4.10.38",
+    "puppeteer": "^24.3.0",
+    "tesseract.js": "^5.1.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"

@@ -7,6 +7,7 @@ const AgentEngine = require("./agent.engine");
 const { ChatAgentService } = require("./chat/chat.agent.service");
 const { getAvailableCommands } = require("./intent.classifier");
 const { streamLLM } = require("./llm/stream.provider");
+const documentGenerationService = require("../services/documentGeneration/documentGeneration.service");
 const eventEnvelopeSchema = require("./schemas/event-envelope.schema.json");
 const intentSchema = require("./schemas/intent.schema.json");
 const commentarySchema = require("./schemas/commentary.schema.json");
@@ -328,6 +329,50 @@ function isRedundantWithFinalResponse(commentaryText, finalResponse) {
   if (!commentary || !finalText) return false;
   if (commentary === finalText) return true;
   return commentary.includes(finalText) || finalText.includes(commentary);
+}
+
+function isDocumentFocusedPrompt(text) {
+  const value = String(text || "").trim().toLowerCase();
+  if (!value) return false;
+  return /\b(file|document|pdf|image|photo|picture|scan|scanned|attachment|attached|ocr)\b/.test(
+    value,
+  );
+}
+
+function hasProcessingDocuments(documentContext) {
+  if (!documentContext || !Array.isArray(documentContext.documents)) return false;
+  return documentContext.documents.some((doc) => {
+    const textStatus = String(doc?.text_status || "").toLowerCase();
+    const understandingStatus = String(doc?.understanding_status || "").toLowerCase();
+    if (["failed", "completed", "unreadable", "readable"].includes(understandingStatus)) {
+      return false;
+    }
+    return textStatus === "processing" || understandingStatus === "processing";
+  });
+}
+
+function waitMs(duration) {
+  return new Promise((resolve) => setTimeout(resolve, duration));
+}
+
+async function waitForDocumentContextStabilization({
+  sessionId,
+  documentIds,
+  signal,
+  maxWaitMs = Number.parseInt(process.env.AGENT_DOC_WAIT_MAX_MS || "8000", 10),
+  pollMs = Number.parseInt(process.env.AGENT_DOC_WAIT_POLL_MS || "400", 10),
+}) {
+  let latest = resolveDocumentContext(sessionId, documentIds);
+  if (!hasProcessingDocuments(latest)) return latest;
+  const deadline = Date.now() + Math.max(0, maxWaitMs);
+
+  while (Date.now() < deadline) {
+    if (signal?.aborted) break;
+    await waitMs(pollMs);
+    latest = resolveDocumentContext(sessionId, documentIds);
+    if (!hasProcessingDocuments(latest)) break;
+  }
+  return latest;
 }
 
 async function streamTextAsChunksWithPacing(
@@ -679,6 +724,28 @@ function buildRequestContext(context, sessionId, documentContext, metadata) {
   ) {
     requestContext._hasDocumentContext = true;
     requestContext.documentCount = documentContext.documents.length;
+    requestContext.documentContext = {
+      sessionId: documentContext.sessionId || sessionId || null,
+      totalDocuments: documentContext.totalDocuments || documentContext.documents.length,
+      readableCount: documentContext.readableCount || 0,
+      processingCount: documentContext.processingCount || 0,
+      unreadableCount: documentContext.unreadableCount || 0,
+      documents: documentContext.documents.map((doc) => ({
+        document_id: doc.document_id,
+        title: doc.title,
+        original_filename: doc.original_filename || null,
+        mime_type: doc.mime_type || null,
+        text_status: doc.text_status || null,
+        text_source: doc.text_source || null,
+        understanding_status: doc.understanding_status || doc.text_status || null,
+        understanding_confidence: Number.isFinite(doc.understanding_confidence)
+          ? doc.understanding_confidence
+          : null,
+        has_text: Boolean(doc.has_text),
+        text: typeof doc.text === "string" ? doc.text : null,
+        artifacts: doc.artifacts || null,
+      })),
+    };
   }
   if (metadata && typeof metadata === "object") {
     requestContext.requestMetadata = { ...metadata };
@@ -868,6 +935,149 @@ function normalizeChatSearchArtifact(entry) {
   };
 }
 
+function detectDocumentGenerationIntent(message, context = {}) {
+  const text = String(message || "").trim();
+  if (!text) return null;
+  const low = text.toLowerCase();
+  const hasGenerateVerb =
+    /\b(generate|create|draft|prepare|write)\b/i.test(text) ||
+    /(?:إنشاء|توليد|تحضير|صياغة)/.test(text);
+  if (!hasGenerateVerb) return null;
+  if (!/\b(document|letter|opinion|memo|summary|pdf|docx|html)\b/i.test(low) && !/(مذكرة|خطاب|ملخص|وثيقة)/.test(text)) {
+    return null;
+  }
+
+  let documentType = null;
+  if (/\b(court|postpone|postponement|motion|request letter)\b/i.test(low)) {
+    documentType = "COURT_REQUEST_LETTER";
+  } else if (/\b(legal opinion|opinion)\b/i.test(low)) {
+    documentType = "LEGAL_OPINION";
+  } else if (/\b(task memo|memo)\b/i.test(low) || /(مذكرة مهمة)/.test(text)) {
+    documentType = "TASK_MEMO";
+  } else if (/\b(session summary|hearing summary|session)\b/i.test(low) || /(ملخص جلسة)/.test(text)) {
+    documentType = "SESSION_SUMMARY";
+  }
+  if (!documentType) return null;
+
+  let format = "pdf";
+  if (/\bdocx\b/i.test(low)) format = "docx";
+  if (/\bhtml\b/i.test(low)) format = "html";
+
+  const language = /\b(arabic|arab|العربية|عربي)\b/i.test(text) ? "ar" : "en";
+
+  const explicit = text.match(/\b(client|dossier|lawsuit|mission|task|session)\s*#?\s*(\d+)\b/i);
+  let target = null;
+  if (explicit) {
+    target = { type: explicit[1].toLowerCase(), id: Number(explicit[2]) };
+  } else if (context?.lawsuitId) {
+    target = { type: "lawsuit", id: Number(context.lawsuitId) };
+  } else if (context?.dossierId) {
+    target = { type: "dossier", id: Number(context.dossierId) };
+  } else if (context?.taskId) {
+    target = { type: "task", id: Number(context.taskId) };
+  } else if (context?.sessionId) {
+    target = { type: "session", id: Number(context.sessionId) };
+  } else if (context?.clientId) {
+    target = { type: "client", id: Number(context.clientId) };
+  } else if (context?.missionId) {
+    target = { type: "mission", id: Number(context.missionId) };
+  }
+  if (!target?.type || !Number.isInteger(target?.id) || target.id <= 0) return null;
+
+  return {
+    target,
+    documentType,
+    language,
+    format,
+    instructions: text,
+  };
+}
+
+function toProposalArtifact(proposal, sessionId) {
+  return {
+    type: "proposal",
+    sessionId: sessionId || null,
+    proposals: [
+      {
+        proposalId: proposal.proposalId,
+        status: proposal.status,
+        actionType: proposal.actionType,
+        requiresConfirmation: proposal.requiresConfirmation,
+        humanReadableSummary: proposal.humanReadableSummary,
+        affectedEntities: proposal.affectedEntities,
+        reversible: proposal.reversible,
+        version: proposal.version,
+        posture: proposal.posture,
+        snapshot: proposal.snapshot,
+        sessionId: proposal.sessionId || sessionId || null,
+        params: proposal.params,
+      },
+    ],
+  };
+}
+
+async function buildDocumentGenerationArtifact({
+  requestContext,
+  agentVersion,
+  userId,
+  sessionId,
+  generationRequest,
+}) {
+  const plan = documentGenerationService.planDocument(generationRequest);
+  if (plan.status === "missing_fields") {
+    return {
+      type: "document_generation_missing_fields",
+      message: "Required fields are missing before generation.",
+      documentType: plan.documentType,
+      target: plan.target,
+      missingFields: plan.missingFields,
+      schemaVersion: plan.schemaVersion,
+      templateKey: plan.templateKey,
+    };
+  }
+
+  const policy = agentEngine._resolvePolicy(agentVersion || "v3");
+  const proposal = await agentEngine.executeToolV2(
+    "universalMutation",
+    {
+      operation: "ATTACH_TO_ENTITY",
+      params: {
+        target: plan.target,
+        attachmentType: "generated_document",
+        payload: {
+          documentType: plan.documentType,
+          templateKey: plan.templateKey,
+          language: plan.language,
+          format: plan.format,
+          schemaVersion: plan.schemaVersion,
+          contentJson: plan.contentJson,
+          title: plan.contentJson?.content?.title || plan.documentType,
+        },
+      },
+    },
+    policy,
+    {
+      ...requestContext,
+      confirmed: true,
+      sessionId: sessionId || null,
+      userId: userId || null,
+      posture: "WORK",
+    },
+  );
+
+  if (proposal?.result?.proposalId && proposal?.result?.requiresConfirmation) {
+    agentEngine.storeProposal(proposal.result, {
+      conversationId: requestContext?.conversationId || null,
+      sessionId: sessionId || null,
+      userId: userId || null,
+      tenantId: requestContext?.tenantId || null,
+    });
+    return toProposalArtifact(proposal.result, sessionId);
+  }
+
+  throw new Error("Failed to create document generation proposal");
+}
+
 router.post("/agent/run", async (req, res, next) => {
   const {
     message,
@@ -896,6 +1106,30 @@ router.post("/agent/run", async (req, res, next) => {
     const effectiveMessage =
       hasMessage || followUpIntent || !hasDocuments ? message : "uploaded file";
 
+    const generationRequest = detectDocumentGenerationIntent(
+      effectiveMessage,
+      requestContext,
+    );
+    if (generationRequest) {
+      const output = await buildDocumentGenerationArtifact({
+        requestContext,
+        agentVersion: agentVersion || "v3",
+        userId: req.user?.id || null,
+        sessionId,
+        generationRequest,
+      });
+      return res.json({
+        status: "ok",
+        data: {
+          intent: "PROPOSE_ACTIONS",
+          output,
+          agentVersion: agentVersion || "v3",
+          reasoner: "document-generation",
+          needsClarification: output.type === "document_generation_missing_fields",
+        },
+      });
+    }
+
     const result = await agentEngine.run({
       message: effectiveMessage,
       context: requestContext,
@@ -923,6 +1157,7 @@ router.post("/agent/chat", async (req, res) => {
     context,
     agentVersion,
     sessionId,
+    documentIds,
     metadata,
     followUpIntent,
   } = req.body || {};
@@ -933,8 +1168,6 @@ router.post("/agent/chat", async (req, res) => {
     res.status(400).json({ error: "Message is required" });
     return;
   }
-
-  const requestContext = buildRequestContext(context, sessionId, null, metadata);
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -962,11 +1195,60 @@ router.post("/agent/chat", async (req, res) => {
   };
 
   try {
+    let documentContext = resolveDocumentContext(sessionId, documentIds);
+    if (
+      isDocumentFocusedPrompt(message) &&
+      hasProcessingDocuments(documentContext)
+    ) {
+      documentContext = await waitForDocumentContextStabilization({
+        sessionId,
+        documentIds,
+        signal: abortController.signal,
+      });
+    }
+    const requestContext = buildRequestContext(
+      context,
+      sessionId,
+      documentContext,
+      metadata,
+    );
+    const directDocumentAnswerMode =
+      isDocumentFocusedPrompt(message) &&
+      requestContext?.documentContext &&
+      Array.isArray(requestContext.documentContext.documents) &&
+      requestContext.documentContext.documents.length > 0;
+
     emit("start", {
       intent: "CHATBOT_AGENT_MODE",
       agentVersion: agentVersion || "v3",
       timestamp: new Date().toISOString(),
     });
+
+    const generationRequest = detectDocumentGenerationIntent(message, requestContext);
+    if (generationRequest) {
+      const artifact = await buildDocumentGenerationArtifact({
+        requestContext,
+        agentVersion: agentVersion || "v3",
+        userId: req.user?.id || null,
+        sessionId,
+        generationRequest,
+      });
+      emit("intent", {
+        message: "Planning document generation from structured data.",
+        action: "DOCUMENT_GENERATION",
+        missingEntities: [],
+      });
+      emit("result", {
+        output: artifact,
+        intent: "DOCUMENT_GENERATION",
+      });
+      emit("done", {
+        timestamp: new Date().toISOString(),
+        mode: "chatbot",
+        toolCalls: 1,
+      });
+      return;
+    }
 
     const result = await chatAgentService.run({
       message,
@@ -994,29 +1276,37 @@ router.post("/agent/chat", async (req, res) => {
             row.message.trim().length > 0,
         )
       : [];
+    const suppressIntentFraming =
+      result?.suppressIntentFraming === true || directDocumentAnswerMode;
+    const suppressCommentary =
+      result?.suppressCommentary === true || directDocumentAnswerMode;
 
-    const chatIntentMessage = await generateChatIntentFramingMessage(
-      message,
-      abortController.signal,
-    );
-    emit("intent", {
-      message: chatIntentMessage,
-      action: "CHATBOT_AGENT_MODE",
-      missingEntities: [],
-    });
-    for (const row of stepCommentaries) {
-      const stepMessage = String(row.message || "").trim();
-      if (!stepMessage) continue;
-      if (isClarificationStyleChat(result.message)) continue;
-      if (isRedundantWithFinalResponse(stepMessage, result.message)) continue;
-      emit("commentary", {
-        message: stepMessage,
-        source: row.source || "llm",
-        kind: row.kind || "tool_step",
-        toolName: row.toolName || null,
-        stepIndex: row.stepIndex ?? null,
-        signals: ["tool_step_commentary"],
+    if (!suppressIntentFraming) {
+      const chatIntentMessage = await generateChatIntentFramingMessage(
+        message,
+        abortController.signal,
+      );
+      emit("intent", {
+        message: chatIntentMessage,
+        action: "CHATBOT_AGENT_MODE",
+        missingEntities: [],
       });
+    }
+    if (!suppressCommentary) {
+      for (const row of stepCommentaries) {
+        const stepMessage = String(row.message || "").trim();
+        if (!stepMessage) continue;
+        if (isClarificationStyleChat(result.message)) continue;
+        if (isRedundantWithFinalResponse(stepMessage, result.message)) continue;
+        emit("commentary", {
+          message: stepMessage,
+          source: row.source || "llm",
+          kind: row.kind || "tool_step",
+          toolName: row.toolName || null,
+          stepIndex: row.stepIndex ?? null,
+          signals: ["tool_step_commentary"],
+        });
+      }
     }
 
     if (result?.ambiguityArtifact) {
@@ -1024,29 +1314,31 @@ router.post("/agent/chat", async (req, res) => {
         output: result.ambiguityArtifact,
         intent: "CHATBOT_AGENT_MODE",
       });
-      const chatCommentaryMessage = await generateChatCommentaryMessage(
-        message,
-        String(result?.ambiguityArtifact?.message || result?.message || ""),
-        abortController.signal,
-      );
-      if (
-        chatCommentaryMessage &&
-        !isRedundantWithFinalResponse(
-          chatCommentaryMessage,
+      if (!suppressCommentary) {
+        const chatCommentaryMessage = await generateChatCommentaryMessage(
+          message,
           String(result?.ambiguityArtifact?.message || result?.message || ""),
-        )
-      ) {
-        emit("commentary", {
-          message: chatCommentaryMessage,
-          signals: [],
-        });
+          abortController.signal,
+        );
+        if (
+          chatCommentaryMessage &&
+          !isRedundantWithFinalResponse(
+            chatCommentaryMessage,
+            String(result?.ambiguityArtifact?.message || result?.message || ""),
+          )
+        ) {
+          emit("commentary", {
+            message: chatCommentaryMessage,
+            signals: [],
+          });
+        }
       }
     } else if (searchArtifact) {
       emit("result", {
         output: searchArtifact,
         intent: "CHATBOT_AGENT_MODE",
       });
-      if (!isClarificationStyleChat(result.message)) {
+      if (!suppressCommentary && !isClarificationStyleChat(result.message)) {
         const chatCommentaryMessage = await generateChatCommentaryMessage(
           message,
           result.message,
@@ -1074,7 +1366,7 @@ router.post("/agent/chat", async (req, res) => {
         },
         { delayMs: 14, shouldStop: () => aborted },
       );
-      if (!isClarificationStyleChat(result.message)) {
+      if (!suppressCommentary && !isClarificationStyleChat(result.message)) {
         const chatCommentaryMessage = await generateChatCommentaryMessage(
           message,
           result.message,
@@ -1419,6 +1711,37 @@ function deriveKnownResultCount(output) {
   return null;
 }
 
+function getArtifactSummaryText(output) {
+  const artifact = output && typeof output === "object" ? output : {};
+  const summary = [
+    artifact.summary,
+    artifact.message,
+    artifact.prompt,
+    artifact.facts?.summary,
+    ...(Array.isArray(artifact.facts?.details) ? artifact.facts.details : []),
+    ...(Array.isArray(artifact.details) ? artifact.details : []),
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return String(summary || "").toLowerCase();
+}
+
+function shouldForceCommentaryFallback(output) {
+  const artifact = output && typeof output === "object" ? output : {};
+  const type = String(artifact.type || "").toLowerCase();
+  if (type === "clarification" || type === "routing_clarification") return true;
+  if (type === "context_suggestion") return true;
+
+  const status = String(artifact.status || "").toLowerCase();
+  if (status === "pending_clarification") return true;
+
+  const summaryText = getArtifactSummaryText(artifact);
+  if (!summaryText) return false;
+  const unstableResolutionPattern =
+    /\b(which|specify|provide|clarif|multiple|ambiguous|unable to retrieve|not found|no\s+\w+\s+found|could not)\b/i;
+  return unstableResolutionPattern.test(summaryText);
+}
+
 function hasCountContradiction(lines = [], count = null) {
   if (!Array.isArray(lines) || lines.length === 0 || typeof count !== "number") {
     return false;
@@ -1663,6 +1986,9 @@ function buildDisambiguatedOptionsFromOutput(output) {
 function coerceCommentaryPayload(payload, output, userMessage) {
   const source = payload && typeof payload === "object" ? payload : {};
   const fallback = buildCommentaryFallbackFromArtifact(output, userMessage);
+  if (shouldForceCommentaryFallback(output)) {
+    return fallback;
+  }
   const rawLines = Array.isArray(source.lines) ? source.lines : [];
   let lines = rawLines
     .map((line) => cleanUserText(line, ""))

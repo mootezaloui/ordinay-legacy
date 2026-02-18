@@ -134,6 +134,38 @@ export default function DocumentsTab({ data, config, onDocumentsChange, reloadKe
     return null;
   };
 
+  const renderUnderstandingBadge = (doc) => {
+    const status = doc.understandingStatus || doc.textStatus;
+    if (!status) return null;
+    if (status === "processing") {
+      return (
+        <span className="inline-block px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 text-xs rounded">
+          Understanding in progress
+        </span>
+      );
+    }
+    if (status === "completed" || status === "readable") {
+      return (
+        <span className="inline-block px-2 py-0.5 bg-teal-100 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 text-xs rounded">
+          Context understood
+        </span>
+      );
+    }
+    if (status === "failed" || status === "unreadable") {
+      return (
+        <span className="inline-block px-2 py-0.5 bg-rose-100 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 text-xs rounded">
+          Understanding failed
+        </span>
+      );
+    }
+    return null;
+  };
+
+  const formatConfidence = (value) => {
+    if (!Number.isFinite(value)) return null;
+    return `${Math.round(value * 100)}%`;
+  };
+
   const handleFileSelect = async (files) => {
     setUploading(true);
 
@@ -394,6 +426,10 @@ export default function DocumentsTab({ data, config, onDocumentsChange, reloadKe
           {documents.map((doc) => {
             const isMissing = missingFiles.has(doc.id);
             const statusBadge = renderTextStatusBadge(doc);
+            const understandingBadge = renderUnderstandingBadge(doc);
+            const confidenceLabel = formatConfidence(doc.understandingConfidence);
+            const visualSummary = doc?.artifacts?.visual_summary || null;
+            const riskFlags = Array.isArray(doc?.artifacts?.risk_flags) ? doc.artifacts.risk_flags : [];
             return (
               <div
                 key={doc.id}
@@ -449,7 +485,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange, reloadKe
                         {formatDate(doc.uploadDate)}
                       </span>
                     </div>
-                    {(doc.category || statusBadge) && (
+                    {(doc.category || statusBadge || understandingBadge || confidenceLabel) && (
                       <div className="mt-2 flex flex-wrap gap-2">
                         {doc.category && (
                           <span className="inline-block px-2 py-0.5 bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 text-xs rounded">
@@ -457,6 +493,33 @@ export default function DocumentsTab({ data, config, onDocumentsChange, reloadKe
                           </span>
                         )}
                         {statusBadge}
+                        {understandingBadge}
+                        {confidenceLabel ? (
+                          <span className="inline-block px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs rounded">
+                            Confidence {confidenceLabel}
+                          </span>
+                        ) : null}
+                      </div>
+                    )}
+                    {(visualSummary || riskFlags.length > 0) && (
+                      <div className="mt-3 p-3 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                        {visualSummary ? (
+                          <p className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed">
+                            {visualSummary}
+                          </p>
+                        ) : null}
+                        {riskFlags.length > 0 ? (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {riskFlags.slice(0, 4).map((flag) => (
+                              <span
+                                key={`${doc.id}-${flag}`}
+                                className="inline-block px-2 py-0.5 bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-xs rounded"
+                              >
+                                {String(flag).replace(/_/g, " ")}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
                       </div>
                     )}
                   </div>

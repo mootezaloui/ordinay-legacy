@@ -5,20 +5,32 @@ const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 function stripDiacritics(value) {
   return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+    .normalize("NFKD")
+    .replace(/\p{M}+/gu, "");
+}
+
+function normalizeArabicLetters(value) {
+  return String(value || "")
+    .replace(/[\u0622\u0623\u0625\u0671]/g, "\u0627")
+    .replace(/\u0649/g, "\u064A")
+    .replace(/\u0624/g, "\u0648")
+    .replace(/\u0626/g, "\u064A")
+    .replace(/\u06C0/g, "\u0647");
 }
 
 function stripArabicDiacritics(value) {
   return String(value || "")
-    .replace(/[\u0610-\u061A\u064B-\u065F\u06D6-\u06ED]/g, "")
+    .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, "")
     .replace(/\u0640/g, "");
 }
 
 function normalizeText(value) {
   if (value === null || value === undefined) return "";
-  let text = stripArabicDiacritics(stripDiacritics(value));
+  let text = String(value).normalize("NFKC");
+  text = stripDiacritics(text);
+  text = stripArabicDiacritics(normalizeArabicLetters(text));
   text = text.toLowerCase();
+  text = text.replace(/[\u200E\u200F\u202A-\u202E]/g, "");
   text = text.replace(/['’`´]/g, "");
   text = text.replace(/[^\p{L}\p{N}@.\s-]/gu, " ");
   text = text.replace(/[_-]+/g, " ");

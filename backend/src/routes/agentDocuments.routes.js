@@ -27,6 +27,15 @@ router.get("/context", controller.getContext);
 // Remove a specific document from session
 router.delete("/:documentId", controller.unbind);
 
+// Get multimodal artifacts for one session document
+router.get("/:documentId/artifacts", controller.getArtifacts);
+
+// Retry ingestion/understanding for one session document
+router.post("/:documentId/retry", controller.retryAnalysis);
+router.post("/:documentId/continue", controller.continueAnalysis);
+router.post("/:documentId/cancel", controller.cancelAnalysis);
+router.get("/:documentId/progress", controller.progress);
+
 // Clear all documents from session
 router.delete("/", controller.clear);
 

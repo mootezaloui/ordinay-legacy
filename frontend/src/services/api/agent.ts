@@ -408,7 +408,7 @@ export interface ActionProposal {
 
     // ATTACH_TO_ENTITY
     target?: { type: string; id: number };
-    attachmentType?: 'note' | 'doc_draft' | 'file_ref';
+    attachmentType?: 'note' | 'doc_draft' | 'file_ref' | 'generated_document';
 
     // Legacy params (backward compatibility)
     [key: string]: any;
@@ -512,6 +512,21 @@ export interface ProposalOutput {
   sessionId: string;
 }
 
+export interface DocumentGenerationMissingFieldsOutput {
+  type: 'document_generation_missing_fields';
+  message: string;
+  documentType: string;
+  target?: { type: string; id: number };
+  missingFields: Array<{
+    path: string;
+    label: string;
+    reason: string;
+    example?: string;
+  }>;
+  schemaVersion?: string;
+  templateKey?: string;
+}
+
 export interface WebSearchResultItem {
   id: string;
   title: string;
@@ -598,6 +613,7 @@ export type AgentOutput =
   | ExplanationOutput
   | RiskAnalysisOutput
   | DraftOutput
+  | DocumentGenerationMissingFieldsOutput
   | ClarificationOutput
   | CollectionOutput
   | ContextSuggestionOutput
@@ -634,6 +650,7 @@ export interface ProcessedAgentResponse {
   collection?: CollectionOutput;
   contextSuggestion?: ContextSuggestionOutput;
   proposal?: ProposalOutput;
+  documentGenerationMissingFields?: DocumentGenerationMissingFieldsOutput;
   webSearchResults?: WebSearchResultsOutput | WebDeepSearchResultsOutput;
   actionProposals?: ActionProposal[];
   // Error info
@@ -731,6 +748,10 @@ export async function sendAgentMessage(
       processed.displayText = '';
     } else if (output.type === 'proposal') {
       processed.proposal = output as ProposalOutput;
+      processed.displayText = '';
+    } else if (output.type === 'document_generation_missing_fields') {
+      processed.documentGenerationMissingFields =
+        output as DocumentGenerationMissingFieldsOutput;
       processed.displayText = '';
     } else if (output.type === 'web_search_results' || output.type === 'web_deep_search_results') {
       processed.webSearchResults = output as WebSearchResultsOutput | WebDeepSearchResultsOutput;

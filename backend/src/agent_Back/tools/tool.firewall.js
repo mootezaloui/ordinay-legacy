@@ -76,6 +76,7 @@ const TOOL_DOMAIN_MAP = Object.freeze({
   draftInvitation: "sessions",
   draftClientEmail: "clients",
   draftHearingSummary: "sessions",
+  planGeneratedDocument: "documents",
 
   // RESEARCH tools
   compileDossierResearch: "dossiers",

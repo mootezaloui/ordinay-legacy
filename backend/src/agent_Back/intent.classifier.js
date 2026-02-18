@@ -1971,6 +1971,7 @@ function detectFollowUp(message, context = {}) {
   // Pattern 3: Pronoun references (refer to prior context)
   const pronounPatterns = [
     /\b(them|those|these|it|that)\b/i,
+    /\b(his|her|their)\b/i,
     /\b(the\s+)?(same|previous|last)\s+(one|ones|list|result)/i,
   ];
 

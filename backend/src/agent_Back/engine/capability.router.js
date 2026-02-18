@@ -11,8 +11,23 @@ const {
   buildRoutingClarification,
 } = require("../contracts/capabilityRoute.contract");
 
-const CONFIDENCE_THRESHOLD = 0.8;
+const CONFIDENCE_THRESHOLD = 0.75;
 const ANALYZE_ENTITY_INTENT = "ANALYZE_ENTITY";
+
+function extractScopedResolutionHints(message, intent = null) {
+  const sourceHints = Array.isArray(intent?.entityHints) ? intent.entityHints : [];
+  const text = String(message || "");
+  const low = text.toLowerCase();
+  const hasClientToken = /\bclient\b/i.test(low);
+  const hasDossierToken = /\b(dossier|matter|case\s*file|قضية|ملف)\b/iu.test(text);
+  return {
+    entityHints: sourceHints,
+    scopedResolution:
+      hasClientToken && hasDossierToken
+        ? "resolve_client_then_dossier"
+        : "standard",
+  };
+}
 
 function hasSearchIntent(readIntent) {
   return (
@@ -158,6 +173,7 @@ function routeCapability({ message, context, resumeContext = null } = {}) {
   }
 
   if (draftIntent) {
+    const draftHints = extractScopedResolutionHints(message, draftIntent);
     candidates.push({
       capability: CAPABILITIES.DRAFT,
       intent: draftIntent.intent,
@@ -168,20 +184,24 @@ function routeCapability({ message, context, resumeContext = null } = {}) {
       },
       metadata: {
         draftType: draftIntent.draftType || null,
-        entityHints: Array.isArray(draftIntent.entityHints)
-          ? draftIntent.entityHints
-          : [],
+        entityHints: draftHints.entityHints,
+        scopedResolution: draftHints.scopedResolution,
       },
     });
   }
 
   if (readIntent) {
     const isSearch = hasSearchIntent(readIntent);
+    const readHints = extractScopedResolutionHints(message, readIntent);
     candidates.push({
       capability: isSearch ? CAPABILITIES.SEARCH : CAPABILITIES.READ,
       intent: readIntent.intent,
       confidence: 0.95,
       signals: [isSearch ? "search_rule" : "read_rule"],
+      metadata: {
+        entityHints: readHints.entityHints,
+        scopedResolution: readHints.scopedResolution,
+      },
     });
   }
 

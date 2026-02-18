@@ -126,17 +126,26 @@ function normalizeEntityType(value) {
 
 function normalizeForMatch(value) {
   return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .normalize("NFKC")
+    .normalize("NFKD")
+    .replace(/\p{M}+/gu, "")
+    .replace(/[\u0622\u0623\u0625\u0671]/g, "\u0627")
+    .replace(/\u0649/g, "\u064A")
+    .replace(/\u0624/g, "\u0648")
+    .replace(/\u0626/g, "\u064A")
+    .replace(/\u06C0/g, "\u0647")
+    .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, "")
+    .replace(/\u0640/g, "")
+    .replace(/[\u200E\u200F\u202A-\u202E]/g, "")
     .toLowerCase()
     .trim();
 }
 
 function tokenize(value) {
   return normalizeForMatch(value)
-    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .split(/\s+/)
-    .filter((token) => token.length >= 2);
+    .filter((token) => token.length >= 2 || /^[\u0600-\u06FF]$/u.test(token));
 }
 
 function similarityScore(query, candidateText) {
@@ -183,7 +192,10 @@ function buildCandidateText(entity, labelFields = []) {
   return fields.filter(Boolean).join(" ");
 }
 
-async function resolveEntity({ entityType, identifier, mode = "name" }, policy) {
+async function resolveEntity(
+  { entityType, identifier, mode = "name", scopeClientId = null },
+  policy,
+) {
   const normalizedType = normalizeEntityType(entityType);
   const cfg = ENTITY_RESOLUTION_CONFIG[normalizedType];
   const rawIdentifier = String(identifier ?? "").trim();
@@ -253,10 +265,19 @@ async function resolveEntity({ entityType, identifier, mode = "name" }, policy) 
   }
 
   let items = [];
+  const scopedClientId = Number(scopeClientId);
+  const dossierScopedToClient =
+    normalizedType === "dossier" &&
+    Number.isFinite(scopedClientId) &&
+    scopedClientId > 0;
   try {
+    const listParams = { query: rawIdentifier, limit: 20 };
+    if (dossierScopedToClient) {
+      listParams.clientId = scopedClientId;
+    }
     const queried = await this._callReadTool(
       cfg.listTool,
-      { query: rawIdentifier, limit: 20 },
+      listParams,
       policy,
     );
     items = Array.isArray(queried?.[cfg.listKey]) ? queried[cfg.listKey] : [];
@@ -266,9 +287,13 @@ async function resolveEntity({ entityType, identifier, mode = "name" }, policy) 
 
   if (!items.length) {
     try {
+      const fallbackParams = { limit: 200 };
+      if (dossierScopedToClient) {
+        fallbackParams.clientId = scopedClientId;
+      }
       const fallback = await this._callReadTool(
         cfg.listTool,
-        { limit: 200 },
+        fallbackParams,
         policy,
       );
       items = Array.isArray(fallback?.[cfg.listKey]) ? fallback[cfg.listKey] : [];

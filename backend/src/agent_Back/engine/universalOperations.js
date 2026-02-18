@@ -20,6 +20,7 @@ const notificationsService = require('../../services/notifications.service');
 const officersService = require('../../services/officers.service');
 const notesService = require('../../services/notes.service');
 const documentsService = require('../../services/documents.service');
+const documentGenerationService = require('../../services/documentGeneration/documentGeneration.service');
 const { validatePayload } = require('./entityAdapters');
 
 /**
@@ -457,6 +458,33 @@ async function executeAttachToEntity(params, context) {
         filePath: document.file_path,
         referenceOnly: true,
         createdAt: createdAt,
+        nonDestructive: true,
+      },
+    };
+  }
+
+  if (attachmentType === 'generated_document') {
+    const generated = await documentGenerationService.generateFromAttachmentPayload({
+      target: { type: target.type, id: target.id },
+      payload,
+      createdBy: context?.userId ? String(context.userId) : null,
+    });
+
+    return {
+      attachmentType: 'generated_document',
+      attachmentId: generated.documentId,
+      documentId: generated.documentId,
+      generationId: generated.generationId,
+      generationUid: generated.generationUid,
+      entityType: target.type,
+      entityId: target.id,
+      downloadUrl: generated.downloadUrl,
+      metadata: generated.metadata,
+      attachmentSummary: {
+        type: 'generated_document',
+        id: generated.documentId,
+        target: { type: target.type, id: target.id },
+        generationId: generated.generationId,
         nonDestructive: true,
       },
     };

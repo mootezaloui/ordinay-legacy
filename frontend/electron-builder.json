@@ -24,6 +24,13 @@
         "!**/*.log",
         "!**/*.db"
       ]
+    },
+    {
+      "from": "build/doc-intel",
+      "to": "doc-intel",
+      "filter": [
+        "**/*"
+      ]
     }
   ],
   "win": {

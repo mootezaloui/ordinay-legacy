@@ -1235,6 +1235,30 @@ async function run({
       requiresRead: true,
     });
 
+    // Parent→child scope propagation: when the conversation context has an
+    // active client entity and the current intent targets a child entity type
+    // (e.g. LIST_DOSSIERS after READ_CLIENT), inject clientId so the handler
+    // can scope results to the active client.
+    if (conversationContextSnapshot && !turnContext.clientId) {
+      const CHILD_INTENTS = new Set([
+        "LIST_DOSSIERS", "READ_DOSSIER",
+        "LIST_TASKS", "READ_TASK",
+        "LIST_SESSIONS", "READ_SESSION",
+        "LIST_LAWSUITS", "READ_LAWSUIT",
+        "LIST_MISSIONS", "READ_MISSION",
+        "LIST_FINANCIAL_ENTRIES",
+      ]);
+      const parentType = conversationContextSnapshot.activeEntityType || conversationContextSnapshot.lastEntityType;
+      const parentId = conversationContextSnapshot.activeEntityId ||
+        (Array.isArray(conversationContextSnapshot.lastEntityIds) && conversationContextSnapshot.lastEntityIds.length === 1
+          ? conversationContextSnapshot.lastEntityIds[0]
+          : null);
+      if (parentType === "client" && parentId && CHILD_INTENTS.has(capabilityLock.intent)) {
+        turnContext.clientId = parentId;
+        turnContext.scope = "client";
+      }
+    }
+
     engineContext.intent = capabilityLock.intent;
     this.ledger.record({
       type: "read_intent_gate_triggered",

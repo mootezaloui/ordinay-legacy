@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Edit2, FileText, Image, Paperclip } from "lucide-react";
 import { useAgentSessions } from "../hooks/useAgentSessions";
 import { useAgentState } from "../hooks/useAgentState";
@@ -252,10 +253,10 @@ function MessageAttachments({
         ))}
       </div>
 
-      {/* Lightbox for expanded image */}
-      {expandedImage && (
+      {/* Lightbox for expanded image — portal to body to escape stacking contexts */}
+      {expandedImage && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          className="agent-modal-overlay"
           onClick={() => setExpandedImage(null)}
           onKeyDown={(e) => e.key === "Escape" && setExpandedImage(null)}
           role="dialog"
@@ -265,8 +266,10 @@ function MessageAttachments({
             src={expandedImage}
             alt="Expanded preview"
             className="max-w-[90vw] max-h-[85vh] object-contain rounded-2xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
           />
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

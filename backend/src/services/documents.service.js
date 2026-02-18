@@ -70,6 +70,15 @@ function buildPendingIngestionState() {
     text_status: 'processing',
     text_source: null,
     text_failure_reason: null,
+    analysis_status: 'processing',
+    analysis_provider: null,
+    analysis_confidence: null,
+    analysis_version: null,
+    artifact_json: null,
+    processing_started_at: new Date().toISOString(),
+    processing_finished_at: null,
+    failure_stage: null,
+    failure_detail: null,
   };
 }
 
@@ -82,6 +91,15 @@ function buildIngestionUpdate(result) {
     text_status: status,
     text_source: status === 'readable' ? result.source : null,
     text_failure_reason: status === 'unreadable' ? result.failure_reason : null,
+    analysis_status: result?.analysis_status || (status === 'readable' ? 'completed' : 'failed'),
+    analysis_provider: result?.analysis_provider || null,
+    analysis_confidence:
+      Number.isFinite(result?.analysis_confidence) ? result.analysis_confidence : null,
+    analysis_version: result?.analysis_version || null,
+    artifact_json: result?.artifact_json || null,
+    processing_finished_at: new Date().toISOString(),
+    failure_stage: result?.failure_stage || null,
+    failure_detail: result?.failure_detail || null,
   };
 }
 
@@ -95,18 +113,27 @@ function applyIngestionResult(documentId, result) {
          text_status = @text_status,
          text_source = @text_source,
          text_failure_reason = @text_failure_reason,
+         analysis_status = @analysis_status,
+         analysis_provider = @analysis_provider,
+         analysis_confidence = @analysis_confidence,
+         analysis_version = @analysis_version,
+         artifact_json = @artifact_json,
+         processing_finished_at = @processing_finished_at,
+         failure_stage = @failure_stage,
+         failure_detail = @failure_detail,
          updated_at = CURRENT_TIMESTAMP
      WHERE id = @id AND deleted_at IS NULL`
   );
   stmt.run({ ...updates, id: documentId });
 }
 
-function scheduleIngestion(documentId, filePath, mimeType) {
+function scheduleIngestion(documentId, filePath, mimeType, options = {}) {
   if (!documentId || !filePath) return;
   documentIngestion.enqueueDocumentIngestion({
     documentId,
     filePath,
     mimeType,
+    options,
     onComplete: (result) => applyIngestionResult(documentId, result),
   });
 }
@@ -160,6 +187,16 @@ function decorateDocument(document) {
     text_status: status,
     text_source: document.text_source || null,
     text_failure_reason: document.text_failure_reason || null,
+    analysis_status: document.analysis_status || null,
+    analysis_provider: document.analysis_provider || null,
+    analysis_confidence:
+      Number.isFinite(document.analysis_confidence) ? document.analysis_confidence : null,
+    analysis_version: document.analysis_version || null,
+    artifact_json: document.artifact_json || null,
+    processing_started_at: document.processing_started_at || null,
+    processing_finished_at: document.processing_finished_at || null,
+    failure_stage: document.failure_stage || null,
+    failure_detail: document.failure_detail || null,
     unreadable_text: status === 'unreadable',
     text_length: hasText ? document.text_length || document.document_text.length : null,
     status,
@@ -201,6 +238,15 @@ function listMetadataByEntity(entityType, entityId, options = {}) {
         text_status,
         text_source,
         text_failure_reason,
+        analysis_status,
+        analysis_provider,
+        analysis_confidence,
+        analysis_version,
+        artifact_json,
+        processing_started_at,
+        processing_finished_at,
+        failure_stage,
+        failure_detail,
         ${previewSelect},
         CASE WHEN text_status = 'readable' AND COALESCE(text_length, LENGTH(document_text)) > 0 THEN 1 ELSE 0 END as has_text,
         COALESCE(text_length, LENGTH(document_text)) as text_length,
@@ -247,6 +293,15 @@ function listMetadataByEntity(entityType, entityId, options = {}) {
       text_status: status,
       text_source: row.text_source || null,
       text_failure_reason: row.text_failure_reason || null,
+      analysis_status: row.analysis_status || null,
+      analysis_provider: row.analysis_provider || null,
+      analysis_confidence: Number.isFinite(row.analysis_confidence) ? row.analysis_confidence : null,
+      analysis_version: row.analysis_version || null,
+      artifact_json: row.artifact_json || null,
+      processing_started_at: row.processing_started_at || null,
+      processing_finished_at: row.processing_finished_at || null,
+      failure_stage: row.failure_stage || null,
+      failure_detail: row.failure_detail || null,
       status,
       source: hasText ? row.text_source || null : null,
       failure_reason: unreadable ? row.text_failure_reason || null : null,
@@ -282,6 +337,15 @@ function listTextsByIds(documentIds = []) {
         text_status,
         text_source,
         text_failure_reason,
+        analysis_status,
+        analysis_provider,
+        analysis_confidence,
+        analysis_version,
+        artifact_json,
+        processing_started_at,
+        processing_finished_at,
+        failure_stage,
+        failure_detail,
         COALESCE(text_length, LENGTH(document_text)) as text_length,
         client_id,
         dossier_id,
@@ -315,6 +379,15 @@ function listTextsByIds(documentIds = []) {
       text_status: status,
       text_source: row.text_source || null,
       text_failure_reason: row.text_failure_reason || null,
+      analysis_status: row.analysis_status || null,
+      analysis_provider: row.analysis_provider || null,
+      analysis_confidence: Number.isFinite(row.analysis_confidence) ? row.analysis_confidence : null,
+      analysis_version: row.analysis_version || null,
+      artifact_json: row.artifact_json || null,
+      processing_started_at: row.processing_started_at || null,
+      processing_finished_at: row.processing_finished_at || null,
+      failure_stage: row.failure_stage || null,
+      failure_detail: row.failure_detail || null,
       status,
       source: hasText ? row.text_source || null : null,
       failure_reason: status === 'unreadable' ? row.text_failure_reason || null : null,
@@ -414,11 +487,15 @@ function create(payload) {
   validateTarget(insertData);
 
   const stmt = db.prepare(
-    `INSERT INTO ${table} (title, file_path, original_filename, mime_type, size_bytes, notes, document_text, unreadable_text, text_length, text_status, text_source, text_failure_reason, copy_type, client_id, dossier_id, lawsuit_id, mission_id, task_id, session_id, personal_task_id, financial_entry_id, officer_id)
-     VALUES (@title, @file_path, @original_filename, @mime_type, @size_bytes, @notes, @document_text, @unreadable_text, @text_length, @text_status, @text_source, @text_failure_reason, @copy_type, @client_id, @dossier_id, @lawsuit_id, @mission_id, @task_id, @session_id, @personal_task_id, @financial_entry_id, @officer_id)`
+    `INSERT INTO ${table} (title, file_path, original_filename, mime_type, size_bytes, notes, document_text, unreadable_text, text_length, text_status, text_source, text_failure_reason, analysis_status, analysis_provider, analysis_confidence, analysis_version, artifact_json, processing_started_at, processing_finished_at, failure_stage, failure_detail, copy_type, client_id, dossier_id, lawsuit_id, mission_id, task_id, session_id, personal_task_id, financial_entry_id, officer_id)
+     VALUES (@title, @file_path, @original_filename, @mime_type, @size_bytes, @notes, @document_text, @unreadable_text, @text_length, @text_status, @text_source, @text_failure_reason, @analysis_status, @analysis_provider, @analysis_confidence, @analysis_version, @artifact_json, @processing_started_at, @processing_finished_at, @failure_stage, @failure_detail, @copy_type, @client_id, @dossier_id, @lawsuit_id, @mission_id, @task_id, @session_id, @personal_task_id, @financial_entry_id, @officer_id)`
   );
   const result = stmt.run(insertData);
-  scheduleIngestion(result.lastInsertRowid, insertData.file_path, insertData.mime_type);
+  scheduleIngestion(
+    result.lastInsertRowid,
+    insertData.file_path,
+    insertData.mime_type,
+  );
   return get(result.lastInsertRowid);
 }
 
@@ -496,6 +573,7 @@ function remove(id) {
 }
 
 module.exports = {
+  scheduleIngestion,
   listMetadataByEntity,
   listTextsByIds,
   list,

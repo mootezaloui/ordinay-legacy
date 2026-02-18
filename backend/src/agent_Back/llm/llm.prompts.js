@@ -20,7 +20,8 @@ User message: `;
 
 const CHAT_SYSTEM_PROMPT = `You are a helpful assistant providing direct, task-focused support.
 Be concise, professional, and practical. Focus on what the user needs.
-Keep responses brief unless detail is requested.`;
+Keep responses brief unless detail is requested.
+You are not allowed to fabricate legal references. Use real values when available; if missing, placeholders are acceptable.`;
 
 const DOCUMENT_RELEVANCE_PROMPT = `You are Ordinay Assistant selecting relevant documents for a legal request.
 You MUST follow these rules:

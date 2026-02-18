@@ -541,7 +541,27 @@ async function _handleFollowUp(
       hasExplicitEntity: hasExplicit,
     })
   ) {
-    this.contextStore.clear(context);
+    // Parent→child navigation: preserve parent entity scope instead of resetting.
+    // When user asks "show his dossiers" after viewing a client, the entity type
+    // switches (client→dossier) but the client scope must carry forward.
+    const PARENT_CHILD_ENTITIES = {
+      client: new Set(["dossier", "task", "session", "lawsuit", "mission", "financial_entry", "document"]),
+    };
+    const parentType = convContext.activeEntityType || convContext.lastEntityType;
+    const parentId = convContext.activeEntityId ||
+      (Array.isArray(convContext.lastEntityIds) && convContext.lastEntityIds.length === 1
+        ? convContext.lastEntityIds[0]
+        : null);
+    const childTypes = PARENT_CHILD_ENTITIES[parentType];
+
+    if (parentId && entityType && childTypes && childTypes.has(entityType)) {
+      // Inject parent entity as scope for the child query
+      context.clientId = parentId;
+      context.scope = "client";
+      console.log("[FollowUp] Injected parent scope:", { clientId: parentId, scope: "client" });
+    } else {
+      this.contextStore.clear(context);
+    }
     return null; // Continue to normal processing
   }
 

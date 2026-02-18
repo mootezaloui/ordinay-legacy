@@ -261,12 +261,21 @@ function initialize() {
       {
         name: "text_length",
         definition: "INTEGER",
-      onAdd: (database) => {
-        database.exec(
-          "UPDATE documents SET text_length = LENGTH(document_text) WHERE text_length IS NULL AND document_text IS NOT NULL;"
-        );
+        onAdd: (database) => {
+          database.exec(
+            "UPDATE documents SET text_length = LENGTH(document_text) WHERE text_length IS NULL AND document_text IS NOT NULL;"
+          );
+        },
       },
-    },
+      { name: "analysis_status", definition: "TEXT" },
+      { name: "analysis_provider", definition: "TEXT" },
+      { name: "analysis_confidence", definition: "REAL" },
+      { name: "analysis_version", definition: "TEXT" },
+      { name: "artifact_json", definition: "TEXT" },
+      { name: "processing_started_at", definition: "DATETIME" },
+      { name: "processing_finished_at", definition: "DATETIME" },
+      { name: "failure_stage", definition: "TEXT" },
+      { name: "failure_detail", definition: "TEXT" },
   ];
 
   [
@@ -285,6 +294,39 @@ function initialize() {
   ensureTableColumns("dossiers", dossierColumns);
   ensureTableColumns("sessions", sessionColumns);
   ensureTableColumns("documents", documentColumns);
+
+  const hasDocumentGenerations = db
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='document_generations'"
+    )
+    .get();
+  if (!hasDocumentGenerations) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS document_generations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        generation_uid TEXT NOT NULL UNIQUE,
+        document_id INTEGER,
+        target_type TEXT NOT NULL,
+        target_id INTEGER NOT NULL,
+        document_type TEXT NOT NULL,
+        schema_version TEXT NOT NULL,
+        template_key TEXT NOT NULL,
+        language TEXT NOT NULL,
+        format TEXT NOT NULL,
+        content_json TEXT NOT NULL,
+        status TEXT NOT NULL,
+        error_code TEXT,
+        error_message TEXT,
+        created_by TEXT,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE SET NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_document_generations_target ON document_generations(target_type, target_id);
+      CREATE INDEX IF NOT EXISTS idx_document_generations_document_id ON document_generations(document_id);
+      CREATE INDEX IF NOT EXISTS idx_document_generations_status ON document_generations(status);
+    `);
+  }
 
   // Ensure default operator exists
   const hasDefaultOperator = db

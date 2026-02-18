@@ -108,12 +108,13 @@ ${toneInstruction}
 ${languageInstruction}
 
 Use ONLY the provided data. Do NOT invent invoice titles, due dates, amounts, phone numbers, email addresses, or contract numbers.
-If an invoice title or due date is missing, keep the placeholder exactly as provided.
+Use real values whenever available.
+If a required value is missing, you may keep a bracket placeholder.
 If other fields are null or empty, omit them. Do NOT fabricate missing data.
 The recipient is the client. The author is the operator.
 Never sign the document with the recipient’s name.
 Never use recipient contact details as sender details.
-If author phone or email is missing, keep the placeholder exactly as provided.
+If author phone or email is missing, you may keep a bracket placeholder.
 If selection.mode is "single", reference ONLY that invoice.
 If selection.mode is "all", list ALL invoice titles and due dates, and mention the total amount owed.
 
@@ -188,6 +189,9 @@ Audience: ${audience}
 ${toneInstruction}
 ${languageInstruction}
 ${identityRules}
+You are not allowed to fabricate legal references.
+Use real values from context whenever available.
+If required information is missing, you may use bracket placeholders.
 
 Context:
 ${contextJson}

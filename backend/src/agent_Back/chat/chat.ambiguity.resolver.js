@@ -12,7 +12,7 @@ const AUTOPICK_MIN_SCORE = Math.max(
   0,
   Math.min(
     1,
-    parseFloat(process.env.AGENT_CHAT_AMBIGUITY_MIN_SCORE || "0.90"),
+    parseFloat(process.env.AGENT_CHAT_AMBIGUITY_MIN_SCORE || "0.75"),
   ),
 );
 const AUTOPICK_MIN_MARGIN = Math.max(
@@ -94,7 +94,7 @@ const ENTITY_CONFIG = Object.freeze({
 
 const ENTITY_KEYWORDS = Object.freeze({
   client: /\bclient(s)?\b/i,
-  dossier: /\b(dossier|dossiers|matter|matters|case\s*file)\b/i,
+  dossier: /\b(dossier|dossiers|matter|matters|case\s*file|قضية|ملف)\b/i,
   lawsuit: /\b(lawsuit|lawsuits|case|cases|litigation|trial)\b/i,
   task: /\btask(s)?\b/i,
   personal_task: /\bpersonal\s+task(s)?\b/i,
@@ -106,6 +106,100 @@ const ENTITY_KEYWORDS = Object.freeze({
   notification: /\bnotification(s)?|alert(s)?\b/i,
   history_event: /\b(history|audit\s*trail|activity\s*log|audit)\b/i,
 });
+
+function normalizeUnicodeText(value) {
+  return String(value || "")
+    .normalize("NFKC")
+    .normalize("NFKD")
+    .replace(/\p{M}+/gu, "")
+    .replace(/[\u0622\u0623\u0625\u0671]/g, "\u0627")
+    .replace(/\u0649/g, "\u064A")
+    .replace(/\u0624/g, "\u0648")
+    .replace(/\u0626/g, "\u064A")
+    .replace(/\u06C0/g, "\u0647")
+    .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, "")
+    .replace(/\u0640/g, "")
+    .replace(/[\u200E\u200F\u202A-\u202E]/g, "")
+    .toLowerCase()
+    .replace(/['’`´]/g, "")
+    .replace(/[^\p{L}\p{N}\s@.-]/gu, " ")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function tokenizeUnicode(value) {
+  return normalizeUnicodeText(value)
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+function scoreTextSimilarity(query, candidateText) {
+  const q = normalizeUnicodeText(query);
+  const c = normalizeUnicodeText(candidateText);
+  if (!q || !c) return 0;
+  if (q === c) return 1;
+  if (c.includes(q)) return 0.92;
+  if (q.includes(c)) return 0.86;
+  const editScore = normalizedEditSimilarity(q, c);
+  if (editScore >= 0.88) return 0.88;
+  const qTokens = tokenizeUnicode(q);
+  const cTokens = new Set(tokenizeUnicode(c));
+  if (!qTokens.length || !cTokens.size) return 0;
+  let overlap = 0;
+  for (const token of qTokens) {
+    if (cTokens.has(token)) overlap += 1;
+  }
+  return Math.max(overlap / qTokens.length, editScore * 0.82);
+}
+
+function normalizedEditSimilarity(a, b) {
+  const x = String(a || "");
+  const y = String(b || "");
+  if (!x || !y) return 0;
+  if (x === y) return 1;
+  const n = x.length;
+  const m = y.length;
+  const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = 0; i <= n; i += 1) dp[i][0] = i;
+  for (let j = 0; j <= m; j += 1) dp[0][j] = j;
+  for (let i = 1; i <= n; i += 1) {
+    for (let j = 1; j <= m; j += 1) {
+      const cost = x[i - 1] === y[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + cost,
+      );
+    }
+  }
+  const distance = dp[n][m];
+  return 1 - distance / Math.max(n, m);
+}
+
+function pickStrongMatch(query, rows = [], labelBuilder) {
+  const ranked = (Array.isArray(rows) ? rows : [])
+    .map((row) => {
+      const label = String(
+        typeof labelBuilder === "function" ? labelBuilder(row) : "",
+      ).trim();
+      const score = scoreTextSimilarity(query, label);
+      return { row, score, label };
+    })
+    .filter((entry) => entry.score >= 0.75)
+    .sort((a, b) => b.score - a.score);
+
+  if (!ranked.length) {
+    return { status: "not_found", candidates: [] };
+  }
+  if (
+    ranked.length > 1 &&
+    (ranked[0].score - ranked[1].score < AUTOPICK_MIN_MARGIN)
+  ) {
+    return { status: "ambiguous", candidates: ranked };
+  }
+  return { status: "resolved", winner: ranked[0], candidates: ranked };
+}
 
 const ENTITY_PLURAL_HINTS = Object.freeze({
   client: /\bclients\b/i,
@@ -362,6 +456,106 @@ function extractHintFromMessage(entityType, message) {
   return null;
 }
 
+function cleanEntityPhrase(value) {
+  return String(value || "")
+    .replace(/^[\"'“”‘’\s]+|[\"'“”‘’\s]+$/g, "")
+    .replace(/^(which\s+is|is|the|for|about|named|called|titled)\s+/i, "")
+    .replace(
+      /\b(for|with|on)\s+[A-Za-z\u00C0-\u024F\u0600-\u06FF][^,.\n]{1,80}$/iu,
+      "",
+    )
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function trimAfterIntentShift(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  const stopPatterns = [
+    /\b(i need to|i need|can you|could you|please|help me|write|draft|compose|prepare)\b/i,
+    /\b(اريد|أريد|عايز|محتاج)\b/u,
+  ];
+  let cut = text.length;
+  for (const pattern of stopPatterns) {
+    const match = text.match(pattern);
+    if (match && typeof match.index === "number") {
+      cut = Math.min(cut, match.index);
+    }
+  }
+  return text.slice(0, cut).trim();
+}
+
+function extractClientAndDossierHints(message, entityHints = []) {
+  const text = String(message || "");
+  const hints = Array.isArray(entityHints) ? entityHints : [];
+  const clientHint = hints.find(
+    (hint) =>
+      normalizeEntityType(hint?.entityType) === "client" &&
+      ["name", "reference", "id"].includes(String(hint?.type || "")),
+  );
+  const dossierHint = hints.find(
+    (hint) =>
+      normalizeEntityType(hint?.entityType) === "dossier" &&
+      ["name", "reference", "id"].includes(String(hint?.type || "")),
+  );
+
+  let clientQuery = cleanEntityPhrase(clientHint?.value || "");
+  let dossierQuery = cleanEntityPhrase(dossierHint?.value || "");
+  const isWeak = (value) =>
+    !value ||
+    /^(which|is|the|which\s+is|which\s+is\s+the)$/i.test(value) ||
+    tokenizeUnicode(value).length < 2;
+  if (isWeak(clientQuery)) clientQuery = "";
+  if (isWeak(dossierQuery)) dossierQuery = "";
+
+  if (!dossierQuery) {
+    const dossierTitlePatterns = [
+      /\b(?:which\s+is|titled|title\s+is|named|called)\s+(.+)$/i,
+      /\b(?:قضية|ملف)\s+(.+)$/u,
+      /\bdossier\s+(?:which\s+is|titled|named|called)\s+(.+)$/i,
+    ];
+    for (const pattern of dossierTitlePatterns) {
+      const match = text.match(pattern);
+      if (match && cleanEntityPhrase(match[1])) {
+        dossierQuery = trimAfterIntentShift(cleanEntityPhrase(match[1]));
+        break;
+      }
+    }
+  }
+
+  if (!clientQuery) {
+    const clientPatterns = [
+      /\b(?:on|for|with)\s+([A-Za-z\u00C0-\u024F\u0600-\u06FF][^,.\n]{1,80}?)\s+(?:dossier|case\s*file|matter|قضية|ملف)\b/iu,
+      /\b(?:dossier|case\s*file|matter|قضية|ملف)\b[^,.\n]{0,120}?\b(?:for|on|with)\s+([A-Za-z\u00C0-\u024F\u0600-\u06FF][^,.\n]{1,80})/iu,
+      /\bclient\s+([A-Za-z\u00C0-\u024F\u0600-\u06FF][^,.\n]{1,80})/iu,
+    ];
+    for (const pattern of clientPatterns) {
+      const match = text.match(pattern);
+      if (match && cleanEntityPhrase(match[1])) {
+        clientQuery = cleanEntityPhrase(match[1]);
+        break;
+      }
+    }
+  }
+
+  if (!dossierQuery) {
+    const explicitAfterKeyword = text.match(
+      /\b(?:dossier|case\s*file|matter|قضية|ملف)\b\s*[:#-]?\s*(.+)$/iu,
+    );
+    if (explicitAfterKeyword && cleanEntityPhrase(explicitAfterKeyword[1])) {
+      dossierQuery = trimAfterIntentShift(cleanEntityPhrase(explicitAfterKeyword[1]));
+    }
+  }
+
+  dossierQuery = trimAfterIntentShift(dossierQuery);
+  if (isWeak(dossierQuery)) dossierQuery = "";
+
+  return {
+    clientQuery: clientQuery || null,
+    dossierQuery: dossierQuery || null,
+  };
+}
+
 function selectHint(hints, entityType) {
   const rows = Array.isArray(hints) ? hints : [];
   const typed = rows.filter(
@@ -482,8 +676,11 @@ function shouldAutoPick(candidates, { hasExplicitTypeConflict = false } = {}) {
     .slice()
     .sort((a, b) => Number(b?.score || 0) - Number(a?.score || 0));
   const top = Number(ordered[0]?.score || 0);
+  if (ordered.length === 1) {
+    return top >= AUTOPICK_MIN_SCORE;
+  }
   const second = Number(ordered[1]?.score || 0);
-  const margin = ordered.length > 1 ? top - second : top;
+  const margin = top - second;
   return top >= AUTOPICK_MIN_SCORE && margin >= AUTOPICK_MIN_MARGIN;
 }
 
@@ -589,6 +786,88 @@ async function listRows({
   }
 }
 
+async function resolveClientThenDossierScoped({
+  engine,
+  policy,
+  clientQuery,
+  dossierQuery,
+}) {
+  if (!clientQuery || !dossierQuery) {
+    return { status: "skipped" };
+  }
+  if (typeof engine?._callReadTool !== "function") {
+    return { status: "skipped" };
+  }
+
+  const clientPayload = await engine._callReadTool(
+    "listClients",
+    { query: clientQuery, limit: 200 },
+    policy,
+  );
+  const clients = Array.isArray(clientPayload?.clients)
+    ? clientPayload.clients
+    : [];
+  const clientPick = pickStrongMatch(clientQuery, clients, (client) =>
+    [client?.name, client?.company]
+      .filter(Boolean)
+      .join(" "),
+  );
+  if (clientPick.status !== "resolved") {
+    return {
+      status: clientPick.status === "ambiguous" ? "ambiguous" : "not_found",
+      missingEntity: "client",
+      clientCandidates: clientPick.candidates || [],
+    };
+  }
+
+  const clientId = Number(clientPick.winner?.row?.id || 0);
+  if (!clientId) {
+    return { status: "not_found", missingEntity: "client" };
+  }
+
+  let dossierPayload = null;
+  try {
+    dossierPayload = await engine._callReadTool(
+      "listDossiersForClient",
+      { clientId, limit: 200 },
+      policy,
+    );
+  } catch {
+    dossierPayload = await engine._callReadTool(
+      "listDossiers",
+      { clientId, limit: 200 },
+      policy,
+    );
+  }
+  const dossiers = Array.isArray(dossierPayload?.dossiers)
+    ? dossierPayload.dossiers
+    : [];
+  const dossierPick = pickStrongMatch(dossierQuery, dossiers, (dossier) =>
+    [dossier?.title, dossier?.reference, dossier?.code]
+      .filter(Boolean)
+      .join(" "),
+  );
+  if (dossierPick.status !== "resolved") {
+    return {
+      status: dossierPick.status === "ambiguous" ? "ambiguous" : "not_found",
+      missingEntity: "dossier",
+      clientId,
+      dossierCandidates: dossierPick.candidates || [],
+    };
+  }
+
+  const dossierId = Number(dossierPick.winner?.row?.id || 0);
+  if (!dossierId) {
+    return { status: "not_found", missingEntity: "dossier", clientId };
+  }
+
+  return {
+    status: "resolved",
+    clientId,
+    dossierId,
+  };
+}
+
 async function resolveEntityByHint({
   engine,
   policy,
@@ -603,6 +882,7 @@ async function resolveEntityByHint({
       entityType,
       identifier: hint.identifier,
       mode: hint.mode || "name",
+      scopeClientId: toNumber(hint.scopeClientId),
     },
     policy,
   );
@@ -678,6 +958,100 @@ async function resolveChatAmbiguity({
     : Array.isArray(draftIntent?.entityHints)
       ? draftIntent.entityHints
       : [];
+
+  if (entityType === "dossier") {
+    const scopedHints = extractClientAndDossierHints(userMessage, entityHints);
+    if (scopedHints.clientQuery && scopedHints.dossierQuery) {
+      const scoped = await resolveClientThenDossierScoped({
+        engine,
+        policy,
+        clientQuery: scopedHints.clientQuery,
+        dossierQuery: scopedHints.dossierQuery,
+      });
+      if (scoped.status === "resolved") {
+        return {
+          status: "resolved",
+          resolvedScope: {
+            clientId: scoped.clientId,
+            dossierId: scoped.dossierId,
+          },
+          resolutionMeta: {
+            status: "resolved",
+            entityType: "dossier",
+            candidatesCount: 1,
+            autoPicked: true,
+            chosenId: scoped.dossierId,
+          },
+        };
+      }
+
+      if (scoped.status === "ambiguous") {
+        const missingLabel =
+          scoped.missingEntity === "client" ? "client" : "dossier";
+        const rawCandidates =
+          scoped.missingEntity === "client"
+            ? scoped.clientCandidates
+            : scoped.dossierCandidates;
+        const candidates = (rawCandidates || [])
+          .slice(0, 8)
+          .map((entry) => entry?.row)
+          .filter(Boolean);
+        const suggestionArtifact = buildSuggestionArtifact({
+          entityType: scoped.missingEntity === "client" ? "client" : "dossier",
+          status: "ambiguous",
+          candidates: extractCandidatesFromList(
+            scoped.missingEntity === "client" ? "client" : "dossier",
+            candidates,
+          ),
+          message: `I found multiple ${missingLabel} matches. Please confirm the exact ${missingLabel}.`,
+          originalIntent: target.originalIntent,
+          originalDraftType: target.originalDraftType,
+          originalMessage: userMessage,
+        });
+        return {
+          status: "ambiguous",
+          suggestionArtifact,
+          resolutionMeta: {
+            status: "ambiguous",
+            entityType: missingLabel,
+            candidatesCount: suggestionArtifact.suggestions.length,
+            autoPicked: false,
+            chosenId: null,
+          },
+        };
+      }
+
+      if (scoped.status === "not_found") {
+        const missingLabel =
+          scoped.missingEntity === "client" ? "client" : "dossier";
+        const detail =
+          scoped.missingEntity === "client"
+            ? `Client "${scopedHints.clientQuery}" was not found.`
+            : `Dossier "${scopedHints.dossierQuery}" was not found under client "${scopedHints.clientQuery}".`;
+        const suggestionArtifact = buildSuggestionArtifact({
+          entityType: scoped.missingEntity === "client" ? "client" : "dossier",
+          status: "not_found",
+          candidates: [],
+          message: detail,
+          originalIntent: target.originalIntent,
+          originalDraftType: target.originalDraftType,
+          originalMessage: userMessage,
+        });
+        return {
+          status: "not_found",
+          suggestionArtifact,
+          resolutionMeta: {
+            status: "not_found",
+            entityType: missingLabel,
+            candidatesCount: 0,
+            autoPicked: false,
+            chosenId: null,
+          },
+        };
+      }
+    }
+  }
+
   const selectedHint =
     selectHint(entityHints, entityType) ||
     extractHintFromMessage(entityType, userMessage);
@@ -728,7 +1102,11 @@ async function resolveChatAmbiguity({
     engine,
     policy,
     entityType,
-    hint: selectedHint,
+    hint: {
+      ...selectedHint,
+      scopeClientId:
+        entityType === "dossier" ? toNumber(executionContext?.clientId) : null,
+    },
   });
 
   if (resolution.status === "resolved" && resolution.entityId) {
@@ -765,6 +1143,43 @@ async function resolveChatAmbiguity({
       query: selectedHint.identifier,
     });
     candidates = enrichCandidatesFromRows(candidates, rows);
+  }
+
+  if (selectedHint?.identifier && candidates.length > 0) {
+    const queryRank = pickStrongMatch(
+      selectedHint.identifier,
+      candidates,
+      (candidate) =>
+        [
+          candidate?.name,
+          candidate?.title,
+          candidate?.reference,
+          candidate?.clientName,
+          candidate?.category,
+          candidate?.phase,
+        ]
+          .filter(Boolean)
+          .join(" "),
+    );
+    if (queryRank.status === "resolved") {
+      const pickedId = toNumber(queryRank.winner?.row?.id);
+      if (pickedId) {
+        return {
+          status: "resolved",
+          resolvedScope: mapEntityToScope(entityType, pickedId),
+          resolutionMeta: {
+            status: "resolved",
+            entityType,
+            candidatesCount: candidates.length,
+            autoPicked: true,
+            chosenId: pickedId,
+          },
+        };
+      }
+    }
+    if (queryRank.status === "ambiguous") {
+      resolution.status = "ambiguous";
+    }
   }
 
   if (resolution.status === "ambiguous" && shouldAutoPick(candidates, {

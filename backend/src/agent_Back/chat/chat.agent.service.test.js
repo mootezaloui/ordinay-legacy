@@ -51,6 +51,8 @@ function createEngine() {
         type: params.entityType,
         id: params.entityId,
         title: "Divorce Case",
+        reference: "DOS-2026-001",
+        court: "Casablanca Court",
         status: "open",
         priority: "high",
         keyDates: { nextUpcoming: "2026-02-20T09:00:00.000Z" },
@@ -758,7 +760,10 @@ async function testResolvedEntityScopeContinuesToolCalls() {
     context: { posture: "WORK", dataAccess: buildDataAccess() },
   });
   assert.strictEqual(result.ambiguityArtifact, null);
-  assert.strictEqual(result.toolExecutions.length, 1);
+  assert.ok(result.toolExecutions.length >= 1);
+  assert.ok(
+    result.toolExecutions.some((entry) => entry.toolName === "listTasks"),
+  );
 }
 
 async function testAmbiguousEntityVariants() {
@@ -855,8 +860,106 @@ async function testResolvedSelectionForcesGroundedAnswerWhenLlmIsAmbiguous() {
 
   assert.strictEqual(result.ambiguityArtifact, null);
   assert.match(result.message, /Divorce Case/i);
+  assert.match(result.message, /Reference:\s+DOS-2026-001/i);
   assert.match(result.message, /Client:\s+Youssef Daly/i);
   assert.match(result.message, /Related:/i);
+}
+
+async function testDraftPlaceholderResponseIsAllowedWhenDataMissing() {
+  const { engine } = createEngine();
+  const service = new ChatAgentService({
+    engine,
+    llmClient: createSequenceClient([
+      {
+        role: "assistant",
+        content:
+          "Subject: Official Request\nDear Court,\n[اسم المحامي]\ninsert here\n[رقم رخصة المحاماة]",
+        tool_calls: [],
+      },
+    ]),
+  });
+
+  const result = await service.run({
+    message: "write an email update",
+    sessionId: "s_placeholder_block",
+    context: {
+      posture: "WORK",
+      clientId: 7,
+      dataAccess: buildDataAccess(),
+    },
+  });
+
+  assert.match(result.message, /\[اسم المحامي\]/i);
+  assert.match(result.message, /\[رقم رخصة المحاماة\]/i);
+}
+
+async function testMissingLegalArticleDoesNotBlockDraft() {
+  const { engine } = createEngine();
+  const service = new ChatAgentService({
+    engine,
+    llmClient: createSequenceClient([
+      {
+        role: "assistant",
+        content: "unused",
+        tool_calls: [],
+      },
+    ]),
+  });
+
+  service._getOperatorDraftIdentity = () => ({
+    profile: {
+      lawyerName: "Amina El Idrissi",
+      licenseNumber: "BAR-5541",
+      officeAddress: "12 Rue Example, Casablanca",
+      contactEmail: "amina@example.com",
+      contactPhone: "+212600000000",
+      officeName: "Cabinet Amina",
+    },
+    missing: [],
+  });
+
+  const result = await service.run({
+    message: "Draft an official court motion and cite a legal article for dossier 10",
+    sessionId: "s_missing_legal_article",
+    context: {
+      posture: "WORK",
+      dossierId: 10,
+      dataAccess: buildDataAccess(),
+    },
+  });
+
+  assert.strictEqual(result.message, "unused");
+  assert.strictEqual(result.rounds, 1);
+}
+
+async function testDraftAttemptWithoutGroundingIsBlocked() {
+  const { engine } = createEngine();
+  const service = new ChatAgentService({
+    engine,
+    llmClient: createSequenceClient([
+      {
+        role: "assistant",
+        content:
+          "Dear Client,\nPlease find below the draft regarding your matter.",
+        tool_calls: [],
+      },
+    ]),
+  });
+
+  service._runDeterministicGrounding = async () => null;
+
+  const result = await service.run({
+    message: "write an email update",
+    sessionId: "s_draft_blocked",
+    context: {
+      posture: "WORK",
+      clientId: 7,
+      dataAccess: buildDataAccess(),
+    },
+  });
+
+  assert.match(result.message, /cannot draft this yet/i);
+  assert.strictEqual(result.rounds, 0);
 }
 
 async function run() {
@@ -872,6 +975,9 @@ async function run() {
   await testAmbiguousEntityVariants();
   await testResolvedFollowUpSelectionSkipsAmbiguity();
   await testResolvedSelectionForcesGroundedAnswerWhenLlmIsAmbiguous();
+  await testDraftPlaceholderResponseIsAllowedWhenDataMissing();
+  await testMissingLegalArticleDoesNotBlockDraft();
+  await testDraftAttemptWithoutGroundingIsBlocked();
   console.log("chat.agent.service tests passed");
 }
 
