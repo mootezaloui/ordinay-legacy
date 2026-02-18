@@ -90,6 +90,11 @@ class ChatAgentService {
       typeof this.engine.contextStore?.getContextForLLMInjection === "function"
         ? this.engine.contextStore.getContextForLLMInjection(requestContext)
         : {};
+    this._applyHistoricalScope({
+      requestContext,
+      llmHistory,
+      userMessage: effectiveUserMessage,
+    });
     const posture = await this._resolvePosture({
       message: effectiveUserMessage,
       context: requestContext,
@@ -792,6 +797,25 @@ class ChatAgentService {
       });
     }
 
+    const inferredActiveEntity = this._inferActiveEntityFromChatTurn({
+      requestContext,
+      toolExecutions,
+      artifactType,
+      artifact,
+    });
+    const inferredEntityType = inferredActiveEntity?.type || this._inferEntityTypeFromScope(requestContext);
+    const pendingSelection =
+      artifactType === "context_suggestion" &&
+      artifact &&
+      typeof artifact === "object" &&
+      Array.isArray(artifact.suggestions) &&
+      artifact.suggestions.length > 1
+        ? {
+            entityType: String(artifact.entityType || "").toLowerCase() || null,
+            count: artifact.suggestions.length,
+          }
+        : null;
+
     const operationalStore = this.engine.contextStore?._operationalStore;
     if (
       operationalStore &&
@@ -799,12 +823,195 @@ class ChatAgentService {
       conversationId
     ) {
       operationalStore.update(userId, conversationId, {
+        activeEntity: inferredActiveEntity || undefined,
         posture,
         lastIntent: "CHATBOT_AGENT_MODE",
+        lastEntityType: inferredEntityType || undefined,
+        pendingSelection,
         source: "chat_agent_mode",
         lastQuery: userMessage,
       });
     }
+  }
+
+  _inferEntityTypeFromScope(context = {}) {
+    if (context.clientId) return "client";
+    if (context.dossierId) return "dossier";
+    if (context.lawsuitId) return "lawsuit";
+    if (context.taskId) return "task";
+    if (context.sessionId) return "session";
+    if (context.missionId) return "mission";
+    if (context.personalTaskId) return "personal_task";
+    if (context.financialEntryId) return "financial_entry";
+    if (context.notificationId) return "notification";
+    if (context.historyEventId) return "history_event";
+    return null;
+  }
+
+  _applyHistoricalScope({ requestContext = {}, llmHistory = {}, userMessage = "" } = {}) {
+    const active = llmHistory?.activeEntity;
+    const activeType = String(active?.type || "").toLowerCase();
+    const activeId = Number(active?.id || 0);
+    if (!activeType || !Number.isFinite(activeId) || activeId <= 0) return;
+
+    const scopeKeyMap = {
+      client: "clientId",
+      dossier: "dossierId",
+      lawsuit: "lawsuitId",
+      task: "taskId",
+      session: "sessionId",
+      mission: "missionId",
+      personal_task: "personalTaskId",
+      financial_entry: "financialEntryId",
+      notification: "notificationId",
+      history_event: "historyEventId",
+    };
+    const key = scopeKeyMap[activeType];
+    if (key && !requestContext[key]) {
+      requestContext[key] = activeId;
+    }
+    if (
+      (!requestContext.activeEntity || typeof requestContext.activeEntity !== "object") &&
+      key
+    ) {
+      requestContext.activeEntity = {
+        type: activeType,
+        id: activeId,
+        source: "conversation_context",
+      };
+    }
+
+    // Parent -> child propagation for conversational follow-ups:
+    // e.g. "show his dossiers" right after reading a client.
+    if (activeType !== "client" || requestContext.clientId) return;
+    const readIntent = detectReadIntent(String(userMessage || ""), requestContext);
+    const childIntents = new Set([
+      "LIST_DOSSIERS",
+      "READ_DOSSIER",
+      "LIST_TASKS",
+      "READ_TASK",
+      "LIST_SESSIONS",
+      "READ_SESSION",
+      "LIST_LAWSUITS",
+      "READ_LAWSUIT",
+      "LIST_MISSIONS",
+      "READ_MISSION",
+      "LIST_FINANCIAL_ENTRIES",
+      "READ_FINANCIAL_ENTRY",
+    ]);
+    if (childIntents.has(String(readIntent?.intent || "").toUpperCase())) {
+      requestContext.clientId = activeId;
+    }
+  }
+
+  _inferActiveEntityFromChatTurn({
+    requestContext = {},
+    toolExecutions = [],
+    artifactType = "chat",
+    artifact = null,
+  } = {}) {
+    const resolvedType = String(requestContext?.resolvedEntity?.type || "").toLowerCase();
+    const resolvedId = Number(requestContext?.resolvedEntity?.id || 0);
+    if (resolvedType && Number.isFinite(resolvedId) && resolvedId > 0) {
+      return { type: resolvedType, id: resolvedId, source: "chat_resolved_selection" };
+    }
+
+    for (let i = toolExecutions.length - 1; i >= 0; i -= 1) {
+      const execution = toolExecutions[i];
+      if (!execution?.ok || !execution.result || typeof execution.result !== "object") {
+        continue;
+      }
+      const fromResult = this._inferActiveEntityFromToolResult(execution.result);
+      if (fromResult) return fromResult;
+    }
+
+    if (artifactType === "context_suggestion" && artifact && typeof artifact === "object") {
+      const suggestion = Array.isArray(artifact.suggestions) ? artifact.suggestions[0] : null;
+      const entityType = String(suggestion?.entityType || artifact.entityType || "").toLowerCase();
+      const entityId = Number(suggestion?.entityId || 0);
+      if (entityType && Number.isFinite(entityId) && entityId > 0) {
+        return { type: entityType, id: entityId, source: "chat_context_suggestion" };
+      }
+    }
+
+    const scopedType = this._inferEntityTypeFromScope(requestContext);
+    if (!scopedType) return null;
+    const scopeKeyMap = {
+      client: "clientId",
+      dossier: "dossierId",
+      lawsuit: "lawsuitId",
+      task: "taskId",
+      session: "sessionId",
+      mission: "missionId",
+      personal_task: "personalTaskId",
+      financial_entry: "financialEntryId",
+      notification: "notificationId",
+      history_event: "historyEventId",
+    };
+    const scopeId = Number(requestContext?.[scopeKeyMap[scopedType]] || 0);
+    if (!Number.isFinite(scopeId) || scopeId <= 0) return null;
+    return { type: scopedType, id: scopeId, source: "chat_scope" };
+  }
+
+  _inferActiveEntityFromToolResult(result) {
+    if (!result || typeof result !== "object") return null;
+
+    const directMap = {
+      client: "client",
+      dossier: "dossier",
+      lawsuit: "lawsuit",
+      task: "task",
+      session: "session",
+      mission: "mission",
+      personal_task: "personalTask",
+      financial_entry: "financialEntry",
+      notification: "notification",
+      history_event: "historyEvent",
+    };
+    for (const [type, key] of Object.entries(directMap)) {
+      const row = result[key];
+      const id = Number(row?.id || 0);
+      if (row && typeof row === "object" && Number.isFinite(id) && id > 0) {
+        return { type, id, source: "chat_tool_result" };
+      }
+    }
+
+    const listMap = {
+      client: "clients",
+      dossier: "dossiers",
+      lawsuit: "lawsuits",
+      task: "tasks",
+      session: "sessions",
+      mission: "missions",
+      personal_task: "personalTasks",
+      financial_entry: "financialEntries",
+      notification: "notifications",
+      history_event: "historyEvents",
+    };
+    for (const [type, key] of Object.entries(listMap)) {
+      const rows = result[key];
+      if (!Array.isArray(rows) || rows.length !== 1) continue;
+      const id = Number(rows[0]?.id || 0);
+      if (Number.isFinite(id) && id > 0) {
+        return { type, id, source: "chat_tool_result" };
+      }
+    }
+
+    if (result.root && typeof result.root === "object") {
+      const rootType = String(result.root.type || "").toLowerCase();
+      const rootId = Number(result.root.id || 0);
+      if (rootType && Number.isFinite(rootId) && rootId > 0) {
+        return { type: rootType === "case" ? "lawsuit" : rootType, id: rootId, source: "chat_entity_graph" };
+      }
+    }
+
+    const fallbackType = String(result.entityType || "").toLowerCase();
+    const fallbackId = Number(result.entityId || result.id || 0);
+    if (fallbackType && Number.isFinite(fallbackId) && fallbackId > 0) {
+      return { type: fallbackType === "case" ? "lawsuit" : fallbackType, id: fallbackId, source: "chat_tool_result" };
+    }
+
+    return null;
   }
 
   _applyGroundingSafety({

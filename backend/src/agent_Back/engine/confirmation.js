@@ -194,12 +194,25 @@ async function confirmProposal({ proposalId, sessionId, userId }) {
 
     return executionResult;
   } catch (err) {
+    const errorCode = err?.code || "EXECUTION_ERROR";
+    const safeMessageByCode = {
+      PDF_RENDERER_UNAVAILABLE:
+        "PDF generation is unavailable on this server. Install puppeteer dependencies and retry.",
+      PDF_RENDERER_LAUNCH_FAILED:
+        "PDF generation failed to start. Configure Chromium (PUPPETEER_EXECUTABLE_PATH) and retry.",
+      DOCX_RENDERER_UNAVAILABLE:
+        "DOCX generation is unavailable on this server. Install docx dependency and retry.",
+      MISSING_REQUIRED_FIELDS:
+        "Document data is incomplete. Please provide missing information and retry.",
+    };
+
     // Log failure
     this.ledger.record({
       type: "proposal_execution_failed",
       proposalId,
       actionType: proposal.actionType,
-      error: err.message,
+      error: err?.message || "Execution failed",
+      errorCode,
       timestamp: new Date().toISOString(),
     });
 
@@ -208,9 +221,11 @@ async function confirmProposal({ proposalId, sessionId, userId }) {
       proposalId,
       status: "failed",
       error: {
-        code: "EXECUTION_ERROR",
-        message: err.message,
-        safeMessage: "The action could not be completed. Please try again.",
+        code: errorCode,
+        message: err?.message || "Execution failed",
+        safeMessage:
+          safeMessageByCode[errorCode] ||
+          "The action could not be completed. Please try again.",
         requiresReproposal: false,
       },
     };

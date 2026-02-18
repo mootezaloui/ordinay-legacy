@@ -962,6 +962,90 @@ async function testDraftAttemptWithoutGroundingIsBlocked() {
   assert.strictEqual(result.rounds, 0);
 }
 
+async function testChatContextCarriesClientScopeAcrossTurns() {
+  const { engine } = createEngine();
+  let operational = {
+    activeEntity: null,
+    posture: null,
+    pendingSelection: null,
+    lastSnapshot: null,
+    lastIntent: null,
+    lastEntityType: null,
+    lastQuery: "",
+  };
+  engine.contextStore = {
+    ...engine.contextStore,
+    getContextForLLMInjection: () => ({
+      recentTurns: [],
+      compactionSummary: null,
+      structuredSummary: null,
+      evidenceRefs: [],
+      hasCompaction: false,
+      ...operational,
+    }),
+    _operationalStore: {
+      update: (_userId, _conversationId, updates) => {
+        operational = {
+          ...operational,
+          ...updates,
+        };
+      },
+    },
+  };
+
+  const service = new ChatAgentService({
+    engine,
+    llmClient: createSequenceClient([
+      {
+        role: "assistant",
+        content: "",
+        tool_calls: [
+          {
+            id: "tc_client_focus",
+            type: "function",
+            function: {
+              name: "getEntityGraph",
+              arguments: JSON.stringify({
+                entityType: "client",
+                entityId: 7,
+                depth: 1,
+                direction: "both",
+              }),
+            },
+          },
+        ],
+      },
+      { role: "assistant", content: "Client loaded.", tool_calls: [] },
+      { role: "assistant", content: "Showing dossiers.", tool_calls: [] },
+    ]),
+  });
+
+  await service.run({
+    message: "show client Youssef Daly",
+    sessionId: "s_ctx_client_to_dossiers",
+    context: { posture: "WORK", clientId: 7, dataAccess: buildDataAccess() },
+  });
+
+  assert.strictEqual(operational?.activeEntity?.type, "client");
+  assert.strictEqual(Number(operational?.activeEntity?.id), 7);
+
+  const second = await service.run({
+    message: "show me his dossiers",
+    sessionId: "s_ctx_client_to_dossiers",
+    context: { posture: "WORK", dataAccess: buildDataAccess() },
+  });
+
+  // If client scope was carried correctly, deterministic grounding should
+  // execute getEntityGraph from scoped context before the model answer.
+  assert.ok(
+    second.toolExecutions.some(
+      (entry) =>
+        entry.toolName === "getEntityGraph" &&
+        Number(entry?.args?.entityId || 0) === 7,
+    ),
+  );
+}
+
 async function run() {
   await testReadToolUsage();
   await testMultiStepToolChaining();
@@ -978,6 +1062,7 @@ async function run() {
   await testDraftPlaceholderResponseIsAllowedWhenDataMissing();
   await testMissingLegalArticleDoesNotBlockDraft();
   await testDraftAttemptWithoutGroundingIsBlocked();
+  await testChatContextCarriesClientScopeAcrossTurns();
   console.log("chat.agent.service tests passed");
 }
 

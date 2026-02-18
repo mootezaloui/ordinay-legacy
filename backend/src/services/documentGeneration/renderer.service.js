@@ -31,7 +31,25 @@ async function renderPdf(html, outputPath) {
     throw err;
   }
 
-  const browser = await puppeteer.launch({ headless: true });
+  const launchOptions = {
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  };
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
+
+  let browser;
+  try {
+    browser = await puppeteer.launch(launchOptions);
+  } catch (error) {
+    const err = new Error(
+      `PDF renderer launch failed: ${error.message || "unknown error"}. ` +
+        "Install Chromium for puppeteer or set PUPPETEER_EXECUTABLE_PATH.",
+    );
+    err.code = "PDF_RENDERER_LAUNCH_FAILED";
+    throw err;
+  }
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle0" });

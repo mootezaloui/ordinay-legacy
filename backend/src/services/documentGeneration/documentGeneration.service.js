@@ -220,12 +220,12 @@ async function generateFromReadyPlan(plan, { createdBy } = {}) {
   }
 }
 
-function planDocument(input) {
+async function planDocument(input) {
   return plannerService.planDocument(input);
 }
 
 async function generateDocument(input, options = {}) {
-  const plan = plannerService.planDocument(input);
+  const plan = await plannerService.planDocument(input);
   if (plan.status !== "ready") {
     const err = new Error("Cannot generate document while required fields are missing");
     err.status = 400;

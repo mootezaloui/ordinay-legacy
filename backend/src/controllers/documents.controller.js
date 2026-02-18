@@ -94,7 +94,7 @@ async function remove(req, res, next) {
 
 async function planGeneration(req, res, next) {
   try {
-    const result = documentGenerationService.planDocument(req.body || {});
+    const result = await documentGenerationService.planDocument(req.body || {});
     res.json(result);
   } catch (error) {
     next(error);

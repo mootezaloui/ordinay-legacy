@@ -7,6 +7,7 @@ const AgentEngine = require("./agent.engine");
 const { ChatAgentService } = require("./chat/chat.agent.service");
 const { getAvailableCommands } = require("./intent.classifier");
 const { streamLLM } = require("./llm/stream.provider");
+const db = require("../db/connection");
 const documentGenerationService = require("../services/documentGeneration/documentGeneration.service");
 const eventEnvelopeSchema = require("./schemas/event-envelope.schema.json");
 const intentSchema = require("./schemas/intent.schema.json");
@@ -935,15 +936,60 @@ function normalizeChatSearchArtifact(entry) {
   };
 }
 
-function detectDocumentGenerationIntent(message, context = {}) {
+function normalizeRefText(value) {
+  return String(value || "").replace(/[\u2010-\u2015\u2212]/g, "-");
+}
+
+async function resolveGenerationTargetFromReference(text) {
+  const dossierRefMatch = text.match(/\bDOS-\d{4}-\d+\b/i);
+  if (dossierRefMatch) {
+    const reference = String(dossierRefMatch[0]).toLowerCase();
+    const dossier = db
+      .prepare(
+        "SELECT id FROM dossiers WHERE lower(reference) = @reference AND deleted_at IS NULL LIMIT 1",
+      )
+      .get({ reference });
+    if (dossier?.id) {
+      return { type: "dossier", id: Number(dossier.id) };
+    }
+  }
+
+  const lawsuitRefMatch = text.match(/\bL-\d{4}-\d+\b/i);
+  if (lawsuitRefMatch) {
+    const reference = String(lawsuitRefMatch[0]).toLowerCase();
+    const lawsuit = db
+      .prepare(
+        "SELECT id FROM lawsuits WHERE lower(reference) = @reference AND deleted_at IS NULL LIMIT 1",
+      )
+      .get({ reference });
+    if (lawsuit?.id) {
+      return { type: "lawsuit", id: Number(lawsuit.id) };
+    }
+  }
+
+  return null;
+}
+
+function extractTargetHints(text) {
+  const hintedTypeMatch = text.match(/\b(client|dossier|lawsuit|mission|task|session)\b/i);
+  const dossierRefMatch = text.match(/\bDOS-\d{4}-\d+\b/i);
+  const lawsuitRefMatch = text.match(/\bL-\d{4}-\d+\b/i);
+  return {
+    hintedType: hintedTypeMatch ? String(hintedTypeMatch[1]).toLowerCase() : null,
+    reference: dossierRefMatch ? String(dossierRefMatch[0]) : lawsuitRefMatch ? String(lawsuitRefMatch[0]) : null,
+  };
+}
+
+async function detectDocumentGenerationIntent(message, context = {}) {
   const text = String(message || "").trim();
   if (!text) return null;
-  const low = text.toLowerCase();
+  const canonicalText = normalizeRefText(text);
+  const low = canonicalText.toLowerCase();
   const hasGenerateVerb =
-    /\b(generate|create|draft|prepare|write)\b/i.test(text) ||
-    /(?:إنشاء|توليد|تحضير|صياغة)/.test(text);
+    /\b(generate|create|draft|prepare|write)\b/i.test(canonicalText) ||
+    /(?:إنشاء|توليد|تحضير|صياغة)/.test(canonicalText);
   if (!hasGenerateVerb) return null;
-  if (!/\b(document|letter|opinion|memo|summary|pdf|docx|html)\b/i.test(low) && !/(مذكرة|خطاب|ملخص|وثيقة)/.test(text)) {
+  if (!/\b(document|letter|opinion|memo|summary|pdf|docx|html)\b/i.test(low) && !/(مذكرة|خطاب|ملخص|وثيقة)/.test(canonicalText)) {
     return null;
   }
 
@@ -952,9 +998,9 @@ function detectDocumentGenerationIntent(message, context = {}) {
     documentType = "COURT_REQUEST_LETTER";
   } else if (/\b(legal opinion|opinion)\b/i.test(low)) {
     documentType = "LEGAL_OPINION";
-  } else if (/\b(task memo|memo)\b/i.test(low) || /(مذكرة مهمة)/.test(text)) {
+  } else if (/\b(task memo|memo)\b/i.test(low) || /(مذكرة مهمة)/.test(canonicalText)) {
     documentType = "TASK_MEMO";
-  } else if (/\b(session summary|hearing summary|session)\b/i.test(low) || /(ملخص جلسة)/.test(text)) {
+  } else if (/\b(session summary|hearing summary|session)\b/i.test(low) || /(ملخص جلسة)/.test(canonicalText)) {
     documentType = "SESSION_SUMMARY";
   }
   if (!documentType) return null;
@@ -963,9 +1009,9 @@ function detectDocumentGenerationIntent(message, context = {}) {
   if (/\bdocx\b/i.test(low)) format = "docx";
   if (/\bhtml\b/i.test(low)) format = "html";
 
-  const language = /\b(arabic|arab|العربية|عربي)\b/i.test(text) ? "ar" : "en";
+  const language = /\b(arabic|arab|العربية|عربي)\b/i.test(canonicalText) ? "ar" : "en";
 
-  const explicit = text.match(/\b(client|dossier|lawsuit|mission|task|session)\s*#?\s*(\d+)\b/i);
+  const explicit = canonicalText.match(/\b(client|dossier|lawsuit|mission|task|session)\s*#?\s*(\d+)\b/i);
   let target = null;
   if (explicit) {
     target = { type: explicit[1].toLowerCase(), id: Number(explicit[2]) };
@@ -982,7 +1028,23 @@ function detectDocumentGenerationIntent(message, context = {}) {
   } else if (context?.missionId) {
     target = { type: "mission", id: Number(context.missionId) };
   }
-  if (!target?.type || !Number.isInteger(target?.id) || target.id <= 0) return null;
+  if ((!target?.type || !Number.isInteger(target?.id) || target.id <= 0)) {
+    target = await resolveGenerationTargetFromReference(canonicalText);
+  }
+
+  const hasValidTarget =
+    Boolean(target?.type) && Number.isInteger(target?.id) && target.id > 0;
+  if (!hasValidTarget) {
+    const hints = extractTargetHints(canonicalText);
+    return {
+      target: null,
+      targetHints: hints,
+      documentType,
+      language,
+      format,
+      instructions: text,
+    };
+  }
 
   return {
     target,
@@ -1023,7 +1085,28 @@ async function buildDocumentGenerationArtifact({
   sessionId,
   generationRequest,
 }) {
-  const plan = documentGenerationService.planDocument(generationRequest);
+  if (!generationRequest?.target?.type || !generationRequest?.target?.id) {
+    const hintedType = generationRequest?.targetHints?.hintedType || "entity";
+    const hintedRef = generationRequest?.targetHints?.reference || "reference";
+    return {
+      type: "document_generation_missing_fields",
+      message: "Target entity must be resolved before generation.",
+      documentType: generationRequest?.documentType || null,
+      target: null,
+      missingFields: [
+        {
+          path: "target",
+          label: "Target entity",
+          reason: `target_not_found:${hintedType}`,
+          example: `Provide an existing ${hintedType} id or valid reference (received: ${hintedRef}).`,
+        },
+      ],
+      schemaVersion: null,
+      templateKey: null,
+    };
+  }
+
+  const plan = await documentGenerationService.planDocument(generationRequest);
   if (plan.status === "missing_fields") {
     return {
       type: "document_generation_missing_fields",
@@ -1106,14 +1189,14 @@ router.post("/agent/run", async (req, res, next) => {
     const effectiveMessage =
       hasMessage || followUpIntent || !hasDocuments ? message : "uploaded file";
 
-    const generationRequest = detectDocumentGenerationIntent(
+    const generationRequest = await detectDocumentGenerationIntent(
       effectiveMessage,
       requestContext,
     );
     if (generationRequest) {
       const output = await buildDocumentGenerationArtifact({
         requestContext,
-        agentVersion: agentVersion || "v3",
+        agentVersion: "v3",
         userId: req.user?.id || null,
         sessionId,
         generationRequest,
@@ -1224,11 +1307,11 @@ router.post("/agent/chat", async (req, res) => {
       timestamp: new Date().toISOString(),
     });
 
-    const generationRequest = detectDocumentGenerationIntent(message, requestContext);
+    const generationRequest = await detectDocumentGenerationIntent(message, requestContext);
     if (generationRequest) {
       const artifact = await buildDocumentGenerationArtifact({
         requestContext,
-        agentVersion: agentVersion || "v3",
+        agentVersion: "v3",
         userId: req.user?.id || null,
         sessionId,
         generationRequest,
