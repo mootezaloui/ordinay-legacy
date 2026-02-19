@@ -1,5 +1,8 @@
 "use strict";
 
+const { generateToolCallingTurn } = require("../llm/llm.client");
+const { parseJsonResponse } = require("../llm/llm.validation");
+
 function normalizeCode(error) {
   const explicit = String(error?.code || "").trim();
   if (explicit) return explicit.toUpperCase();
@@ -8,6 +11,21 @@ function normalizeCode(error) {
   if (status === 404) return "NOT_FOUND";
   if (status >= 500) return "INTERNAL_ERROR";
   return "UNKNOWN_ERROR";
+}
+
+function normalizeTargetType(value) {
+  const raw = String(value || "entity")
+    .toLowerCase()
+    .replace(/[^a-z0-9_ -]/g, "")
+    .trim();
+  return raw || "entity";
+}
+
+function singularize(label) {
+  if (!label) return "entity";
+  if (label.endsWith("ies")) return `${label.slice(0, -3)}y`;
+  if (label.endsWith("s")) return label.slice(0, -1);
+  return label;
 }
 
 function buildRecovery({
@@ -36,7 +54,8 @@ function buildRecovery({
 }
 
 function mapByCode({ code, error, context = {} } = {}) {
-  const targetType = String(context?.targetType || "entity").toLowerCase();
+  const targetType = normalizeTargetType(context?.targetType);
+  const targetTypeSingular = singularize(targetType);
   const targetId = Number.isFinite(Number(context?.targetId))
     ? Number(context.targetId)
     : null;
@@ -44,26 +63,36 @@ function mapByCode({ code, error, context = {} } = {}) {
   const intent = String(context?.intent || "").trim() || null;
 
   if (code === "TARGET_NOT_FOUND" || code === "TARGET_UNRESOLVED") {
+    const hasReference = Boolean(reference);
+    const describedTarget = hasReference
+      ? `"${reference}"`
+      : `that ${targetTypeSingular}`;
     return buildRecovery({
-      message: `I could not find that ${targetType} in your workspace.`,
+      message: `Sorry, I couldn't find ${describedTarget} in your workspace.`,
       whatHappened:
-        "The target entity could not be resolved from the provided id or reference.",
+        "I looked for the target you referenced, but it isn't available in your current data.",
       canRetry: true,
       alternatives: [
         {
-          label: `Check ${targetType} reference`,
+          label: `Use another ${targetTypeSingular}`,
           action: "verify_reference",
-          prompt: `Find ${targetType} by reference`,
+          prompt: `Show recent ${targetType} so I can pick one`,
         },
         {
-          label: `List recent ${targetType}s`,
+          label: `Create this ${targetTypeSingular} first`,
+          action: "create_target",
+          prompt: `Create a new ${targetTypeSingular} with reference ${reference || "my reference"}`,
+        },
+        {
+          label: "Continue without this target",
           action: "list_recent",
-          prompt: `List recent ${targetType}s`,
+          prompt: `Generate a generic draft without linking it to a ${targetTypeSingular}`,
         },
       ],
       suggestedPrompts: [
-        `List recent ${targetType}s`,
-        `Find ${targetType} by reference`,
+        `Show recent ${targetType} so I can pick one`,
+        `Create a new ${targetTypeSingular} with reference ${reference || "my reference"}`,
+        `Generate a generic draft without linking it to a ${targetTypeSingular}`,
       ],
       context: { targetType, targetId, reference, intent },
       severity: "blocking",
@@ -72,9 +101,9 @@ function mapByCode({ code, error, context = {} } = {}) {
 
   if (code === "MISSING_REQUIRED_FIELDS") {
     return buildRecovery({
-      message: "I need a few required details before I can complete that.",
+      message: "I can do this, but I still need a few details first.",
       whatHappened:
-        "Some mandatory fields were missing for this action.",
+        "Some required information was missing in the request.",
       canRetry: true,
       alternatives: [
         {
@@ -93,9 +122,9 @@ function mapByCode({ code, error, context = {} } = {}) {
 
   if (code === "PERMISSION_DENIED" || code === "ACCESS_DENIED") {
     return buildRecovery({
-      message: "I cannot perform that action with current permissions.",
+      message: "I can’t perform that action with your current access.",
       whatHappened:
-        "This request requires access or confirmation that is not currently available.",
+        "This action needs permissions or confirmation that are not available right now.",
       canRetry: false,
       alternatives: [
         {
@@ -116,7 +145,7 @@ function mapByCode({ code, error, context = {} } = {}) {
     code === "NETWORK_ERROR"
   ) {
     return buildRecovery({
-      message: "I could not reach an external service needed for that request.",
+      message: "I couldn't reach one of the services needed to finish this.",
       whatHappened:
         "The provider was unavailable or timed out.",
       canRetry: true,
@@ -144,7 +173,7 @@ function mapByCode({ code, error, context = {} } = {}) {
   const fallbackMessage =
     String(error?.message || "").trim() || "I could not complete that request.";
   return buildRecovery({
-    message: "I could not complete that request.",
+    message: "Sorry, I couldn't complete that request this time.",
     whatHappened:
       fallbackMessage.length > 180
         ? "An internal error interrupted this turn."
@@ -171,9 +200,100 @@ function mapByCode({ code, error, context = {} } = {}) {
   });
 }
 
-function mapUserFailure(error, context = {}) {
+function sanitizeRecoveryText(value, fallback) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (!text) return fallback;
+  const hasInternalLeak =
+    /stack|trace|exception|sql|postgres|sqlite|token|schema|internal|timeouterror|node:|at\s+\w+/i.test(
+      text,
+    );
+  if (hasInternalLeak) return fallback;
+  return text.slice(0, 420);
+}
+
+function sanitizeAlternatives(alternatives, fallback) {
+  if (!Array.isArray(alternatives) || alternatives.length === 0) return fallback;
+  const cleaned = alternatives
+    .map((entry) => {
+      const label = sanitizeRecoveryText(entry?.label, "");
+      const prompt = sanitizeRecoveryText(entry?.prompt, "");
+      if (!label) return null;
+      return {
+        label,
+        action: String(entry?.action || "suggested_action").slice(0, 64),
+        ...(prompt ? { prompt } : {}),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 5);
+  return cleaned.length > 0 ? cleaned : fallback;
+}
+
+function shouldUseLlmRewrite() {
+  const override = String(process.env.USER_FAILURE_LLM_REWRITE || "").trim().toLowerCase();
+  if (override === "true") return true;
+  if (override === "false") return false;
+  return process.env.NODE_ENV !== "test";
+}
+
+async function rewriteRecoveryWithLlm({ code, recovery, context = {} }) {
+  if (!shouldUseLlmRewrite()) return recovery;
+  try {
+    const assistant = await generateToolCallingTurn({
+      tools: [],
+      temperature: 0.2,
+      maxTokens: 420,
+      messages: [
+        {
+          role: "system",
+          content:
+            "Rewrite recovery responses for end users. Be warm, concise, and actionable. Never include internal codes, stack traces, policy internals, or system terms.",
+        },
+        {
+          role: "user",
+          content: [
+            "Return strictly JSON with keys:",
+            '{"message":"string","whatHappened":"string","alternatives":[{"label":"string","action":"string","prompt":"string"}],"suggestedPrompts":["string"]}',
+            "Rules:",
+            "- Keep message and whatHappened user-friendly and non-technical.",
+            "- Mention the missing reference naturally when available.",
+            "- Provide 2-4 alternatives and 1-4 suggested prompts.",
+            "- Prefer question-like prompts users can click.",
+            `Failure code: ${String(code || "UNKNOWN_ERROR")}`,
+            `Context: ${JSON.stringify(context || {})}`,
+            `Base recovery: ${JSON.stringify(recovery)}`,
+          ].join("\n"),
+        },
+      ],
+    });
+    const parsed = parseJsonResponse(assistant?.content || "");
+    if (!parsed || typeof parsed !== "object") return recovery;
+
+    return {
+      ...recovery,
+      message: sanitizeRecoveryText(parsed.message, recovery.message),
+      whatHappened: sanitizeRecoveryText(parsed.whatHappened, recovery.whatHappened),
+      alternatives: sanitizeAlternatives(parsed.alternatives, recovery.alternatives),
+      suggestedPrompts: Array.isArray(parsed.suggestedPrompts)
+        ? parsed.suggestedPrompts
+            .map((prompt) => sanitizeRecoveryText(prompt, ""))
+            .filter(Boolean)
+            .slice(0, 4)
+        : recovery.suggestedPrompts,
+    };
+  } catch {
+    return recovery;
+  }
+}
+
+async function mapUserFailure(error, context = {}) {
   const code = normalizeCode(error);
-  const recovery = mapByCode({ code, error, context });
+  const deterministic = mapByCode({ code, error, context });
+  const recovery = await rewriteRecoveryWithLlm({
+    code,
+    recovery: deterministic,
+    context,
+  });
   return {
     code,
     recovery,
@@ -184,4 +304,3 @@ function mapUserFailure(error, context = {}) {
 module.exports = {
   mapUserFailure,
 };
-

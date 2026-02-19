@@ -1334,24 +1334,57 @@ function ArtifactBody({
     message.data?.documentGenerationMissingFields
   ) {
     const missing = message.data.documentGenerationMissingFields.missingFields || [];
+    const targetField = missing.find((f) =>
+      String(f.reason || "").toLowerCase().includes("target_not_found"),
+    );
+    const receivedRefMatch = String(targetField?.example || "").match(/received:\s*([^)]+)/i);
+    const receivedRef = receivedRefMatch?.[1]?.trim() || null;
     const prompts = missing
       .map((f) => String(f.example || "").trim())
       .filter(Boolean)
       .slice(0, 4);
+    const targetNotFoundMessage = receivedRef
+      ? `Sorry, I couldn't find a matching dossier for "${receivedRef}".`
+      : "Sorry, I couldn't find the target dossier for this request.";
     return (
       <RecoveryArtifact
         data={{
           type: "recovery",
-          message: message.data.documentGenerationMissingFields.message,
-          whatHappened:
-            "I need a valid target or missing details before I can generate the document.",
+          message: targetField ? targetNotFoundMessage : message.data.documentGenerationMissingFields.message,
+          whatHappened: targetField
+            ? "I can still help right away if you pick an existing dossier or choose an alternative path."
+            : "I can continue as soon as the missing details are provided.",
           canRetry: true,
-          alternatives: missing.map((f) => ({
-            label: f.label || f.path,
-            action: "provide_missing_field",
-            prompt: f.example || undefined,
-          })),
-          suggestedPrompts: prompts,
+          alternatives: targetField
+            ? [
+                {
+                  label: "Choose another existing dossier",
+                  action: "select_existing_dossier",
+                  prompt: "Show recent dossiers so I can choose one",
+                },
+                {
+                  label: "Create this dossier first",
+                  action: "create_dossier",
+                  prompt: `Create a new dossier${receivedRef ? ` with reference ${receivedRef}` : ""}`,
+                },
+                {
+                  label: "Generate a generic version without dossier link",
+                  action: "generate_generic_document",
+                  prompt: "Generate this letter as a generic template without linking it to a dossier",
+                },
+              ]
+            : missing.map((f) => ({
+                label: f.label || f.path,
+                action: "provide_missing_field",
+                prompt: f.example || undefined,
+              })),
+          suggestedPrompts: targetField
+            ? [
+                "Show recent dossiers so I can choose one",
+                `Create a new dossier${receivedRef ? ` with reference ${receivedRef}` : ""}`,
+                "Generate this letter as a generic template without linking it to a dossier",
+              ]
+            : prompts,
           context: null,
           severity: "blocking",
         }}

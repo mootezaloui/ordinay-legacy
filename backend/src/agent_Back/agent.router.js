@@ -1203,50 +1203,38 @@ async function buildDocumentGenerationPreviewArtifact({
   sessionId,
   generationRequest,
 }) {
+  const toTargetRecovery = async ({ code = "TARGET_UNRESOLVED" } = {}) => {
+    const targetType = String(
+      generationRequest?.target?.type ||
+        generationRequest?.targetHints?.hintedType ||
+        "entity",
+    ).toLowerCase();
+    const rawTargetId = generationRequest?.target?.id;
+    const normalizedTargetId = Number.isFinite(Number(rawTargetId))
+      ? Number(rawTargetId)
+      : null;
+    const reference = String(generationRequest?.targetHints?.reference || "").trim() || null;
+    const mapped = await mapUserFailure(
+      {
+        code,
+        message: "Target entity could not be resolved for generation.",
+      },
+      {
+        intent: "DOCUMENT_GENERATION",
+        targetType,
+        targetId: normalizedTargetId,
+        reference,
+      },
+    );
+    return mapped.recovery;
+  };
+
   if (!generationRequest?.target?.type || !generationRequest?.target?.id) {
-    const hintedType = generationRequest?.targetHints?.hintedType || "entity";
-    const hintedRef = generationRequest?.targetHints?.reference || "reference";
-    return {
-      type: "document_generation_missing_fields",
-      message: "Target entity must be resolved before generation.",
-      documentType: generationRequest?.documentType || null,
-      target: null,
-      missingFields: [
-        {
-          path: "target",
-          label: "Target entity",
-          reason: `target_not_found:${hintedType}`,
-          example: `Provide an existing ${hintedType} id or valid reference (received: ${hintedRef}).`,
-        },
-      ],
-      schemaVersion: null,
-      templateKey: null,
-    };
+    return toTargetRecovery({ code: "TARGET_UNRESOLVED" });
   }
 
   if (!targetEntityExists(generationRequest.target)) {
-    const targetType = String(generationRequest?.target?.type || "entity").toLowerCase();
-    const targetId = Number(generationRequest?.target?.id);
-    const recentIds = loadRecentEntityIds(targetType);
-    return {
-      type: "document_generation_missing_fields",
-      message: `The selected ${targetType} does not exist or is no longer available.`,
-      documentType: generationRequest?.documentType || null,
-      target: generationRequest?.target || null,
-      missingFields: [
-        {
-          path: "target",
-          label: "Target entity",
-          reason: `target_not_found:${targetType}`,
-          example:
-            recentIds.length > 0
-              ? `Use an existing ${targetType} id. Recent ids: ${recentIds.join(", ")}.`
-              : `Use an existing ${targetType} id from your workspace.`,
-        },
-      ],
-      schemaVersion: null,
-      templateKey: null,
-    };
+    return toTargetRecovery({ code: "TARGET_NOT_FOUND" });
   }
 
   let plan;
@@ -1257,27 +1245,7 @@ async function buildDocumentGenerationPreviewArtifact({
       /Target entity not found/i.test(String(error?.message || "")) ||
       String(error?.code || "") === "TARGET_NOT_FOUND"
     ) {
-      const targetType = String(generationRequest?.target?.type || "entity").toLowerCase();
-      const recentIds = loadRecentEntityIds(targetType);
-      return {
-        type: "document_generation_missing_fields",
-        message: `The selected ${targetType} is not available.`,
-        documentType: generationRequest?.documentType || null,
-        target: generationRequest?.target || null,
-        missingFields: [
-          {
-            path: "target",
-            label: "Target entity",
-            reason: `target_not_found:${targetType}`,
-            example:
-              recentIds.length > 0
-                ? `Try one of the existing ${targetType} ids: ${recentIds.join(", ")}.`
-                : `Select an existing ${targetType} before generation.`,
-          },
-        ],
-        schemaVersion: null,
-        templateKey: null,
-      };
+      return toTargetRecovery({ code: "TARGET_NOT_FOUND" });
     }
     if (error?.code === "TEMPLATE_NOT_FOUND") {
       return {
@@ -1387,7 +1355,7 @@ router.post("/agent/run", async (req, res, next) => {
       data: contextLifecycle ? { ...result, contextLifecycle } : result,
     });
   } catch (err) {
-    const mapped = mapUserFailure(err, {
+    const mapped = await mapUserFailure(err, {
       intent: "AGENT_RUN",
     });
     agentEngine.ledger.record({
@@ -1743,7 +1711,7 @@ router.post("/agent/chat", async (req, res) => {
       interactionMode,
     });
   } catch (error) {
-    const mapped = mapUserFailure(error, {
+    const mapped = await mapUserFailure(error, {
       intent: "CHATBOT_AGENT_MODE",
     });
     agentEngine.ledger.record({
@@ -2753,14 +2721,14 @@ router.post("/agent/stream", async (req, res) => {
     emit(eventName, safeFailure);
   };
 
-  const emitRecoveryArtifact = ({
+  const emitRecoveryArtifact = async ({
     error,
     code,
     context = {},
     interactionMode = "operational",
   } = {}) => {
     if (hasVisibleArtifact) return;
-    const mapped = mapUserFailure(
+    const mapped = await mapUserFailure(
       {
         ...(error && typeof error === "object" ? error : {}),
         code: code || error?.code,
@@ -2884,7 +2852,7 @@ router.post("/agent/stream", async (req, res) => {
         visibility: "metadata",
         interactionMode,
       });
-      emitRecoveryArtifact({
+      await emitRecoveryArtifact({
         code: "INVALID_ARTIFACT",
         context: { intent: unifiedResult?.intent || "UNKNOWN" },
         interactionMode,
@@ -3027,7 +2995,7 @@ router.post("/agent/stream", async (req, res) => {
       });
       commentaryTerminal = true;
     }
-    emitRecoveryArtifact({
+    await emitRecoveryArtifact({
       error: err,
       context: { intent: "STREAM_EXECUTION" },
       interactionMode: "operational",
@@ -3041,7 +3009,7 @@ router.post("/agent/stream", async (req, res) => {
   }
 
   if (!didEnd) {
-    emitRecoveryArtifact({
+    await emitRecoveryArtifact({
       code: "STREAM_TERMINATED",
       context: { intent: "STREAM_EXECUTION" },
       interactionMode: "operational",
