@@ -512,6 +512,28 @@ export interface ProposalOutput {
   sessionId: string;
 }
 
+export interface RecoveryOption {
+  label: string;
+  action?: string;
+  prompt?: string;
+}
+
+export interface RecoveryOutput {
+  type: 'recovery';
+  message: string;
+  whatHappened: string;
+  canRetry: boolean;
+  alternatives: RecoveryOption[];
+  suggestedPrompts: string[];
+  context?: {
+    targetType?: string | null;
+    targetId?: number | null;
+    reference?: string | null;
+    intent?: string | null;
+  } | null;
+  severity: 'blocking' | 'partial' | 'temporary';
+}
+
 export interface DocumentGenerationMissingFieldsOutput {
   type: 'document_generation_missing_fields';
   message: string;
@@ -639,6 +661,7 @@ export type AgentOutput =
   | CollectionOutput
   | ContextSuggestionOutput
   | ProposalOutput
+  | RecoveryOutput
   | WebSearchResultsOutput
   | WebDeepSearchResultsOutput
   | { type: 'action_plan'; actions: ActionProposal[] };
@@ -671,6 +694,7 @@ export interface ProcessedAgentResponse {
   collection?: CollectionOutput;
   contextSuggestion?: ContextSuggestionOutput;
   proposal?: ProposalOutput;
+  recovery?: RecoveryOutput;
   documentGenerationPreview?: DocumentGenerationPreviewOutput;
   documentGenerationMissingFields?: DocumentGenerationMissingFieldsOutput;
   webSearchResults?: WebSearchResultsOutput | WebDeepSearchResultsOutput;
@@ -770,6 +794,9 @@ export async function sendAgentMessage(
       processed.displayText = '';
     } else if (output.type === 'proposal') {
       processed.proposal = output as ProposalOutput;
+      processed.displayText = '';
+    } else if (output.type === 'recovery') {
+      processed.recovery = output as RecoveryOutput;
       processed.displayText = '';
     } else if (output.type === 'document_generation_preview') {
       processed.documentGenerationPreview =
@@ -1003,6 +1030,8 @@ export interface CommentaryOutput {
   options?: Array<{ label: string; value: string }>;
   question?: string | null;
   signals?: SemanticSignal[];
+  visibility?: 'visible' | 'metadata';
+  interactionMode?: 'conversational' | 'operational';
 }
 
 export interface IntentFramingOutput {
@@ -1010,6 +1039,8 @@ export interface IntentFramingOutput {
   summary: string;
   contextEcho: string | null;
   nextQuestion: string | null;
+  visibility?: 'visible' | 'metadata';
+  interactionMode?: 'conversational' | 'operational';
 }
 
 // ============================================================================
@@ -1057,17 +1088,36 @@ export interface StatusEventData {
 export interface StreamCallbacks {
   onStart?: (data: { intent: string; agentVersion: string }) => void;
   onStatus?: (data: StatusEventData) => void;
-  onIntentFraming?: (data: { message: string; messageType?: string; signal?: SemanticSignal | null; structured?: IntentFramingOutput }) => void;
+  onIntentFraming?: (data: { message: string; messageType?: string; signal?: SemanticSignal | null; structured?: IntentFramingOutput; visibility?: 'visible' | 'metadata'; interactionMode?: 'conversational' | 'operational' }) => void;
   /** Streaming chunk for intent framing message (for real-time display) */
   onIntentFramingChunk?: (chunk: string) => void;
   onChunk?: (content: string) => void;
-  onResult?: (data: { output: AgentOutput; intent: string; contextLifecycle?: ContextLifecycleEvent | null }) => void;
+  onResult?: (data: { output: AgentOutput; intent: string; contextLifecycle?: ContextLifecycleEvent | null; visibility?: 'visible' | 'metadata'; interactionMode?: 'conversational' | 'operational' }) => void;
   onCommentary?: (data: CommentaryOutput) => void;
   /** Streaming chunk for commentary message (for real-time display) */
   onCommentaryChunk?: (chunk: string) => void;
   onDone?: (data: { timestamp: string; fullContent?: string }) => void;
   onError?: (error: string) => void;
   onCancelled?: () => void;
+}
+
+function buildLocalRecoveryOutput(
+  message: string,
+  severity: 'blocking' | 'partial' | 'temporary' = 'temporary',
+): RecoveryOutput {
+  return {
+    type: 'recovery',
+    message: 'I could not complete that request.',
+    whatHappened: message,
+    canRetry: true,
+    alternatives: [
+      { label: 'Retry request', action: 'retry', prompt: 'Retry the same request' },
+      { label: 'Narrow scope', action: 'narrow_scope', prompt: 'Try again with a narrower scope' },
+    ],
+    suggestedPrompts: ['Retry the same request', 'Try again with a narrower scope'],
+    context: null,
+    severity,
+  };
 }
 
 /**
@@ -1152,13 +1202,28 @@ export function streamAgentMessage(
 
       if (!response.ok) {
         const text = await response.text();
-        callbacks.onError?.(text || `HTTP error ${response.status}`);
+        callbacks.onResult?.({
+          output: buildLocalRecoveryOutput(
+            text || `The service returned HTTP ${response.status}.`,
+            'temporary',
+          ),
+          intent: 'RECOVERY',
+          visibility: 'visible',
+          interactionMode: 'operational',
+        });
+        callbacks.onDone?.({ timestamp: new Date().toISOString() });
         return;
       }
 
       const reader = response.body?.getReader();
       if (!reader) {
-        callbacks.onError?.('No response body');
+        callbacks.onResult?.({
+          output: buildLocalRecoveryOutput('No response body received from the service.', 'temporary'),
+          intent: 'RECOVERY',
+          visibility: 'visible',
+          interactionMode: 'operational',
+        });
+        callbacks.onDone?.({ timestamp: new Date().toISOString() });
         return;
       }
 
@@ -1198,6 +1263,10 @@ export function streamAgentMessage(
               break;
             case 'intent.final': {
               const payload = data?.payload || {};
+              const visibility =
+                String(payload.visibility || 'visible').toLowerCase() === 'metadata'
+                  ? 'metadata'
+                  : 'visible';
               const summary = String(payload.summary || '').trim();
               const contextEcho =
                 typeof payload.contextEcho === 'string' && payload.contextEcho.trim().length > 0
@@ -1208,23 +1277,41 @@ export function streamAgentMessage(
                   ? payload.nextQuestion.trim()
                   : null;
               const intentMessage = [summary, nextQuestion].filter(Boolean).join(' ');
-              callbacks.onIntentFraming?.({
-                message: intentMessage || 'Intent prepared.',
-                structured: {
-                  kind: 'intent',
-                  summary: summary || 'I understood your request.',
-                  contextEcho,
-                  nextQuestion,
-                },
-              });
+              if (visibility === 'visible') {
+                callbacks.onIntentFraming?.({
+                  message: intentMessage || 'Intent prepared.',
+                  visibility,
+                  interactionMode:
+                    payload.interactionMode === 'conversational'
+                      ? 'conversational'
+                      : payload.interactionMode === 'operational'
+                        ? 'operational'
+                        : undefined,
+                  structured: {
+                    kind: 'intent',
+                    summary: summary || 'I understood your request.',
+                    contextEcho,
+                    nextQuestion,
+                    visibility,
+                    interactionMode:
+                      payload.interactionMode === 'conversational'
+                        ? 'conversational'
+                        : payload.interactionMode === 'operational'
+                          ? 'operational'
+                          : undefined,
+                  },
+                });
+              }
               break;
             }
             case 'intent.failed':
-              callbacks.onIntentFraming?.({
-                message:
-                  String(data?.payload?.message || '').trim() ||
-                  'Intent stage failed.',
-              });
+              if (String(data?.payload?.visibility || 'visible').toLowerCase() !== 'metadata') {
+                callbacks.onIntentFraming?.({
+                  message:
+                    String(data?.payload?.message || '').trim() ||
+                    'Intent stage failed.',
+                });
+              }
               break;
             case 'artifact.final':
               hasResultEnvelope = true;
@@ -1232,16 +1319,28 @@ export function streamAgentMessage(
               break;
             case 'artifact.failed':
               hasErrorEnvelope = true;
-              callbacks.onError?.(
-                typeof data?.payload?.message === 'string'
-                  ? data.payload.message
-                  : 'Artifact stage failed',
-              );
+              if (String(data?.payload?.visibility || 'visible').toLowerCase() !== 'metadata') {
+                callbacks.onResult?.({
+                  output: buildLocalRecoveryOutput(
+                    typeof data?.payload?.message === 'string'
+                      ? data.payload.message
+                      : 'I could not complete the requested action.',
+                    'blocking',
+                  ),
+                  intent: 'RECOVERY',
+                  visibility: 'visible',
+                  interactionMode: 'operational',
+                });
+              }
               break;
             case 'commentary.delta':
               break;
             case 'commentary.final': {
               const payload = data?.payload || {};
+              const visibility =
+                String(payload.visibility || 'visible').toLowerCase() === 'metadata'
+                  ? 'metadata'
+                  : 'visible';
               const lines = Array.isArray(payload.lines)
                 ? payload.lines.map((x: unknown) => String(x || '').trim()).filter(Boolean)
                 : [];
@@ -1261,21 +1360,32 @@ export function streamAgentMessage(
                   ? payload.question.trim()
                   : null;
               const commentaryMessage = [...lines, question || ''].filter(Boolean).join(' ');
-              callbacks.onCommentary?.({
-                message: commentaryMessage,
-                source: 'llm',
-                kind: 'commentary',
-                lines,
-                options,
-                question,
-              });
+              if (visibility === 'visible') {
+                callbacks.onCommentary?.({
+                  message: commentaryMessage,
+                  source: 'llm',
+                  kind: 'commentary',
+                  lines,
+                  options,
+                  question,
+                  visibility,
+                  interactionMode:
+                    payload.interactionMode === 'conversational'
+                      ? 'conversational'
+                      : payload.interactionMode === 'operational'
+                        ? 'operational'
+                        : undefined,
+                });
+              }
               break;
             }
             case 'commentary.failed':
-              callbacks.onCommentary?.({
-                message: String(data?.payload?.message || '').trim(),
-                source: 'failed',
-              });
+              if (String(data?.payload?.visibility || 'visible').toLowerCase() !== 'metadata') {
+                callbacks.onCommentary?.({
+                  message: String(data?.payload?.message || '').trim(),
+                  source: 'failed',
+                });
+              }
               break;
             case 'start':
               hasStartEnvelope = true;
@@ -1286,22 +1396,30 @@ export function streamAgentMessage(
               break;
             case 'intent':
             case 'intent_framing':
-              callbacks.onIntentFraming?.(data);
+              if (String(data?.visibility || 'visible').toLowerCase() !== 'metadata') {
+                callbacks.onIntentFraming?.(data);
+              }
               break;
             case 'intent_framing_chunk':
               callbacks.onIntentFramingChunk?.(data.chunk);
               break;
             case 'chunk':
               hasChunkEnvelope = true;
-              callbacks.onChunk?.(data.content);
+              if (String(data?.visibility || 'visible').toLowerCase() !== 'metadata') {
+                callbacks.onChunk?.(data.content);
+              }
               break;
             case 'result':
             case 'artifact':
               hasResultEnvelope = true;
-              callbacks.onResult?.(data);
+              if (String(data?.visibility || 'visible').toLowerCase() !== 'metadata') {
+                callbacks.onResult?.(data);
+              }
               break;
             case 'commentary':
-              callbacks.onCommentary?.(data);
+              if (String(data?.visibility || 'visible').toLowerCase() !== 'metadata') {
+                callbacks.onCommentary?.(data);
+              }
               break;
             case 'commentary_chunk':
               callbacks.onCommentaryChunk?.(data.chunk);
@@ -1310,30 +1428,60 @@ export function streamAgentMessage(
               hasDoneEnvelope = true;
               // Chatbot mode (/agent/chat) can validly terminate with start -> chunk -> done
               // without artifact/result envelopes.
-              if (!hasResultEnvelope && !hasErrorEnvelope && !hasChunkEnvelope) {
-                callbacks.onError?.('Protocol violation: done received before result/error envelope');
+              if (!hasResultEnvelope && (hasErrorEnvelope || !hasChunkEnvelope)) {
+                callbacks.onResult?.({
+                  output: buildLocalRecoveryOutput(
+                    'I could not complete that request in this turn.',
+                    'temporary',
+                  ),
+                  intent: 'RECOVERY',
+                  visibility: 'visible',
+                  interactionMode: 'operational',
+                });
               }
               callbacks.onDone?.(data);
               break;
             case 'error':
               hasErrorEnvelope = true;
-              callbacks.onError?.(
-                typeof data?.error === 'string' && data.error.trim()
-                  ? data.error
-                  : 'Stream error envelope',
-              );
+              if (String(data?.visibility || 'metadata').toLowerCase() !== 'metadata') {
+                callbacks.onResult?.({
+                  output: buildLocalRecoveryOutput(
+                    typeof data?.error === 'string' && data.error.trim()
+                      ? data.error
+                      : 'I could not complete that request.',
+                    'temporary',
+                  ),
+                  intent: 'RECOVERY',
+                  visibility: 'visible',
+                  interactionMode: 'operational',
+                });
+              }
               break;
             case 'cancelled':
               callbacks.onCancelled?.();
               break;
             default:
-              callbacks.onError?.(`Protocol violation: unhandled stream event "${currentEvent}"`);
+              callbacks.onResult?.({
+                output: buildLocalRecoveryOutput(
+                  `Unexpected stream event "${currentEvent}" was received.`,
+                  'temporary',
+                ),
+                intent: 'RECOVERY',
+                visibility: 'visible',
+                interactionMode: 'operational',
+              });
               break;
           }
         } catch {
-          callbacks.onError?.(
-            `Protocol violation: malformed JSON payload for event "${currentEvent}"`,
-          );
+          callbacks.onResult?.({
+            output: buildLocalRecoveryOutput(
+              `Malformed stream payload for event "${currentEvent}".`,
+              'temporary',
+            ),
+            intent: 'RECOVERY',
+            visibility: 'visible',
+            interactionMode: 'operational',
+          });
         }
         currentEvent = '';
         currentData = '';
@@ -1345,10 +1493,20 @@ export function streamAgentMessage(
           processCurrentEvent();
           if (!abortController.signal.aborted) {
             if (!hasStartEnvelope) {
-              callbacks.onError?.('Protocol violation: stream ended without start envelope');
+              callbacks.onResult?.({
+                output: buildLocalRecoveryOutput('Stream ended before initialization.', 'temporary'),
+                intent: 'RECOVERY',
+                visibility: 'visible',
+                interactionMode: 'operational',
+              });
             }
             if (!hasDoneEnvelope) {
-              callbacks.onError?.('Protocol violation: stream ended without done envelope');
+              callbacks.onResult?.({
+                output: buildLocalRecoveryOutput('Stream ended unexpectedly.', 'temporary'),
+                intent: 'RECOVERY',
+                visibility: 'visible',
+                interactionMode: 'operational',
+              });
             }
           }
           break;
@@ -1381,7 +1539,16 @@ export function streamAgentMessage(
       if ((err as Error).name === 'AbortError') {
         callbacks.onCancelled?.();
       } else {
-        callbacks.onError?.((err as Error).message || 'Stream error');
+        callbacks.onResult?.({
+          output: buildLocalRecoveryOutput(
+            (err as Error).message || 'Stream error',
+            'temporary',
+          ),
+          intent: 'RECOVERY',
+          visibility: 'visible',
+          interactionMode: 'operational',
+        });
+        callbacks.onDone?.({ timestamp: new Date().toISOString() });
       }
     }
   })();

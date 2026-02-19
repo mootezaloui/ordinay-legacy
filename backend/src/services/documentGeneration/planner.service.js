@@ -407,7 +407,14 @@ function normalizePlanInput(input = {}) {
 async function planDocument(input = {}) {
   const normalized = normalizePlanInput(input);
   const entity = loadTargetEntity(normalized.target);
-  assert(entity, `Target entity not found: ${normalized.target.type}#${normalized.target.id}`);
+  if (!entity) {
+    const err = new Error(
+      `Target entity not found: ${normalized.target.type}#${normalized.target.id}`,
+    );
+    err.status = 404;
+    err.code = "TARGET_NOT_FOUND";
+    throw err;
+  }
 
   const rawEnvelope = await generateEnvelopeWithLlm({
     normalized,

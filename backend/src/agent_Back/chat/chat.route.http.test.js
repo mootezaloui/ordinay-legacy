@@ -176,12 +176,15 @@ async function testChatHttpServiceError() {
 
     assert.strictEqual(response.status, 200);
     const frames = await readSse(response);
-    assert(frames.some((f) => f.event === "error"));
+    assert.strictEqual(frames.some((f) => f.event === "error"), false);
+    const resultFrame = frames.find((f) => f.event === "result");
+    assert(resultFrame);
+    assert.strictEqual(resultFrame.data?.output?.type, "recovery");
     assert(
       frames.some(
         (f) =>
           f.event === "done" &&
-          (f.data.status === "error" || f.data.mode === "chatbot"),
+          (f.data.status === "success" || f.data.mode === "chatbot"),
       ),
     );
   } finally {

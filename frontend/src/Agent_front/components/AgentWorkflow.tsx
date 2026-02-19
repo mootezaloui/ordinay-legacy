@@ -32,11 +32,11 @@ import { DraftArtifact } from "./artifacts/DraftArtifact";
 import { ActionArtifact } from "./artifacts/ActionArtifact";
 import { ProposalArtifact } from "./artifacts/ProposalArtifact";
 import { ChatArtifact } from "./artifacts/ChatArtifact";
-import { ErrorArtifact } from "./artifacts/ErrorArtifact";
 import { ClarificationArtifact } from "./artifacts/ClarificationArtifact";
 import { CollectionArtifact } from "./artifacts/CollectionArtifact";
 import { WebSearchResultsArtifact } from "./artifacts/WebSearchResultsArtifact";
 import { DocumentGenerationPreviewArtifact } from "./artifacts/DocumentGenerationPreviewArtifact";
+import { RecoveryArtifact } from "./artifacts/RecoveryArtifact";
 import { FollowUpSuggestions } from "./artifacts/FollowUpSuggestions";
 import { CommentaryBubble } from "./artifacts/CommentaryBubble";
 import { ContextSuggestionRenderer } from "./artifacts/ContextSuggestionRenderer";
@@ -1078,9 +1078,21 @@ function ArtifactBody({
   const dataType = message.data?.type;
 
   if (isError) {
+    const fallbackRecovery = {
+      type: "recovery" as const,
+      message: "I could not complete that request.",
+      whatHappened: message.content || "The request failed during processing.",
+      canRetry: true,
+      alternatives: [
+        { label: "Retry request", action: "retry", prompt: "Retry the same request" },
+      ],
+      suggestedPrompts: ["Retry the same request"],
+      context: null,
+      severity: "temporary" as const,
+    };
     return (
-      <ErrorArtifact
-        content={message.content}
+      <RecoveryArtifact
+        data={fallbackRecovery}
         onExampleClick={onExampleClick}
       />
     );
@@ -1309,16 +1321,40 @@ function ArtifactBody({
       />
     );
   }
+  if (dataType === "recovery" && message.data?.recovery) {
+    return (
+      <RecoveryArtifact
+        data={message.data.recovery}
+        onExampleClick={onExampleClick}
+      />
+    );
+  }
   if (
     dataType === "document_generation_missing_fields" &&
     message.data?.documentGenerationMissingFields
   ) {
     const missing = message.data.documentGenerationMissingFields.missingFields || [];
+    const prompts = missing
+      .map((f) => String(f.example || "").trim())
+      .filter(Boolean)
+      .slice(0, 4);
     return (
-      <ErrorArtifact
-        content={`${message.data.documentGenerationMissingFields.message}\n${missing
-          .map((f) => `- ${f.label || f.path}`)
-          .join("\n")}`}
+      <RecoveryArtifact
+        data={{
+          type: "recovery",
+          message: message.data.documentGenerationMissingFields.message,
+          whatHappened:
+            "I need a valid target or missing details before I can generate the document.",
+          canRetry: true,
+          alternatives: missing.map((f) => ({
+            label: f.label || f.path,
+            action: "provide_missing_field",
+            prompt: f.example || undefined,
+          })),
+          suggestedPrompts: prompts,
+          context: null,
+          severity: "blocking",
+        }}
         onExampleClick={onExampleClick}
       />
     );

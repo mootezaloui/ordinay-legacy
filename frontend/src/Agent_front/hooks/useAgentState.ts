@@ -503,7 +503,7 @@ export function useAgentState() {
     // ========== STAGE 1: IMMEDIATE ACKNOWLEDGEMENT (EPHEMERAL) ==========
     // Show ACK status instantly, but do not persist it in the conversation.
     const agentMessageId = createMessageId("a");
-    const intentMessageId = createMessageId("i");
+    const intentMessageId = agentMessageId;
     // Capture current messages for updates
     const baseMessages = [...currentMessages, userMessage];
     let workingMessages = [...baseMessages];
@@ -621,6 +621,7 @@ export function useAgentState() {
         },
         onIntentFraming: (data) => {
           if (streamSessionRef.current !== sessionId) return;
+          if (data.visibility === "metadata") return;
           if (!data.message || data.message.trim().length === 0) return;
           // Complete intent framing message - use this as final
           streamedIntentContent = data.message;
@@ -722,6 +723,12 @@ export function useAgentState() {
               webSearchResults: output as WebSearchResultsOutput | WebDeepSearchResultsOutput,
             };
             streamedContent = "";
+          } else if (output.type === "recovery") {
+            agentData = {
+              type: "recovery",
+              recovery: output,
+            };
+            streamedContent = "";
           } else if (output.type === "action_plan") {
             agentData = { type: "actions", actionProposals: output.actions };
             streamedContent = "";
@@ -749,6 +756,7 @@ export function useAgentState() {
           // ========== STAGE 4: COMMENTARY ==========
           // Receive complete conversational commentary about the artifact
           if (streamSessionRef.current !== sessionId) return;
+          if (data.visibility === "metadata") return;
           commentary = data;
           // Reset streaming content since we have complete commentary
           streamedCommentaryContent = data.message || "";
@@ -840,10 +848,25 @@ export function useAgentState() {
           const errorMessage: AgentMessage = {
             id: agentMessageId,
             role: "agent",
-            content: error,
+            content: "",
             timestamp: new Date(),
-            status: "error",
-            data: { type: "error", error },
+            status: "success",
+            stage: "artifact",
+            data: {
+              type: "recovery",
+              recovery: {
+                type: "recovery",
+                message: "I could not complete that request.",
+                whatHappened: String(error || "The request failed during processing."),
+                canRetry: true,
+                alternatives: [
+                  { label: "Retry request", action: "retry", prompt: "Retry the same request" },
+                ],
+                suggestedPrompts: ["Retry the same request"],
+                context: null,
+                severity: "temporary",
+              },
+            },
           };
           if (hasAgentMessage) {
             updateMessage(errorMessage);
@@ -912,7 +935,7 @@ export function useAgentState() {
 
     // ========== STAGE 1: IMMEDIATE ACKNOWLEDGEMENT (EPHEMERAL) ==========
     const agentMessageId = createMessageId("a");
-    const intentMessageId = createMessageId("i");
+    const intentMessageId = agentMessageId;
     const baseMessages = [...currentMessages, userMessage];
     let workingMessages = [...baseMessages];
     updateSessionMessages(sessionId, workingMessages);
@@ -997,6 +1020,7 @@ export function useAgentState() {
           },
           onIntentFraming: (data) => {
             if (streamSessionRef.current !== sessionId) return;
+            if (data.visibility === "metadata") return;
             if (!data.message || data.message.trim().length === 0) return;
             streamedIntentContent = data.message;
             upsertIntentMessage(data.message, undefined, data.structured);
@@ -1098,6 +1122,12 @@ export function useAgentState() {
               webSearchResults: output as WebSearchResultsOutput | WebDeepSearchResultsOutput,
             };
             streamedContent = "";
+          } else if (output.type === "recovery") {
+            agentData = {
+              type: "recovery",
+              recovery: output,
+            };
+            streamedContent = "";
           } else if (output.type === "action_plan") {
             agentData = { type: "actions", actionProposals: output.actions };
             streamedContent = "";
@@ -1124,6 +1154,7 @@ export function useAgentState() {
         onCommentary: (data) => {
           // ========== STAGE 4: COMMENTARY ==========
           if (streamSessionRef.current !== sessionId) return;
+          if (data.visibility === "metadata") return;
           commentary = data;
           streamedCommentaryContent = data.message || "";
 
@@ -1211,10 +1242,25 @@ export function useAgentState() {
           const errorMessage: AgentMessage = {
             id: agentMessageId,
             role: "agent",
-            content: error,
+            content: "",
             timestamp: new Date(),
-            status: "error",
-            data: { type: "error", error },
+            status: "success",
+            stage: "artifact",
+            data: {
+              type: "recovery",
+              recovery: {
+                type: "recovery",
+                message: "I could not complete that request.",
+                whatHappened: String(error || "The request failed during processing."),
+                canRetry: true,
+                alternatives: [
+                  { label: "Retry request", action: "retry", prompt: "Retry the same request" },
+                ],
+                suggestedPrompts: ["Retry the same request"],
+                context: null,
+                severity: "temporary",
+              },
+            },
           };
           if (hasAgentMessage) {
             updateMessage(errorMessage);
@@ -1279,7 +1325,7 @@ export function useAgentState() {
 
     // ========== STAGE 1: ATOMIC MESSAGE UPDATE FOR EDITS ==========
     const agentMessageId = createMessageId("a");
-    const intentMessageId = createMessageId("i");
+    const intentMessageId = agentMessageId;
     const baseMessages = [...(activeSession?.messages || [])];
 
     // ATOMIC UPDATE: Remove ALL old assistant messages AND update user message (if edit)
@@ -1404,6 +1450,7 @@ export function useAgentState() {
           },
         onIntentFraming: (data) => {
           if (streamSessionRef.current !== activeSessionId) return;
+          if (data.visibility === "metadata") return;
           if (!data.message || data.message.trim().length === 0) return;
           streamedIntentContent = data.message;
           upsertIntentMessage(data.message, undefined, data.structured);
@@ -1497,6 +1544,12 @@ export function useAgentState() {
               webSearchResults: output as WebSearchResultsOutput | WebDeepSearchResultsOutput,
             };
             streamedContent = "";
+          } else if (output.type === "recovery") {
+            agentData = {
+              type: "recovery",
+              recovery: output,
+            };
+            streamedContent = "";
           } else if (output.type === "action_plan") {
             agentData = { type: "actions", actionProposals: output.actions };
             streamedContent = "";
@@ -1524,6 +1577,7 @@ export function useAgentState() {
         onCommentary: (data) => {
           // ========== STAGE 4: COMMENTARY ==========
           if (streamSessionRef.current !== activeSessionId) return;
+          if (data.visibility === "metadata") return;
           const incoming = String(data?.message || "").trim();
           const existing = String(commentary?.message || "").trim();
           const mergedMessage =
@@ -1624,10 +1678,25 @@ export function useAgentState() {
           const errorMessage: AgentMessage = {
             id: opts?.replaceMessageId || agentMessageId,
             role: "agent",
-            content: error,
+            content: "",
             timestamp: new Date(),
-            status: "error",
-            data: { type: "error", error },
+            status: "success",
+            stage: "artifact",
+            data: {
+              type: "recovery",
+              recovery: {
+                type: "recovery",
+                message: "I could not complete that request.",
+                whatHappened: String(error || "The request failed during processing."),
+                canRetry: true,
+                alternatives: [
+                  { label: "Retry request", action: "retry", prompt: "Retry the same request" },
+                ],
+                suggestedPrompts: ["Retry the same request"],
+                context: null,
+                severity: "temporary",
+              },
+            },
             retryOf: opts?.retryOf,
           };
           if (hasAgentMessage) {

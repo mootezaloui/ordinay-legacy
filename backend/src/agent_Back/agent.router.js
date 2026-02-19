@@ -10,6 +10,11 @@ const { streamLLM } = require("./llm/stream.provider");
 const db = require("../db/connection");
 const documentGenerationService = require("../services/documentGeneration/documentGeneration.service");
 const documentGenerationPreviewService = require("../services/documentGeneration/documentGenerationPreview.service");
+const {
+  resolveInteractionMode,
+  resolveStageVisibility,
+} = require("./interactionMode.resolver");
+const { mapUserFailure } = require("./failure/userFailure.mapper");
 const eventEnvelopeSchema = require("./schemas/event-envelope.schema.json");
 const intentSchema = require("./schemas/intent.schema.json");
 const commentarySchema = require("./schemas/commentary.schema.json");
@@ -941,13 +946,32 @@ function normalizeRefText(value) {
   return String(value || "").replace(/[\u2010-\u2015\u2212]/g, "-");
 }
 
+function canonicalizeReferenceToken(value) {
+  const normalized = normalizeRefText(value)
+    .toUpperCase()
+    .replace(/[^\w-]/g, "")
+    .replace(/_+/g, "")
+    .trim();
+  return normalized;
+}
+
+function canonicalizeSqlRefExpr(columnName) {
+  // Normalizes common punctuation/spacing variants directly in SQLite.
+  return `UPPER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(${columnName}), ' ', ''), '–', '-'), '—', '-'), '−', '-'), '.', ''))`;
+}
+
 async function resolveGenerationTargetFromReference(text) {
   const dossierRefMatch = text.match(/\bDOS-\d{4}-\d+\b/i);
   if (dossierRefMatch) {
-    const reference = String(dossierRefMatch[0]).toLowerCase();
+    const reference = canonicalizeReferenceToken(String(dossierRefMatch[0]));
+    const normalizedExpr = canonicalizeSqlRefExpr("reference");
     const dossier = db
       .prepare(
-        "SELECT id FROM dossiers WHERE lower(reference) = @reference AND deleted_at IS NULL LIMIT 1",
+        `SELECT id
+         FROM dossiers
+         WHERE ${normalizedExpr} = @reference
+           AND deleted_at IS NULL
+         LIMIT 1`,
       )
       .get({ reference });
     if (dossier?.id) {
@@ -957,10 +981,15 @@ async function resolveGenerationTargetFromReference(text) {
 
   const lawsuitRefMatch = text.match(/\bL-\d{4}-\d+\b/i);
   if (lawsuitRefMatch) {
-    const reference = String(lawsuitRefMatch[0]).toLowerCase();
+    const reference = canonicalizeReferenceToken(String(lawsuitRefMatch[0]));
+    const normalizedExpr = canonicalizeSqlRefExpr("reference");
     const lawsuit = db
       .prepare(
-        "SELECT id FROM lawsuits WHERE lower(reference) = @reference AND deleted_at IS NULL LIMIT 1",
+        `SELECT id
+         FROM lawsuits
+         WHERE ${normalizedExpr} = @reference
+           AND deleted_at IS NULL
+         LIMIT 1`,
       )
       .get({ reference });
     if (lawsuit?.id) {
@@ -977,8 +1006,49 @@ function extractTargetHints(text) {
   const lawsuitRefMatch = text.match(/\bL-\d{4}-\d+\b/i);
   return {
     hintedType: hintedTypeMatch ? String(hintedTypeMatch[1]).toLowerCase() : null,
-    reference: dossierRefMatch ? String(dossierRefMatch[0]) : lawsuitRefMatch ? String(lawsuitRefMatch[0]) : null,
+    reference: dossierRefMatch
+      ? canonicalizeReferenceToken(String(dossierRefMatch[0]))
+      : lawsuitRefMatch
+        ? canonicalizeReferenceToken(String(lawsuitRefMatch[0]))
+        : null,
   };
+}
+
+const GENERATION_TARGET_TABLE_MAP = Object.freeze({
+  client: "clients",
+  dossier: "dossiers",
+  lawsuit: "lawsuits",
+  mission: "missions",
+  task: "tasks",
+  session: "sessions",
+  personal_task: "personal_tasks",
+  financial_entry: "financial_entries",
+  officer: "officers",
+});
+
+function targetEntityExists(target) {
+  if (!target?.type || !Number.isInteger(Number(target?.id))) return false;
+  const table = GENERATION_TARGET_TABLE_MAP[String(target.type).toLowerCase()];
+  if (!table) return false;
+  const row = db
+    .prepare(`SELECT id FROM ${table} WHERE id = @id AND deleted_at IS NULL LIMIT 1`)
+    .get({ id: Number(target.id) });
+  return Boolean(row?.id);
+}
+
+function loadRecentEntityIds(entityType, limit = 5) {
+  const table = GENERATION_TARGET_TABLE_MAP[String(entityType || "").toLowerCase()];
+  if (!table) return [];
+  const rows = db
+    .prepare(
+      `SELECT id
+       FROM ${table}
+       WHERE deleted_at IS NULL
+       ORDER BY id DESC
+       LIMIT @limit`,
+    )
+    .all({ limit: Math.max(1, Math.min(Number(limit) || 5, 8)) });
+  return Array.isArray(rows) ? rows.map((r) => Number(r.id)).filter(Boolean) : [];
 }
 
 async function detectDocumentGenerationIntent(message, context = {}) {
@@ -1154,10 +1224,61 @@ async function buildDocumentGenerationPreviewArtifact({
     };
   }
 
+  if (!targetEntityExists(generationRequest.target)) {
+    const targetType = String(generationRequest?.target?.type || "entity").toLowerCase();
+    const targetId = Number(generationRequest?.target?.id);
+    const recentIds = loadRecentEntityIds(targetType);
+    return {
+      type: "document_generation_missing_fields",
+      message: `The selected ${targetType} does not exist or is no longer available.`,
+      documentType: generationRequest?.documentType || null,
+      target: generationRequest?.target || null,
+      missingFields: [
+        {
+          path: "target",
+          label: "Target entity",
+          reason: `target_not_found:${targetType}`,
+          example:
+            recentIds.length > 0
+              ? `Use an existing ${targetType} id. Recent ids: ${recentIds.join(", ")}.`
+              : `Use an existing ${targetType} id from your workspace.`,
+        },
+      ],
+      schemaVersion: null,
+      templateKey: null,
+    };
+  }
+
   let plan;
   try {
     plan = await documentGenerationService.planDocument(generationRequest);
   } catch (error) {
+    if (
+      /Target entity not found/i.test(String(error?.message || "")) ||
+      String(error?.code || "") === "TARGET_NOT_FOUND"
+    ) {
+      const targetType = String(generationRequest?.target?.type || "entity").toLowerCase();
+      const recentIds = loadRecentEntityIds(targetType);
+      return {
+        type: "document_generation_missing_fields",
+        message: `The selected ${targetType} is not available.`,
+        documentType: generationRequest?.documentType || null,
+        target: generationRequest?.target || null,
+        missingFields: [
+          {
+            path: "target",
+            label: "Target entity",
+            reason: `target_not_found:${targetType}`,
+            example:
+              recentIds.length > 0
+                ? `Try one of the existing ${targetType} ids: ${recentIds.join(", ")}.`
+                : `Select an existing ${targetType} before generation.`,
+          },
+        ],
+        schemaVersion: null,
+        templateKey: null,
+      };
+    }
     if (error?.code === "TEMPLATE_NOT_FOUND") {
       return {
         type: "document_generation_missing_fields",
@@ -1266,7 +1387,25 @@ router.post("/agent/run", async (req, res, next) => {
       data: contextLifecycle ? { ...result, contextLifecycle } : result,
     });
   } catch (err) {
-    next(err);
+    const mapped = mapUserFailure(err, {
+      intent: "AGENT_RUN",
+    });
+    agentEngine.ledger.record({
+      type: "user_failure_mapped",
+      endpoint: "/agent/run",
+      code: mapped.code,
+      message: mapped.internalMessage,
+      timestamp: new Date().toISOString(),
+    });
+    res.json({
+      status: "ok",
+      data: {
+        intent: "RECOVERY",
+        output: mapped.recovery,
+        agentVersion: agentVersion || "v3",
+        reasoner: "failure-mapper",
+      },
+    });
   }
 });
 
@@ -1313,6 +1452,63 @@ router.post("/agent/chat", async (req, res) => {
     }
   };
 
+  const emitIntent = ({
+    message: intentMessage,
+    action,
+    missingEntities = [],
+    interactionMode = "operational",
+  }) => {
+    const visibility = resolveStageVisibility(interactionMode, "intent");
+    emit("intent", {
+      message: String(intentMessage || "").trim(),
+      action: action || "CHATBOT_AGENT_MODE",
+      missingEntities: Array.isArray(missingEntities) ? missingEntities : [],
+      visibility,
+      interactionMode,
+    });
+  };
+
+  const emitCommentary = ({
+    message: commentaryMessage,
+    source,
+    kind,
+    toolName,
+    stepIndex,
+    signals = [],
+    interactionMode = "operational",
+  }) => {
+    const visibility = resolveStageVisibility(interactionMode, "commentary");
+    emit("commentary", {
+      message: String(commentaryMessage || "").trim(),
+      source: source || "llm",
+      kind: kind || "commentary",
+      toolName: toolName || null,
+      stepIndex: stepIndex ?? null,
+      signals: Array.isArray(signals) ? signals : [],
+      visibility,
+      interactionMode,
+    });
+  };
+
+  const emitVisibleAssistantText = async ({
+    text,
+    interactionMode = "operational",
+  }) => {
+    await streamTextAsChunksWithPacing(
+      String(text || ""),
+      (token) => {
+        if (aborted) return;
+        emit("chunk", {
+          content: token,
+          timestamp: new Date().toISOString(),
+          visibility: "visible",
+          interactionMode,
+        });
+      },
+      { delayMs: 14, shouldStop: () => aborted },
+    );
+  };
+
   try {
     let documentContext = resolveDocumentContext(sessionId, documentIds);
     if (
@@ -1351,19 +1547,35 @@ router.post("/agent/chat", async (req, res) => {
         sessionId,
         generationRequest,
       });
-      emit("intent", {
+      const interactionMode = resolveInteractionMode({
+        output: artifact,
+        intent: "DOCUMENT_GENERATION",
+        toolExecutions: [],
+        documentContext: requestContext?.documentContext || null,
+      });
+      agentEngine.ledger.record({
+        type: "interaction_mode_selected",
+        mode: interactionMode,
+        endpoint: "/agent/chat",
+        timestamp: new Date().toISOString(),
+      });
+      emitIntent({
         message: "Planning document generation from structured data.",
         action: "DOCUMENT_GENERATION",
         missingEntities: [],
+        interactionMode,
       });
       emit("result", {
         output: artifact,
         intent: "DOCUMENT_GENERATION",
+        visibility: "visible",
+        interactionMode,
       });
       emit("done", {
         timestamp: new Date().toISOString(),
         mode: "chatbot",
         toolCalls: 1,
+        interactionMode,
       });
       return;
     }
@@ -1398,16 +1610,36 @@ router.post("/agent/chat", async (req, res) => {
       result?.suppressIntentFraming === true || directDocumentAnswerMode;
     const suppressCommentary =
       result?.suppressCommentary === true || directDocumentAnswerMode;
+    const effectiveOutput = result?.ambiguityArtifact || searchArtifact || {
+      type: "chat",
+      message: result?.message || "",
+    };
+    const interactionMode = resolveInteractionMode({
+      output: effectiveOutput,
+      intent: result?.intent || "CHATBOT_AGENT_MODE",
+      result,
+      toolExecutions: Array.isArray(result?.toolExecutions)
+        ? result.toolExecutions
+        : [],
+      documentContext: requestContext?.documentContext || null,
+    });
+    agentEngine.ledger.record({
+      type: "interaction_mode_selected",
+      mode: interactionMode,
+      endpoint: "/agent/chat",
+      timestamp: new Date().toISOString(),
+    });
 
     if (!suppressIntentFraming) {
       const chatIntentMessage = await generateChatIntentFramingMessage(
         message,
         abortController.signal,
       );
-      emit("intent", {
+      emitIntent({
         message: chatIntentMessage,
         action: "CHATBOT_AGENT_MODE",
         missingEntities: [],
+        interactionMode,
       });
     }
     if (!suppressCommentary) {
@@ -1416,13 +1648,14 @@ router.post("/agent/chat", async (req, res) => {
         if (!stepMessage) continue;
         if (isClarificationStyleChat(result.message)) continue;
         if (isRedundantWithFinalResponse(stepMessage, result.message)) continue;
-        emit("commentary", {
+        emitCommentary({
           message: stepMessage,
           source: row.source || "llm",
           kind: row.kind || "tool_step",
           toolName: row.toolName || null,
           stepIndex: row.stepIndex ?? null,
           signals: ["tool_step_commentary"],
+          interactionMode,
         });
       }
     }
@@ -1431,6 +1664,8 @@ router.post("/agent/chat", async (req, res) => {
       emit("result", {
         output: result.ambiguityArtifact,
         intent: "CHATBOT_AGENT_MODE",
+        visibility: "visible",
+        interactionMode,
       });
       if (!suppressCommentary) {
         const chatCommentaryMessage = await generateChatCommentaryMessage(
@@ -1445,9 +1680,10 @@ router.post("/agent/chat", async (req, res) => {
             String(result?.ambiguityArtifact?.message || result?.message || ""),
           )
         ) {
-          emit("commentary", {
+          emitCommentary({
             message: chatCommentaryMessage,
             signals: [],
+            interactionMode,
           });
         }
       }
@@ -1455,6 +1691,8 @@ router.post("/agent/chat", async (req, res) => {
       emit("result", {
         output: searchArtifact,
         intent: "CHATBOT_AGENT_MODE",
+        visibility: "visible",
+        interactionMode,
       });
       if (!suppressCommentary && !isClarificationStyleChat(result.message)) {
         const chatCommentaryMessage = await generateChatCommentaryMessage(
@@ -1466,24 +1704,18 @@ router.post("/agent/chat", async (req, res) => {
           chatCommentaryMessage &&
           !isRedundantWithFinalResponse(chatCommentaryMessage, result.message)
         ) {
-          emit("commentary", {
+          emitCommentary({
             message: chatCommentaryMessage,
             signals: [],
+            interactionMode,
           });
         }
       }
     } else {
-      await streamTextAsChunksWithPacing(
-        String(result.message || ""),
-        (token) => {
-          if (aborted) return;
-          emit("chunk", {
-            content: token,
-            timestamp: new Date().toISOString(),
-          });
-        },
-        { delayMs: 14, shouldStop: () => aborted },
-      );
+      await emitVisibleAssistantText({
+        text: result?.message || "",
+        interactionMode,
+      });
       if (!suppressCommentary && !isClarificationStyleChat(result.message)) {
         const chatCommentaryMessage = await generateChatCommentaryMessage(
           message,
@@ -1494,9 +1726,10 @@ router.post("/agent/chat", async (req, res) => {
           chatCommentaryMessage &&
           !isRedundantWithFinalResponse(chatCommentaryMessage, result.message)
         ) {
-          emit("commentary", {
+          emitCommentary({
             message: chatCommentaryMessage,
             signals: [],
+            interactionMode,
           });
         }
       }
@@ -1504,18 +1737,33 @@ router.post("/agent/chat", async (req, res) => {
     emit("done", {
       timestamp: new Date().toISOString(),
       mode: "chatbot",
-      toolCalls: result.toolExecutions.length,
+      toolCalls: Array.isArray(result?.toolExecutions)
+        ? result.toolExecutions.length
+        : 0,
+      interactionMode,
     });
   } catch (error) {
-    emit("error", {
-      error: String(error?.message || "Chat mode execution failed"),
-      code: error?.status || 500,
+    const mapped = mapUserFailure(error, {
+      intent: "CHATBOT_AGENT_MODE",
+    });
+    agentEngine.ledger.record({
+      type: "user_failure_mapped",
+      endpoint: "/agent/chat",
+      code: mapped.code,
+      message: mapped.internalMessage,
       timestamp: new Date().toISOString(),
+    });
+    emit("result", {
+      output: mapped.recovery,
+      intent: "RECOVERY",
+      visibility: "visible",
+      interactionMode: "operational",
     });
     emit("done", {
       timestamp: new Date().toISOString(),
       mode: "chatbot",
-      status: "error",
+      status: "success",
+      interactionMode: "operational",
     });
   } finally {
     if (!aborted) {
@@ -2453,6 +2701,7 @@ router.post("/agent/stream", async (req, res) => {
   let artifactTerminal = false;
   let commentaryTerminal = false;
   let hasStageFailure = false;
+  let hasVisibleArtifact = false;
 
   const emit = (type, payload) => {
     if (aborted) return;
@@ -2480,6 +2729,16 @@ router.post("/agent/stream", async (req, res) => {
       code: String(failure?.code || "UNKNOWN_ERROR"),
       message: String(failure?.message || "Unknown stream failure"),
       retryable: Boolean(failure?.retryable),
+      visibility:
+        String(failure?.visibility || "visible").toLowerCase() === "metadata"
+          ? "metadata"
+          : "visible",
+      interactionMode:
+        failure?.interactionMode === "conversational"
+          ? "conversational"
+          : failure?.interactionMode === "operational"
+            ? "operational"
+            : undefined,
       details:
         failure?.details && typeof failure.details === "object"
           ? failure.details
@@ -2494,14 +2753,80 @@ router.post("/agent/stream", async (req, res) => {
     emit(eventName, safeFailure);
   };
 
+  const emitRecoveryArtifact = ({
+    error,
+    code,
+    context = {},
+    interactionMode = "operational",
+  } = {}) => {
+    if (hasVisibleArtifact) return;
+    const mapped = mapUserFailure(
+      {
+        ...(error && typeof error === "object" ? error : {}),
+        code: code || error?.code,
+      },
+      context,
+    );
+    agentEngine.ledger.record({
+      type: "user_failure_mapped",
+      endpoint: "/agent/stream",
+      code: mapped.code,
+      message: mapped.internalMessage,
+      timestamp: new Date().toISOString(),
+    });
+    emit("artifact.final", {
+      intent: "RECOVERY",
+      output: mapped.recovery,
+      contextLifecycle: null,
+      visibility: "visible",
+      interactionMode,
+    });
+    hasVisibleArtifact = true;
+  };
+
   try {
     emit("turn.start", {
       agentVersion,
       intent: "PENDING",
     });
 
+    const runResult = await agentEngine.run({
+      message: effectiveMessage,
+      context: requestContext,
+      agentVersion,
+      reasoner,
+      followUpIntent,
+      documentContext,
+    });
+    const contextLifecycle =
+      typeof agentEngine.contextStore?.consumeLifecycleEvent === "function"
+        ? agentEngine.contextStore.consumeLifecycleEvent(requestContext)
+        : null;
+    const unifiedResult = contextLifecycle
+      ? { ...runResult, contextLifecycle }
+      : runResult;
+    const artifactOutput = unifiedResult?.output;
+    const interactionMode = resolveInteractionMode({
+      output: artifactOutput,
+      intent: unifiedResult?.intent,
+      result: unifiedResult,
+      toolExecutions: [],
+      documentContext: requestContext?.documentContext || null,
+    });
+    const intentVisibility = resolveStageVisibility(interactionMode, "intent");
+    const commentaryVisibility = resolveStageVisibility(
+      interactionMode,
+      "commentary",
+    );
+    agentEngine.ledger.record({
+      type: "interaction_mode_selected",
+      mode: interactionMode,
+      endpoint: "/agent/stream",
+      timestamp: new Date().toISOString(),
+    });
+
     const intentDelta = createDeltaEmitter((chunk) =>
-      emit("intent.delta", { chunk }),
+      emit("intent.delta", { chunk, visibility: intentVisibility, interactionMode }),
     );
     const intentResult = await generateStructuredPayload({
       kind: "intent",
@@ -2524,6 +2849,8 @@ router.post("/agent/stream", async (req, res) => {
         code: intentResult.error,
         message: "Could not produce structured intent payload",
         retryable: true,
+        visibility: intentVisibility,
+        interactionMode,
       });
       intentTerminal = true;
     } else {
@@ -2534,42 +2861,38 @@ router.post("/agent/stream", async (req, res) => {
           code: "INTENT_SCHEMA_INVALID",
           message: "Intent payload failed schema validation",
           retryable: false,
+          visibility: intentVisibility,
+          interactionMode,
         });
         intentTerminal = true;
       } else {
-        emit("intent.final", intentPayload);
+        emit("intent.final", {
+          ...intentPayload,
+          visibility: intentVisibility,
+          interactionMode,
+        });
         intentTerminal = true;
       }
     }
 
-    const runResult = await agentEngine.run({
-      message: effectiveMessage,
-      context: requestContext,
-      agentVersion,
-      reasoner,
-      followUpIntent,
-      documentContext,
-    });
-    const contextLifecycle =
-      typeof agentEngine.contextStore?.consumeLifecycleEvent === "function"
-        ? agentEngine.contextStore.consumeLifecycleEvent(requestContext)
-        : null;
-    const unifiedResult = contextLifecycle
-      ? { ...runResult, contextLifecycle }
-      : runResult;
-
-    const artifactOutput = unifiedResult?.output;
     if (!artifactOutput || typeof artifactOutput !== "object") {
       emitFailed("artifact.failed", {
         stage: "artifact",
         code: "INVALID_ARTIFACT",
         message: "Artifact payload missing from agent run result",
         retryable: false,
+        visibility: "metadata",
+        interactionMode,
+      });
+      emitRecoveryArtifact({
+        code: "INVALID_ARTIFACT",
+        context: { intent: unifiedResult?.intent || "UNKNOWN" },
+        interactionMode,
       });
       artifactTerminal = true;
     } else {
       const artifactDelta = createDeltaEmitter((chunk) =>
-        emit("artifact.delta", { chunk }),
+        emit("artifact.delta", { chunk, visibility: "visible", interactionMode }),
       );
       artifactDelta.push(JSON.stringify(buildArtifactDigest(artifactOutput)));
       artifactDelta.flush();
@@ -2578,12 +2901,19 @@ router.post("/agent/stream", async (req, res) => {
         intent: unifiedResult.intent,
         output: artifactOutput,
         contextLifecycle: unifiedResult.contextLifecycle || null,
+        visibility: "visible",
+        interactionMode,
       });
+      hasVisibleArtifact = true;
       artifactTerminal = true;
     }
 
     const commentaryDelta = createDeltaEmitter((chunk) =>
-      emit("commentary.delta", { chunk }),
+      emit("commentary.delta", {
+        chunk,
+        visibility: commentaryVisibility,
+        interactionMode,
+      }),
     );
 
     if (!artifactOutput || typeof artifactOutput !== "object") {
@@ -2592,6 +2922,8 @@ router.post("/agent/stream", async (req, res) => {
         code: "NO_ARTIFACT_FOR_COMMENTARY",
         message: "Cannot derive commentary without artifact output",
         retryable: false,
+        visibility: commentaryVisibility,
+        interactionMode,
       });
       commentaryTerminal = true;
     } else {
@@ -2617,6 +2949,8 @@ router.post("/agent/stream", async (req, res) => {
           code: commentaryResult.error,
           message: "Could not produce structured commentary payload",
           retryable: true,
+          visibility: commentaryVisibility,
+          interactionMode,
         });
         commentaryTerminal = true;
       } else {
@@ -2631,12 +2965,16 @@ router.post("/agent/stream", async (req, res) => {
             code: "COMMENTARY_SCHEMA_INVALID",
             message: "Commentary payload failed schema validation",
             retryable: false,
+            visibility: commentaryVisibility,
+            interactionMode,
           });
           commentaryTerminal = true;
         } else {
           emit("commentary.final", {
             ...commentaryPayload,
             message: buildCommentaryPreview(commentaryPayload),
+            visibility: commentaryVisibility,
+            interactionMode,
           });
           commentaryTerminal = true;
         }
@@ -2644,13 +2982,15 @@ router.post("/agent/stream", async (req, res) => {
     }
 
     emit("turn.end", {
-      status: hasStageFailure ? "error" : "success",
+      status: "success",
+      hadStageFailures: hasStageFailure,
       preview: {
         intent: unifiedResult?.intent || "UNKNOWN",
         intentText: intentResult.ok
           ? buildIntentPreview(coerceIntentPayload(intentResult.value, effectiveMessage))
           : null,
       },
+      interactionMode,
     });
     didEnd = true;
   } catch (err) {
@@ -2660,6 +3000,8 @@ router.post("/agent/stream", async (req, res) => {
         code: "INTENT_ABORTED",
         message: "Intent stage aborted before finalization",
         retryable: false,
+        visibility: "metadata",
+        interactionMode: "operational",
       });
       intentTerminal = true;
     }
@@ -2669,6 +3011,8 @@ router.post("/agent/stream", async (req, res) => {
         code: "ARTIFACT_ABORTED",
         message: "Artifact stage aborted before finalization",
         retryable: false,
+        visibility: "metadata",
+        interactionMode: "operational",
       });
       artifactTerminal = true;
     }
@@ -2678,18 +3022,35 @@ router.post("/agent/stream", async (req, res) => {
         code: "COMMENTARY_ABORTED",
         message: "Commentary stage aborted before finalization",
         retryable: false,
+        visibility: "metadata",
+        interactionMode: "operational",
       });
       commentaryTerminal = true;
     }
+    emitRecoveryArtifact({
+      error: err,
+      context: { intent: "STREAM_EXECUTION" },
+      interactionMode: "operational",
+    });
     emit("turn.end", {
-      status: "error",
-      error: String(err?.message || "Unknown stream error"),
+      status: "success",
+      error: null,
+      interactionMode: "operational",
     });
     didEnd = true;
   }
 
   if (!didEnd) {
-    emit("turn.end", { status: "error", error: "Stream terminated unexpectedly" });
+    emitRecoveryArtifact({
+      code: "STREAM_TERMINATED",
+      context: { intent: "STREAM_EXECUTION" },
+      interactionMode: "operational",
+    });
+    emit("turn.end", {
+      status: "success",
+      error: null,
+      interactionMode: "operational",
+    });
   }
   res.end();
 });
