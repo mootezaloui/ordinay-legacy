@@ -31,6 +31,7 @@ export function DraftArtifact({ data, onSave }: DraftArtifactProps) {
   const paperRef = useRef<HTMLDivElement>(null);
 
   const draftLabel = data.type?.replace(/_/g, " ").toLowerCase() || "document";
+  const isRtl = String(data.metadata?.language || "").toLowerCase() === "ar";
 
   useEffect(() => {
     setSections({
@@ -90,11 +91,19 @@ export function DraftArtifact({ data, onSave }: DraftArtifactProps) {
       <div className="artifact-build-section artifact-build-section-1 px-4 py-4">
         <div
           ref={paperRef}
-          className="p-4 rounded-lg border border-black/[0.06] dark:border-white/[0.06] bg-white dark:bg-[#0f172a]/70 shadow-sm"
+          dir={isRtl ? "rtl" : "ltr"}
+          lang={isRtl ? "ar" : undefined}
+          className={`p-4 rounded-lg border border-black/[0.06] dark:border-white/[0.06] bg-white dark:bg-[#0f172a]/70 shadow-sm ${
+            isRtl ? "text-right" : "text-left"
+          }`}
         >
           {isEditing ? (
             <textarea
-              className="w-full min-h-[12rem] rounded-lg border border-black/[0.06] dark:border-white/[0.06] bg-white/90 dark:bg-[#0f172a]/70 text-sm text-[#0f172a] dark:text-[#f1f5f9] px-3 py-2 focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-400/20 whitespace-pre-wrap"
+              dir={isRtl ? "rtl" : "ltr"}
+              lang={isRtl ? "ar" : undefined}
+              className={`w-full min-h-[12rem] rounded-lg border border-black/[0.06] dark:border-white/[0.06] bg-white/90 dark:bg-[#0f172a]/70 text-sm text-[#0f172a] dark:text-[#f1f5f9] px-3 py-2 focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-400/20 whitespace-pre-wrap ${
+                isRtl ? "text-right" : "text-left"
+              }`}
               value={[
                 sections.subject,
                 sections.greeting,

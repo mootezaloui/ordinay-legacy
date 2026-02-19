@@ -82,11 +82,11 @@ export const AgentConversation = memo(function AgentConversation({
     <div className="space-y-10">
       {interactionPairs.map((pair, idx) => {
         const isLastPair = idx === interactionPairs.length - 1;
-        return (
-          <div
-            key={`${pair.user.id}-${idx}`}
-            className="workspace-current-enter space-y-3"
-          >
+          return (
+            <div
+              key={`${pair.user.id}-${idx}`}
+              className="workspace-current-enter space-y-3"
+            >
             {(pair.user.content ||
               (pair.user.attachments && pair.user.attachments.length > 0)) && (
               <UserCommand

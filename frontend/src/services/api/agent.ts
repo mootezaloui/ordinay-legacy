@@ -527,6 +527,26 @@ export interface DocumentGenerationMissingFieldsOutput {
   templateKey?: string;
 }
 
+export interface DocumentGenerationPreviewOutput {
+  type: 'document_generation_preview';
+  previewId: string;
+  documentType: string;
+  targetEntity: { type: string; id: number };
+  language: string;
+  format: string;
+  templateKey: string;
+  schemaVersion: string;
+  previewHtml: string;
+  contentMarkdown?: string;
+  structuredSummaryMetadata?: {
+    title?: string | null;
+    generatedAt?: string | null;
+    expiresAt?: string | null;
+    status?: string | null;
+    [key: string]: unknown;
+  };
+}
+
 export interface WebSearchResultItem {
   id: string;
   title: string;
@@ -613,6 +633,7 @@ export type AgentOutput =
   | ExplanationOutput
   | RiskAnalysisOutput
   | DraftOutput
+  | DocumentGenerationPreviewOutput
   | DocumentGenerationMissingFieldsOutput
   | ClarificationOutput
   | CollectionOutput
@@ -650,6 +671,7 @@ export interface ProcessedAgentResponse {
   collection?: CollectionOutput;
   contextSuggestion?: ContextSuggestionOutput;
   proposal?: ProposalOutput;
+  documentGenerationPreview?: DocumentGenerationPreviewOutput;
   documentGenerationMissingFields?: DocumentGenerationMissingFieldsOutput;
   webSearchResults?: WebSearchResultsOutput | WebDeepSearchResultsOutput;
   actionProposals?: ActionProposal[];
@@ -748,6 +770,10 @@ export async function sendAgentMessage(
       processed.displayText = '';
     } else if (output.type === 'proposal') {
       processed.proposal = output as ProposalOutput;
+      processed.displayText = '';
+    } else if (output.type === 'document_generation_preview') {
+      processed.documentGenerationPreview =
+        output as DocumentGenerationPreviewOutput;
       processed.displayText = '';
     } else if (output.type === 'document_generation_missing_fields') {
       processed.documentGenerationMissingFields =
@@ -855,6 +881,43 @@ export async function confirmProposal(
       },
     };
   }
+}
+
+export async function confirmDocumentGenerationPreview(
+  previewId: string,
+  sessionId?: string,
+  editedMarkdown?: string
+): Promise<ProposalOutput> {
+  const response = await apiClient.post<{
+    status: string;
+    data?: { output?: ProposalOutput };
+    error?: string;
+  }>('/agent/document-generation/preview/confirm', { previewId, sessionId, editedMarkdown });
+
+  if (response.status !== 'ok' || !response.data?.output) {
+    throw new Error(response.error || 'Preview confirmation failed');
+  }
+
+  return response.data.output;
+}
+
+export async function cancelDocumentGenerationPreview(
+  previewId: string
+): Promise<{ cancelled: boolean; reason?: string }> {
+  const response = await apiClient.post<{
+    status: string;
+    data?: { cancelled?: boolean; reason?: string };
+    error?: string;
+  }>('/agent/document-generation/preview/cancel', { previewId });
+
+  if (response.status !== 'ok' || !response.data) {
+    throw new Error(response.error || 'Preview cancellation failed');
+  }
+
+  return {
+    cancelled: Boolean(response.data.cancelled),
+    reason: response.data.reason,
+  };
 }
 
 // ============================================================================

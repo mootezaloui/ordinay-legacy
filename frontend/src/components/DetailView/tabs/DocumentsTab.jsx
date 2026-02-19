@@ -106,6 +106,46 @@ export default function DocumentsTab({ data, config, onDocumentsChange, reloadKe
     });
   };
 
+  const sanitizeVisualSummary = (summary) => {
+    const text = String(summary || "").trim();
+    if (!text) return null;
+    const lower = text.toLowerCase();
+    if (
+      lower.includes("embedded text") ||
+      lower.includes("ocr page") ||
+      lower.includes("analyzed offline") ||
+      lower.includes("provenance")
+    ) {
+      return t("detail.documents.summary.ready", {
+        defaultValue: "This document was analyzed and is available to support assistant responses.",
+      });
+    }
+    return text;
+  };
+
+  const mapQualityFlags = (flags) =>
+    (Array.isArray(flags) ? flags : [])
+      .map((flag) => {
+        const key = String(flag || "").toLowerCase();
+        if (key === "low_text_signal") {
+          return t("detail.documents.quality.lowTextSignal", {
+            defaultValue: "Limited readable text detected",
+          });
+        }
+        if (key === "ocr_timeout") {
+          return t("detail.documents.quality.ocrTimeout", {
+            defaultValue: "Reading timed out",
+          });
+        }
+        if (key === "ocr_empty") {
+          return t("detail.documents.quality.ocrEmpty", {
+            defaultValue: "No readable text detected",
+          });
+        }
+        return "";
+      })
+      .filter(Boolean);
+
   const renderTextStatusBadge = (doc) => {
     if (doc.textStatus === "processing") {
       return (
@@ -147,7 +187,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange, reloadKe
     if (status === "completed" || status === "readable") {
       return (
         <span className="inline-block px-2 py-0.5 bg-teal-100 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 text-xs rounded">
-          Context understood
+          Ready for assistant context
         </span>
       );
     }
@@ -428,8 +468,8 @@ export default function DocumentsTab({ data, config, onDocumentsChange, reloadKe
             const statusBadge = renderTextStatusBadge(doc);
             const understandingBadge = renderUnderstandingBadge(doc);
             const confidenceLabel = formatConfidence(doc.understandingConfidence);
-            const visualSummary = doc?.artifacts?.visual_summary || null;
-            const riskFlags = Array.isArray(doc?.artifacts?.risk_flags) ? doc.artifacts.risk_flags : [];
+            const visualSummary = sanitizeVisualSummary(doc?.artifacts?.visual_summary || null);
+            const riskFlags = mapQualityFlags(doc?.artifacts?.risk_flags || []);
             return (
               <div
                 key={doc.id}
@@ -496,7 +536,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange, reloadKe
                         {understandingBadge}
                         {confidenceLabel ? (
                           <span className="inline-block px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs rounded">
-                            Confidence {confidenceLabel}
+                            Readability {confidenceLabel}
                           </span>
                         ) : null}
                       </div>
@@ -515,7 +555,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange, reloadKe
                                 key={`${doc.id}-${flag}`}
                                 className="inline-block px-2 py-0.5 bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-xs rounded"
                               >
-                                {String(flag).replace(/_/g, " ")}
+                                {flag}
                               </span>
                             ))}
                           </div>
@@ -597,7 +637,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange, reloadKe
                 {(documents.reduce((sum, d) => sum + (d.sizeBytes || 0), 0) / (1024 * 1024)).toFixed(1)} MB
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {t("detail.documents.stats.size")}
+                {t("detail.documents.stats.totalSize")}
               </p>
             </div>
           </div>

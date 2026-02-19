@@ -20,7 +20,9 @@ function getTemplate({ documentType, language, schemaVersion }) {
 
   const file = getTemplatePath({ documentType, language, schemaVersion });
   if (!fs.existsSync(file)) {
-    return { key, source: null };
+    const err = new Error(`Template not found: ${key}`);
+    err.code = "TEMPLATE_NOT_FOUND";
+    throw err;
   }
 
   const source = fs.readFileSync(file, "utf8");
@@ -61,72 +63,8 @@ function renderVariables(template, data) {
   });
 }
 
-function escapeHtml(value) {
-  return String(value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function flattenTextLines(value, out = []) {
-  if (value == null) return out;
-  if (Array.isArray(value)) {
-    value.forEach((item) => flattenTextLines(item, out));
-    return out;
-  }
-  if (typeof value === "object") {
-    Object.values(value).forEach((item) => flattenTextLines(item, out));
-    return out;
-  }
-  const text = String(value).trim();
-  if (text) out.push(text);
-  return out;
-}
-
-function buildFallbackHtml({ language, viewModel }) {
-  const dir = language === "ar" ? "rtl" : "ltr";
-  const lang = language === "ar" ? "ar" : "en";
-  const content = (viewModel && viewModel.content) || {};
-  const title = content.title || viewModel?.documentType || "Generated Document";
-
-  const bodyCandidate =
-    content?.request?.body ||
-    content?.body ||
-    content?.summary ||
-    content?.analysis ||
-    content?.conclusion ||
-    null;
-
-  const bodyLines = bodyCandidate
-    ? String(bodyCandidate)
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean)
-    : flattenTextLines(content).filter((line) => line !== String(title).trim());
-
-  const paragraphs = bodyLines
-    .map((line) => `<p>${escapeHtml(line)}</p>`)
-    .join("");
-
-  return [
-    `<!doctype html>`,
-    `<html lang="${lang}" dir="${dir}">`,
-    `<head><meta charset="utf-8"><style>body{font-family:"Tahoma","Arial",sans-serif;line-height:1.7;padding:24px}h1{font-size:22px;margin:0 0 14px}p{margin:0 0 10px}</style></head>`,
-    `<body><h1>${escapeHtml(title)}</h1>${paragraphs || "<p></p>"}</body></html>`,
-    `</html>`,
-  ].join("");
-}
-
 function renderTemplateToHtml({ documentType, language, schemaVersion, viewModel }) {
   const { key, source } = getTemplate({ documentType, language, schemaVersion });
-  if (!source) {
-    return {
-      templateKey: `${key}:fallback`,
-      html: buildFallbackHtml({ language, viewModel }),
-    };
-  }
   const withEach = renderEach(source, viewModel);
   const html = renderVariables(withEach, viewModel);
   return { templateKey: key, html };

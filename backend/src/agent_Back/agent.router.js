@@ -9,6 +9,7 @@ const { getAvailableCommands } = require("./intent.classifier");
 const { streamLLM } = require("./llm/stream.provider");
 const db = require("../db/connection");
 const documentGenerationService = require("../services/documentGeneration/documentGeneration.service");
+const documentGenerationPreviewService = require("../services/documentGeneration/documentGenerationPreview.service");
 const eventEnvelopeSchema = require("./schemas/event-envelope.schema.json");
 const intentSchema = require("./schemas/intent.schema.json");
 const commentarySchema = require("./schemas/commentary.schema.json");
@@ -1078,48 +1079,13 @@ function toProposalArtifact(proposal, sessionId) {
   };
 }
 
-async function buildDocumentGenerationArtifact({
+async function createGeneratedDocumentProposalFromPlan({
   requestContext,
-  agentVersion,
-  userId,
   sessionId,
-  generationRequest,
+  userId,
+  plan,
 }) {
-  if (!generationRequest?.target?.type || !generationRequest?.target?.id) {
-    const hintedType = generationRequest?.targetHints?.hintedType || "entity";
-    const hintedRef = generationRequest?.targetHints?.reference || "reference";
-    return {
-      type: "document_generation_missing_fields",
-      message: "Target entity must be resolved before generation.",
-      documentType: generationRequest?.documentType || null,
-      target: null,
-      missingFields: [
-        {
-          path: "target",
-          label: "Target entity",
-          reason: `target_not_found:${hintedType}`,
-          example: `Provide an existing ${hintedType} id or valid reference (received: ${hintedRef}).`,
-        },
-      ],
-      schemaVersion: null,
-      templateKey: null,
-    };
-  }
-
-  const plan = await documentGenerationService.planDocument(generationRequest);
-  if (plan.status === "missing_fields") {
-    return {
-      type: "document_generation_missing_fields",
-      message: "Required fields are missing before generation.",
-      documentType: plan.documentType,
-      target: plan.target,
-      missingFields: plan.missingFields,
-      schemaVersion: plan.schemaVersion,
-      templateKey: plan.templateKey,
-    };
-  }
-
-  const policy = agentEngine._resolvePolicy(agentVersion || "v3");
+  const policy = agentEngine._resolvePolicy("v3");
   const proposal = await agentEngine.executeToolV2(
     "universalMutation",
     {
@@ -1155,10 +1121,81 @@ async function buildDocumentGenerationArtifact({
       userId: userId || null,
       tenantId: requestContext?.tenantId || null,
     });
-    return toProposalArtifact(proposal.result, sessionId);
+    return proposal.result;
   }
 
   throw new Error("Failed to create document generation proposal");
+}
+
+async function buildDocumentGenerationPreviewArtifact({
+  requestContext,
+  userId,
+  sessionId,
+  generationRequest,
+}) {
+  if (!generationRequest?.target?.type || !generationRequest?.target?.id) {
+    const hintedType = generationRequest?.targetHints?.hintedType || "entity";
+    const hintedRef = generationRequest?.targetHints?.reference || "reference";
+    return {
+      type: "document_generation_missing_fields",
+      message: "Target entity must be resolved before generation.",
+      documentType: generationRequest?.documentType || null,
+      target: null,
+      missingFields: [
+        {
+          path: "target",
+          label: "Target entity",
+          reason: `target_not_found:${hintedType}`,
+          example: `Provide an existing ${hintedType} id or valid reference (received: ${hintedRef}).`,
+        },
+      ],
+      schemaVersion: null,
+      templateKey: null,
+    };
+  }
+
+  let plan;
+  try {
+    plan = await documentGenerationService.planDocument(generationRequest);
+  } catch (error) {
+    if (error?.code === "TEMPLATE_NOT_FOUND") {
+      return {
+        type: "document_generation_missing_fields",
+        message: error.message || "Template not found for the requested document.",
+        documentType: generationRequest?.documentType || null,
+        target: generationRequest?.target || null,
+        missingFields: [
+          {
+            path: "template",
+            label: "Template",
+            reason: "template_not_found",
+            example: "Install a template for this documentType/language/version.",
+          },
+        ],
+        schemaVersion: null,
+        templateKey: null,
+      };
+    }
+    throw error;
+  }
+
+  if (plan.status === "missing_fields") {
+    return {
+      type: "document_generation_missing_fields",
+      message: "Required fields are missing before generation.",
+      documentType: plan.documentType,
+      target: plan.target,
+      missingFields: plan.missingFields,
+      schemaVersion: plan.schemaVersion,
+      templateKey: plan.templateKey,
+    };
+  }
+
+  return documentGenerationPreviewService.createPreview(plan, {
+    conversationId: requestContext?.conversationId || null,
+    sessionId: sessionId || null,
+    createdBy: userId ? String(userId) : null,
+  });
 }
 
 router.post("/agent/run", async (req, res, next) => {
@@ -1194,9 +1231,8 @@ router.post("/agent/run", async (req, res, next) => {
       requestContext,
     );
     if (generationRequest) {
-      const output = await buildDocumentGenerationArtifact({
+      const output = await buildDocumentGenerationPreviewArtifact({
         requestContext,
-        agentVersion: "v3",
         userId: req.user?.id || null,
         sessionId,
         generationRequest,
@@ -1309,9 +1345,8 @@ router.post("/agent/chat", async (req, res) => {
 
     const generationRequest = await detectDocumentGenerationIntent(message, requestContext);
     if (generationRequest) {
-      const artifact = await buildDocumentGenerationArtifact({
+      const artifact = await buildDocumentGenerationPreviewArtifact({
         requestContext,
-        agentVersion: "v3",
         userId: req.user?.id || null,
         sessionId,
         generationRequest,
@@ -1615,6 +1650,81 @@ router.post("/agent/confirm", async (req, res, next) => {
     res.json({ status: "ok", data: result });
   } catch (err) {
     next(err);
+  }
+});
+
+router.post("/agent/document-generation/preview/confirm", async (req, res, next) => {
+  const { previewId, sessionId, editedMarkdown } = req.body || {};
+  try {
+    const proposal = await documentGenerationPreviewService.confirmPreview(previewId, {
+      transformPayload: (payload) => {
+        const text = String(editedMarkdown || "").trim();
+        if (!text) return payload;
+        const contentJson = {
+          ...(payload.contentJson || {}),
+          content: {
+            ...((payload.contentJson && payload.contentJson.content) || {}),
+            markdown: text,
+          },
+        };
+        return {
+          ...payload,
+          contentJson,
+        };
+      },
+      createProposal: async ({ target, payload, preview }) => {
+        const effectiveSessionId =
+          sessionId || preview?.session_id || preview?.conversation_id || null;
+        const requestContext = buildRequestContext(
+          {
+            ...(req.body?.context || {}),
+            conversationId:
+              req.body?.context?.conversationId ||
+              preview?.conversation_id ||
+              effectiveSessionId ||
+              null,
+          },
+          effectiveSessionId,
+          null,
+          req.body?.metadata || null,
+        );
+
+        return createGeneratedDocumentProposalFromPlan({
+          requestContext,
+          sessionId: effectiveSessionId,
+          userId: req.user?.id || null,
+          plan: {
+            target,
+            documentType: payload.documentType,
+            templateKey: payload.templateKey,
+            language: payload.language,
+            format: payload.format,
+            schemaVersion: payload.schemaVersion,
+            contentJson: payload.contentJson,
+          },
+        });
+      },
+    });
+    const effectiveSessionId =
+      sessionId || proposal?.sessionId || null;
+    return res.json({
+      status: "ok",
+      data: {
+        output: toProposalArtifact(proposal, effectiveSessionId),
+      },
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post("/agent/document-generation/preview/cancel", async (req, res, next) => {
+  const { previewId } = req.body || {};
+  try {
+    const result = documentGenerationPreviewService.cancelPreview(previewId);
+    return res.json({ status: "ok", data: result });
+  } catch (err) {
+    return next(err);
   }
 });
 

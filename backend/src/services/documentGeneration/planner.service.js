@@ -1,12 +1,9 @@
 "use strict";
 
-const Ajv = require("ajv");
-const addFormats = require("ajv-formats");
 const db = require("../../db/connection");
 const { streamLLM } = require("../../agent_Back/llm/stream.provider");
-const { getSchema } = require("./schemaRegistry.service");
-const { renderTemplateToHtml } = require("./templateRegistry.service");
 const { scanForPlaceholders } = require("./placeholderGuard");
+const { renderMarkdownToHtml } = require("./markdownRender.service");
 const {
   DOCUMENT_TYPES,
   DOCUMENT_FORMATS,
@@ -27,36 +24,12 @@ const ENTITY_TABLE_MAP = Object.freeze({
   officer: "officers",
 });
 
-const REQUIRED_PATHS = Object.freeze({
-  COURT_REQUEST_LETTER: [],
-  LEGAL_OPINION: [],
-  TASK_MEMO: [],
-  SESSION_SUMMARY: [],
-});
-
-const ajv = new Ajv({ allErrors: true, strict: true, allowUnionTypes: true });
-addFormats(ajv);
-
 function assert(value, message) {
   if (!value) {
     const err = new Error(message);
     err.status = 400;
     throw err;
   }
-}
-
-function deepGet(obj, dottedPath) {
-  return String(dottedPath || "")
-    .split(".")
-    .filter(Boolean)
-    .reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), obj);
-}
-
-function hasValue(value) {
-  if (Array.isArray(value)) return value.length > 0;
-  if (value === null || value === undefined) return false;
-  if (typeof value === "string") return value.trim().length > 0;
-  return true;
 }
 
 function loadTargetEntity(target) {
@@ -153,6 +126,47 @@ function pruneUnset(value) {
   if (value === null || value === undefined) return undefined;
   if (typeof value === "string" && value.trim().length === 0) return undefined;
   return value;
+}
+
+function buildFallbackMarkdown(envelope, normalized) {
+  const content = envelope?.content || {};
+  const lines = [];
+  const title = String(content.title || "").trim();
+  if (title) {
+    lines.push(`# ${title}`);
+    lines.push("");
+  } else {
+    lines.push(`# ${normalized.documentType}`);
+    lines.push("");
+  }
+
+  const addValue = (label, value) => {
+    const clean = String(value || "").trim();
+    if (!clean) return;
+    lines.push(`- ${label}: ${clean}`);
+  };
+
+  if (content.court) {
+    addValue("Court", content.court.name);
+    addValue("Court city", content.court.city);
+  }
+  if (content.case) {
+    addValue("Reference", content.case.reference);
+    addValue("Dossier", content.case.dossierReference);
+  }
+  if (content.request) {
+    addValue("Request type", content.request.type);
+    addValue("Reason", content.request.reason);
+  }
+  if (content.summary) addValue("Summary", content.summary);
+  if (content.analysis) addValue("Analysis", content.analysis);
+  if (content.conclusion) addValue("Conclusion", content.conclusion);
+  if (content.outcome) addValue("Outcome", content.outcome);
+
+  if (lines.length <= 2) {
+    lines.push("Generated document content.");
+  }
+  return lines.join("\n");
 }
 
 function buildContentByType(documentType, target, entity, language, instructions) {
@@ -270,7 +284,7 @@ function parseJsonCandidate(text) {
   }
 }
 
-async function generateEnvelopeWithLlm({ normalized, entity, schema }) {
+async function generateEnvelopeWithLlm({ normalized, entity }) {
   const seedEnvelope = {
     documentType: normalized.documentType,
     schemaVersion: SCHEMA_VERSION,
@@ -287,7 +301,7 @@ async function generateEnvelopeWithLlm({ normalized, entity, schema }) {
 
   const systemPrompt =
     "You generate legal document content JSON only. " +
-    "Return valid JSON matching the provided schema exactly. " +
+    "Return valid JSON only. " +
     "No markdown, no explanations, no placeholders, no fabricated fields.";
   const userPrompt = [
     "Generate a structured document payload.",
@@ -307,7 +321,6 @@ async function generateEnvelopeWithLlm({ normalized, entity, schema }) {
 
   const text = await collectFinalTextFromLlm({
     mode: "json",
-    schema,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
@@ -327,14 +340,14 @@ async function generateEnvelopeWithLlm({ normalized, entity, schema }) {
 
 async function generateNarrativeBodyWithLlm({ documentType, language, instructions, content }) {
   const systemPrompt =
-    "You write formal legal document text only. Return plain text only, no JSON, no markdown.";
+    "You write formal legal document text in markdown only. Return markdown only, no JSON.";
   const userPrompt = [
     `documentType=${documentType}`,
     `language=${language}`,
     `instructions=${instructions || ""}`,
     `contentContext=${JSON.stringify(content || {})}`,
     "",
-    "Write the final official document body text in the requested language.",
+    "Write the final official document body text in the requested language as markdown.",
   ].join("\n");
 
   const text = await collectFinalTextFromLlm({
@@ -353,35 +366,17 @@ async function enrichEnvelopeNarrative({ envelope, normalized }) {
   const docType = normalized.documentType;
   const content = envelope?.content || {};
 
-  if (docType === DOCUMENT_TYPES.COURT_REQUEST_LETTER) {
-    const existingBody = content?.request?.body;
-    if (!existingBody || !String(existingBody).trim()) {
-      const body = await generateNarrativeBodyWithLlm({
-        documentType: docType,
-        language: normalized.language,
-        instructions: normalized.instructions,
-        content,
-      });
-      if (body) {
-        envelope.content = envelope.content || {};
-        envelope.content.request = envelope.content.request || {};
-        envelope.content.request.body = body;
-      }
-    }
-  }
-
-  if (docType === DOCUMENT_TYPES.LEGAL_OPINION) {
-    if (!content?.analysis || !String(content.analysis).trim()) {
-      const analysis = await generateNarrativeBodyWithLlm({
-        documentType: docType,
-        language: normalized.language,
-        instructions: normalized.instructions,
-        content,
-      });
-      if (analysis) {
-        envelope.content = envelope.content || {};
-        envelope.content.analysis = analysis;
-      }
+  const existingMarkdown = content?.markdown;
+  if (!existingMarkdown || !String(existingMarkdown).trim()) {
+    const markdown = await generateNarrativeBodyWithLlm({
+      documentType: docType,
+      language: normalized.language,
+      instructions: normalized.instructions,
+      content,
+    });
+    if (markdown) {
+      envelope.content = envelope.content || {};
+      envelope.content.markdown = markdown;
     }
   }
 
@@ -414,54 +409,37 @@ async function planDocument(input = {}) {
   const entity = loadTargetEntity(normalized.target);
   assert(entity, `Target entity not found: ${normalized.target.type}#${normalized.target.id}`);
 
-  const schema = getSchema(normalized.documentType, SCHEMA_VERSION);
   const rawEnvelope = await generateEnvelopeWithLlm({
     normalized,
     entity,
-    schema,
   });
   await enrichEnvelopeNarrative({ envelope: rawEnvelope, normalized });
   const envelope = pruneUnset(rawEnvelope) || {};
 
-  const missingFields = (REQUIRED_PATHS[normalized.documentType] || [])
-    .map((path) => ({ path, value: deepGet(envelope, path) }))
-    .filter((row) => !hasValue(row.value))
-    .map((row) => ({
-      path: row.path,
-      label: row.path.replace(/^content\./, ""),
-      reason: "required_field_missing",
-      example: "Please provide this field explicitly.",
-    }));
+  let markdown = String(envelope?.content?.markdown || "").trim();
+  if (!markdown) {
+    markdown = buildFallbackMarkdown(envelope, normalized);
+    envelope.content = envelope.content || {};
+    envelope.content.markdown = markdown;
+  }
 
+  const missingFields = [];
   const placeholderFindings = scanForPlaceholders(envelope.content, "content");
-  const validate = ajv.compile(schema);
-  const schemaValid = validate(envelope);
-
-  const hasBlockingIssues =
-    missingFields.length > 0 ||
-    placeholderFindings.length > 0 ||
-    !schemaValid;
-
-  const template = renderTemplateToHtml({
-    documentType: normalized.documentType,
-    language: normalized.language,
-    schemaVersion: envelope.schemaVersion,
-    viewModel: envelope,
-  });
+  const previewHtml = renderMarkdownToHtml(markdown, { language: normalized.language });
 
   return {
-    status: hasBlockingIssues ? "missing_fields" : "ready",
+    status: "ready",
     target: normalized.target,
     documentType: normalized.documentType,
     language: normalized.language,
     format: normalized.format,
-    schemaVersion: envelope.schemaVersion,
-    templateKey: template.templateKey,
+    schemaVersion: envelope.schemaVersion || SCHEMA_VERSION,
+    templateKey: "MARKDOWN_DIRECT",
     contentJson: envelope,
-    previewHtml: template.html,
+    previewHtml,
     missingFields,
     placeholderFindings,
-    validationErrors: schemaValid ? [] : (validate.errors || []),
+    validationErrors: [],
   };
 }
 

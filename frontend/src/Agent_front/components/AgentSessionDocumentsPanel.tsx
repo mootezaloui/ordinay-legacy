@@ -4,8 +4,6 @@ import {
   ChevronDown,
   ChevronRight,
   Eye,
-  FileText,
-  Info,
   Tags,
 } from "lucide-react";
 import {
@@ -21,6 +19,13 @@ import { getApiBase, getBackendConfig, isElectron } from "../../lib/apiConfig";
 
 interface AgentSessionDocumentsPanelProps {
   sessionId?: string | null;
+}
+
+function formatUserStatus(status?: string | null): string {
+  const normalized = String(status || "").toLowerCase();
+  if (normalized === "readable" || normalized === "completed") return "Ready for assistant context";
+  if (normalized === "unreadable" || normalized === "failed") return "Needs review";
+  return "Processing document";
 }
 
 function toPercent(value?: number | null): string | null {
@@ -51,6 +56,33 @@ type ArtifactShape = {
 function asArtifact(value: unknown): ArtifactShape | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   return value as ArtifactShape;
+}
+
+function sanitizeVisualSummary(summary?: string | null): string | null {
+  const text = String(summary || "").trim();
+  if (!text) return null;
+  const lower = text.toLowerCase();
+  if (
+    lower.includes("embedded text") ||
+    lower.includes("ocr page") ||
+    lower.includes("analyzed offline") ||
+    lower.includes("provenance")
+  ) {
+    return "This document was analyzed and is available to support assistant responses.";
+  }
+  return text;
+}
+
+function mapRiskFlags(flags: string[]): string[] {
+  return flags
+    .map((flag) => {
+      const key = String(flag || "").toLowerCase();
+      if (key === "low_text_signal") return "Limited readable text detected";
+      if (key === "ocr_timeout") return "Reading timed out";
+      if (key === "ocr_empty") return "No readable text detected";
+      return "";
+    })
+    .filter(Boolean);
 }
 
 export function AgentSessionDocumentsPanel({
@@ -173,7 +205,9 @@ export function AgentSessionDocumentsPanel({
               stage: payload.stage || null,
             },
           }));
-        } catch {}
+        } catch {
+          // ignore malformed progress events
+        }
       };
       const onPageProgress = (event: MessageEvent) => {
         try {
@@ -188,7 +222,9 @@ export function AgentSessionDocumentsPanel({
               percent: payload.percent,
             },
           }));
-        } catch {}
+        } catch {
+          // ignore malformed progress events
+        }
       };
       const onWarning = (event: MessageEvent) => {
         try {
@@ -200,7 +236,9 @@ export function AgentSessionDocumentsPanel({
               warning: payload.message || payload.code || "warning",
             },
           }));
-        } catch {}
+        } catch {
+          // ignore malformed progress events
+        }
       };
       const onResult = () => {
         setProgressByDoc((prev) => ({
@@ -358,7 +396,7 @@ export function AgentSessionDocumentsPanel({
           Session Documents
         </p>
         <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-          OCR + multimodal understanding in this chat.
+          Files available to support responses in this chat.
         </p>
       </div>
 
@@ -388,10 +426,11 @@ export function AgentSessionDocumentsPanel({
               doc.understanding_status || doc.text_status || "processing";
             const confidence = toPercent(doc.understanding_confidence ?? null);
             const artifacts = asArtifact(doc.artifacts || null);
-            const visualSummary = artifacts?.visual_summary || null;
-            const riskFlags = Array.isArray(artifacts?.risk_flags)
+            const visualSummary = sanitizeVisualSummary(artifacts?.visual_summary || null);
+            const riskFlagsRaw = Array.isArray(artifacts?.risk_flags)
               ? artifacts?.risk_flags || []
               : [];
+            const riskFlags = mapRiskFlags(riskFlagsRaw);
             const progress = progressByDoc[doc.document_id] || null;
             const needsContinue =
               Boolean((artifacts as { needsUserContinue?: boolean } | null)?.needsUserContinue) ||
@@ -416,19 +455,14 @@ export function AgentSessionDocumentsPanel({
                       understandingStatus,
                     )}`}
                   >
-                    {understandingStatus}
+                    {formatUserStatus(understandingStatus)}
                   </span>
                 </div>
 
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {doc.text_source ? (
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                      source: {doc.text_source}
-                    </span>
-                  ) : null}
                   {confidence ? (
                     <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300">
-                      confidence {confidence}
+                      Readability {confidence}
                     </span>
                   ) : null}
                 </div>
@@ -455,17 +489,17 @@ export function AgentSessionDocumentsPanel({
                 {progress ? (
                   <div className="mt-2 rounded border border-sky-200 dark:border-sky-800/50 bg-sky-50 dark:bg-sky-950/20 px-2 py-1.5">
                     <p className="text-[10px] text-sky-700 dark:text-sky-300">
-                      stage: {progress.stage || "processing"}
+                      Processing
                       {Number.isFinite(progress.percent) ? ` • ${progress.percent}%` : ""}
                     </p>
                     {Number.isFinite(progress.pageIndex) && Number.isFinite(progress.totalPages) ? (
                       <p className="text-[10px] text-sky-700/90 dark:text-sky-300/90">
-                        page {progress.pageIndex}/{progress.totalPages}
+                        Page {progress.pageIndex} of {progress.totalPages}
                       </p>
                     ) : null}
                     {progress.warning ? (
                       <p className="text-[10px] text-amber-700 dark:text-amber-300">
-                        {progress.warning}
+                        Additional review may be needed.
                       </p>
                     ) : null}
                   </div>
@@ -478,7 +512,7 @@ export function AgentSessionDocumentsPanel({
                     disabled={Boolean(actionBusyByDoc[doc.document_id])}
                     className="text-[11px] px-2 py-1 rounded border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-60"
                   >
-                    {openedArtifactByDoc[doc.document_id] ? "Close artifacts" : "Open artifacts"}
+                    {openedArtifactByDoc[doc.document_id] ? "Hide details" : "View details"}
                   </button>
                   <button
                     type="button"
@@ -560,8 +594,6 @@ function ArtifactDetails({ artifact }: { artifact: unknown }) {
     visual: true,
     entities: true,
     flags: true,
-    text: false,
-    provenance: false,
   });
   const parsed = asArtifact(artifact);
   if (!parsed) {
@@ -579,23 +611,21 @@ function ArtifactDetails({ artifact }: { artifact: unknown }) {
 
   const entities = Array.isArray(parsed.key_entities) ? parsed.key_entities : [];
   const flags = Array.isArray(parsed.risk_flags) ? parsed.risk_flags : [];
-  const extractedText = String(parsed.extracted_text || "").trim();
-  const provenance = parsed.provenance && typeof parsed.provenance === "object"
-    ? parsed.provenance
-    : null;
+  const normalizedFlags = mapRiskFlags(flags);
+  const safeSummary = sanitizeVisualSummary(parsed.visual_summary || null);
 
   return (
     <div className="mt-3 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/40 p-2 space-y-2">
-      {parsed.visual_summary ? (
+      {safeSummary ? (
         <CollapsibleSection
-          title="Visual Summary"
+          title="Document Summary"
           icon={Eye}
           tone="blue"
           open={open.visual}
           onToggle={() => setOpen((prev) => ({ ...prev, visual: !prev.visual }))}
         >
           <p className="text-[11px] text-slate-700 dark:text-slate-200 mt-1 leading-relaxed">
-            {parsed.visual_summary}
+            {safeSummary}
           </p>
         </CollapsibleSection>
       ) : null}
@@ -624,57 +654,24 @@ function ArtifactDetails({ artifact }: { artifact: unknown }) {
         </CollapsibleSection>
       ) : null}
 
-      {flags.length > 0 ? (
+      {normalizedFlags.length > 0 ? (
         <CollapsibleSection
-          title="Risk Flags"
+          title="Quality Notes"
           icon={AlertTriangle}
           tone="amber"
           open={open.flags}
           onToggle={() => setOpen((prev) => ({ ...prev, flags: !prev.flags }))}
-          badge={`${flags.length}`}
+          badge={`${normalizedFlags.length}`}
         >
           <div className="mt-1 flex flex-wrap gap-1.5">
-            {flags.map((flag) => (
+            {normalizedFlags.map((flag) => (
               <span
                 key={flag}
                 className="text-[10px] px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300"
               >
-                {String(flag).replace(/_/g, " ")}
+                {flag}
               </span>
             ))}
-          </div>
-        </CollapsibleSection>
-      ) : null}
-
-      {extractedText ? (
-        <CollapsibleSection
-          title="Extracted Text Preview"
-          icon={FileText}
-          tone="violet"
-          open={open.text}
-          onToggle={() => setOpen((prev) => ({ ...prev, text: !prev.text }))}
-        >
-          <p className="mt-1 text-[11px] text-slate-700 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">
-            {extractedText.slice(0, 600)}
-            {extractedText.length > 600 ? "..." : ""}
-          </p>
-        </CollapsibleSection>
-      ) : null}
-
-      {provenance ? (
-        <CollapsibleSection
-          title="Provenance"
-          icon={Info}
-          tone="slate"
-          open={open.provenance}
-          onToggle={() =>
-            setOpen((prev) => ({ ...prev, provenance: !prev.provenance }))
-          }
-        >
-          <div className="mt-1 text-[11px] text-slate-700 dark:text-slate-200">
-            {Object.entries(provenance)
-              .map(([k, v]) => `${k}: ${String(v)}`)
-              .join(" | ")}
           </div>
         </CollapsibleSection>
       ) : null}

@@ -34,6 +34,7 @@ export function translateStatus(status, aggregationType, t) {
     Pending: "pending",
     Completed: "completed",
     Cancelled: "cancelled",
+    Planned: "planned",
     Scheduled: "scheduled",
     "Not Started": "notStarted",
     Blocked: "blocked",

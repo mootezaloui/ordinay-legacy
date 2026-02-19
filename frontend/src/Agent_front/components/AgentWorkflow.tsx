@@ -19,7 +19,11 @@ import type {
   CollectionItem,
   AgentRequestMetadata,
 } from "../../services/api/agent";
-import { confirmProposal } from "../../services/api/agent";
+import {
+  cancelDocumentGenerationPreview,
+  confirmDocumentGenerationPreview,
+  confirmProposal,
+} from "../../services/api/agent";
 
 // Artifact renderers
 import { ExplanationArtifact } from "./artifacts/ExplanationArtifact";
@@ -32,6 +36,7 @@ import { ErrorArtifact } from "./artifacts/ErrorArtifact";
 import { ClarificationArtifact } from "./artifacts/ClarificationArtifact";
 import { CollectionArtifact } from "./artifacts/CollectionArtifact";
 import { WebSearchResultsArtifact } from "./artifacts/WebSearchResultsArtifact";
+import { DocumentGenerationPreviewArtifact } from "./artifacts/DocumentGenerationPreviewArtifact";
 import { FollowUpSuggestions } from "./artifacts/FollowUpSuggestions";
 import { CommentaryBubble } from "./artifacts/CommentaryBubble";
 import { ContextSuggestionRenderer } from "./artifacts/ContextSuggestionRenderer";
@@ -258,7 +263,7 @@ export function AgentWorkflow({
   if (displayPhase === "streaming") {
     return (
       <div className="agent-message-row">
-        <div className="agent-bubble agent-chat-text text-[15px] leading-relaxed text-slate-800 dark:text-slate-200">
+        <div className="agent-chat-text text-[15px] leading-relaxed text-slate-800 dark:text-slate-200 px-1">
           <MarkdownOutput content={message.content} />
           <span className="inline-block w-1.5 h-4 ml-0.5 bg-slate-400 dark:bg-slate-500 animate-pulse rounded-sm align-text-bottom" />
         </div>
@@ -1253,6 +1258,42 @@ function ArtifactBody({
     message.data?.webSearchResults
   ) {
     return <WebSearchResultsArtifact data={message.data.webSearchResults} />;
+  }
+  if (
+    dataType === "document_generation_preview" &&
+    message.data?.documentGenerationPreview
+  ) {
+    return (
+      <DocumentGenerationPreviewArtifact
+        data={message.data.documentGenerationPreview}
+        onConfirm={async (editedMarkdown?: string) => {
+          if (!activeSessionId || !activeSessionMessages || !updateSessionMessages) {
+            throw new Error("Session not available for preview confirmation");
+          }
+          const proposal = await confirmDocumentGenerationPreview(
+            message.data!.documentGenerationPreview!.previewId,
+            activeSessionId,
+            editedMarkdown,
+          );
+          const updatedMessages = activeSessionMessages.map((msg) => {
+            if (msg.id !== message.id) return msg;
+            return {
+              ...msg,
+              data: {
+                type: "proposal" as const,
+                proposal,
+              },
+            };
+          });
+          updateSessionMessages(activeSessionId, updatedMessages);
+        }}
+        onCancel={async () => {
+          await cancelDocumentGenerationPreview(
+            message.data!.documentGenerationPreview!.previewId,
+          );
+        }}
+      />
+    );
   }
   if (dataType === "proposal" && message.data?.proposal) {
     return (

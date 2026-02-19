@@ -1,6 +1,16 @@
 import { useState } from "react";
-import { Zap, CheckCircle2, XCircle, Clock, AlertCircle, Trash2, Link2, Unlink } from "lucide-react";
-import type { ProposalOutput, ExecutionResult } from "../../../services/api/agent";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  Link2,
+  Trash2,
+  Unlink,
+  XCircle,
+  Zap,
+} from "lucide-react";
+import type { ActionProposal, ExecutionResult, ProposalOutput } from "../../../services/api/agent";
+import { useData } from "../../../contexts/DataContext";
 
 interface ProposalArtifactProps {
   data: ProposalOutput;
@@ -16,152 +26,191 @@ interface ProposalState {
   executionResult?: ExecutionResult;
 }
 
-/**
- * Render field-level diff for UPDATE_ENTITY operations
- */
-function renderFieldDiff(field: string, from: any, to: any): JSX.Element {
-  return (
-    <div key={field} className="field-diff">
-      <span className="field-name">{field}:</span>
-      <span className="diff-from">{JSON.stringify(from)}</span>
-      <span className="diff-arrow">→</span>
-      <span className="diff-to">{JSON.stringify(to)}</span>
-    </div>
-  );
+interface DataContextLike {
+  clients?: Array<{ id: number; name?: string; reference?: string }>;
+  dossiers?: Array<{ id: number; lawsuitNumber?: string; title?: string; clientId?: number }>;
+  lawsuits?: Array<{ id: number; lawsuitNumber?: string; title?: string; dossierId?: number }>;
+  tasks?: Array<{ id: number; title?: string }>;
+  sessions?: Array<{ id: number; title?: string; type?: string }>;
+  missions?: Array<{ id: number; missionNumber?: string; title?: string }>;
+  financialEntries?: Array<{ id: number; title?: string; description?: string }>;
 }
 
-/**
- * Render operation details based on universal action type
- */
-function renderOperationDetails(proposal: any): JSX.Element {
-  const { actionType, params } = proposal;
-  const entityLabel = (entity: any, fallbackType = "entity") => {
-    if (!entity || typeof entity !== "object") return fallbackType;
-    return (
-      entity.reference ||
-      entity.title ||
-      entity.name ||
-      entity.label ||
-      entity.type ||
-      fallbackType
-    );
-  };
+function toTitleCase(value: string) {
+  return String(value || "")
+    .replace(/[_-]+/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+}
 
-  // CREATE_ENTITY: Show all payload fields
-  if (actionType === "CREATE_ENTITY" && params) {
-    return (
-      <div className="operation-details">
-        <div className="operation-type">
-          Create {params.entityType}
-        </div>
-        <div className="operation-fields">
-          {params.payload &&
-            Object.entries(params.payload).map(([key, value]) => (
-              <div key={key} className="field-create">
-                <span className="field-name">{key}:</span>
-                <span className="field-value">{JSON.stringify(value)}</span>
-              </div>
-            ))}
-        </div>
-      </div>
-    );
+function labelForEntityType(entityType?: string) {
+  const normalized = String(entityType || "").toLowerCase();
+  if (!normalized) return "record";
+  if (normalized === "financial_entry") return "financial entry";
+  if (normalized === "personal_task") return "personal task";
+  return toTitleCase(normalized).toLowerCase();
+}
+
+function labelForAttachmentType(attachmentType?: string) {
+  const normalized = String(attachmentType || "").toLowerCase();
+  if (!normalized) return "attachment";
+  if (normalized === "generated_document") return "generated document";
+  if (normalized === "doc_draft") return "draft document";
+  if (normalized === "file_ref") return "file";
+  return toTitleCase(normalized).toLowerCase();
+}
+
+function resolveEntityLabel(
+  entityType: string | undefined,
+  entityId: number | undefined,
+  context: DataContextLike,
+) {
+  const type = String(entityType || "").toLowerCase();
+  const id = Number(entityId);
+  if (!Number.isFinite(id)) return null;
+
+  if (type === "client") {
+    const item = context.clients?.find((x) => Number(x.id) === id);
+    return item ? item.name || item.reference || `Client #${id}` : `Client #${id}`;
+  }
+  if (type === "dossier") {
+    const item = context.dossiers?.find((x) => Number(x.id) === id);
+    if (!item) return `Dossier #${id}`;
+    return item.title || item.lawsuitNumber || `Dossier #${id}`;
+  }
+  if (type === "lawsuit") {
+    const item = context.lawsuits?.find((x) => Number(x.id) === id);
+    if (!item) return `Lawsuit #${id}`;
+    return item.title || item.lawsuitNumber || `Lawsuit #${id}`;
+  }
+  if (type === "task") {
+    const item = context.tasks?.find((x) => Number(x.id) === id);
+    return item ? item.title || `Task #${id}` : `Task #${id}`;
+  }
+  if (type === "session") {
+    const item = context.sessions?.find((x) => Number(x.id) === id);
+    return item ? item.title || item.type || `Session #${id}` : `Session #${id}`;
+  }
+  if (type === "mission") {
+    const item = context.missions?.find((x) => Number(x.id) === id);
+    return item ? item.title || item.missionNumber || `Mission #${id}` : `Mission #${id}`;
+  }
+  if (type === "financial_entry") {
+    const item = context.financialEntries?.find((x) => Number(x.id) === id);
+    return item ? item.title || item.description || `Entry #${id}` : `Entry #${id}`;
+  }
+  return `${toTitleCase(type)} #${id}`;
+}
+
+function proposalSummary(proposal: ActionProposal, context: DataContextLike) {
+  const actionType = String(proposal.actionType || proposal.action || "").toUpperCase();
+  const params = proposal.params || {};
+
+  if (actionType === "ATTACH_TO_ENTITY") {
+    const targetType = params.target?.type || params.targetType;
+    const targetId = Number(params.target?.id || params.targetId);
+    const targetLabel =
+      resolveEntityLabel(targetType, targetId, context) ||
+      params.targetLabel ||
+      params.targetReference ||
+      params.targetTitle ||
+      `${toTitleCase(String(targetType || "record"))} #${targetId}`;
+    return {
+      title: `Attach ${labelForAttachmentType(params.attachmentType)} to ${targetLabel}`,
+      kind: "Attach",
+    };
   }
 
-  // UPDATE_ENTITY: Show field-by-field diffs
-  if (actionType === "UPDATE_ENTITY" && params) {
-    return (
-      <div className="operation-details">
-        <div className="operation-type">
-          Update {params.entityLabel || params.reference || params.title || params.entityType}
-        </div>
-        <div className="operation-diffs">
-          {params.changes &&
-            Object.entries(params.changes).map(([field, diff]: [string, any]) =>
-              renderFieldDiff(field, diff.from, diff.to)
-            )}
-        </div>
-      </div>
-    );
+  if (actionType === "CREATE_ENTITY") {
+    return {
+      title: `Create ${labelForEntityType(params.entityType)}`,
+      kind: "Create",
+    };
   }
 
-  // DELETE_ENTITY: Show delete impact
-  if (actionType === "DELETE_ENTITY" && params) {
-    return (
-      <div className="operation-details">
-        <div className="operation-type operation-type-delete">
-          <Trash2 className="w-4 h-4 inline-block mr-1" />
-          Delete {params.entityLabel || params.reference || params.title || params.entityType}
-        </div>
-        <div className="delete-impact text-xs text-red-600 dark:text-red-400 mt-1">
-          Soft-delete — record will be marked as deleted but can be restored
-        </div>
-      </div>
-    );
+  if (actionType === "UPDATE_ENTITY") {
+    const targetLabel =
+      params.entityLabel ||
+      params.reference ||
+      params.title ||
+      resolveEntityLabel(params.entityType, Number(params.entityId), context) ||
+      labelForEntityType(params.entityType);
+    return {
+      title: `Update ${targetLabel}`,
+      kind: "Update",
+    };
   }
 
-  // ATTACH_TO_ENTITY: Show attachment details
-  if (actionType === "ATTACH_TO_ENTITY" && params) {
-    return (
-      <div className="operation-details">
-        <div className="operation-type">
-          Attach {params.attachmentType} to {entityLabel(params.target, params.target?.type || "entity")}
-        </div>
-        {params.attachmentType === "note" && params.payload?.content && (
-          <div className="attachment-preview">{params.payload.content}</div>
-        )}
-        {params.attachmentType === "doc_draft" && params.payload?.title && (
-          <div className="attachment-preview">
-            <strong>{params.payload.title}</strong>
-            {params.payload.content && <div className="mt-2">{params.payload.content.substring(0, 200)}...</div>}
-          </div>
-        )}
-      </div>
-    );
+  if (actionType === "DELETE_ENTITY") {
+    const targetLabel =
+      params.entityLabel ||
+      params.reference ||
+      params.title ||
+      resolveEntityLabel(params.entityType, Number(params.entityId), context) ||
+      labelForEntityType(params.entityType);
+    return {
+      title: `Delete ${targetLabel}`,
+      kind: "Delete",
+    };
   }
 
-  // LINK_ENTITIES: Show relationship change
-  if (actionType === "LINK_ENTITIES" && params) {
+  if (actionType === "LINK_ENTITIES") {
+    const sourceLabel =
+      params.sourceLabel ||
+      params.sourceReference ||
+      params.sourceTitle ||
+      resolveEntityLabel(params.sourceType, Number(params.sourceId), context) ||
+      labelForEntityType(params.sourceType);
+    const targetLabel =
+      params.targetLabel ||
+      params.targetReference ||
+      params.targetTitle ||
+      resolveEntityLabel(params.targetType, Number(params.targetId), context) ||
+      labelForEntityType(params.targetType);
     const isRemove = params.mode === "remove";
-    const LinkIcon = isRemove ? Unlink : Link2;
-    return (
-      <div className="operation-details">
-        <div className="operation-type">
-          <LinkIcon className="w-4 h-4 inline-block mr-1" />
-          {isRemove ? "Unlink" : "Link"} {params.sourceLabel || params.sourceReference || params.sourceTitle || params.sourceType}
-          {isRemove ? " from " : " to "}
-          {params.targetLabel || params.targetReference || params.targetTitle || params.targetType}
-        </div>
-        {params.linkField && (
-          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            via {params.linkField}
-          </div>
-        )}
-      </div>
-    );
+    return {
+      title: `${isRemove ? "Unlink" : "Link"} ${sourceLabel} ${isRemove ? "from" : "to"} ${targetLabel}`,
+      kind: isRemove ? "Unlink" : "Link",
+    };
   }
 
-  // Fallback: Show humanReadableSummary for legacy actions
+  return {
+    title:
+      proposal.humanReadableSummary ||
+      proposal.description ||
+      toTitleCase(String(actionType || "Pending action")),
+    kind: toTitleCase(String(actionType || "Action")),
+  };
+}
+
+function renderChangeDiff(changes: Record<string, { from: unknown; to: unknown }> | undefined) {
+  if (!changes || Object.keys(changes).length === 0) return null;
   return (
-    <div className="proposal-summary">
-      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-        {proposal.humanReadableSummary || proposal.description || `${proposal.actionType || proposal.action}`}
+    <div className="mt-3 rounded-lg border border-black/[0.06] bg-white/70 p-3 dark:border-white/[0.08] dark:bg-slate-900/40">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">
+        Field Changes
       </p>
+      <div className="space-y-2">
+        {Object.entries(changes).map(([field, diff]) => (
+          <div key={field} className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="font-medium text-slate-700 dark:text-slate-200">{toTitleCase(field)}</span>
+            <span className="rounded bg-red-100 px-1.5 py-0.5 text-red-700 dark:bg-red-900/30 dark:text-red-300">
+              {JSON.stringify(diff.from)}
+            </span>
+            <span className="text-slate-400 dark:text-slate-500">to</span>
+            <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+              {JSON.stringify(diff.to)}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-/**
- * Renders action proposals with explicit confirm/cancel workflow.
- *
- * V3 Execution Layer:
- * - Shows proposals requiring explicit user confirmation
- * - Displays snapshot info (scope, timestamp)
- * - Calls POST /agent/confirm on confirm button click
- * - Blocks duplicate confirmations
- * - Shows field-level diffs for UPDATE_ENTITY operations
- */
 export function ProposalArtifact({ data, onConfirm, onCancel }: ProposalArtifactProps) {
-  // Track state for each proposal
+  const contextData = useData() as DataContextLike;
   const [proposalStates, setProposalStates] = useState<Record<string, ProposalState>>(() => {
     const initial: Record<string, ProposalState> = {};
     data.proposals.forEach((proposal) => {
@@ -170,7 +219,6 @@ export function ProposalArtifact({ data, onConfirm, onCancel }: ProposalArtifact
     return initial;
   });
 
-  // Handle confirm
   const handleConfirm = async (proposalId: string) => {
     setProposalStates((prev) => ({
       ...prev,
@@ -200,7 +248,6 @@ export function ProposalArtifact({ data, onConfirm, onCancel }: ProposalArtifact
     }
   };
 
-  // Handle cancel
   const handleCancel = (proposalId: string) => {
     setProposalStates((prev) => ({
       ...prev,
@@ -211,7 +258,6 @@ export function ProposalArtifact({ data, onConfirm, onCancel }: ProposalArtifact
 
   return (
     <div className="artifact-build agent-artifact-card is-proposal">
-      {/* Header */}
       <div className="artifact-build-header agent-artifact-header agent-artifact-header-proposal flex items-center justify-between px-5 py-4">
         <div className="flex items-center gap-3">
           <div className="agent-icon-container agent-icon-container-violet shrink-0 flex items-center justify-center w-10 h-10 rounded-lg">
@@ -222,13 +268,12 @@ export function ProposalArtifact({ data, onConfirm, onCancel }: ProposalArtifact
               Action Proposal
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              {data.proposals.length} {data.proposals.length === 1 ? "action" : "actions"} requiring confirmation
+              {data.proposals.length} {data.proposals.length === 1 ? "action" : "actions"} awaiting confirmation
             </p>
           </div>
         </div>
       </div>
 
-      {/* Body */}
       <div className="artifact-build-body px-5 py-4 space-y-4">
         {data.proposals.map((proposal) => {
           const state = proposalStates[proposal.proposalId];
@@ -237,105 +282,132 @@ export function ProposalArtifact({ data, onConfirm, onCancel }: ProposalArtifact
           const isConfirmed = state.status === "confirmed";
           const isCancelled = state.status === "cancelled";
           const isFailed = state.status === "failed";
+          const summary = proposalSummary(proposal, contextData);
+          const changes =
+            proposal.actionType === "UPDATE_ENTITY"
+              ? (proposal.params?.changes as Record<string, { from: unknown; to: unknown }> | undefined)
+              : undefined;
 
           return (
             <div
               key={proposal.proposalId}
-              className={`proposal-item border rounded-lg p-4 transition-all ${
+              className={`rounded-xl border p-4 transition-all ${
                 isConfirmed
-                  ? "border-green-300 bg-green-50 dark:border-green-800 dark:bg-green-950/20"
+                  ? "border-emerald-300 bg-emerald-50/80 dark:border-emerald-800 dark:bg-emerald-950/20"
                   : isCancelled
-                  ? "border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/20 opacity-60"
+                  ? "border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/30 opacity-70"
                   : isFailed
-                  ? "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/20"
-                  : "border-violet-200 bg-violet-50/30 dark:border-violet-800 dark:bg-violet-950/20"
+                  ? "border-red-300 bg-red-50/80 dark:border-red-800 dark:bg-red-950/20"
+                  : "border-violet-200 bg-violet-50/40 dark:border-violet-800 dark:bg-violet-950/20"
               }`}
             >
-              {/* Proposal details (with field-level diffs for universal operations) */}
-              <div className="mb-3">
-                {renderOperationDetails(proposal)}
-              </div>
-
-              {/* Snapshot info (subtle) */}
-              {proposal.snapshot && (
-                <div className="proposal-snapshot flex items-center gap-2 text-xs text-gray-500 dark:text-gray-500 mb-3">
-                  <Clock className="w-3 h-3" />
-                  <span>
-                    {proposal.snapshot.scope}
-                    {" • "}
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <span className="inline-flex items-center rounded-md border border-black/[0.08] bg-white px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:border-white/[0.1] dark:bg-slate-800/70 dark:text-slate-300">
+                  {summary.kind}
+                </span>
+                {proposal.snapshot?.timestamp && (
+                  <span className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                    <Clock className="w-3 h-3" />
                     {new Date(proposal.snapshot.timestamp).toLocaleString()}
                   </span>
+                )}
+              </div>
+
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{summary.title}</p>
+
+              {proposal.actionType === "ATTACH_TO_ENTITY" &&
+                proposal.params?.attachmentType === "doc_draft" &&
+                proposal.params?.payload?.title && (
+                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                    Draft: {String(proposal.params.payload.title)}
+                  </p>
+                )}
+
+              {proposal.actionType === "LINK_ENTITIES" && (
+                <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 inline-flex items-center gap-1.5">
+                  {proposal.params?.mode === "remove" ? <Unlink className="w-3 h-3" /> : <Link2 className="w-3 h-3" />}
+                  {proposal.params?.linkField ? `Relationship: ${proposal.params.linkField}` : "Relationship update"}
                 </div>
               )}
 
-              {/* Affected entities */}
+              {proposal.actionType === "DELETE_ENTITY" && (
+                <div className="mt-2 inline-flex items-center gap-1.5 text-xs text-red-700 dark:text-red-400">
+                  <Trash2 className="w-3 h-3" />
+                  This will remove the record (soft delete).
+                </div>
+              )}
+
+              {renderChangeDiff(changes)}
+
               {proposal.affectedEntities && proposal.affectedEntities.length > 0 && (
-                <div className="affected-entities flex flex-wrap gap-2 mb-3">
-                  {proposal.affectedEntities.map((entity, idx) => (
-                    <span
-                      key={idx}
-                      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300"
-                    >
-                      {entity.reference || entity.title || entity.name || entity.type}
-                    </span>
-                  ))}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {proposal.affectedEntities.map((entity, idx) => {
+                    const resolved =
+                      resolveEntityLabel(entity.type, Number(entity.id), contextData) ||
+                      entity.reference ||
+                      entity.type;
+                    return (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1 rounded-md bg-violet-100 px-2 py-1 text-xs font-medium text-violet-800 dark:bg-violet-900/30 dark:text-violet-300"
+                      >
+                        {resolved}
+                      </span>
+                    );
+                  })}
                 </div>
               )}
 
-              {/* Status indicators */}
               {isConfirmed && (
-                <div className="execution-result-success mb-3">
-                  <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+                <div className="mt-3 rounded-lg border border-emerald-200/70 bg-emerald-50/70 p-3 dark:border-emerald-800/60 dark:bg-emerald-950/20">
+                  <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400">
                     <CheckCircle2 className="w-4 h-4" />
                     <span>Confirmed and executed</span>
                   </div>
                   {state.executionResult?.executedActions?.map((ea, i) => (
-                    <div key={i} className="text-xs text-green-600 dark:text-green-500 mt-1 ml-6">
-                      {ea.actionType} completed at {new Date(ea.executedAt).toLocaleTimeString()}
+                    <div key={i} className="ml-6 mt-1 text-xs text-emerald-700/90 dark:text-emerald-300/90">
+                      {toTitleCase(String(ea.actionType || "Action"))} completed at{" "}
+                      {new Date(ea.executedAt).toLocaleTimeString()}
                     </div>
                   ))}
                   {state.executionResult?.audit?.executedAt && (
-                    <div className="text-xs text-gray-500 dark:text-gray-500 mt-1 ml-6">
-                      Audit: {state.executionResult.audit.sessionId || proposal.proposalId}
-                      {" • "}
-                      {new Date(state.executionResult.audit.executedAt).toLocaleString()}
+                    <div className="ml-6 mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      Completed on {new Date(state.executionResult.audit.executedAt).toLocaleString()}
                     </div>
                   )}
                 </div>
               )}
 
               {isCancelled && (
-                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-3">
+                <div className="mt-3 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
                   <XCircle className="w-4 h-4" />
                   <span>Cancelled</span>
                 </div>
               )}
 
               {isFailed && (
-                <div className="execution-result-failure mb-3">
+                <div className="mt-3 rounded-lg border border-red-200/70 bg-red-50/70 p-3 dark:border-red-800/60 dark:bg-red-950/20">
                   <div className="flex items-center gap-2 text-sm text-red-700 dark:text-red-400">
                     <AlertCircle className="w-4 h-4" />
                     <span>{state.error || "Execution failed"}</span>
                   </div>
-                  {state.executionResult?.error?.code && (
-                    <div className="text-xs text-red-500 dark:text-red-400 mt-1 ml-6">
-                      Error code: {state.executionResult.error.code}
-                      {state.executionResult.error.requiresReproposal && " — please retry"}
+                  {state.executionResult?.error?.requiresReproposal && (
+                    <div className="ml-6 mt-1 text-xs text-red-600 dark:text-red-400">
+                      Please retry to generate a new proposal.
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Confirm/Cancel buttons */}
               {(isPending || isConfirming) && (
-                <div className="proposal-actions flex gap-2">
+                <div className="mt-4 flex flex-wrap gap-2">
                   <button
                     onClick={() => handleConfirm(proposal.proposalId)}
                     disabled={isConfirming}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    className={`agent-action-btn min-w-[108px] justify-center ${
                       isConfirming
-                        ? "bg-violet-300 text-violet-800 cursor-wait"
-                        : "bg-violet-600 hover:bg-violet-700 text-white"
+                        ? "bg-violet-300 text-violet-900 cursor-wait"
+                        : "agent-action-btn-primary"
                     }`}
                   >
                     <CheckCircle2 className="w-4 h-4" />
@@ -345,7 +417,7 @@ export function ProposalArtifact({ data, onConfirm, onCancel }: ProposalArtifact
                   <button
                     onClick={() => handleCancel(proposal.proposalId)}
                     disabled={isConfirming}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md border border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="agent-action-btn agent-action-btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <XCircle className="w-4 h-4" />
                     Cancel

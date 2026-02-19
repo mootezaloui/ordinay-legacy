@@ -4,6 +4,7 @@ const fs = require("fs");
 const path = require("path");
 
 const { renderTemplateToHtml } = require("./templateRegistry.service");
+const { renderMarkdownToHtml } = require("./markdownRender.service");
 const { MIME_BY_FORMAT } = require("./constants");
 
 function ensureDir(dirPath) {
@@ -98,12 +99,19 @@ async function renderDocument({
   format,
   outputPath,
 }) {
-  const { html } = renderTemplateToHtml({
-    documentType,
-    language,
-    schemaVersion,
-    viewModel: contentJson,
-  });
+  let html = "";
+  const markdown = String(contentJson?.content?.markdown || "").trim();
+  if (markdown) {
+    html = renderMarkdownToHtml(markdown, { language });
+  } else {
+    const rendered = renderTemplateToHtml({
+      documentType,
+      language,
+      schemaVersion,
+      viewModel: contentJson,
+    });
+    html = rendered.html;
+  }
 
   ensureDir(path.dirname(outputPath));
 

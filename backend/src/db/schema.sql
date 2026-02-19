@@ -392,6 +392,31 @@ CREATE INDEX IF NOT EXISTS idx_document_generations_target ON document_generatio
 CREATE INDEX IF NOT EXISTS idx_document_generations_document_id ON document_generations(document_id);
 CREATE INDEX IF NOT EXISTS idx_document_generations_status ON document_generations(status);
 
+CREATE TABLE IF NOT EXISTS document_generation_previews (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    preview_uid TEXT NOT NULL UNIQUE,
+    conversation_id TEXT,
+    session_id TEXT,
+    created_by TEXT,
+    target_type TEXT NOT NULL,
+    target_id INTEGER NOT NULL,
+    document_type TEXT NOT NULL,
+    language TEXT NOT NULL,
+    format TEXT NOT NULL,
+    template_key TEXT NOT NULL,
+    schema_version TEXT NOT NULL,
+    content_json TEXT NOT NULL,
+    preview_html TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('preview_ready', 'proposed', 'cancelled', 'expired', 'failed')),
+    proposal_id TEXT,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_document_generation_previews_uid ON document_generation_previews(preview_uid);
+CREATE INDEX IF NOT EXISTS idx_document_generation_previews_status_expires ON document_generation_previews(status, expires_at);
+CREATE INDEX IF NOT EXISTS idx_document_generation_previews_session_created ON document_generation_previews(session_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS notifications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     type TEXT NOT NULL,

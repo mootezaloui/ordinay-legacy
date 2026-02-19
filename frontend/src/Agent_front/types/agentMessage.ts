@@ -9,6 +9,7 @@ import type {
   ClarificationOutput,
   CollectionOutput,
   ProposalOutput,
+  DocumentGenerationPreviewOutput,
   WebSearchResultsOutput,
   WebDeepSearchResultsOutput,
   DocumentGenerationMissingFieldsOutput,
@@ -89,7 +90,7 @@ export interface AgentMessage {
 }
 
 export interface AgentMessageData {
-  type: "explanation" | "risks" | "draft" | "actions" | "clarification" | "collection" | "context_suggestion" | "proposal" | "document_generation_missing_fields" | "web_search_results" | "web_deep_search_results" | "error";
+  type: "explanation" | "risks" | "draft" | "actions" | "clarification" | "collection" | "context_suggestion" | "proposal" | "document_generation_preview" | "document_generation_missing_fields" | "web_search_results" | "web_deep_search_results" | "error";
   explanation?: ExplanationOutput;
   risks?: RiskAnalysisOutput;
   draft?: DraftOutput;
@@ -98,6 +99,7 @@ export interface AgentMessageData {
   collection?: CollectionOutput;
   contextSuggestion?: import("../../services/api/agent").ContextSuggestionOutput;
   proposal?: ProposalOutput;
+  documentGenerationPreview?: DocumentGenerationPreviewOutput;
   documentGenerationMissingFields?: DocumentGenerationMissingFieldsOutput;
   webSearchResults?: WebSearchResultsOutput | WebDeepSearchResultsOutput;
   error?: string;

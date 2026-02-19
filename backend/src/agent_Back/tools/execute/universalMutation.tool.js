@@ -40,6 +40,51 @@ const LINK_MODES = Object.freeze({
   REMOVE: 'remove',
 });
 
+const ENTITY_TABLE_BY_TYPE = Object.freeze({
+  client: 'clients',
+  dossier: 'dossiers',
+  lawsuit: 'lawsuits',
+  task: 'tasks',
+  session: 'sessions',
+  mission: 'missions',
+  officer: 'officers',
+  financial_entry: 'financial_entries',
+  document: 'documents',
+  personal_task: 'personal_tasks',
+});
+
+function pickDisplayValue(entity = {}) {
+  const candidates = [
+    entity.reference,
+    entity.code,
+    entity.number,
+    entity.case_number,
+    entity.name,
+    entity.title,
+    entity.subject,
+  ];
+  const chosen = candidates.find((value) => typeof value === 'string' && value.trim().length > 0);
+  return chosen ? String(chosen).trim() : null;
+}
+
+function resolveEntityDisplay(type, id) {
+  const table = ENTITY_TABLE_BY_TYPE[type];
+  if (!table || !id) return null;
+  try {
+    const row = db
+      .prepare(`SELECT * FROM ${table} WHERE id = ? LIMIT 1`)
+      .get(id);
+    if (!row) return null;
+    const primary = pickDisplayValue(row);
+    return {
+      reference: typeof row.reference === 'string' && row.reference.trim() ? String(row.reference).trim() : null,
+      label: primary || `${type} #${id}`,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Valid link relationships per entity type.
  * Derived from DB foreign key columns and CHECK constraints.
@@ -364,10 +409,26 @@ async function handler(input, executionContext = {}) {
         timestamp: new Date().toISOString(),
       };
 
-      actionSummary = `Attach ${attachmentType} to ${target.type} ${target.id}`;
+      const display = resolveEntityDisplay(target.type, target.id);
+      const targetLabel = display?.label || `${target.type} #${target.id}`;
+      params.target = {
+        ...target,
+        label: targetLabel,
+        reference: display?.reference || target.reference || null,
+      };
+
+      actionSummary = `Attach ${attachmentType} to ${targetLabel}`;
       reversible = true; // Attachments like notes can be deleted
 
-      affectedEntities = [{ type: target.type, id: target.id, operation: 'attach' }];
+      affectedEntities = [
+        {
+          type: target.type,
+          id: target.id,
+          operation: 'attach',
+          reference: display?.reference || undefined,
+          label: targetLabel,
+        },
+      ];
       break;
     }
 

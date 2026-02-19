@@ -704,6 +704,12 @@ export function useAgentState() {
           } else if (output.type === "proposal") {
             agentData = { type: "proposal", proposal: output };
             streamedContent = "";
+          } else if (output.type === "document_generation_preview") {
+            agentData = {
+              type: "document_generation_preview",
+              documentGenerationPreview: output,
+            };
+            streamedContent = "";
           } else if (output.type === "document_generation_missing_fields") {
             agentData = {
               type: "document_generation_missing_fields",
@@ -1073,6 +1079,12 @@ export function useAgentState() {
             streamedContent = "";
           } else if (output.type === "proposal") {
             agentData = { type: "proposal", proposal: output };
+            streamedContent = "";
+          } else if (output.type === "document_generation_preview") {
+            agentData = {
+              type: "document_generation_preview",
+              documentGenerationPreview: output,
+            };
             streamedContent = "";
           } else if (output.type === "document_generation_missing_fields") {
             agentData = {
@@ -1466,6 +1478,12 @@ export function useAgentState() {
             streamedContent = "";
           } else if (output.type === "proposal") {
             agentData = { type: "proposal", proposal: output };
+            streamedContent = "";
+          } else if (output.type === "document_generation_preview") {
+            agentData = {
+              type: "document_generation_preview",
+              documentGenerationPreview: output,
+            };
             streamedContent = "";
           } else if (output.type === "document_generation_missing_fields") {
             agentData = {
