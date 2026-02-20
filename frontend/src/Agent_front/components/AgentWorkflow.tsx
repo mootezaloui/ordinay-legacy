@@ -1303,6 +1303,7 @@ function ArtifactBody({
         data={message.data.webSearchResults}
         onConfirmWebSearch={onConfirmWebSearch}
         commentaryMessage={message.commentary?.message}
+        isLive={message.status === "sending"}
       />
     );
   }

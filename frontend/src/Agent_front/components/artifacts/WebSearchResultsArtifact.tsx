@@ -18,6 +18,7 @@ interface WebSearchResultsArtifactProps {
   data: WebSearchResultsOutput | WebDeepSearchResultsOutput;
   onConfirmWebSearch?: (metadata: AgentRequestMetadata) => void;
   commentaryMessage?: string;
+  isLive?: boolean;
 }
 
 const QUERY_STAGGER_MS = 720;
@@ -98,6 +99,7 @@ export function WebSearchResultsArtifact({
   data,
   onConfirmWebSearch,
   commentaryMessage,
+  isLive = false,
 }: WebSearchResultsArtifactProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const sourceRefs = useRef<Array<HTMLAnchorElement | null>>([]);
@@ -123,6 +125,7 @@ export function WebSearchResultsArtifact({
     }
     return [data.query];
   }, [data, isDeepSearch]);
+  const shouldAnimate = isLive;
   const analyzeSteps = useMemo(() => buildAnalyzeSteps(data.results.length), [data.results.length]);
   const relatedQuestions = useMemo(() => buildRelatedQuestions(data, aiSummary), [aiSummary, data]);
   const fallbackStatus = useMemo(() => statusMessage(data), [data]);
@@ -141,9 +144,20 @@ export function WebSearchResultsArtifact({
     return "No external results found.";
   }, [aiSummary, commentaryMessage, data.message, data.results.length, fallbackStatus]);
 
+  const displayVisibleQueryCount = shouldAnimate ? visibleQueryCount : Math.max(queries.length, 1);
+  const displaySearchComplete = shouldAnimate ? searchComplete : true;
+  const displayShowSources = shouldAnimate ? showSources : true;
+  const displayShowAnalyzing = shouldAnimate ? showAnalyzing : true;
+  const displayVisibleAnalyzeCount = shouldAnimate ? visibleAnalyzeCount : analyzeSteps.length;
+  const displayAnalyzingComplete = shouldAnimate ? analyzingComplete : true;
+  const displayShowAnswer = shouldAnimate ? showAnswer : true;
+  const displayTypedLength = shouldAnimate ? typedLength : answerText.length;
+  const displayAnswerComplete = shouldAnimate ? answerComplete : true;
+  const displayShowRelated = shouldAnimate ? showRelated : true;
+
   const visibleAnswer = useMemo(
-    () => answerText.slice(0, typedLength),
-    [answerText, typedLength],
+    () => answerText.slice(0, displayTypedLength),
+    [answerText, displayTypedLength],
   );
   const citationIndices = useMemo(
     () => new Set((aiSummary?.citations || []).map((item) => item.index)),
@@ -190,6 +204,7 @@ export function WebSearchResultsArtifact({
   }, [data.searchIntent, onConfirmWebSearch]);
 
   useEffect(() => {
+    if (!shouldAnimate) return;
     const timers: number[] = [];
 
     const totalQueries = Math.max(queries.length, 1);
@@ -204,15 +219,17 @@ export function WebSearchResultsArtifact({
     );
 
     return () => timers.forEach((timer) => window.clearTimeout(timer));
-  }, [queries]);
+  }, [queries, shouldAnimate]);
 
   useEffect(() => {
+    if (!shouldAnimate) return;
     if (!searchComplete) return;
     const timer = window.setTimeout(() => setShowSources(true), SOURCES_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [searchComplete]);
+  }, [searchComplete, shouldAnimate]);
 
   useEffect(() => {
+    if (!shouldAnimate) return;
     if (!showSources) return;
     const timers: number[] = [];
     timers.push(window.setTimeout(() => setShowAnalyzing(true), ANALYZE_PHASE_DELAY_MS));
@@ -231,15 +248,17 @@ export function WebSearchResultsArtifact({
       ),
     );
     return () => timers.forEach((timer) => window.clearTimeout(timer));
-  }, [analyzeSteps.length, showSources]);
+  }, [analyzeSteps.length, showSources, shouldAnimate]);
 
   useEffect(() => {
+    if (!shouldAnimate) return;
     if (!analyzingComplete) return;
     const timer = window.setTimeout(() => setShowAnswer(true), ANSWER_START_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [analyzingComplete]);
+  }, [analyzingComplete, shouldAnimate]);
 
   useEffect(() => {
+    if (!shouldAnimate) return;
     if (!showAnswer) return;
     const timer = window.setInterval(() => {
       setTypedLength((prev) => {
@@ -252,24 +271,25 @@ export function WebSearchResultsArtifact({
       });
     }, TYPEWRITER_MS);
     return () => window.clearInterval(timer);
-  }, [answerText, showAnswer]);
+  }, [answerText, showAnswer, shouldAnimate]);
 
   useEffect(() => {
+    if (!shouldAnimate) return;
     if (!answerComplete) return;
     const timer = window.setTimeout(() => setShowRelated(true), RELATED_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [answerComplete]);
+  }, [answerComplete, shouldAnimate]);
 
   useEffect(() => {
     rootRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [
-    visibleQueryCount,
-    searchComplete,
-    showSources,
-    visibleAnalyzeCount,
-    showAnswer,
-    typedLength,
-    showRelated,
+    displayVisibleQueryCount,
+    displaySearchComplete,
+    displayShowSources,
+    displayVisibleAnalyzeCount,
+    displayShowAnswer,
+    displayTypedLength,
+    displayShowRelated,
   ]);
 
   return (
@@ -282,15 +302,15 @@ export function WebSearchResultsArtifact({
             </span>
             <span className="web-phase-label">SEARCHING</span>
           </div>
-          {searchComplete && (
+          {displaySearchComplete && (
             <span className="web-phase-meta">
               {data.results.length} source{data.results.length === 1 ? "" : "s"} found
             </span>
           )}
         </div>
         <div className="web-phase-timeline">
-          {queries.slice(0, visibleQueryCount).map((query, idx) => {
-            const done = searchComplete || idx < visibleQueryCount - 1;
+          {queries.slice(0, displayVisibleQueryCount).map((query, idx) => {
+            const done = displaySearchComplete || idx < displayVisibleQueryCount - 1;
             return (
               <div
                 key={`${query}-${idx}`}
@@ -307,7 +327,7 @@ export function WebSearchResultsArtifact({
         </div>
       </section>
 
-      {showSources && (
+      {displayShowSources && (
         <section className="web-phase web-fade-up">
           <div className="web-phase-header">
             <div className="web-phase-head-left">
@@ -371,7 +391,7 @@ export function WebSearchResultsArtifact({
         </section>
       )}
 
-      {showAnalyzing && (
+      {displayShowAnalyzing && (
         <section className="web-phase web-fade-up">
           <div className="web-phase-header">
             <div className="web-phase-head-left">
@@ -382,8 +402,8 @@ export function WebSearchResultsArtifact({
             </div>
           </div>
           <div className="web-phase-timeline">
-            {analyzeSteps.slice(0, visibleAnalyzeCount).map((step, idx) => {
-              const done = analyzingComplete || idx < visibleAnalyzeCount - 1;
+            {analyzeSteps.slice(0, displayVisibleAnalyzeCount).map((step, idx) => {
+              const done = displayAnalyzingComplete || idx < displayVisibleAnalyzeCount - 1;
               return (
                 <div
                   key={step}
@@ -401,7 +421,7 @@ export function WebSearchResultsArtifact({
         </section>
       )}
 
-      {showAnswer && (
+      {displayShowAnswer && (
         <section className="web-phase web-fade-up">
           <div className="web-phase-header">
             <div className="web-phase-head-left">
@@ -439,12 +459,12 @@ export function WebSearchResultsArtifact({
                 </span>
               );
             })}
-            {!answerComplete && <span className="web-type-cursor" />}
+            {!displayAnswerComplete && <span className="web-type-cursor" />}
           </div>
         </section>
       )}
 
-      {showRelated && relatedQuestions.length > 0 && (
+      {displayShowRelated && relatedQuestions.length > 0 && (
         <section className="web-related web-fade-up">
           <div className="web-related-label">RELATED</div>
           <div className="web-related-list">
