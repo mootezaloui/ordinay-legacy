@@ -114,7 +114,10 @@ async function testChatHttpFollowUpIntentForwarding() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        message: "selected dossier",
+        message: "continue please",
+        // Avoid read pre-routing so this test validates forwarding to chat service.
+        // A pure conversational follow-up must still be passed through.
+        // "continue please" keeps it non-read.
         sessionId: "sess-http-followup",
         followUpIntent: {
           intent: "RESOLVE_CONTEXT_AND_CONTINUE",
@@ -133,6 +136,36 @@ async function testChatHttpFollowUpIntentForwarding() {
       "RESOLVE_CONTEXT_AND_CONTINUE",
     );
     assert.strictEqual(captured.followUpIntent?.scope?.dossierId, 10);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+}
+
+async function testChatHttpReadPreRouteBypassesChatService() {
+  let called = 0;
+  agentRouter.__setChatAgentServiceForTests({
+    async run() {
+      called += 1;
+      throw new Error("chat_service_should_not_run_for_read");
+    },
+  });
+
+  const { server, baseUrl } = await startServer();
+  try {
+    const response = await fetch(`${baseUrl}/agent/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: "show dossier 1",
+        sessionId: "sess-http-followup",
+      }),
+    });
+
+    assert.strictEqual(response.status, 200);
+    const frames = await readSse(response);
+    assert(frames.some((f) => f.event === "result"));
+    assert(frames.some((f) => f.event === "done"));
+    assert.strictEqual(called, 0);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
@@ -242,7 +275,7 @@ async function testChatHttpAmbiguityArtifact() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        message: "show dossier case",
+        message: "need help choosing one",
         sessionId: "sess-http-amb",
       }),
     });
@@ -266,6 +299,7 @@ async function testChatHttpAmbiguityArtifact() {
 async function run() {
   await testChatHttpSuccess();
   await testChatHttpFollowUpIntentForwarding();
+  await testChatHttpReadPreRouteBypassesChatService();
   await testChatHttpValidationError();
   await testChatHttpServiceError();
   await testChatHttpAmbiguityArtifact();

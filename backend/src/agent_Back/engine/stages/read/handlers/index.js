@@ -389,6 +389,12 @@ async function dispatchReadIntent(state) {
     case READ_INTENTS.READ_HISTORY_EVENT:
       result = await historyHandlers.handleReadHistoryEvent.call(state.engine, state);
       break;
+    case READ_INTENTS.LIST_DOCUMENTS:
+      result = await documentHandlers.handleListDocuments.call(state.engine, state);
+      break;
+    case READ_INTENTS.READ_DOCUMENT:
+      result = await documentHandlers.handleReadDocument.call(state.engine, state);
+      break;
     case READ_INTENTS.EXPLAIN_HISTORY_STATE:
     case READ_INTENTS.SUMMARIZE_HISTORY:
       result = await historyHandlers.handleExplainHistory.call(state.engine, state);

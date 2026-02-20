@@ -8,6 +8,7 @@ const lawsuitsService = require("../../../services/lawsuits.service");
 const tasksService = require("../../../services/tasks.service");
 const missionsService = require("../../../services/missions.service");
 const sessionsService = require("../../../services/sessions.service");
+const documentsService = require("../../../services/documents.service");
 const getEntityGraphTool = require("./getEntityGraph.tool");
 
 function daysFromNow(days) {
@@ -46,6 +47,11 @@ function buildFixture() {
       { id: 51, dossier_id: null, lawsuit_id: 20, title: "Session lawsuit A1", status: "scheduled", scheduled_at: daysFromNow(2), created_at: daysFromNow(-4), updated_at: daysFromNow(-1) },
       { id: 52, dossier_id: 11, lawsuit_id: null, title: "Session dossier B", status: "confirmed", scheduled_at: daysFromNow(18), created_at: daysFromNow(-3), updated_at: daysFromNow(-1) },
     ],
+    documents: [
+      { id: 60, title: "Dossier Alpha brief", dossier_id: 10, client_id: null, lawsuit_id: null, mission_id: null, task_id: null, session_id: null, uploaded_at: daysFromNow(-2), updated_at: daysFromNow(-1) },
+      { id: 61, title: "Lawsuit A1 filing", dossier_id: null, client_id: null, lawsuit_id: 20, mission_id: null, task_id: null, session_id: null, uploaded_at: daysFromNow(-1), updated_at: daysFromNow(-1) },
+      { id: 62, title: "Client A ID", dossier_id: null, client_id: 1, lawsuit_id: null, mission_id: null, task_id: null, session_id: null, uploaded_at: daysFromNow(-5), updated_at: daysFromNow(-1) },
+    ],
   };
 }
 
@@ -56,6 +62,7 @@ function applyFixture(fixture) {
   tasksService.list = () => fixture.tasks.map((row) => ({ ...row }));
   missionsService.list = () => fixture.missions.map((row) => ({ ...row }));
   sessionsService.list = () => fixture.sessions.map((row) => ({ ...row }));
+  documentsService.list = () => fixture.documents.map((row) => ({ ...row }));
 }
 
 function backupServiceMethods() {
@@ -66,6 +73,7 @@ function backupServiceMethods() {
     tasksList: tasksService.list,
     missionsList: missionsService.list,
     sessionsList: sessionsService.list,
+    documentsList: documentsService.list,
   };
 }
 
@@ -76,6 +84,7 @@ function restoreServiceMethods(backup) {
   tasksService.list = backup.tasksList;
   missionsService.list = backup.missionsList;
   sessionsService.list = backup.sessionsList;
+  documentsService.list = backup.documentsList;
 }
 
 async function testClientFullDownGraph() {
@@ -93,6 +102,7 @@ async function testClientFullDownGraph() {
   assert.strictEqual(graph.metrics.totalTasks, 2);
   assert.strictEqual(graph.metrics.totalMissions, 2);
   assert.strictEqual(graph.metrics.totalSessions, 2);
+  assert.strictEqual(graph.metrics.totalDocuments, 3);
 }
 
 async function testDossierUpAndDown() {
@@ -109,6 +119,7 @@ async function testDossierUpAndDown() {
   assert.strictEqual(graph.metrics.totalTasks, 2);
   assert.strictEqual(graph.metrics.totalMissions, 2);
   assert.strictEqual(graph.metrics.totalSessions, 2);
+  assert.strictEqual(graph.metrics.totalDocuments, 2);
 }
 
 async function testLawsuitUpAndChildren() {

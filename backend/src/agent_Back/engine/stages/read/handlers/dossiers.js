@@ -339,6 +339,7 @@ function buildWorkContextFromSnapshot(snapshot) {
   const financialSummary = snapshot?.aggregates?.financial || {};
   const lawsuitSummary = snapshot?.aggregates?.lawsuits || {};
   const missionSummary = snapshot?.aggregates?.missions || {};
+  const documentSummary = snapshot?.aggregates?.documents || {};
   const workloadSummary = snapshot?.aggregates?.workload || {};
   return {
     urgency: String(workloadSummary.urgency || "normal").toLowerCase(),
@@ -353,6 +354,7 @@ function buildWorkContextFromSnapshot(snapshot) {
     overdueReceivables: Number(financialSummary.overdueReceivables || 0),
     totalLawsuits: Number(lawsuitSummary.total || 0),
     totalMissions: Number(missionSummary.total || 0),
+    totalDocuments: Number(documentSummary.total || 0),
   };
 }
 
@@ -477,6 +479,12 @@ async function buildDossierWorkSnapshot({
     policy,
   );
   const historyEvents = historyResult?.historyEvents || [];
+  const documentResult = await callReadTool(
+    "listDocuments",
+    { dossierId: dossier.id, limit: 200 },
+    policy,
+  );
+  const documents = documentResult?.documents || [];
 
   const resolvedDeadline = await resolveDossierDeadlineFromChildren({
     dossier,
@@ -582,6 +590,7 @@ async function buildDossierWorkSnapshot({
         "lawsuits",
         "missions",
         "financial_entries",
+        "documents",
         "history_events",
       ],
       fixed: true,
@@ -610,6 +619,9 @@ async function buildDossierWorkSnapshot({
       },
       missions: {
         total: missions.length,
+      },
+      documents: {
+        total: documents.length,
       },
       financial: {
         total: financialEntries.length,
@@ -932,7 +944,7 @@ async function handleReadDossier(state) {
     }
     details.push(`Snapshot timestamp: ${snapshot.snapshotAt}`);
     details.push(
-      `Snapshot scope: dossier #${snapshot.entityId} (tasks, sessions, hearings, deadline, workload fixed)`,
+      `Snapshot scope: dossier #${snapshot.entityId} (tasks, sessions, hearings, documents, deadline, workload fixed)`,
     );
     details.push(`Title: ${dossierView?.title || "Untitled"}`);
     details.push(`Status: ${dossierView?.status || "open"}`);
@@ -1167,7 +1179,7 @@ async function handleExplainDossier(state) {
       }
       details.push(`Snapshot timestamp: ${snapshot.snapshotAt}`);
       details.push(
-        `Snapshot scope: dossier #${snapshot.entityId} (tasks, sessions, hearings, deadline, workload fixed)`,
+        `Snapshot scope: dossier #${snapshot.entityId} (tasks, sessions, hearings, documents, deadline, workload fixed)`,
       );
       details.push(
         `Status: ${dossierView.status || "open"} (priority ${dossierView.priority || "medium"})`,
@@ -1176,7 +1188,7 @@ async function handleExplainDossier(state) {
         `Phase: ${dossierView.phase || "not set"} • Assignment: ${dossierView.assigned_lawyer || "unassigned"} • Urgency: ${workContext.urgency}`,
       );
       details.push(
-        `Relationships: ${workContext.totalLawsuits} lawsuit(s), ${workContext.totalTasks} task(s), ${workContext.totalSessions} session(s), ${workContext.totalMissions} mission(s), ${workContext.totalFinancialEntries} financial entry(ies)`,
+      `Relationships: ${workContext.totalLawsuits} lawsuit(s), ${workContext.totalTasks} task(s), ${workContext.totalSessions} session(s), ${workContext.totalMissions} mission(s), ${workContext.totalFinancialEntries} financial entry(ies), ${workContext.totalDocuments} document(s)`,
       );
       details.push(
         workContext.blockedTasks > 0 ||
@@ -1206,10 +1218,10 @@ async function handleExplainDossier(state) {
     }
     details.push(`Snapshot timestamp: ${snapshot.snapshotAt}`);
     details.push(
-      `Snapshot scope: dossier #${snapshot.entityId} (tasks, sessions, hearings, deadline, workload fixed)`,
+      `Snapshot scope: dossier #${snapshot.entityId} (tasks, sessions, hearings, documents, deadline, workload fixed)`,
     );
     details.push(
-      `Summary: status ${dossierView.status || "open"}, ${workContext.totalTasks} task(s), ${workContext.totalSessions} session(s), ${workContext.totalFinancialEntries} financial entry(ies)`,
+      `Summary: status ${dossierView.status || "open"}, ${workContext.totalTasks} task(s), ${workContext.totalSessions} session(s), ${workContext.totalFinancialEntries} financial entry(ies), ${workContext.totalDocuments} document(s)`,
     );
     details.push(
       `Phase: ${dossierView.phase || "not set"} • Assignment: ${dossierView.assigned_lawyer || "unassigned"} • Urgency: ${workContext.urgency}`,

@@ -58,6 +58,8 @@ function _resolveReadEntityType(intent) {
     [READ_INTENTS.SUMMARIZE_NOTIFICATION]: "notification",
     [READ_INTENTS.LIST_HISTORY_EVENTS]: "history_event",
     [READ_INTENTS.READ_HISTORY_EVENT]: "history_event",
+    [READ_INTENTS.LIST_DOCUMENTS]: "document",
+    [READ_INTENTS.READ_DOCUMENT]: "document",
     [READ_INTENTS.EXPLAIN_HISTORY_STATE]: "history_event",
     [READ_INTENTS.SUMMARIZE_HISTORY]: "history_event",
     [READ_INTENTS.SUMMARIZE_DOCUMENT]: "document",

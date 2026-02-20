@@ -5,7 +5,7 @@ const Ajv = require("ajv");
 const addFormats = require("ajv-formats");
 const AgentEngine = require("./agent.engine");
 const { ChatAgentService } = require("./chat/chat.agent.service");
-const { getAvailableCommands } = require("./intent.classifier");
+const { getAvailableCommands, detectReadIntent, READ_INTENTS } = require("./intent.classifier");
 const { streamLLM } = require("./llm/stream.provider");
 const db = require("../db/connection");
 const documentGenerationService = require("../services/documentGeneration/documentGeneration.service");
@@ -1896,6 +1896,57 @@ router.post("/agent/chat", async (req, res) => {
         timestamp: new Date().toISOString(),
         mode: "chatbot",
         toolCalls: 1,
+        interactionMode,
+      });
+      return;
+    }
+
+    const preReadIntent = detectReadIntent(message, requestContext);
+    const shouldPreRouteRead =
+      preReadIntent &&
+      preReadIntent.intent !== READ_INTENTS.WEB_SEARCH &&
+      preReadIntent.intent !== READ_INTENTS.DEEP_SEARCH;
+    if (shouldPreRouteRead) {
+      const runResult = await agentEngine.run({
+        message,
+        context: requestContext,
+        agentVersion: agentVersion || "v3",
+        reasoner: "rule",
+        followUpIntent,
+        documentContext: requestContext?.documentContext || null,
+      });
+      const interactionMode = resolveInteractionMode({
+        output: runResult?.output,
+        intent: runResult?.intent || "READ_DATA",
+        result: runResult,
+        toolExecutions: [],
+        documentContext: requestContext?.documentContext || null,
+      });
+      agentEngine.ledger.record({
+        type: "interaction_mode_selected",
+        mode: interactionMode,
+        endpoint: "/agent/chat",
+        timestamp: new Date().toISOString(),
+      });
+      emitIntent({
+        message: "Running deterministic read flow for this request.",
+        action: runResult?.intent || "READ_DATA",
+        missingEntities: [],
+        interactionMode,
+      });
+      emit("result", {
+        output: runResult?.output || {
+          type: "chat",
+          message: "No output produced by read flow.",
+        },
+        intent: runResult?.intent || "READ_DATA",
+        visibility: "visible",
+        interactionMode,
+      });
+      emit("done", {
+        timestamp: new Date().toISOString(),
+        mode: "chatbot",
+        toolCalls: 0,
         interactionMode,
       });
       return;

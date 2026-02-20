@@ -63,6 +63,8 @@ const TOOL_DOMAIN_MAP = Object.freeze({
   findClientsWithOverdueInvoices: "financialEntries",
   listNotifications: "notifications",
   getNotification: "notifications",
+  listDocuments: "documents",
+  getDocument: "documents",
   listHistoryEvents: "history",
   getHistoryEvent: "history",
 

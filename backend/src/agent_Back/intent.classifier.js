@@ -15,6 +15,7 @@ const DATA_REQUIREMENTS = Object.freeze({
   MISSION: "mission",
   OFFICER: "officer",
   FINANCIAL_ENTRY: "financial_entry",
+  DOCUMENT: "document",
   NOTIFICATION: "notification",
   HISTORY_EVENT: "history_event",
   SESSION: "session",
@@ -427,6 +428,8 @@ function detectDataRequirements(message, context = {}) {
     officer: /\b(officer|officers|bailiff|bailiffs|huissier|huissiers)\b/i,
     financial_entry:
       /\b(accounting|financial|invoice|payment|expense|billing|entry|entries)\b/i,
+    document:
+      /\b(document|documents|file|files|attachment|attachments|pdf|docx|resume|cv|letter|report)\b/i,
     notification: /\b(notification|notifications|alert|alerts)\b/i,
     history_event: /\b(history|audit\s*trail|activity\s*log|audit)\b/i,
   };
@@ -1619,9 +1622,9 @@ function detectReadIntent(message, context = {}) {
       };
     if (entityType === "document")
       return {
-        intent: READ_INTENTS.SUMMARIZE_DOCUMENT,
+        intent: READ_INTENTS.LIST_DOCUMENTS,
         requiresLocalData: true,
-        allowedTools: [],
+        allowedTools: ["listDocuments"],
         entityHints: extractedHints,
       };
   }
@@ -1708,9 +1711,9 @@ function detectReadIntent(message, context = {}) {
       };
     if (entityType === "document")
       return {
-        intent: READ_INTENTS.SUMMARIZE_DOCUMENT,
+        intent: READ_INTENTS.READ_DOCUMENT,
         requiresLocalData: true,
-        allowedTools: [],
+        allowedTools: ["getDocument", "listDocuments"],
         entityHints: nameHints,
       };
   }

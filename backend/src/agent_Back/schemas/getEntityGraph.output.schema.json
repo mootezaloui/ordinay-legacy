@@ -19,7 +19,8 @@
         "lawsuits": { "type": "array", "items": { "$ref": "#/definitions/graphNode" } },
         "tasks": { "type": "array", "items": { "$ref": "#/definitions/graphNode" } },
         "missions": { "type": "array", "items": { "$ref": "#/definitions/graphNode" } },
-        "sessions": { "type": "array", "items": { "$ref": "#/definitions/graphNode" } }
+        "sessions": { "type": "array", "items": { "$ref": "#/definitions/graphNode" } },
+        "documents": { "type": "array", "items": { "$ref": "#/definitions/graphNode" } }
       },
       "additionalProperties": false
     },
@@ -31,6 +32,7 @@
         "totalTasks": { "type": "integer", "minimum": 0 },
         "totalMissions": { "type": "integer", "minimum": 0 },
         "totalSessions": { "type": "integer", "minimum": 0 },
+        "totalDocuments": { "type": "integer", "minimum": 0 },
         "overdueDeadlines": { "type": "integer", "minimum": 0 },
         "upcomingWithin7Days": { "type": "integer", "minimum": 0 },
         "upcomingWithin30Days": { "type": "integer", "minimum": 0 }
@@ -41,6 +43,7 @@
         "totalTasks",
         "totalMissions",
         "totalSessions",
+        "totalDocuments",
         "overdueDeadlines",
         "upcomingWithin7Days",
         "upcomingWithin30Days"
@@ -60,7 +63,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["client", "dossier", "lawsuit", "task", "mission", "session"]
+          "enum": ["client", "dossier", "lawsuit", "task", "mission", "session", "document"]
         },
         "id": { "type": "integer", "minimum": 1 },
         "name": { "type": ["string", "null"] },

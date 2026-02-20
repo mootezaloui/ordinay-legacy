@@ -36,6 +36,8 @@ const getFinancialEntryTool = require("./read/getFinancialEntry.tool");
 const findClientsWithOverdueInvoicesTool = require("./read/findClientsWithOverdueInvoices.tool");
 const listNotificationsTool = require("./read/listNotifications.tool");
 const getNotificationTool = require("./read/getNotification.tool");
+const listDocumentsTool = require("./read/listDocuments.tool");
+const getDocumentTool = require("./read/getDocument.tool");
 const listHistoryEventsTool = require("./read/listHistoryEvents.tool");
 const getHistoryEventTool = require("./read/getHistoryEvent.tool");
 const getTimelineTool = require("./read/getTimeline.tool");
@@ -107,6 +109,8 @@ function initializeToolRegistry() {
   registry.register(findClientsWithOverdueInvoicesTool);
   registry.register(listNotificationsTool);
   registry.register(getNotificationTool);
+  registry.register(listDocumentsTool);
+  registry.register(getDocumentTool);
   registry.register(listHistoryEventsTool);
   registry.register(getHistoryEventTool);
   registry.register(getTimelineTool);

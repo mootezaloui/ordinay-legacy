@@ -258,6 +258,124 @@ function resolveDocumentScope(context, engine) {
   return null;
 }
 
+function buildDocumentScopeParams(context, engine) {
+  const scope = resolveDocumentScope(context, engine);
+  if (!scope) return {};
+
+  const map = {
+    client: "clientId",
+    dossier: "dossierId",
+    lawsuit: "lawsuitId",
+    mission: "missionId",
+    task: "taskId",
+    session: "sessionId",
+    personal_task: "personalTaskId",
+    financial_entry: "financialEntryId",
+    officer: "officerId",
+  };
+  const key = map[scope.type];
+  if (!key) return {};
+  return { [key]: scope.id };
+}
+
+async function handleListDocuments(state) {
+  const { message, context, details, sources, policy, filters = {}, entityHints = [] } = state;
+  let { data, title, summary } = state;
+  title = "Read data — Documents";
+
+  const hintedId = entityHints.find((hint) => hint.type === "id" && (!hint.entityType || hint.entityType === "document"))?.value;
+  if (hintedId) {
+    const result = await this._callReadTool("getDocument", { documentId: Number(hintedId) }, policy);
+    const doc = result?.document || null;
+    if (!doc) {
+      summary = `No document found for ID ${hintedId}.`;
+      return { data: null, title, summary };
+    }
+    summary = `Found document: ${formatDocumentLabel(doc)}.`;
+    details.push(`Document: ${formatDocumentLabel(doc)}`);
+    details.push(`Status: ${doc.text_status || "processing"}`);
+    sources.push({ sourceType: "system", reference: "tool:getDocument", note: "Document lookup by ID" });
+    return { data: doc, title, summary };
+  }
+
+  const scopeParams = buildDocumentScopeParams(context, this);
+  const scopedQuery =
+    String(filters.query || "").trim() ||
+    String(extractDocumentQuery(message) || "").trim() ||
+    null;
+
+  const listResult = await this._callReadTool(
+    "listDocuments",
+    {
+      ...scopeParams,
+      query: scopedQuery,
+      textStatus: filters.textStatus || null,
+      limit: Number.isInteger(filters.limit) ? filters.limit : 50,
+    },
+    policy,
+  );
+
+  const documents = Array.isArray(listResult?.documents) ? listResult.documents : [];
+  const count = Number(listResult?.count || documents.length || 0);
+
+  if (count === 0) {
+    const scope = resolveDocumentScope(context, this);
+    summary = scope
+      ? `No documents found for this ${scope.type}.`
+      : "No documents found.";
+    sources.push({ sourceType: "system", reference: "tool:listDocuments", note: "Document list" });
+    return { data: [], title, summary };
+  }
+
+  summary = `Found ${count} document(s).`;
+  documents.slice(0, 10).forEach((doc) => {
+    const status = doc.text_status || "processing";
+    details.push(`${formatDocumentLabel(doc)} - ${status}`);
+  });
+  sources.push({ sourceType: "system", reference: "tool:listDocuments", note: "Document list" });
+  data = documents;
+  return { data, title, summary };
+}
+
+async function handleReadDocument(state) {
+  const { message, context, details, sources, policy, entityHints = [] } = state;
+  let { data, title, summary } = state;
+  title = "Read data — Document";
+
+  const hintedId = entityHints.find((hint) => hint.type === "id" && (!hint.entityType || hint.entityType === "document"))?.value;
+  const hintedName = entityHints.find((hint) => hint.type === "name" && (!hint.entityType || hint.entityType === "document"))?.value;
+  const fallbackQuery = hintedName || extractDocumentQuery(message) || null;
+  const scopeParams = buildDocumentScopeParams(context, this);
+
+  const result = await this._callReadTool(
+    "getDocument",
+    {
+      ...scopeParams,
+      documentId: hintedId ? Number(hintedId) : null,
+      query: hintedId ? null : fallbackQuery,
+    },
+    policy,
+  );
+
+  const document = result?.document || null;
+  if (!document) {
+    summary = fallbackQuery
+      ? `No document found matching "${fallbackQuery}".`
+      : "No document found for this scope.";
+    sources.push({ sourceType: "system", reference: "tool:getDocument", note: "Document lookup" });
+    return { data: null, title, summary };
+  }
+
+  summary = `Document: ${formatDocumentLabel(document)}.`;
+  details.push(`Status: ${document.text_status || "processing"}`);
+  if (document.text_length) {
+    details.push(`Text length: ${formatDocLength(document.text_length)} characters`);
+  }
+  sources.push({ sourceType: "system", reference: "tool:getDocument", note: "Document lookup" });
+  data = document;
+  return { data, title, summary };
+}
+
 async function handleSummarizeDocument(state) {
   const { message, context, details, sources, policy } = state;
   let { data, title, summary } = state;
@@ -714,5 +832,7 @@ async function handleSummarizeDocument(state) {
 }
 
 module.exports = {
+  handleListDocuments,
+  handleReadDocument,
   handleSummarizeDocument,
 };

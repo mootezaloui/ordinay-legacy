@@ -13,6 +13,7 @@ const lawsuitsService = require("../../../services/lawsuits.service");
 const tasksService = require("../../../services/tasks.service");
 const missionsService = require("../../../services/missions.service");
 const sessionsService = require("../../../services/sessions.service");
+const documentsService = require("../../../services/documents.service");
 const { TOOL_CATEGORIES } = require("../tool.registry");
 const inputSchema = require("../../schemas/getEntityGraph.input.schema.json");
 const outputSchema = require("../../schemas/getEntityGraph.output.schema.json");
@@ -23,6 +24,7 @@ const CHILD_CATEGORIES = Object.freeze([
   "tasks",
   "missions",
   "sessions",
+  "documents",
 ]);
 
 const CATEGORY_TO_DOMAIN = Object.freeze({
@@ -31,6 +33,7 @@ const CATEGORY_TO_DOMAIN = Object.freeze({
   tasks: "tasks",
   missions: "missions",
   sessions: "sessions",
+  documents: "documents",
 });
 
 const CLOSED_STATUSES = Object.freeze({
@@ -40,6 +43,7 @@ const CLOSED_STATUSES = Object.freeze({
   task: ["done", "completed", "cancelled", "closed"],
   mission: ["completed", "cancelled", "closed"],
   session: ["completed", "cancelled", "closed"],
+  document: [],
 });
 
 function toIso(value) {
@@ -67,6 +71,7 @@ function resolveUpcomingDate(type, row) {
   if (type === "task") return toIso(row.due_date || row.completed_at);
   if (type === "mission") return toIso(row.due_date || row.completion_date || row.assign_date);
   if (type === "session") return toIso(row.scheduled_at || row.session_date);
+  if (type === "document") return toIso(row.uploaded_at || row.updated_at || row.created_at);
   if (type === "client") return toIso(row.join_date);
   return null;
 }
@@ -206,6 +211,7 @@ function collectMetrics(children) {
     totalTasks: Array.isArray(children?.tasks) ? children.tasks.length : 0,
     totalMissions: Array.isArray(children?.missions) ? children.missions.length : 0,
     totalSessions: Array.isArray(children?.sessions) ? children.sessions.length : 0,
+    totalDocuments: Array.isArray(children?.documents) ? children.documents.length : 0,
     overdueDeadlines,
     upcomingWithin7Days,
     upcomingWithin30Days,
@@ -220,6 +226,7 @@ function getDataset() {
     tasks: sortRows(tasksService.list()),
     missions: sortRows(missionsService.list()),
     sessions: sortRows(sessionsService.list()),
+    documents: sortRows(documentsService.list()),
   };
 }
 
@@ -243,12 +250,27 @@ function findRoot(dataset, entityType, entityId) {
 }
 
 function collectDirectChildren({ dataset, rootType, rootId, categoryAllowance, nowMs }) {
-  const direct = { dossiers: [], lawsuits: [], tasks: [], missions: [], sessions: [] };
+  const direct = {
+    dossiers: [],
+    lawsuits: [],
+    tasks: [],
+    missions: [],
+    sessions: [],
+    documents: [],
+  };
+
+  const collectDocumentsByColumn = (column, value) =>
+    dataset.documents
+      .filter((row) => Number(row[column]) === Number(value))
+      .map((row) => toGraphNode("document", row, nowMs));
 
   if (rootType === "client" && categoryAllowance.dossiers) {
     direct.dossiers = dataset.dossiers
       .filter((row) => Number(row.client_id) === rootId)
       .map((row) => toGraphNode("dossier", row, nowMs));
+  }
+  if (rootType === "client" && categoryAllowance.documents) {
+    direct.documents = collectDocumentsByColumn("client_id", rootId);
   }
 
   if (rootType === "dossier") {
@@ -272,6 +294,9 @@ function collectDirectChildren({ dataset, rootType, rootId, categoryAllowance, n
         .filter((row) => Number(row.dossier_id) === rootId)
         .map((row) => toGraphNode("session", row, nowMs));
     }
+    if (categoryAllowance.documents) {
+      direct.documents = collectDocumentsByColumn("dossier_id", rootId);
+    }
   }
 
   if (rootType === "lawsuit") {
@@ -290,6 +315,16 @@ function collectDirectChildren({ dataset, rootType, rootId, categoryAllowance, n
         .filter((row) => Number(row.lawsuit_id) === rootId)
         .map((row) => toGraphNode("session", row, nowMs));
     }
+    if (categoryAllowance.documents) {
+      direct.documents = collectDocumentsByColumn("lawsuit_id", rootId);
+    }
+  }
+
+  if (rootType === "task" && categoryAllowance.documents) {
+    direct.documents = collectDocumentsByColumn("task_id", rootId);
+  }
+  if (rootType === "mission" && categoryAllowance.documents) {
+    direct.documents = collectDocumentsByColumn("mission_id", rootId);
   }
 
   return direct;
@@ -302,8 +337,19 @@ function collectDepthTwoChildren({
   categoryAllowance,
   nowMs,
 }) {
+  const addDocumentsByColumn = (column, id) => {
+    if (!categoryAllowance.documents) return;
+    const docs = dataset.documents.filter((row) => Number(row[column]) === Number(id));
+    for (const doc of docs) {
+      addNode(categoryMap, "documents", toGraphNode("document", doc, nowMs));
+    }
+  };
+
   const directDossiers = directChildren.dossiers || [];
   const directLawsuits = directChildren.lawsuits || [];
+  const directTasks = directChildren.tasks || [];
+  const directMissions = directChildren.missions || [];
+  const directSessions = directChildren.sessions || [];
 
   for (const node of directDossiers) {
     const dossierId = node.id;
@@ -311,6 +357,7 @@ function collectDepthTwoChildren({
       const lawsuits = dataset.lawsuits.filter((row) => Number(row.dossier_id) === dossierId);
       for (const lawsuit of lawsuits) {
         addNode(categoryMap, "lawsuits", toGraphNode("lawsuit", lawsuit, nowMs));
+        addDocumentsByColumn("lawsuit_id", lawsuit.id);
       }
     }
     if (categoryAllowance.tasks) {
@@ -331,6 +378,7 @@ function collectDepthTwoChildren({
         addNode(categoryMap, "sessions", toGraphNode("session", session, nowMs));
       }
     }
+    addDocumentsByColumn("dossier_id", dossierId);
   }
 
   for (const node of directLawsuits) {
@@ -353,6 +401,17 @@ function collectDepthTwoChildren({
         addNode(categoryMap, "sessions", toGraphNode("session", session, nowMs));
       }
     }
+    addDocumentsByColumn("lawsuit_id", lawsuitId);
+  }
+
+  for (const taskNode of directTasks) {
+    addDocumentsByColumn("task_id", taskNode.id);
+  }
+  for (const missionNode of directMissions) {
+    addDocumentsByColumn("mission_id", missionNode.id);
+  }
+  for (const sessionNode of directSessions) {
+    addDocumentsByColumn("session_id", sessionNode.id);
   }
 }
 
@@ -424,6 +483,7 @@ async function getEntityGraph(
       totalTasks: 0,
       totalMissions: 0,
       totalSessions: 0,
+      totalDocuments: 0,
       overdueDeadlines: 0,
       upcomingWithin7Days: 0,
       upcomingWithin30Days: 0,

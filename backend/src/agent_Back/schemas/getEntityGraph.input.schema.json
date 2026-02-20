@@ -24,7 +24,7 @@
       "type": "array",
       "items": {
         "type": "string",
-        "enum": ["dossiers", "lawsuits", "tasks", "missions", "sessions"]
+        "enum": ["dossiers", "lawsuits", "tasks", "missions", "sessions", "documents"]
       },
       "uniqueItems": true
     },
@@ -35,7 +35,8 @@
         "lawsuits": { "type": "boolean" },
         "tasks": { "type": "boolean" },
         "missions": { "type": "boolean" },
-        "sessions": { "type": "boolean" }
+        "sessions": { "type": "boolean" },
+        "documents": { "type": "boolean" }
       },
       "additionalProperties": false
     }
