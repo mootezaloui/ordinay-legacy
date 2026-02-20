@@ -36,6 +36,7 @@ function createOperationalContext({
   workMode = null,
   posture = null,
   pendingSelection = null,
+  pendingOperation = null,
   lastSnapshot = null,
   lastIntent = null,
   lastEntityType = null,
@@ -49,6 +50,7 @@ function createOperationalContext({
     workMode: workMode ? Object.freeze({ ...workMode }) : null,
     posture: posture || null,
     pendingSelection: pendingSelection ? Object.freeze({ ...pendingSelection }) : null,
+    pendingOperation: pendingOperation ? Object.freeze({ ...pendingOperation }) : null,
     lastSnapshot: lastSnapshot ? Object.freeze({ ...lastSnapshot }) : null,
     lastIntent: lastIntent || null,
     lastEntityType: lastEntityType || null,
@@ -106,6 +108,10 @@ class OperationalContextStore {
       workMode: updates.workMode !== undefined ? updates.workMode : existing?.workMode,
       posture: updates.posture !== undefined ? updates.posture : existing?.posture,
       pendingSelection: updates.pendingSelection !== undefined ? updates.pendingSelection : existing?.pendingSelection,
+      pendingOperation:
+        updates.pendingOperation !== undefined
+          ? updates.pendingOperation
+          : existing?.pendingOperation,
       lastSnapshot: updates.lastSnapshot !== undefined ? updates.lastSnapshot : existing?.lastSnapshot,
       lastIntent: updates.lastIntent !== undefined ? updates.lastIntent : existing?.lastIntent,
       lastEntityType: updates.lastEntityType !== undefined ? updates.lastEntityType : existing?.lastEntityType,

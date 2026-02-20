@@ -157,6 +157,13 @@ export interface FollowUpSuggestion {
     id: string | number;
     label: string;
   };
+  pendingOperationId?: string;
+  resolutionInput?: {
+    entityType?: string;
+    id?: string | number;
+    reference?: string;
+    name?: string;
+  };
   filters?: {
     status?: string | null;
     priority?: string | null;
@@ -318,6 +325,13 @@ export interface FollowUpIntent {
   };
   selectionId?: string | number;
   selectionCategory?: string;
+  pendingOperationId?: string;
+  resolutionInput?: {
+    entityType?: string;
+    id?: string | number;
+    reference?: string;
+    name?: string;
+  };
 
   filters?: {
     status?: string | null;
@@ -468,6 +482,7 @@ export interface ContextSuggestionOutput {
   originalIntent?: string;
   originalDraftType?: string;
   originalMessage?: string;
+  pendingOperationId?: string;
 
   suggestions: ContextSuggestionItem[];
   timestamp: string;
@@ -502,6 +517,7 @@ export interface ContextSuggestionItem {
   resolveContext?: {
     originalIntent: string;
     originalDraftType?: string;
+    pendingOperationId?: string;
   };
 }
 
@@ -530,6 +546,7 @@ export interface RecoveryOutput {
     targetId?: number | null;
     reference?: string | null;
     intent?: string | null;
+    pendingOperationId?: string | null;
   } | null;
   severity: 'blocking' | 'partial' | 'temporary';
 }

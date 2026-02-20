@@ -48,6 +48,10 @@
       "type": "string",
       "description": "Original user message"
     },
+    "pendingOperationId": {
+      "type": "string",
+      "description": "Optional pending operation identifier for resume-first orchestration"
+    },
     "capability": {
       "type": "string",
       "description": "Optional capability lock for this clarification"
@@ -119,6 +123,10 @@
               "originalDraftType": {
                 "type": "string",
                 "description": "Original draft type to resume after selection"
+              },
+              "pendingOperationId": {
+                "type": "string",
+                "description": "Pending operation identifier to attach to follow-up payload"
               }
             }
           }

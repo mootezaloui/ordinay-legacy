@@ -153,6 +153,7 @@ class ConversationContextStore {
         activeEntitySource: operational.activeEntity?.source || null,
         workSnapshot: operational.lastSnapshot,
         pendingSelection: operational.pendingSelection,
+        pendingOperation: operational.pendingOperation || null,
         lastPosture: operational.posture,
         lastIntent: operational.lastIntent,
         lastEntityType: operational.lastEntityType,
@@ -280,6 +281,10 @@ class ConversationContextStore {
       actionResult.pendingSelection !== undefined
         ? actionResult.pendingSelection
         : previous?.pendingSelection ?? null;
+    const nextPendingOperation =
+      actionResult.pendingOperation !== undefined
+        ? actionResult.pendingOperation
+        : previous?.pendingOperation ?? null;
     const nextWorkSnapshot = this._resolveNextWorkSnapshot(
       previous?.workSnapshot || null,
       actionResult.workSnapshotEvent,
@@ -300,6 +305,7 @@ class ConversationContextStore {
       activeEntityId: nextActiveEntityId,
       activeEntitySource: nextActiveEntitySource,
       pendingSelection: nextPendingSelection,
+      pendingOperation: nextPendingOperation,
       workSnapshot: nextWorkSnapshot,
       lastQuery: actionResult.query || '',
       source: actionResult.source || CONTEXT_SOURCES.NLP,
@@ -317,6 +323,7 @@ class ConversationContextStore {
       workMode: null, // TODO: Extract from actionResult if available
       posture: posture ? posture.mode : null,
       pendingSelection: nextPendingSelection,
+      pendingOperation: nextPendingOperation,
       lastSnapshot: nextWorkSnapshot,
       lastIntent: actionResult.intent,
       lastEntityType: actionResult.entityType || null,
@@ -512,6 +519,7 @@ class ConversationContextStore {
       workMode: operational?.workMode || null,
       posture: operational?.posture || null,
       pendingSelection: operational?.pendingSelection || null,
+      pendingOperation: operational?.pendingOperation || null,
       lastSnapshot: operational?.lastSnapshot || null,
 
       // Legacy fields for backward compatibility

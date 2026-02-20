@@ -1051,6 +1051,131 @@ function loadRecentEntityIds(entityType, limit = 5) {
   return Array.isArray(rows) ? rows.map((r) => Number(r.id)).filter(Boolean) : [];
 }
 
+function inferPendingBindingEntityType(generationRequest = {}) {
+  const hinted = String(generationRequest?.targetHints?.hintedType || "")
+    .trim()
+    .toLowerCase();
+  if (hinted) return hinted;
+  const ref = String(generationRequest?.targetHints?.reference || "").toUpperCase();
+  if (ref.startsWith("DOS-")) return "dossier";
+  if (ref.startsWith("L-")) return "lawsuit";
+  return "dossier";
+}
+
+function buildDocumentGenerationPendingDescriptor({
+  generationRequest,
+  agentVersion = "v3",
+  sourceRoute = "/agent/chat",
+} = {}) {
+  const bindingEntityType = inferPendingBindingEntityType(generationRequest);
+  return {
+    operationType: "document_generation",
+    lockedCapability: "draft",
+    originalIntent: "DOCUMENT_GENERATION",
+    originalMessage: generationRequest?.instructions || null,
+    policyVersion: agentVersion || "v3",
+    requiredBindings: [
+      {
+        entityType: bindingEntityType,
+        resolverStrategy: "reference_or_name",
+        scopeConstraints: null,
+      },
+    ],
+    resolvedBindings: {},
+    executionDescriptor: {
+      resumeType: "document_generation_preview",
+      generationRequest: {
+        target: null,
+        targetHints: generationRequest?.targetHints || null,
+        documentType: generationRequest?.documentType || null,
+        language: generationRequest?.language || "en",
+        format: generationRequest?.format || "pdf",
+        instructions: generationRequest?.instructions || "",
+      },
+    },
+    auditMeta: {
+      route: sourceRoute,
+      reason: "target_unresolved",
+    },
+  };
+}
+
+async function tryResumePendingDocumentGeneration({
+  requestContext,
+  message,
+  followUpIntent,
+  sessionId,
+  userId,
+} = {}) {
+  const pending = agentEngine.getPendingOperation(requestContext);
+  if (!pending || String(pending.operationType || "").toLowerCase() !== "document_generation") {
+    return null;
+  }
+
+  const normalizedMessage = String(message || "").trim();
+  if (/^(cancel|stop|never\s*mind|nevermind|start over|forget it)$/i.test(normalizedMessage)) {
+    agentEngine.clearPendingOperation(requestContext, "user_cancelled");
+    return null;
+  }
+
+  if (
+    followUpIntent?.pendingOperationId &&
+    String(followUpIntent.pendingOperationId) !== String(pending.id)
+  ) {
+    return null;
+  }
+
+  const updated = await agentEngine.applyResolutionInput(
+    requestContext,
+    normalizedMessage,
+    followUpIntent,
+  );
+  const candidate = updated || pending;
+  if (!agentEngine.canResumePendingOperation(candidate)) {
+    return null;
+  }
+
+  const resumed = await agentEngine.resumePendingOperation(requestContext, {
+    document_generation: async ({ pendingOperation, executionDescriptor }) => {
+      const resolvedBindings = pendingOperation?.resolvedBindings || {};
+      const descriptorReq =
+        executionDescriptor?.generationRequest ||
+        pendingOperation?.executionDescriptor?.generationRequest ||
+        null;
+      if (!descriptorReq || typeof descriptorReq !== "object") return null;
+
+      const targetType = inferPendingBindingEntityType({
+        targetHints: descriptorReq?.targetHints || null,
+      });
+      const boundEntity =
+        resolvedBindings[targetType] ||
+        Object.values(resolvedBindings || {}).find((row) => row && row.id) ||
+        null;
+      if (!boundEntity?.id) return null;
+
+      const generationRequest = {
+        ...descriptorReq,
+        target: {
+          type: boundEntity.type || targetType,
+          id: Number(boundEntity.id),
+        },
+      };
+      const output = await buildDocumentGenerationPreviewArtifact({
+        requestContext,
+        userId,
+        sessionId,
+        generationRequest,
+      });
+      return {
+        intent: "DOCUMENT_GENERATION",
+        output,
+      };
+    },
+  });
+
+  return resumed && resumed.output ? resumed : null;
+}
+
 async function detectDocumentGenerationIntent(message, context = {}) {
   const text = String(message || "").trim();
   if (!text) return null;
@@ -1224,6 +1349,7 @@ async function buildDocumentGenerationPreviewArtifact({
         targetType,
         targetId: normalizedTargetId,
         reference,
+        pendingOperationId: requestContext?.pendingOperationId || null,
       },
     );
     return mapped.recovery;
@@ -1315,11 +1441,52 @@ router.post("/agent/run", async (req, res, next) => {
     const effectiveMessage =
       hasMessage || followUpIntent || !hasDocuments ? message : "uploaded file";
 
+    const resumedPending = await tryResumePendingDocumentGeneration({
+      requestContext,
+      message: effectiveMessage,
+      followUpIntent,
+      sessionId,
+      userId: req.user?.id || null,
+    });
+    if (resumedPending) {
+      return res.json({
+        status: "ok",
+        data: {
+          intent: resumedPending.intent || "DOCUMENT_GENERATION",
+          output: resumedPending.output,
+          agentVersion: agentVersion || "v3",
+          reasoner: "pending-operation",
+          needsClarification:
+            resumedPending?.output?.type === "document_generation_missing_fields",
+        },
+      });
+    }
+
     const generationRequest = await detectDocumentGenerationIntent(
       effectiveMessage,
       requestContext,
     );
     if (generationRequest) {
+      if (!generationRequest?.target?.id) {
+        const pendingOperation = agentEngine.beginPendingOperation(
+          requestContext,
+          buildDocumentGenerationPendingDescriptor({
+            generationRequest,
+            agentVersion: agentVersion || "v3",
+            sourceRoute: "/agent/run",
+          }),
+        );
+        requestContext.pendingOperationId = pendingOperation?.id || null;
+      } else {
+        const currentPending = agentEngine.getPendingOperation(requestContext);
+        if (
+          currentPending &&
+          String(currentPending.operationType || "").toLowerCase() ===
+            "document_generation"
+        ) {
+          agentEngine.clearPendingOperation(requestContext, "target_resolved_new_turn");
+        }
+      }
       const output = await buildDocumentGenerationPreviewArtifact({
         requestContext,
         userId: req.user?.id || null,
@@ -1508,7 +1675,67 @@ router.post("/agent/chat", async (req, res) => {
     });
 
     const generationRequest = await detectDocumentGenerationIntent(message, requestContext);
+    const resumedPending = await tryResumePendingDocumentGeneration({
+      requestContext,
+      message,
+      followUpIntent,
+      sessionId,
+      userId: req.user?.id || null,
+    });
+    if (resumedPending) {
+      const interactionMode = resolveInteractionMode({
+        output: resumedPending.output,
+        intent: resumedPending.intent || "DOCUMENT_GENERATION",
+        toolExecutions: [],
+        documentContext: requestContext?.documentContext || null,
+      });
+      agentEngine.ledger.record({
+        type: "interaction_mode_selected",
+        mode: interactionMode,
+        endpoint: "/agent/chat",
+        timestamp: new Date().toISOString(),
+      });
+      emitIntent({
+        message: "Resuming your previous request with the selected entity.",
+        action: "DOCUMENT_GENERATION",
+        missingEntities: [],
+        interactionMode,
+      });
+      emit("result", {
+        output: resumedPending.output,
+        intent: resumedPending.intent || "DOCUMENT_GENERATION",
+        visibility: "visible",
+        interactionMode,
+      });
+      emit("done", {
+        timestamp: new Date().toISOString(),
+        mode: "chatbot",
+        toolCalls: 1,
+        interactionMode,
+      });
+      return;
+    }
     if (generationRequest) {
+      if (!generationRequest?.target?.id) {
+        const pendingOperation = agentEngine.beginPendingOperation(
+          requestContext,
+          buildDocumentGenerationPendingDescriptor({
+            generationRequest,
+            agentVersion: agentVersion || "v3",
+            sourceRoute: "/agent/chat",
+          }),
+        );
+        requestContext.pendingOperationId = pendingOperation?.id || null;
+      } else {
+        const currentPending = agentEngine.getPendingOperation(requestContext);
+        if (
+          currentPending &&
+          String(currentPending.operationType || "").toLowerCase() ===
+            "document_generation"
+        ) {
+          agentEngine.clearPendingOperation(requestContext, "target_resolved_new_turn");
+        }
+      }
       const artifact = await buildDocumentGenerationPreviewArtifact({
         requestContext,
         userId: req.user?.id || null,

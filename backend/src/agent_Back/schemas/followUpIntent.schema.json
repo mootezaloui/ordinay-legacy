@@ -103,6 +103,21 @@
     "capability": {
       "type": "string",
       "description": "Optional capability selection for routing clarification"
+    },
+    "pendingOperationId": {
+      "type": "string",
+      "description": "Optional pending operation identifier for resume-first orchestration"
+    },
+    "resolutionInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional normalized resolution payload for pending operation binding",
+      "properties": {
+        "entityType": { "type": "string" },
+        "id": { "type": ["string", "number"] },
+        "reference": { "type": "string" },
+        "name": { "type": "string" }
+      }
     }
   }
 }

@@ -403,6 +403,8 @@ export function useAgentState() {
       originalIntent: followUp.originalIntent,
       originalDraftType: followUp.originalDraftType,
       originalMessage: followUp.originalMessage,
+      pendingOperationId: followUp.pendingOperationId,
+      resolutionInput: followUp.resolutionInput,
       resolvedEntity: followUp.resolvedEntity,
       selectionId: followUp.selectionId,
       selectionCategory: followUp.selectionCategory,

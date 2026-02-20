@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { AgentTopBar } from "./components/AgentTopBar";
 import { AgentInput } from "./components/AgentInput";
 import { AgentConversation } from "./components/AgentConversation";
@@ -9,6 +9,7 @@ import { AgentHistorySidebar } from "./sidebar/AgentHistorySidebar";
 import { useAgentState } from "./hooks/useAgentState";
 import { useAgentSessions } from "./hooks/useAgentSessions";
 import type { FollowUpSuggestion } from "../services/api/agent";
+import { apiClient } from "../services/api/client";
 
 interface AgentLayoutProps {
   isGlobalSidebarCollapsed?: boolean;
@@ -20,6 +21,27 @@ export function AgentLayout({
   const [rightPanelTab, setRightPanelTab] = useState<"context" | "documents">(
     "context",
   );
+  const [isOffline, setIsOffline] = useState(false);
+
+  useEffect(() => {
+    const check = () => {
+      apiClient
+        .get<{ online: boolean }>("/ping")
+        .then((r) => setIsOffline(!r.online))
+        .catch(() => setIsOffline(true));
+    };
+
+    check();
+    const timer = setInterval(check, 10000);
+    window.addEventListener("online", check);
+    window.addEventListener("offline", check);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("online", check);
+      window.removeEventListener("offline", check);
+    };
+  }, []);
   const {
     input,
     setInput,
@@ -168,6 +190,16 @@ export function AgentLayout({
           </div>
         </div>
 
+        {/* Offline Banner */}
+        {isOffline && (
+          <div className="flex-shrink-0 flex items-center justify-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border-t border-amber-200 dark:border-amber-700/40 text-amber-800 dark:text-amber-300 text-xs font-medium">
+            <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636a9 9 0 010 12.728M15.536 8.464a5 5 0 010 7.072M6.343 6.343a9 9 0 000 12.728M9.172 9.172a5 5 0 000 7.071M12 12h.01" />
+            </svg>
+            No internet connection — Agent is unavailable
+          </div>
+        )}
+
         {/* Input - Fixed */}
         <div className="flex-shrink-0">
           <AgentInput
@@ -179,6 +211,7 @@ export function AgentLayout({
             isStreaming={isLoading}
             onStopGeneration={cancelStream}
             onClear={() => setInput("")}
+            isOffline={isOffline}
           />
         </div>
       </div>

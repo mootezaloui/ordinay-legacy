@@ -26,6 +26,8 @@ if (FEATURE_AI_AGENT) {
   agentRouter = require("../agent_Back/agent.router");
 }
 
+const https = require("https");
+
 const router = express.Router();
 
 router.use("/clients", clientsRouter);
@@ -47,6 +49,17 @@ router.use("/profile", profileRouter);
 router.use("/dashboard", dashboardRouter);
 router.use("/imports", importsRouter);
 router.use("/agent/sessions/:sessionId/documents", agentDocumentsRouter);
+
+router.get("/ping", (_req, res) => {
+  const probe = https.request(
+    { hostname: "www.google.com", method: "HEAD", path: "/", timeout: 3000 },
+    () => { res.json({ online: true }); probe.destroy(); },
+  );
+  probe.on("error", () => res.json({ online: false }));
+  probe.on("timeout", () => { probe.destroy(); res.json({ online: false }); });
+  probe.end();
+});
+
 if (agentRouter) {
   router.use("/", agentRouter);
 }

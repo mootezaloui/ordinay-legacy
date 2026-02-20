@@ -50,7 +50,7 @@ export default function Sidebar() {
     },
     {
       id: "core",
-      label: !isCompact ? t("sidebar.groups.core", { defaultValue: "Core" }) : null,
+      label: t("sidebar.groups.core", { defaultValue: "Core" }),
       items: [
         { icon: "fas fa-users", label: t("sidebar.clients"), route: "/clients" },
         { icon: "fas fa-folder-open", label: t("sidebar.dossiers"), route: "/dossiers" },
@@ -59,7 +59,7 @@ export default function Sidebar() {
     },
     {
       id: "workflow",
-      label: !isCompact ? t("sidebar.groups.workflow", { defaultValue: "Workflow" }) : null,
+      label: t("sidebar.groups.workflow", { defaultValue: "Workflow" }),
       items: [
         { icon: "fas fa-tasks", label: t("sidebar.tasks"), route: "/tasks" },
         { icon: "fas fa-calendar", label: t("sidebar.sessions"), route: "/sessions" },
@@ -68,7 +68,7 @@ export default function Sidebar() {
     },
     {
       id: "operations",
-      label: !isCompact ? t("sidebar.groups.operations", { defaultValue: "Operations" }) : null,
+      label: t("sidebar.groups.operations", { defaultValue: "Operations" }),
       items: [
         { icon: "fas fa-user-tie", label: t("sidebar.officers"), route: "/officers" },
         { icon: "fas fa-calculator", label: t("sidebar.accounting"), route: "/accounting" },
@@ -76,7 +76,7 @@ export default function Sidebar() {
     },
     {
       id: "tools",
-      label: !isCompact ? t("sidebar.groups.tools", { defaultValue: "Tools" }) : null,
+      label: t("sidebar.groups.tools", { defaultValue: "Tools" }),
       items: [
         { icon: "fas fa-robot", label: t("sidebar.chatbot"), route: "/chatbot" },
       ]
@@ -103,19 +103,18 @@ export default function Sidebar() {
         <div className="sidebar-groups space-y-6">
           {navigationGroups.map((group) => (
             <div key={group.id} className="sidebar-group px-3">
-              {/* Section label - only show when expanded */}
-              {group.label && !isCompact && (
-                <div className="px-3 mb-2">
+              {/* Fixed heading slot keeps group items vertically anchored across states */}
+              {group.label && (
+                <div className="px-3 mb-2 h-5 flex items-center">
+                  {!isCompact ? (
                   <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                     {group.label}
                   </span>
-                </div>
-              )}
-
-              {/* Collapsed section indicator */}
-              {group.label && isCompact && group.id !== "primary" && (
-                <div className="flex justify-center mb-2">
-                  <div className="w-6 h-px bg-border"></div>
+                  ) : (
+                    <div className="w-full flex justify-center">
+                      <div className="w-6 h-px bg-border"></div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -142,8 +141,7 @@ export default function Sidebar() {
                                       item.route === "/accounting" ? "sidebar-accounting-link" :
                                         undefined
                         }
-                        className={`sidebar-item group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${isCompact ? "justify-center" : "justify-start"
-                          } ${isActive
+                        className={`sidebar-item group relative flex items-center py-2.5 rounded-xl transition-all duration-200 ${isCompact ? "justify-center px-0 gap-0" : "justify-start gap-3 pl-[14px] pr-3"} ${isActive
                             ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
                             : "hover:bg-muted text-foreground hover:shadow-sm"
                           }`}
@@ -199,8 +197,7 @@ export default function Sidebar() {
           {/* Theme toggle */}
           <button
             onClick={toggleTheme}
-            className={`w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 hover:bg-muted text-foreground hover:shadow-sm ${isCompact ? "justify-center" : "justify-start"
-              }`}
+            className={`w-full group flex items-center py-2.5 rounded-xl transition-all duration-200 hover:bg-muted text-foreground hover:shadow-sm ${isCompact ? "justify-center px-0 gap-0" : "justify-start gap-3 pl-[14px] pr-3"}`}
           >
             <span className="relative flex items-center justify-center w-5">
               <i className={`${isDark ? "fas fa-sun" : "fas fa-moon"} text-base text-muted-foreground group-hover:text-amber-500 transition-all duration-200`}></i>
@@ -230,5 +227,4 @@ export default function Sidebar() {
     </aside>
   );
 }
-
 

@@ -81,6 +81,7 @@ interface AgentInputProps {
   onUploadFile?: () => void;
   onPasteText?: () => void;
   onTakeScreenshot?: () => void;
+  isOffline?: boolean;
 }
 
 export function AgentInput({
@@ -93,6 +94,7 @@ export function AgentInput({
   onStopGeneration,
   onClear,
   context,
+  isOffline = false,
 }: AgentInputProps) {
   const [commands, setCommands] = useState<SlashCommand[]>([]);
   const [manualDropdownOpen, setManualDropdownOpen] = useState(false);
@@ -823,8 +825,9 @@ export function AgentInput({
                   }, 150);
                 }}
                 rows={1}
-                placeholder="Ask Ordinay anything about your lawsuits, clients, tasks, or request reports and analysis..."
-                className="flex-1 resize-none bg-transparent px-2 py-0 text-[14px] leading-8 text-[#0f172a] dark:text-[#f1f5f9] placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none overflow-y-auto"
+                disabled={isOffline}
+                placeholder={isOffline ? "Connect to the internet to use the Agent..." : "Ask Ordinay anything about your lawsuits, clients, tasks, or request reports and analysis..."}
+                className="flex-1 resize-none bg-transparent px-2 py-0 text-[14px] leading-8 text-[#0f172a] dark:text-[#f1f5f9] placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none overflow-y-auto disabled:cursor-not-allowed"
               />
 
               <div className="flex items-center gap-1">
@@ -857,7 +860,7 @@ export function AgentInput({
                       event.preventDefault();
                       handleSendMessage(event);
                     }}
-                    disabled={!input.trim() && attachedFiles.length === 0}
+                    disabled={isOffline || (!input.trim() && attachedFiles.length === 0)}
                     title="Send message"
                     aria-label="Send message"
                     className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#0f172a] text-white dark:bg-[#f1f5f9] dark:text-[#0f172a] hover:bg-[#1e293b] dark:hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"

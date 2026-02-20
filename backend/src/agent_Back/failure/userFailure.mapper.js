@@ -61,6 +61,8 @@ function mapByCode({ code, error, context = {} } = {}) {
     : null;
   const reference = String(context?.reference || "").trim() || null;
   const intent = String(context?.intent || "").trim() || null;
+  const pendingOperationId =
+    String(context?.pendingOperationId || "").trim() || null;
 
   if (code === "TARGET_NOT_FOUND" || code === "TARGET_UNRESOLVED") {
     const hasReference = Boolean(reference);
@@ -94,7 +96,7 @@ function mapByCode({ code, error, context = {} } = {}) {
         `Create a new ${targetTypeSingular} with reference ${reference || "my reference"}`,
         `Generate a generic draft without linking it to a ${targetTypeSingular}`,
       ],
-      context: { targetType, targetId, reference, intent },
+      context: { targetType, targetId, reference, intent, pendingOperationId },
       severity: "blocking",
     });
   }

@@ -225,6 +225,7 @@ function buildResolutionContextSuggestion({
   originalIntent,
   originalDraftType,
   originalMessage,
+  pendingOperationId = null,
   reason = "multiple_matches",
   message,
   capability = null,
@@ -242,6 +243,7 @@ function buildResolutionContextSuggestion({
     originalIntent,
     originalDraftType,
     originalMessage,
+    pendingOperationId: pendingOperationId || null,
     suggestions: safeCandidates.slice(0, 5).map((candidate) => {
       const candidateType = String(
         candidate?.entityType || normalizedEntityType,
@@ -275,6 +277,7 @@ function buildResolutionContextSuggestion({
         resolveContext: {
           originalIntent,
           originalDraftType,
+          pendingOperationId: pendingOperationId || null,
         },
       };
     }),
@@ -398,7 +401,7 @@ async function run({
   followUpIntent,
   documentContext,
 } = {}) {
-  const hasFollowUpIntent = Boolean(followUpIntent);
+  let hasFollowUpIntent = Boolean(followUpIntent);
   const normalizedMessage =
     typeof message === "string" && message.trim()
       ? message
@@ -434,6 +437,47 @@ async function run({
     turnContext && this.contextStore?.get
       ? this.contextStore.get(turnContext)
       : null;
+
+  const pendingOperation =
+    typeof this.getPendingOperation === "function"
+      ? this.getPendingOperation(turnContext)
+      : null;
+  if (
+    pendingOperation &&
+    (!followUpIntent?.pendingOperationId ||
+      String(followUpIntent.pendingOperationId) === String(pendingOperation.id))
+  ) {
+    if (/^(cancel|stop|never\s*mind|nevermind|start over|forget it)$/i.test(normalizedMessage)) {
+      if (typeof this.clearPendingOperation === "function") {
+        this.clearPendingOperation(turnContext, "user_cancelled");
+      }
+    } else {
+      const updatedPending =
+        typeof this.applyResolutionInput === "function"
+          ? await this.applyResolutionInput(
+              turnContext,
+              normalizedMessage,
+              followUpIntent,
+            )
+          : null;
+      const candidatePending = updatedPending || pendingOperation;
+      if (
+        candidatePending &&
+        typeof this.canResumePendingOperation === "function" &&
+        this.canResumePendingOperation(candidatePending) &&
+        String(candidatePending?.executionDescriptor?.resumeType || "").toLowerCase() ===
+          "follow_up_intent" &&
+        candidatePending?.executionDescriptor?.followUpIntent
+      ) {
+        followUpIntent = {
+          ...candidatePending.executionDescriptor.followUpIntent,
+          pendingOperationId: candidatePending.id,
+        };
+        hasFollowUpIntent = true;
+      }
+    }
+  }
+
   const followUpDetection = hasFollowUpIntent
     ? null
     : detectFollowUp(normalizedMessage, turnContext);

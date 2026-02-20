@@ -1132,10 +1132,17 @@ function ArtifactBody({
             originalIntent: message.data.contextSuggestion.originalIntent,
             originalDraftType: message.data.contextSuggestion.originalDraftType,
             originalMessage: message.data.contextSuggestion.originalMessage,
+            pendingOperationId: message.data.contextSuggestion.pendingOperationId,
             resolvedEntity,
             entityType: suggestion.entityType,
             entityId: suggestion.entityId,
             scope: suggestion.scope,
+            resolutionInput: {
+              entityType: suggestion.entityType,
+              id: suggestion.entityId,
+              reference: suggestion.subtitle || undefined,
+              name: suggestion.label || undefined,
+            },
             label: selectionDisplayLabel || suggestion.label,
             selectionId: isInvoiceSelection
               ? String(suggestion.entityId ?? suggestion.id)

@@ -29,6 +29,17 @@ function toErrorCode(message, fallback = "TOOL_EXECUTION_FAILED") {
   return raw.toUpperCase().replace(/[^A-Z0-9]+/g, "_").slice(0, 80) || fallback;
 }
 
+function isLikelyResolutionReply(message = "", followUpIntent = null) {
+  if (followUpIntent?.pendingOperationId || followUpIntent?.resolvedEntity) return true;
+  const text = String(message || "").trim();
+  if (!text) return false;
+  if (/^[A-Z]{2,10}-\d{2,8}(?:-\d{1,8})?$/i.test(text)) return true;
+  if (/^\d+$/.test(text)) return true;
+  if (text.split(/\s+/).length > 4) return false;
+  if (/\b(show|list|recent|create|generate|draft|prepare|write)\b/i.test(text)) return false;
+  return /[\p{L}\p{N}]/u.test(text);
+}
+
 class ChatAgentService {
   constructor({ engine, llmClient, maxToolRounds, maxCompletionTokens } = {}) {
     if (!engine) {
@@ -85,6 +96,84 @@ class ChatAgentService {
         label: resolvedSelection.label,
       };
       requestContext._resolvedFromSuggestion = true;
+    }
+
+    const pendingOperation =
+      typeof this.engine.getPendingOperation === "function"
+        ? this.engine.getPendingOperation(requestContext)
+        : null;
+    if (
+      pendingOperation &&
+      (!followUpIntent?.pendingOperationId ||
+        String(followUpIntent.pendingOperationId) === String(pendingOperation.id))
+    ) {
+      const updatedPending =
+        typeof this.engine.applyResolutionInput === "function"
+          ? await this.engine.applyResolutionInput(
+              requestContext,
+              userMessage,
+              followUpIntent,
+            )
+          : null;
+      const candidatePending = updatedPending || pendingOperation;
+      if (
+        candidatePending &&
+        typeof this.engine.canResumePendingOperation === "function" &&
+        this.engine.canResumePendingOperation(candidatePending) &&
+        String(candidatePending.operationType || "").toLowerCase() !==
+          "document_generation"
+      ) {
+        if (typeof this.engine.resumePendingOperation === "function") {
+          await this.engine.resumePendingOperation(requestContext, {
+            default: async () => null,
+          });
+        }
+      } else if (isLikelyResolutionReply(userMessage, followUpIntent)) {
+        const missingEntity =
+          candidatePending?.requiredBindings?.[0]?.entityType || "entity";
+        const suggestionArtifact = {
+          type: "context_suggestion",
+          message: `I still need the exact ${missingEntity} to resume your previous request.`,
+          entityType: missingEntity,
+          reason: "missing_context",
+          originalIntent: candidatePending?.originalIntent || "CHATBOT_AGENT_MODE",
+          originalMessage: candidatePending?.originalMessage || userMessage,
+          pendingOperationId: candidatePending?.id || null,
+          suggestions: [],
+          allowManualInput: true,
+          manualInputHint: `Provide a ${missingEntity} reference or exact name.`,
+          timestamp: new Date().toISOString(),
+          source: "pending-operation",
+        };
+        this._recordTranscript({
+          requestContext,
+          userMessage,
+          finalMessage: suggestionArtifact.message,
+          posture: "ASSISTANT",
+          toolExecutions: [],
+          artifactType: "context_suggestion",
+          artifact: suggestionArtifact,
+        });
+        return {
+          message: suggestionArtifact.message,
+          agentVersion: policy.version,
+          posture: "ASSISTANT",
+          toolExecutions: [],
+          stepCommentaries: [],
+          rounds: 0,
+          ambiguityArtifact: suggestionArtifact,
+          resolutionMeta: {
+            status: "missing",
+            entityType: missingEntity,
+            candidatesCount: 0,
+            autoPicked: false,
+            chosenId: null,
+          },
+          availableTools: [],
+          suppressIntentFraming: false,
+          suppressCommentary: false,
+        };
+      }
     }
     const llmHistory =
       typeof this.engine.contextStore?.getContextForLLMInjection === "function"
