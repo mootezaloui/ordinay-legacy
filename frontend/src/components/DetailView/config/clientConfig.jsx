@@ -68,6 +68,15 @@ export const createClientConfig = (t) => {
         entry.clientId === numericId && entry.scope === 'client'
       );
 
+      // Fetch documents for this client
+      let documents = [];
+      try {
+        const documentService = (await import("../../../services/documentService")).default;
+        documents = await documentService.getEntityDocuments("client", numericId);
+      } catch (err) {
+        console.error('[clientConfig] Failed to load documents:', err);
+      }
+
       return {
         ...client,
         relatedDossiers,
@@ -75,6 +84,7 @@ export const createClientConfig = (t) => {
         relatedSessions,
         relatedTasks,
         financialEntries: relatedFinancialEntries,
+        documents,
         // For tab count compatibility:
         sessions: relatedSessions,
       };
