@@ -286,12 +286,15 @@ export function AgentWorkflow({
     const followUps = message.data?.explanation?.followUps;
     const resultCount = getResultCountFromMessage(message);
     const safeCommentary = decideCommentary(message);
+    const isWebSearchArtifact =
+      message.data?.type === "web_search_results" ||
+      message.data?.type === "web_deep_search_results";
     const filteredFollowUps = filterFollowUps(followUps, resultCount);
 
     return (
       <div className="space-y-2">
         {/* Artifact reveal — primary factual output */}
-        <div className="artifact-reveal agent-artifact-focus">
+        {isWebSearchArtifact ? (
           <ArtifactBody
             message={message}
             onFollowUpClick={onFollowUpClick}
@@ -301,10 +304,24 @@ export function AgentWorkflow({
             activeSessionMessages={activeSession?.messages}
             updateSessionMessages={updateSessionMessages}
           />
-        </div>
+        ) : (
+          <div className="artifact-reveal agent-artifact-focus">
+            <ArtifactBody
+              message={message}
+              onFollowUpClick={onFollowUpClick}
+              onExampleClick={onExampleClick}
+              onConfirmWebSearch={onConfirmWebSearch}
+              activeSessionId={activeSessionId}
+              activeSessionMessages={activeSession?.messages}
+              updateSessionMessages={updateSessionMessages}
+            />
+          </div>
+        )}
 
         {/* Assistive reasoning — appears AFTER the artifact it references */}
-        {safeCommentary && <CommentaryBubble commentary={safeCommentary} />}
+        {safeCommentary && !isWebSearchArtifact && (
+          <CommentaryBubble commentary={safeCommentary} />
+        )}
       </div>
     );
   }
@@ -313,6 +330,9 @@ export function AgentWorkflow({
   const followUps = message.data?.explanation?.followUps;
   const resultCount = getResultCountFromMessage(message);
   const safeCommentary = decideCommentary(message);
+  const isWebSearchArtifact =
+    message.data?.type === "web_search_results" ||
+    message.data?.type === "web_deep_search_results";
   const filteredFollowUps = filterFollowUps(followUps, resultCount);
 
   const allowFollowUps =
@@ -331,7 +351,9 @@ export function AgentWorkflow({
       />
 
       {/* Assistive reasoning — appears AFTER the artifact it references */}
-      {safeCommentary && <CommentaryBubble commentary={safeCommentary} />}
+      {safeCommentary && !isWebSearchArtifact && (
+        <CommentaryBubble commentary={safeCommentary} />
+      )}
 
       {/* Follow-up suggestions — shown OUTSIDE the artifact card */}
       {allowFollowUps && (
@@ -1276,7 +1298,13 @@ function ArtifactBody({
       dataType === "web_deep_search_results") &&
     message.data?.webSearchResults
   ) {
-    return <WebSearchResultsArtifact data={message.data.webSearchResults} />;
+    return (
+      <WebSearchResultsArtifact
+        data={message.data.webSearchResults}
+        onConfirmWebSearch={onConfirmWebSearch}
+        commentaryMessage={message.commentary?.message}
+      />
+    );
   }
   if (
     dataType === "document_generation_preview" &&

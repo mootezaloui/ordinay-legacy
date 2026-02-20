@@ -1116,13 +1116,46 @@ function buildStructuredSearchContext(query, results) {
 }
 
 function normalizeSummaryText(text) {
-  const cleaned = String(text || "")
-    .replace(/\s+/g, " ")
+  const raw = String(text || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
     .trim();
-  if (!cleaned) return null;
-  return cleaned.length > 1200
-    ? `${cleaned.slice(0, 1200).trim()}...`
-    : cleaned;
+  if (!raw) return null;
+
+  const cleanInline = (segment = "") =>
+    String(segment || "")
+      .replace(/\s*-\s*/g, "-")
+      .replace(/\s+([,.;:!?%])/g, "$1")
+      .replace(/([(\[])\s+/g, "$1")
+      .replace(/\s+([)\]])/g, "$1")
+      .replace(/(\[\d+\])(?=[A-Za-z0-9])/g, "$1 ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  let paragraphs = raw
+    .split(/\n\s*\n+/)
+    .map((p) => cleanInline(p))
+    .filter(Boolean);
+
+  if (paragraphs.length <= 1) {
+    const sentences = cleanInline(raw)
+      .split(/(?<=[.!?])\s+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (sentences.length >= 4) {
+      const midpoint = Math.ceil(sentences.length / 2);
+      paragraphs = [
+        sentences.slice(0, midpoint).join(" "),
+        sentences.slice(midpoint).join(" "),
+      ];
+    } else if (sentences.length > 0) {
+      paragraphs = [sentences.join(" ")];
+    }
+  }
+
+  const merged = paragraphs.join("\n\n");
+  if (!merged) return null;
+  return merged.length > 1600 ? `${merged.slice(0, 1600).trim()}...` : merged;
 }
 
 async function generateWebSearchAiSummary({

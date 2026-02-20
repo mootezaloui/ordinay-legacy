@@ -82,8 +82,10 @@ Rules:
 - Use ONLY the provided query and result fields (title, snippet, summary, url, publishedDate, source).
 - Do not invent facts, sources, dates, or citations.
 - If results contain legislation, identify law number and date when present in the provided text.
-- Output only concise factual summary text (2-5 sentences).
-- No markdown. No generic recommendations.
+- Output a concise factual summary in 2-4 short paragraphs.
+- Use clean spacing and punctuation.
+- Include inline citation markers such as [1], [2], [3] where claims are made.
+- No bullet list. No generic recommendations.
 `;
 
 module.exports = {
