@@ -38,14 +38,23 @@ async function executeWebSearch({ query, category, language, limit }) {
   let results;
   let provider;
 
-  // Select provider based on configuration
-  if (SEARCH_PROVIDER === 'brave' && BRAVE_API_KEY) {
-    results = await searchBrave({ query, language, limit });
-    provider = 'brave';
-  } else if (SEARCH_PROVIDER === 'tavily' && TAVILY_API_KEY) {
-    results = await searchTavily({ query, category, limit });
-    provider = 'tavily';
-  } else {
+  try {
+    // Select provider based on configuration
+    if (SEARCH_PROVIDER === 'brave' && BRAVE_API_KEY) {
+      results = await searchBrave({ query, language, limit });
+      provider = 'brave';
+    } else if (SEARCH_PROVIDER === 'tavily' && TAVILY_API_KEY) {
+      results = await searchTavily({ query, category, limit });
+      provider = 'tavily';
+    } else {
+      results = await searchMock({ query, category, language, limit });
+      provider = 'mock';
+    }
+  } catch (error) {
+    console.warn(
+      '[WebSearchService] Provider failed, using mock fallback',
+      error?.message || error,
+    );
     results = await searchMock({ query, category, language, limit });
     provider = 'mock';
   }

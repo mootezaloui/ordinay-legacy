@@ -19,6 +19,43 @@ class TemplateService {
     this.storageProvider = new LocalStorageProvider();
   }
 
+  sanitizeFileNameSegment(value) {
+    if (value === null || value === undefined) return "";
+    const normalized = String(value).normalize("NFKC");
+    const withoutForbidden = normalized.replace(/[<>:"/\\|?*\u0000-\u001F]/g, " ");
+    const compact = withoutForbidden
+      .replace(/\s+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^[._\s]+|[._\s]+$/g, "");
+    return compact.slice(0, 120);
+  }
+
+  isMeaningfulFileNameSegment(value) {
+    return /[\p{L}\p{N}]/u.test(String(value || ""));
+  }
+
+  buildGeneratedFileName({ templateName, entityType, entityData }) {
+    const timestamp = new Date().toISOString().split("T")[0];
+    const templateBase = this.sanitizeFileNameSegment(templateName || "");
+    const entityHint = this.sanitizeFileNameSegment(
+      entityData?.reference ||
+        entityData?.lawsuitNumber ||
+        entityData?.case_number ||
+        entityData?.title ||
+        entityData?.name ||
+        entityData?.id ||
+        entityType,
+    );
+
+    const baseName = this.isMeaningfulFileNameSegment(templateBase)
+      ? templateBase
+      : this.isMeaningfulFileNameSegment(entityHint)
+        ? `${entityType}_${entityHint}`
+        : `${entityType}_document`;
+
+    return `${baseName}_${timestamp}.docx`;
+  }
+
   /**
    * Get available templates for entity type
    * @param {string} entityType - 'proces' or 'dossier'
@@ -1017,12 +1054,11 @@ class TemplateService {
           "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       });
 
-      const timestamp = new Date().toISOString().split("T")[0];
-      const safeName = (template.name || "document").replace(
-        /[^a-zA-Z0-9]/g,
-        "_",
-      );
-      const fileName = `${safeName}_${timestamp}.docx`;
+      const fileName = this.buildGeneratedFileName({
+        templateName: template.name,
+        entityType,
+        entityData,
+      });
 
       return {
         success: true,

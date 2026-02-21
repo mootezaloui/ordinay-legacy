@@ -32,13 +32,17 @@ function _selectSearchTool(searchIntent, metadata) {
   const metadataIntent = String(metadata?.webSearchIntent || "").toUpperCase();
   const normalizedIntent =
     metadataIntent === READ_INTENTS.WEB_SEARCH ? READ_INTENTS.WEB_SEARCH : explicitIntent;
+  const preferMcp = String(process.env.SEARCH_WEB_USE_MCP || "").trim() === "1";
   return {
     intent:
       normalizedIntent === READ_INTENTS.WEB_SEARCH
         ? READ_INTENTS.WEB_SEARCH
         : READ_INTENTS.WEB_SEARCH,
-    toolName: "mcpWebSearch",
-    paramsBuilder: ({ query }) => ({ query }),
+    toolName: preferMcp ? "mcpWebSearch" : "webSearch",
+    paramsBuilder: ({ query }) =>
+      preferMcp
+        ? { query }
+        : { query, category: "general", language: "en", limit: 8 },
   };
 }
 
@@ -147,99 +151,161 @@ async function _executeSearchWebIntent(searchIntent, message, context, policy, e
       triggeredBy,
     }),
   );
-  const execution = await this.executeToolV2(selected.toolName, toolParams, policy, {
-    planId: "search_web",
-    stepIndex: 0,
-    confirmed: true,
-    contextSource: "search_web_gate",
-  });
+  let execution;
+  try {
+    execution = await this.executeToolV2(selected.toolName, toolParams, policy, {
+      planId: "search_web",
+      stepIndex: 0,
+      confirmed: true,
+      contextSource: "search_web_gate",
+    });
+  } catch (error) {
+    const message = String(error?.message || "");
+    const shouldFallback =
+      selected.toolName === "mcpWebSearch" &&
+      /MCP|not available|not connected|ECONNREFUSED|tools\/list|tools\/call/i.test(
+        message,
+      );
+    if (!shouldFallback) throw error;
 
-  const toolResult = execution?.result || {};
-  const rows = _normalizeSearchRows(toolResult.results);
-  const citations = _buildSearchCitations(rows, 10);
-  const aiSummaryBase =
-    rows.length > 0
-      ? await generateWebSearchAiSummary({
-          query,
-          mode: "basic",
-          results: rows,
-        })
-      : null;
-  const aiSummary =
-    aiSummaryBase && String(aiSummaryBase.shortAnswer || "").trim().length > 0
-      ? {
-          shortAnswer: String(aiSummaryBase.shortAnswer || "").trim(),
-          keyHighlights: Array.isArray(aiSummaryBase.keyHighlights)
-            ? aiSummaryBase.keyHighlights
-                .map((item) => String(item || "").trim())
-                .filter(Boolean)
-            : [],
-          citations,
-        }
-      : _buildHeuristicAiSummary(query, rows, citations);
-  if (rows.length === 0) {
-    console.log(
-      "[SearchFlow] No results found - summary call skipped by stage",
-      JSON.stringify({ intent: selected.intent, query }),
+    console.warn(
+      "[SearchFlow] mcpWebSearch unavailable, falling back to webSearch",
+      JSON.stringify({ query, reason: message.slice(0, 200) }),
+    );
+    execution = await this.executeToolV2(
+      "webSearch",
+      { query, category: "general", language: "en", limit: 8 },
+      policy,
+      {
+        planId: "search_web",
+        stepIndex: 0,
+        confirmed: true,
+        contextSource: "search_web_gate_fallback",
+      },
     );
   }
-  const output = {
-    type: "web_search_results",
-    query,
-    searchIntent: selected.intent,
-    triggeredBy,
-    provider: String(toolResult.provider || "mcp:websearch"),
-    results: rows,
-    resultCount: rows.length,
-    message: rows.length === 0 ? "No external results found." : null,
-    sources: rows
-      .filter((row) => row.url)
-      .map((row, idx) => ({
-        sourceType: "external",
-        reference: row.url,
-        note: `External search result ${idx + 1}`,
-      })),
-    timestamp: new Date().toISOString(),
-    status:
-      rows.length === 0
-        ? "no_results"
-        : aiSummary
-          ? "search_done_summary_complete"
-          : "search_done_summary_pending",
-    aiSummary,
-    source: "search-web-gate",
-    requires_validation: false,
-  };
 
-  this._validateContract("web_search_results", output, {
-    intent: selected.intent,
-    gate: "search_web",
-  });
+  try {
+    const toolResult = execution?.result || {};
+    const rows = _normalizeSearchRows(toolResult.results);
+    const citations = _buildSearchCitations(rows, 10);
+    const aiSummaryBase =
+      rows.length > 0
+        ? await generateWebSearchAiSummary({
+            query,
+            mode: "basic",
+            results: rows,
+          })
+        : null;
+    const aiSummary =
+      aiSummaryBase && String(aiSummaryBase.shortAnswer || "").trim().length > 0
+        ? {
+            shortAnswer: String(aiSummaryBase.shortAnswer || "").trim(),
+            keyHighlights: Array.isArray(aiSummaryBase.keyHighlights)
+              ? aiSummaryBase.keyHighlights
+                  .map((item) => String(item || "").trim())
+                  .filter(Boolean)
+              : [],
+            citations,
+          }
+        : _buildHeuristicAiSummary(query, rows, citations);
+    if (rows.length === 0) {
+      console.log(
+        "[SearchFlow] No results found - summary call skipped by stage",
+        JSON.stringify({ intent: selected.intent, query }),
+      );
+    }
+    const output = {
+      type: "web_search_results",
+      query,
+      searchIntent: selected.intent,
+      triggeredBy,
+      provider: String(toolResult.provider || "web"),
+      results: rows,
+      resultCount: rows.length,
+      message: rows.length === 0 ? "No external results found." : null,
+      sources: rows
+        .filter((row) => row.url)
+        .map((row, idx) => ({
+          sourceType: "external",
+          reference: row.url,
+          note: `External search result ${idx + 1}`,
+        })),
+      timestamp: new Date().toISOString(),
+      status:
+        rows.length === 0
+          ? "no_results"
+          : aiSummary
+            ? "search_done_summary_complete"
+            : "search_done_summary_pending",
+      aiSummary,
+      source: "search-web-gate",
+      requires_validation: false,
+    };
 
-  this.ledger.record({
-    type: "external_search",
-    query,
-    triggeredBy,
-    toolName: selected.toolName,
-    searchIntent: selected.intent,
-    resultCount: rows.length,
-    provider: output.provider,
-    timestamp: new Date().toISOString(),
-  });
+    this._validateContract("web_search_results", output, {
+      intent: selected.intent,
+      gate: "search_web",
+    });
 
-  return {
-    intent: "SEARCH_WEB",
-    agentVersion: policy.version,
-    reasoner: "search-web-gate",
-    output,
-    isSearchIntent: true,
-    searchMeta: {
+    this.ledger.record({
+      type: "external_search",
       query,
       triggeredBy,
+      toolName: selected.toolName,
       searchIntent: selected.intent,
       resultCount: rows.length,
-    },
-  };
+      provider: output.provider,
+      timestamp: new Date().toISOString(),
+    });
+
+    return {
+      intent: "SEARCH_WEB",
+      agentVersion: policy.version,
+      reasoner: "search-web-gate",
+      output,
+      isSearchIntent: true,
+      searchMeta: {
+        query,
+        triggeredBy,
+        searchIntent: selected.intent,
+        resultCount: rows.length,
+      },
+    };
+  } catch (error) {
+    console.warn(
+      "[SearchFlow] Search stage degraded fallback",
+      JSON.stringify({ query, error: String(error?.message || error).slice(0, 240) }),
+    );
+    return {
+      intent: "SEARCH_WEB",
+      agentVersion: policy.version,
+      reasoner: "search-web-gate-fallback",
+      output: {
+        type: "web_search_results",
+        query,
+        searchIntent: selected.intent,
+        triggeredBy,
+        provider: "web",
+        results: [],
+        resultCount: 0,
+        message: "No external results found.",
+        sources: [],
+        timestamp: new Date().toISOString(),
+        status: "no_results",
+        aiSummary: null,
+        source: "search-web-gate-fallback",
+        requires_validation: false,
+      },
+      isSearchIntent: true,
+      searchMeta: {
+        query,
+        triggeredBy,
+        searchIntent: selected.intent,
+        resultCount: 0,
+      },
+    };
+  }
 }
 
 module.exports = {

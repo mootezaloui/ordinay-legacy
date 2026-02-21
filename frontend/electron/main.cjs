@@ -16,6 +16,11 @@ const http = require("http");
 const fs = require("fs");
 const dns = require("dns").promises;
 const https = require("https");
+const {
+  parseAndValidateExternalUrl,
+  auditExternalLink,
+  buildAuditEntry,
+} = require("./externalLinks.cjs");
 
 // ============================================================
 // CONFIGURATION
@@ -24,8 +29,9 @@ const https = require("https");
 // package.json metadata (productName/description/author) via electron-builder.
 
 const isDev = !app.isPackaged;
-// Allow DevTools in packaged builds by default; set ORDINAY_DEVTOOLS=0 to disable.
-const ALLOW_DEVTOOLS = process.env.ORDINAY_DEVTOOLS !== "0";
+// DevTools are enabled in development only by default.
+// In packaged builds, they remain disabled unless explicitly enabled by ORDINAY_DEVTOOLS=1.
+const ALLOW_DEVTOOLS = isDev || process.env.ORDINAY_DEVTOOLS === "1";
 const APP_USER_MODEL_ID = "com.ordinay.desktop";
 
 // Ensure Chromium uses non-overlay scrollbars so CSS styling applies.
@@ -407,6 +413,95 @@ function waitForBackend(maxAttempts = 30) {
   });
 }
 
+function openExternalSafe(rawUrl, context, options = {}) {
+  const validation = parseAndValidateExternalUrl(rawUrl, options);
+  if (!validation.ok) {
+    auditExternalLink(
+      buildAuditEntry({
+        context,
+        normalizedUrl: String(rawUrl || ""),
+        allowed: false,
+        reason: validation.error,
+      }),
+    );
+    return { ok: false, error: validation.error };
+  }
+
+  auditExternalLink(
+    buildAuditEntry({
+      context,
+      normalizedUrl: validation.normalizedUrl,
+      allowed: true,
+      reason: "allowed",
+    }),
+  );
+
+  shell.openExternal(validation.normalizedUrl).catch((error) => {
+    console.warn("[ExternalLink] shell.openExternal failed:", error?.message || error);
+  });
+
+  return { ok: true };
+}
+
+function setupWindowSecurityGuards(window) {
+  if (!window || !window.webContents) return;
+
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    openExternalSafe(url, "window_open", { allowMailto: false });
+    return { action: "deny" };
+  });
+
+  window.webContents.on("will-navigate", (event, url) => {
+    const currentUrl = window.webContents.getURL();
+    if (!url || url === currentUrl) return;
+
+    const current = (() => {
+      try {
+        return new URL(currentUrl);
+      } catch {
+        return null;
+      }
+    })();
+
+    const next = (() => {
+      try {
+        return new URL(url);
+      } catch {
+        return null;
+      }
+    })();
+
+    if (!next) {
+      event.preventDefault();
+      return;
+    }
+
+    // Allow same-origin navigation in dev server.
+    if (isDev && current && next.origin === current.origin) {
+      return;
+    }
+
+    // Allow local file navigation used by packaged renderer internals.
+    if (next.protocol === "file:") {
+      return;
+    }
+
+    event.preventDefault();
+    openExternalSafe(url, "will_navigate", { allowMailto: false });
+  });
+}
+
+function setupSessionPermissionGuards() {
+  const { session } = require("electron");
+  session.defaultSession.setPermissionRequestHandler(
+    (_webContents, _permission, callback) => {
+      callback(false);
+    },
+  );
+
+  session.defaultSession.setPermissionCheckHandler(() => false);
+}
+
 /**
  * Stop the backend server gracefully
  */
@@ -737,9 +832,11 @@ function createWindow() {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
-      // Disable DevTools in production to protect internal logic and license state.
-      devTools: isDev || ALLOW_DEVTOOLS,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      // Disable DevTools in production unless explicitly re-enabled for internal builds.
+      devTools: ALLOW_DEVTOOLS,
     },
     show: false, // Don't show until ready
   });
@@ -786,6 +883,8 @@ function createWindow() {
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
+
+  setupWindowSecurityGuards(mainWindow);
 }
 
 /**
@@ -996,9 +1095,23 @@ function setupIPC() {
     return { ok: true };
   });
 
-  // Handler to open external URLs (activation flow)
+  // Handler to open external web URLs (https-only)
+  ipcMain.handle("open-external-web-url", (_event, url) => {
+    return openExternalSafe(url, "renderer_web_link", { allowMailto: false });
+  });
+
+  // Handler to open external mailto URLs (mailto-only usage)
+  ipcMain.handle("open-external-mailto", (_event, url) => {
+    return openExternalSafe(url, "mailto_notification", { allowMailto: true });
+  });
+
+  // Deprecated broad handler for backwards compatibility.
   ipcMain.handle("open-external-url", (_event, url) => {
-    return shell.openExternal(url);
+    const raw = typeof url === "string" ? url : "";
+    const isMailto = raw.trim().toLowerCase().startsWith("mailto:");
+    return openExternalSafe(raw, "deprecated_open_external", {
+      allowMailto: isMailto,
+    });
   });
 
   ipcMain.handle("updates-get-status", () => updateState);
@@ -1154,6 +1267,7 @@ app.whenReady().then(async () => {
 
     // Configure Content Security Policy handler (register once)
     registerContentSecurityPolicyHandler();
+    setupSessionPermissionGuards();
 
     // Create the main window
     createWindow();

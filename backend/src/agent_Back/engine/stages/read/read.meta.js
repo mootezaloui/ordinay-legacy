@@ -616,7 +616,15 @@ function _buildReadExplanation({
   const cleanedDetails = rawDetails
     .map((detail) => cleanDetailLine(detail))
     .filter(Boolean);
-  const factsDetails = orderFactsByPriority(cleanedDetails, entityType);
+  const prioritizedDetails = orderFactsByPriority(cleanedDetails, entityType);
+  const factsDetails =
+    Array.isArray(prioritizedDetails) && prioritizedDetails.length > 0
+      ? prioritizedDetails
+      : [
+          factsSummary && String(factsSummary).trim().length > 0
+            ? String(factsSummary).trim()
+            : "No detailed data points are currently available.",
+        ];
 
   const explanation = postReadInterpret(entityType, entityData || {}, context);
   const confidenceMap = {

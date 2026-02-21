@@ -129,17 +129,43 @@ async function _executeDeepSearchIntent(searchIntent, message, context, policy, 
       triggeredBy,
     }),
   );
-  const execution = await this.executeToolV2(
-    "mcpDeepSearch",
-    { query, triggeredBy },
-    policy,
-    {
-      planId: "search_deep_web",
-      stepIndex: 0,
-      confirmed: true,
-      contextSource: "search_deep_web_gate",
-    },
-  );
+  let execution;
+  try {
+    execution = await this.executeToolV2(
+      "mcpDeepSearch",
+      { query, triggeredBy },
+      policy,
+      {
+        planId: "search_deep_web",
+        stepIndex: 0,
+        confirmed: true,
+        contextSource: "search_deep_web_gate",
+      },
+    );
+  } catch (error) {
+    const message = String(error?.message || "");
+    const shouldFallback =
+      /MCP|not available|not connected|ECONNREFUSED|tools\/list|tools\/call/i.test(
+        message,
+      );
+    if (!shouldFallback) throw error;
+
+    console.warn(
+      "[SearchFlow] mcpDeepSearch unavailable, falling back to webSearch",
+      JSON.stringify({ query, reason: message.slice(0, 200) }),
+    );
+    execution = await this.executeToolV2(
+      "webSearch",
+      { query, category: "legal", language: "en", limit: 10 },
+      policy,
+      {
+        planId: "search_deep_web",
+        stepIndex: 0,
+        confirmed: true,
+        contextSource: "search_deep_web_gate_fallback",
+      },
+    );
+  }
 
   const toolResult = execution?.result || {};
   const rows = normalizeRows(toolResult.results);

@@ -37,6 +37,7 @@
  */
 
 import { emailTemplates } from "./emailTemplates";
+import { openExternalMailto } from "../lib/externalLink";
 
 // ========================================
 // CLIENT-RELEVANT EVENT DETECTION
@@ -580,14 +581,7 @@ export async function sendEmailNotification(email) {
   try {
     // Build mailto: URL with encoded parameters
     const mailtoUrl = `mailto:${encodeURIComponent(email.clientEmail)}?subject=${encodeURIComponent(email.subject)}&body=${encodeURIComponent(email.body)}`;
-
-    // Use Electron's shell.openExternal for proper mailto handling (no empty window)
-    if (window.electronAPI?.openExternal) {
-      await window.electronAPI.openExternal(mailtoUrl);
-    } else {
-      // Fallback for non-Electron environments (dev browser)
-      window.location.href = mailtoUrl;
-    }
+    await openExternalMailto(mailtoUrl);
 
     return true;
   } catch (error) {

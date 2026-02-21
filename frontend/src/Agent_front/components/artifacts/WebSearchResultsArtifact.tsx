@@ -13,6 +13,7 @@ import type {
   WebSearchAiSummary,
   AgentRequestMetadata,
 } from "../../../services/api/agent";
+import { openExternalLink } from "../../../lib/externalLink";
 
 interface WebSearchResultsArtifactProps {
   data: WebSearchResultsOutput | WebDeepSearchResultsOutput;
@@ -353,7 +354,11 @@ export function WebSearchResultsArtifact({
                   }}
                   href={result.url}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer nofollow"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    void openExternalLink(result.url, "agent_source");
+                  }}
                   className={`web-source-card web-fade-up ${isHighlighted ? "web-source-highlight" : ""}`}
                   style={{ animationDelay: `${idx * 80}ms` }}
                 >

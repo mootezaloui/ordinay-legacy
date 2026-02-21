@@ -70,9 +70,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
   writeDeviceId: (deviceId) => ipcRenderer.invoke('write-device-id', deviceId),
 
   /**
-   * Open external URL
+   * Open external web URL (https only)
    * @param {string} url
-   * @returns {Promise<void>}
+   * @returns {Promise<{ok: boolean, error?: string}>}
+   */
+  openExternalWebUrl: (url) => ipcRenderer.invoke('open-external-web-url', url),
+
+  /**
+   * Open external mailto URL
+   * @param {string} url
+   * @returns {Promise<{ok: boolean, error?: string}>}
+   */
+  openExternalMailto: (url) => ipcRenderer.invoke('open-external-mailto', url),
+
+  /**
+   * Deprecated broad external URL opener.
+   * Use openExternalWebUrl/openExternalMailto instead.
+   * @param {string} url
+   * @returns {Promise<{ok: boolean, error?: string}>}
    */
   openExternal: (url) => ipcRenderer.invoke('open-external-url', url),
 

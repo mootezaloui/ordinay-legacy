@@ -32,6 +32,7 @@ import {
   type LicenseState,
   type SignedLicense,
 } from "./services/licenseService";
+import { openExternalLink } from "./lib/externalLink";
 
 const FREE_PLAN_STORAGE_KEY = "ordinay_free_plan_continue";
 const ACTIVATION_PENDING_STORAGE_KEY = "ordinay_activation_pending";
@@ -497,11 +498,7 @@ function App() {
               return;
             }
             const url = startResult.payment_url || getActivationUrl(id, pendingReferral);
-            if (window.electronAPI?.openExternal) {
-              await window.electronAPI.openExternal(url);
-            } else {
-              window.open(url, "_blank");
-            }
+            await openExternalLink(url, "activation");
           }}
           onContinueReadOnly={() => {
             setActivationError(null);

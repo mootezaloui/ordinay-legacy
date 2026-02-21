@@ -1904,8 +1904,8 @@ router.post("/agent/chat", async (req, res) => {
     const preReadIntent = detectReadIntent(message, requestContext);
     const shouldPreRouteRead =
       preReadIntent &&
-      preReadIntent.intent !== READ_INTENTS.WEB_SEARCH &&
-      preReadIntent.intent !== READ_INTENTS.DEEP_SEARCH;
+      (preReadIntent.intent === READ_INTENTS.WEB_SEARCH ||
+        preReadIntent.intent === READ_INTENTS.DEEP_SEARCH);
     if (shouldPreRouteRead) {
       const runResult = await agentEngine.run({
         message,
@@ -2115,6 +2115,10 @@ router.post("/agent/chat", async (req, res) => {
       interactionMode,
     });
   } catch (error) {
+    console.error(
+      "[/agent/chat] Unhandled error",
+      error?.stack || error?.message || error,
+    );
     const mapped = await mapUserFailure(error, {
       intent: "CHATBOT_AGENT_MODE",
     });

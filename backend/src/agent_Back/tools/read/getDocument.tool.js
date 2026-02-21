@@ -31,7 +31,6 @@ const inputSchema = {
     officerId: { type: ['integer', 'null'], minimum: 1 },
   },
   additionalProperties: false,
-  anyOf: [{ required: ['documentId'] }, { required: ['query'] }],
 };
 
 const outputSchema = {
@@ -76,6 +75,10 @@ async function handler({
   financialEntryId = null,
   officerId = null,
 }) {
+  if (!documentId && !normalize(query)) {
+    throw new Error("Either documentId or query is required");
+  }
+
   if (documentId) {
     const row = documentsService.get(Number(documentId));
     return { document: row ? { ...row, id: Number(row.document_id || row.id) } : null };
@@ -122,4 +125,3 @@ module.exports = {
   allowedAgentVersions: ['v1', 'v2', 'v3'],
   handler,
 };
-

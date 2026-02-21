@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
+import { openExternalLink } from "../lib/externalLink";
 
 interface MarkdownOutputProps {
   content: string;
@@ -12,6 +13,9 @@ export const MarkdownOutput: React.FC<MarkdownOutputProps> = ({ content }) => {
   type CodeProps = React.ComponentPropsWithoutRef<"code"> & {
     inline?: boolean;
     className?: string;
+    children?: React.ReactNode;
+  };
+  type AnchorProps = React.ComponentPropsWithoutRef<"a"> & {
     children?: React.ReactNode;
   };
 
@@ -55,6 +59,22 @@ export const MarkdownOutput: React.FC<MarkdownOutputProps> = ({ content }) => {
           },
           td({ children }) {
             return <td className="border p-2 align-top">{children}</td>;
+          },
+          a({ href, children }: AnchorProps) {
+            const safeHref = typeof href === "string" ? href : "";
+            return (
+              <a
+                href={safeHref}
+                rel="noopener noreferrer nofollow"
+                onClick={(event) => {
+                  event.preventDefault();
+                  if (!safeHref) return;
+                  void openExternalLink(safeHref, "markdown_link");
+                }}
+              >
+                {children}
+              </a>
+            );
           },
         }}
       >

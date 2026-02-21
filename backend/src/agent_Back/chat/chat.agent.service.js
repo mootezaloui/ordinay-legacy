@@ -678,6 +678,8 @@ class ChatAgentService {
       domainHints.push("lawsuits");
     if (/\bfinancial|invoice|invoices|payment|payments|billing\b/.test(text))
       domainHints.push("financialEntries");
+    if (/\bdocument|documents|doc|docs|pdf|file|files|attachment|attachments|summarize|summary|read\b/.test(text))
+      domainHints.push("documents");
 
     const filtered =
       domainHints.length > 0

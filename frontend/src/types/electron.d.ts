@@ -105,9 +105,19 @@ export interface ElectronAPI {
   writeDeviceId: (deviceId: string) => Promise<{ ok: boolean }>;
 
   /**
-   * Open external URL
+   * Open external web URL (https-only).
    */
-  openExternal: (url: string) => Promise<void>;
+  openExternalWebUrl: (url: string) => Promise<{ ok: boolean; error?: string }>;
+
+  /**
+   * Open external mailto URL (mailto-only).
+   */
+  openExternalMailto: (url: string) => Promise<{ ok: boolean; error?: string }>;
+
+  /**
+   * Deprecated broad external URL opener.
+   */
+  openExternal: (url: string) => Promise<{ ok: boolean; error?: string }>;
 
   /**
    * Listen for activation deep link

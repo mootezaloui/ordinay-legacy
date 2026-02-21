@@ -13,6 +13,7 @@ import {
 import { useSettings } from "../../contexts/SettingsContext";
 import { formatDateValue } from "../../utils/dateFormat";
 import ContentSection from "../layout/ContentSection";
+import { openExternalLink } from "../../lib/externalLink";
 
 export default function SettingsSecurityAccess() {
   const { settings } = useSettings();
@@ -176,11 +177,7 @@ export default function SettingsSecurityAccess() {
       if (typeof window !== "undefined") {
         window.localStorage.removeItem("ordinay_readonly_mode");
       }
-      if (window.electronAPI?.openExternal) {
-        await window.electronAPI.openExternal(url);
-      } else {
-        window.open(url, "_blank");
-      }
+      await openExternalLink(url, "settings_plan");
     } catch (error) {
       console.error("[License] Activation launch failed:", error);
       setActivationError(t("securityAccess.license.errors.activationFailed"));
@@ -205,11 +202,7 @@ export default function SettingsSecurityAccess() {
         licenseState,
         action,
       });
-      if (window.electronAPI?.openExternal) {
-        await window.electronAPI.openExternal(url);
-      } else {
-        window.open(url, "_blank");
-      }
+      await openExternalLink(url, "settings_plan");
       setPlanActionMessage(t("securityAccess.license.planChange.messages.opened"));
     } catch (error) {
       console.error("[License] Plan flow launch failed:", error);
