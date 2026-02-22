@@ -652,8 +652,9 @@ export function useAgentState() {
             content: streamedContent,
             timestamp: new Date(),
             status: "sending",
-            stage: "commentary", // Streaming text is commentary
+            stage: agentData ? "artifact" : "commentary",
             intent,
+            data: agentData,
           };
           if (hasAgentMessage) {
             updateMessage(updatedMessage);
@@ -725,6 +726,11 @@ export function useAgentState() {
               webSearchResults: output as WebSearchResultsOutput | WebDeepSearchResultsOutput,
             };
             streamedContent = "";
+          } else if (output.type === "chat_context_summary") {
+            agentData = {
+              type: "chat_context_summary",
+              chatContextSummary: output as import("../../services/api/agent").ChatContextSummaryOutput,
+            };
           } else if (output.type === "recovery") {
             agentData = {
               type: "recovery",
@@ -1047,8 +1053,9 @@ export function useAgentState() {
             content: streamedContent,
             timestamp: new Date(),
             status: "sending",
-            stage: "commentary",
+            stage: agentData ? "artifact" : "commentary",
             intent,
+            data: agentData,
           };
           if (hasAgentMessage) {
             updateMessage(updatedMessage);
@@ -1124,6 +1131,11 @@ export function useAgentState() {
               webSearchResults: output as WebSearchResultsOutput | WebDeepSearchResultsOutput,
             };
             streamedContent = "";
+          } else if (output.type === "chat_context_summary") {
+            agentData = {
+              type: "chat_context_summary",
+              chatContextSummary: output as import("../../services/api/agent").ChatContextSummaryOutput,
+            };
           } else if (output.type === "recovery") {
             agentData = {
               type: "recovery",
@@ -1476,8 +1488,9 @@ export function useAgentState() {
             content: streamedContent,
             timestamp: new Date(),
             status: "sending",
-            stage: "commentary",
+            stage: agentData ? "artifact" : "commentary",
             intent,
+            data: agentData,
             retryOf: opts?.retryOf,
           };
           if (hasAgentMessage) {
@@ -1546,6 +1559,11 @@ export function useAgentState() {
               webSearchResults: output as WebSearchResultsOutput | WebDeepSearchResultsOutput,
             };
             streamedContent = "";
+          } else if (output.type === "chat_context_summary") {
+            agentData = {
+              type: "chat_context_summary",
+              chatContextSummary: output as import("../../services/api/agent").ChatContextSummaryOutput,
+            };
           } else if (output.type === "recovery") {
             agentData = {
               type: "recovery",

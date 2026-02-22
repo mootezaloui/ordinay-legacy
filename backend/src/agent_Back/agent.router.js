@@ -6,18 +6,12 @@ const addFormats = require("ajv-formats");
 const AgentEngine = require("./agent.engine");
 const { ChatAgentService } = require("./chat/chat.agent.service");
 const { getAvailableCommands, detectReadIntent, READ_INTENTS } = require("./intent.classifier");
-const { streamLLM } = require("./llm/stream.provider");
 const db = require("../db/connection");
 const documentGenerationService = require("../services/documentGeneration/documentGeneration.service");
 const documentGenerationPreviewService = require("../services/documentGeneration/documentGenerationPreview.service");
-const {
-  resolveInteractionMode,
-  resolveStageVisibility,
-} = require("./interactionMode.resolver");
+const { resolveInteractionMode } = require("./interactionMode.resolver");
 const { mapUserFailure } = require("./failure/userFailure.mapper");
 const eventEnvelopeSchema = require("./schemas/event-envelope.schema.json");
-const intentSchema = require("./schemas/intent.schema.json");
-const commentarySchema = require("./schemas/commentary.schema.json");
 const failureSchema = require("./schemas/failure.schema.json");
 
 const router = express.Router();
@@ -31,8 +25,6 @@ const streamAjv = new Ajv({
 addFormats(streamAjv);
 
 const validateEnvelope = streamAjv.compile(eventEnvelopeSchema);
-const validateIntent = streamAjv.compile(intentSchema);
-const validateCommentary = streamAjv.compile(commentarySchema);
 const validateFailure = streamAjv.compile(failureSchema);
 
 const DELTA_MAX_CHARS = Math.min(
@@ -43,14 +35,13 @@ const DELTA_FLUSH_MS = Math.min(
   Math.max(parseInt(process.env.AGENT_STREAM_DELTA_FLUSH_MS || "80", 10), 50),
   120,
 );
-
 // ============================================================================
 // Unified SSE Event Lifecycle
 // ============================================================================
 /**
  * CRITICAL: SSE Event Contract
  *
- * Event sequence: start → intent → artifact → commentary → done
+ * Event sequence: start → artifact/chunk → done
  *
  * Guarantees:
  * - `done` is ALWAYS emitted (even on error)
@@ -60,9 +51,7 @@ const DELTA_FLUSH_MS = Math.min(
  *
  * Events:
  * - start: { intent: "PENDING", agentVersion }
- * - intent: { message, chunks } (streamed)
  * - artifact: { output, intent }
- * - commentary: { message, chunks, signals } (streamed)
  * - done: { status: "success"|"error", error? }
  */
 
@@ -120,222 +109,6 @@ function getStatusAction(intent, phase = "processing") {
 
   // Default
   return "Processing…";
-}
-
-// ============================================================================
-// Intent Framing Helpers — LLM-generated, deterministic inputs only
-// ============================================================================
-
-const INTENT_FRAMING_MESSAGE_TYPE = "AGENT_INTENT_MESSAGE";
-
-function deriveIntentType(intent, contextSnapshot) {
-  const source = (intent || contextSnapshot?.lastIntent || "").toUpperCase();
-  if (!source) return "UNCERTAIN";
-
-  if (
-    source.includes("SEARCH_WEB") ||
-    source.includes("SEARCH_DEEP_WEB") ||
-    source.includes("WEB_SEARCH") ||
-    source.includes("DEEP_SEARCH")
-  ) {
-    return "SEARCH";
-  }
-  if (source.includes("DRAFT")) return "DRAFT";
-  if (source.includes("ANALYZE") || source.includes("RISK")) return "REVIEW";
-  if (source.includes("PROPOSE") || source.includes("ACTION"))
-    return "PRIORITIZE";
-  if (
-    source.includes("LIST") ||
-    source.includes("SUMMARIZE") ||
-    source.includes("READ") ||
-    source.includes("EXPLAIN")
-  ) {
-    return "READ";
-  }
-
-  if (
-    source === "FOLLOW_UP" ||
-    source === "COMMAND" ||
-    source === "SAFETY_GUARD"
-  ) {
-    const lastIntent = (contextSnapshot?.lastIntent || "").toUpperCase();
-    return deriveIntentType(lastIntent, null);
-  }
-
-  return "UNCERTAIN";
-}
-
-function inferMissingEntities({ output, userMessage }) {
-  const missing = new Set();
-  const summary = String(output?.summary || "").toLowerCase();
-  const details = Array.isArray(output?.details)
-    ? output.details.map((line) => String(line || "").toLowerCase()).join(" ")
-    : "";
-  const user = String(userMessage || "").toLowerCase();
-  const combined = `${summary} ${details} ${user}`;
-
-  if (/\bclient\b/.test(combined)) missing.add("client");
-  if (/\bdossier\b/.test(combined)) missing.add("dossier");
-  if (/\bsession\b|\bhearing\b/.test(combined)) missing.add("session");
-
-  return Array.from(missing);
-}
-
-function buildIntentFramingPayload({
-  intent,
-  userMessage,
-  result,
-  contextSnapshot,
-}) {
-  if (!intent) return null;
-
-  const intentType = deriveIntentType(intent, contextSnapshot);
-  if (!intentType) return null;
-
-  const output = result?.output || {};
-  const needsClarification =
-    result?.needsClarification === true ||
-    String(output?.status || "").toLowerCase() === "pending_clarification";
-  const missingEntities = needsClarification
-    ? inferMissingEntities({ output, userMessage })
-    : [];
-
-  return {
-    intentType,
-    userMessage: String(userMessage || "").trim(),
-    missingEntities,
-  };
-}
-
-/**
- * Stream intent event with LLM-generated message.
- * Unified event name: `intent`
- *
- * @param {Function} sendEvent - SSE event sender
- * @param {Object} payload - Intent payload { intentType, userMessage, missingEntities }
- * @param {AbortSignal} signal - Abort signal
- * @param {boolean} aborted - Abort flag
- */
-async function streamIntentEvent(
-  sendEvent,
-  payload,
-  signal,
-  aborted,
-  { chunkStreaming = true } = {},
-) {
-  if (aborted) return;
-
-  return new Promise((resolve) => {
-    let fullMessage = "";
-    let chunkCount = 0;
-    console.log("[SSE][Intent] Stream start", JSON.stringify({ chunkStreaming }));
-
-    streamIntentFramingMessage(
-      payload || {},
-      {
-        onChunk: (chunk) => {
-          if (aborted) return;
-          fullMessage += chunk;
-          chunkCount += 1;
-          if (chunkStreaming) {
-            sendEvent("intent_framing_chunk", { chunk });
-          }
-          console.debug("[SSE][Intent] Token emitted", JSON.stringify({ chunkCount, size: chunk.length }));
-        },
-        onDone: (message) => {
-          if (aborted) {
-            resolve();
-            return;
-          }
-
-          // Send unified `intent` event (not `intent_framing`)
-          const finalMessage = message || fullMessage;
-          if (finalMessage) {
-            sendEvent("intent", {
-              message: finalMessage,
-              action: payload?.intentType || "unknown",
-              missingEntities: Array.isArray(payload?.missingEntities)
-                ? payload.missingEntities
-                : [],
-            });
-          }
-          console.log(
-            "[SSE][Intent] Stream end",
-            JSON.stringify({ chunkCount, chars: finalMessage ? finalMessage.length : 0 }),
-          );
-          resolve();
-        },
-        onError: (error) => {
-          console.error("[SSE][Intent] Stream error:", error);
-          resolve();
-        },
-      },
-      signal,
-    );
-  });
-}
-
-/**
- * Send artifact event.
- * Unified event name: `artifact` (not `result`)
- * No suppression - all artifacts are sent.
- *
- * @param {Function} sendEvent - SSE event sender
- * @param {Object} result - Agent result from engine
- * @param {boolean} aborted - Whether connection was aborted
- * @returns {boolean} True when artifact was emitted
- */
-function sendArtifactEvent(sendEvent, result, aborted) {
-  if (aborted) return false;
-
-  const output = result?.output;
-  if (!output || typeof output !== "object") {
-    console.warn("[SSE] No output in result");
-    return false;
-  }
-
-  // Send artifact without suppression
-  sendEvent("artifact", {
-    output,
-    intent: result.intent,
-    contextLifecycle: result?.contextLifecycle || null,
-  });
-  return true;
-}
-
-function streamTextAsChunks(text, onChunk) {
-  if (!text || typeof text !== "string") return;
-  const tokens = text.match(/\S+\s*/g) || [];
-  for (const token of tokens) {
-    onChunk(token);
-  }
-}
-
-function isClarificationStyleChat(text) {
-  const value = String(text || "").trim().toLowerCase();
-  if (!value) return false;
-  return (
-    /\b(please\s+(share|provide|specify)|exact\s+(entity|client|dossier|id)|which\s+one\s+do\s+you\s+mean)\b/i.test(
-      value,
-    ) ||
-    /\b(i need|we need)\b.*\b(id|identifier|clarif|clarification)\b/i.test(value)
-  );
-}
-
-function normalizeForRedundancy(text) {
-  return String(text || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function isRedundantWithFinalResponse(commentaryText, finalResponse) {
-  const commentary = normalizeForRedundancy(commentaryText);
-  const finalText = normalizeForRedundancy(finalResponse);
-  if (!commentary || !finalText) return false;
-  if (commentary === finalText) return true;
-  return commentary.includes(finalText) || finalText.includes(commentary);
 }
 
 function isDocumentFocusedPrompt(text) {
@@ -405,290 +178,6 @@ function extractDomain(url) {
   } catch {
     return String(url || "").trim();
   }
-}
-
-function buildSearchFallbackCommentary(output, reason = "unknown") {
-  const rows = Array.isArray(output?.results) ? output.results : [];
-  if (!rows.length) {
-    return `Summary unavailable (reason: ${reason}). No external results found. Could you narrow scope by jurisdiction, date range, or law number?`;
-  }
-  const topSources = rows.slice(0, 3).map((row, idx) => {
-    const title = String(row?.title || "Untitled source").trim();
-    const domain = extractDomain(row?.url || "");
-    return `${idx + 1}. ${title} (${domain})`;
-  });
-  return `Summary unavailable (reason: ${reason}). Top sources: ${topSources.join(" | ")}. Would you like me to narrow to specific statutes, case law, or a date range?`;
-}
-
-async function streamGroundedSearchCommentaryEvent(
-  sendEvent,
-  result,
-  signal,
-  aborted,
-  { chunkStreaming = true } = {},
-) {
-  // Two-phase search behavior:
-  // 1) Emit artifact as soon as external results are available.
-  // 2) Run a separate grounded summary stream using only search JSON context.
-  // If summary fails, emit deterministic fallback commentary instead of silence.
-  if (aborted) return;
-  const output = result?.output || {};
-  const artifactType = String(output?.type || "");
-  const isSearchArtifact =
-    artifactType === "web_search_results" ||
-    artifactType === "web_deep_search_results";
-  if (!isSearchArtifact) return;
-  const rows = Array.isArray(output?.results) ? output.results : [];
-  if (!rows.length) {
-    console.log("[SearchFlow] summary_start skipped=true reason=no_results");
-    console.log("[SearchFlow] no_llm_call_without_results confirmed=true");
-    console.log("[SearchFlow] summary_failed reason=no_results");
-    const fallbackNoResults = buildSearchFallbackCommentary(output, "no_results");
-    if (chunkStreaming) {
-      streamTextAsChunks(fallbackNoResults, (chunk) => {
-        if (aborted) return;
-        sendEvent("commentary_chunk", { chunk });
-      });
-    }
-    if (!aborted) {
-      sendEvent("commentary", { message: fallbackNoResults, signals: [] });
-      console.log("[SearchFlow] fallback_commentary_emitted");
-    }
-    return;
-  }
-
-  let summaryText = "";
-  const summaryResult = await streamWebSearchAiSummary(
-    {
-      query: output?.query || "",
-      mode: artifactType === "web_deep_search_results" ? "deep" : "basic",
-      results: rows,
-    },
-    {
-      onChunk: (chunk) => {
-        if (aborted) return;
-        summaryText += chunk;
-        if (chunkStreaming) {
-          sendEvent("commentary_chunk", { chunk });
-        }
-      },
-      onDone: (finalSummary) => {
-        summaryText = finalSummary || summaryText;
-      },
-    },
-    signal,
-  );
-
-  if (aborted) return;
-
-  if (summaryResult?.success && summaryText.trim()) {
-    sendEvent("commentary", {
-      message: summaryText.trim(),
-      signals: [],
-    });
-    return;
-  }
-
-  const reason = String(summaryResult?.reason || "summary_unavailable");
-  console.log("[SearchFlow] summary_failed", `reason=${reason}`);
-  const fallbackCommentary = buildSearchFallbackCommentary(output, reason);
-  if (chunkStreaming) {
-    streamTextAsChunks(fallbackCommentary, (chunk) => {
-      if (aborted) return;
-      sendEvent("commentary_chunk", { chunk });
-    });
-  }
-  if (!aborted) {
-    sendEvent("commentary", {
-      message: fallbackCommentary,
-      signals: [],
-    });
-    console.log("[SearchFlow] fallback_commentary_emitted");
-  }
-}
-
-/**
- * Stream commentary event with LLM-generated commentary.
- * Unified event name: `commentary`
- * Mandatory for all artifacts except chat.
- *
- * @param {Function} sendEvent - SSE event sender
- * @param {Object} result - Agent result containing output
- * @param {Object} context - Request context
- * @param {boolean} aborted - Whether connection was aborted
- * @param {AbortSignal} signal - Abort signal for cancellation
- */
-async function streamCommentaryEvent(
-  sendEvent,
-  result,
-  context,
-  aborted,
-  signal,
-  { chunkStreaming = true } = {},
-) {
-  if (aborted) return;
-
-  // Skip commentary for chat, external search, and context suggestion artifacts.
-  const artifactType = result?.output?.type;
-  const outputStatus = String(result?.output?.status || "").toLowerCase();
-  if (
-    !artifactType ||
-    artifactType === "chat" ||
-    artifactType === "web_search_results" ||
-    artifactType === "web_deep_search_results" ||
-    artifactType === "context_suggestion" ||
-    outputStatus === "error" ||
-    result?.resolutionMode === true
-  ) {
-    if (
-      artifactType === "web_search_results" ||
-      artifactType === "web_deep_search_results"
-    ) {
-      console.log(
-        "[SearchFlow] Commentary skipped for external search artifact",
-        JSON.stringify({ artifactType }),
-      );
-    }
-    if (artifactType === "context_suggestion") {
-      console.log(
-        "[Commentary] Skipped for context suggestion (no advice during ambiguity resolution)",
-        JSON.stringify({ artifactType }),
-      );
-    }
-    if (result?.resolutionMode === true) {
-      console.log(
-        "[Commentary] Skipped for pending resolution mode",
-        JSON.stringify({ artifactType, reasoner: result?.reasoner || null }),
-      );
-    }
-    if (outputStatus === "error") {
-      console.log(
-        "[Commentary] Skipped for error output",
-        JSON.stringify({ artifactType, outputStatus }),
-      );
-    }
-    return;
-  }
-
-  // Get conversation history for context-aware commentary
-  const llmContext =
-    typeof agentEngine.contextStore?.getContextForLLMInjection === "function"
-      ? agentEngine.contextStore.getContextForLLMInjection(context)
-      : {};
-
-  const resultCount =
-    typeof result?.readMeta?.count === "number"
-      ? result.readMeta.count
-      : undefined;
-
-  // Build commentary context with intent and conversation history
-  // CRITICAL: Include intent for commentary mode derivation
-  // The commentary generator uses intent to determine REPORTING vs INTERPRETIVE vs GUIDANCE mode
-  const commentaryContext = {
-    ...(context || {}),
-    intent: result?.intent, // PRIMARY USER INTENT - determines commentary mode
-    lastIntent: result?.intent || context?.lastIntent,
-    _resultCount: resultCount,
-    _readOutcome:
-      result?.readOutcome || (resultCount === 0 ? "empty" : undefined),
-    _activeEntityType:
-      result?.output?.entityType ||
-      result?.contextPromotion?.activeEntity?.type ||
-      null,
-    _activeEntityId: result?.contextPromotion?.activeEntity?.id || null,
-    _pendingSelection: result?.contextPromotion?.pendingSelection || null,
-    _grounding: {
-      source: "read_intent",
-      entityType: result?.output?.entityType || null,
-      entityRetrieved: typeof resultCount === "number" ? resultCount > 0 : false,
-      resultCount: typeof resultCount === "number" ? resultCount : null,
-      readOutcome:
-        result?.readOutcome || (resultCount === 0 ? "empty" : "unknown"),
-      workMode: {
-        dossier:
-          result?.output?.entityType === "dossier" &&
-          typeof resultCount === "number" &&
-          resultCount > 0,
-      },
-    },
-    _dossierWorkMode:
-      result?.output?.entityType === "dossier" &&
-      typeof resultCount === "number" &&
-      resultCount > 0,
-    // NEW: Inject conversation history for context-aware commentary
-    recentTurns: llmContext.recentTurns || [],
-    compactionSummary: llmContext.compactionSummary || null,
-    activeEntity: llmContext.activeEntity || null,
-    workMode: llmContext.workMode || null,
-    posture: llmContext.posture || null,
-  };
-
-  console.log("[Commentary] Intent for mode derivation:", result?.intent);
-
-  return new Promise((resolve) => {
-    let chunkCount = 0;
-    console.log("[SSE][Commentary] Stream start", JSON.stringify({ chunkStreaming }));
-
-    streamCommentary(
-      artifactType,
-      result.output,
-      commentaryContext,
-      {
-        onChunk: (chunk) => {
-          if (aborted) return;
-          chunkCount += 1;
-          if (chunkStreaming) {
-            sendEvent("commentary_chunk", { chunk });
-          }
-          console.debug(
-            "[SSE][Commentary] Token emitted",
-            JSON.stringify({ chunkCount, size: chunk.length }),
-          );
-        },
-        onDone: (commentaryResult) => {
-          if (aborted) {
-            resolve();
-            return;
-          }
-
-          // Send unified commentary event
-          const hasSignals =
-            Array.isArray(commentaryResult?.signals) &&
-            commentaryResult.signals.length > 0;
-          if (commentaryResult?.commentary || hasSignals) {
-            sendEvent("commentary", {
-              message: commentaryResult.commentary || "",
-              signals: commentaryResult.signals || [],
-            });
-          }
-          console.log(
-            "[SSE][Commentary] Stream end",
-            JSON.stringify({
-              chunkCount,
-              chars: commentaryResult?.commentary ? commentaryResult.commentary.length : 0,
-            }),
-          );
-          resolve();
-        },
-        onError: (err) => {
-          console.error("[SSE][Commentary] Stream error:", err);
-          resolve();
-        },
-      },
-      signal,
-    );
-  });
-}
-
-function resolveChunkStreamingEnabled(req, metadata) {
-  const serverEnabled = process.env.OLLAMA_STREAMING !== "false";
-  const metadataEnabled =
-    metadata && typeof metadata === "object" && metadata.streamingEnabled === false
-      ? false
-      : true;
-  const header = String(req.get("x-agent-streaming") || "").trim().toLowerCase();
-  const headerEnabled = header !== "false" && header !== "0";
-  return serverEnabled && metadataEnabled && headerEnabled;
 }
 
 /**
@@ -775,94 +264,6 @@ function getLifecycleStatusAction(contextLifecycle) {
     return "Conversation context was cleared.";
   }
   return "Conversation context changed.";
-}
-
-function isExternalSearchArtifact(result) {
-  const outputType = String(result?.output?.type || "").toLowerCase();
-  const provider = String(result?.output?.provider || "").toLowerCase();
-  if (
-    outputType === "web_search_results" ||
-    outputType === "web_deep_search_results"
-  ) {
-    return true;
-  }
-  return provider.includes("langsearch");
-}
-
-function shouldSendIntentFraming(result, requestContext, framingPayload) {
-  if (!framingPayload) return false;
-  if (result?.resolutionMode === true) return false;
-
-  // INTENT FRAMING IS MANDATORY FOR ALL INTERACTIONS
-  // Only suppress for explicitly conversational types (chat is already conversational)
-  const outputStatus = String(result?.output?.status || "").toLowerCase();
-  if (outputStatus === "error") {
-    return false;
-  }
-  const outputType = String(result?.output?.type || "").toLowerCase();
-  if (outputType === "chat") {
-    return false;
-  }
-
-  return true;
-}
-
-async function generateChatIntentFramingMessage(message, signal) {
-  const intentResult = await generateStructuredPayload({
-    kind: "intent",
-    schema: intentSchema,
-    validate: validateIntent,
-    buildMessages: ({ strictJson }) =>
-      buildIntentMessages({
-        message,
-        intentHint: "CHATBOT_AGENT_MODE",
-        strictJson,
-      }),
-    signal,
-  });
-  if (intentResult.ok) {
-    const intentPayload = coerceIntentPayload(intentResult.value, message);
-    if (validateIntent(intentPayload)) {
-      const summary = String(intentPayload.summary || "").trim();
-      const nextQuestion = String(intentPayload.nextQuestion || "").trim();
-      return [summary, nextQuestion].filter(Boolean).join(" ");
-    }
-  }
-  return "Understood. I will review your request.";
-}
-
-async function generateChatCommentaryMessage(message, finalResponse, signal) {
-  const commentaryResult = await generateStructuredPayload({
-    kind: "commentary",
-    schema: commentarySchema,
-    validate: validateCommentary,
-    buildMessages: ({ strictJson }) =>
-      buildCommentaryMessages({
-        message,
-        intent: "CHATBOT_AGENT_MODE",
-        output: {
-          type: "chat",
-          summary: String(finalResponse || "").slice(0, 600),
-        },
-        strictJson,
-      }),
-    signal,
-  });
-
-  if (commentaryResult.ok) {
-    const payload = coerceCommentaryPayload(
-      commentaryResult.value,
-      { type: "chat", summary: finalResponse || "" },
-      message,
-    );
-    if (validateCommentary(payload)) {
-      const lines = Array.isArray(payload.lines) ? payload.lines : [];
-      const question = payload.question ? [payload.question] : [];
-      const out = [...lines, ...question].join(" ").trim();
-      if (out) return out;
-    }
-  }
-  return "";
 }
 
 function normalizeChatSearchArtifact(entry) {
@@ -1066,6 +467,233 @@ function normalizeChatSearchArtifact(entry) {
     searchIntent: "WEB_SEARCH",
     ...base,
   };
+}
+
+function sanitizeChatbotAssistantText(text) {
+  const raw = String(text || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .trim();
+  if (!raw) return "";
+  let cleaned = raw;
+  cleaned = cleaned.replace(
+    /^(got it\s*[—-]\s*|you(?:’|')re asking(?: about)?\s+|based on (?:your request|\d+\s+sources?)[:,]?\s*|here(?:’|')s what i found regarding\s+)/i,
+    "",
+  );
+  cleaned = cleaned.replace(
+    /\b(snapshot|scope|diagnostic|internal state|system state|reasoning|chain of thought)\b/gi,
+    "",
+  );
+  cleaned = cleaned
+    .split("\n")
+    .map((line) =>
+      line
+        .replace(/[ \t]+/g, " ")
+        .replace(/\s+([,.;:!?%])/g, "$1")
+        .trim(),
+    )
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  if (/^\{[\s\S]*\}$/.test(cleaned) || /^\[[\s\S]*\]$/.test(cleaned)) {
+    return "";
+  }
+  return cleaned;
+}
+
+function isChatbotActionArtifact(output) {
+  const type = String(output?.type || "").toLowerCase();
+  return (
+    type === "proposal" ||
+    type === "document_generation_preview" ||
+    type === "document_generation_missing_fields" ||
+    type === "actions" ||
+    type === "action_plan" ||
+    type === "context_suggestion" ||
+    type === "clarification" ||
+    type === "routing_clarification"
+  );
+}
+
+function normalizeChatbotDupKey(text) {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeChatbotMarkdownOutput(text, { classification } = {}) {
+  let out = String(text || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  if (!out) return "";
+
+  const hasMarkdownSyntax =
+    /(^|\n)([-*]\s+|\d+\.\s+|#{1,6}\s+)/m.test(out) ||
+    /\*\*[^*]+\*\*/.test(out) ||
+    /_[^_]+_/.test(out);
+  const hasParagraphs = out.includes("\n\n");
+
+  // Light formatting only when the model returned a flat paragraph.
+  if (!hasMarkdownSyntax && !hasParagraphs && classification?.includeIntent) {
+    const sentences = out
+      .split(/(?<=[.!?])\s+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (sentences.length >= 2) {
+      const intentSentence = sentences.shift();
+      out = `_${intentSentence}_\n\n${sentences.join(" ")}`.trim();
+    }
+  }
+
+  return out;
+}
+
+function classifyChatbotResponseShape({ userMessage, output, intent }) {
+  const text = String(userMessage || "").trim().toLowerCase();
+  const type = String(output?.type || "").toLowerCase();
+  const intentUpper = String(intent || "").toUpperCase();
+
+  const trivial =
+    !type &&
+    /^(hi|hello|hey|yo|thanks|thank you|good morning|good evening)\b/.test(text);
+  const joke =
+    /\b(joke|funny|make me laugh)\b/.test(text) &&
+    !/\b(document|client|dossier|search|research|draft|generate)\b/.test(text);
+  if (trivial || joke) {
+    return { task: "trivial", includeIntent: false, includeCommentary: false };
+  }
+
+  const isGeneration =
+    [
+      "document_generation_preview",
+      "document_generation_missing_fields",
+      "proposal",
+      "action_plan",
+      "actions",
+    ].includes(type) ||
+    /\b(generate|draft|prepare|write)\b/.test(text);
+  if (isGeneration) {
+    return { task: "generation", includeIntent: true, includeCommentary: true };
+  }
+
+  const isSearch =
+    type === "web_search_results" ||
+    type === "web_deep_search_results" ||
+    intentUpper.includes("SEARCH") ||
+    /\b(search|research|find on the web|look up)\b/.test(text);
+  if (isSearch) {
+    return { task: "search", includeIntent: true, includeCommentary: true };
+  }
+
+  const isRetrieval =
+    [
+      "explanation",
+      "collection",
+      "context_suggestion",
+      "clarification",
+      "routing_clarification",
+    ].includes(type) ||
+    /\b(show|list|open|retrieve|read|summarize|analy[sz]e|review|client|dossier|lawsuit|task|session)\b/.test(text) ||
+    /(READ|LIST|EXPLAIN|SUMMARIZE|ANALYZE)/.test(intentUpper);
+
+  if (isRetrieval) {
+    return { task: "retrieval", includeIntent: true, includeCommentary: true };
+  }
+
+  return { task: "general", includeIntent: false, includeCommentary: false };
+}
+
+function extractChatbotMainResult({ text, fallbackText, output, intent }) {
+  const direct = sanitizeChatbotAssistantText(text);
+  if (direct) return direct;
+
+  const type = String(output?.type || "").toLowerCase();
+  if (type === "web_search_results" || type === "web_deep_search_results") {
+    const aiSummary = sanitizeChatbotAssistantText(
+      String(output?.aiSummary?.shortAnswer || "").replace(
+        /^based on\s+\d+\s+[^,]+,\s*/i,
+        "",
+      ),
+    );
+    if (aiSummary) return aiSummary;
+    return "I found relevant public sources and summarized the key points.";
+  }
+  if (type === "document_generation_preview") {
+    return "The draft preview is ready.";
+  }
+  if (type === "proposal") {
+    return "The proposal is ready for your review.";
+  }
+  if (type === "document_generation_missing_fields") {
+    return sanitizeChatbotAssistantText(output?.message) || "I still need a few details to generate that document.";
+  }
+  if (type === "context_suggestion" || type === "clarification" || type === "routing_clarification") {
+    return sanitizeChatbotAssistantText(output?.message || output?.prompt) || "I need one detail to continue.";
+  }
+  if (type === "recovery") {
+    return sanitizeChatbotAssistantText(output?.whatHappened || output?.message) || "I could not complete that request.";
+  }
+  if (type === "explanation") {
+    const summary = sanitizeChatbotAssistantText(output?.facts?.summary || output?.summary || "");
+    if (summary) return summary;
+  }
+  if (type === "collection") {
+    const summary = sanitizeChatbotAssistantText(output?.summary || "");
+    if (summary) return summary;
+    if (Array.isArray(output?.items)) {
+      return `I found ${output.items.length} matching item${output.items.length === 1 ? "" : "s"}.`;
+    }
+  }
+
+  const summary = sanitizeChatbotAssistantText(output?.summary || output?.message || "");
+  if (summary) return summary;
+  const fallback = sanitizeChatbotAssistantText(fallbackText);
+  if (fallback) return fallback;
+  if (String(intent || "").toUpperCase().includes("SEARCH")) return "I found relevant results for your question.";
+  return "Done.";
+}
+
+
+function buildChatbotAssistantMessage({ userMessage, text, fallbackText, output, intent }) {
+  const classification = classifyChatbotResponseShape({ userMessage, output, intent });
+  const direct = normalizeChatbotMarkdownOutput(
+    sanitizeChatbotAssistantText(text),
+    { classification },
+  );
+  if (direct) return direct;
+
+  const mainResult = extractChatbotMainResult({ text, fallbackText, output, intent });
+  return normalizeChatbotMarkdownOutput(mainResult, { classification }) || "Done.";
+}
+
+function resolveChatbotStatusAction({ output, toolExecutions, userMessage }) {
+  const type = String(output?.type || "").toLowerCase();
+  if (type === "web_search_results") return "Searching...";
+  if (type === "web_deep_search_results") return "Running deep research...";
+  if (type === "document_generation_preview") return "Preparing document preview...";
+  if (type === "proposal") return "Preparing action proposal...";
+  const toolNames = Array.isArray(toolExecutions)
+    ? toolExecutions.map((row) => String(row?.toolName || "").toLowerCase())
+    : [];
+  if (toolNames.some((name) => name.includes("search"))) return "Searching...";
+  if (toolNames.some((name) => name.includes("entity") || name.includes("dossier") || name.includes("client"))) {
+    return "Reading records...";
+  }
+  if (/\b(search|find on the web|research)\b/i.test(String(userMessage || ""))) {
+    return "Searching...";
+  }
+  return "Working...";
+}
+
+function buildChatbotAttachmentArtifact({ output, toolExecutions = [] }) {
+  if (output && typeof output === "object") {
+    if (isChatbotActionArtifact(output)) return output;
+  }
+  return null;
 }
 
 function normalizeRefText(value) {
@@ -1704,6 +1332,7 @@ router.post("/agent/chat", async (req, res) => {
     aborted = true;
     abortController.abort();
   });
+  let assistantFinalEmitted = false;
 
   const emit = (event, payload) => {
     if (aborted) return;
@@ -1711,44 +1340,6 @@ router.post("/agent/chat", async (req, res) => {
     if (typeof res.flush === "function") {
       res.flush();
     }
-  };
-
-  const emitIntent = ({
-    message: intentMessage,
-    action,
-    missingEntities = [],
-    interactionMode = "operational",
-  }) => {
-    const visibility = resolveStageVisibility(interactionMode, "intent");
-    emit("intent", {
-      message: String(intentMessage || "").trim(),
-      action: action || "CHATBOT_AGENT_MODE",
-      missingEntities: Array.isArray(missingEntities) ? missingEntities : [],
-      visibility,
-      interactionMode,
-    });
-  };
-
-  const emitCommentary = ({
-    message: commentaryMessage,
-    source,
-    kind,
-    toolName,
-    stepIndex,
-    signals = [],
-    interactionMode = "operational",
-  }) => {
-    const visibility = resolveStageVisibility(interactionMode, "commentary");
-    emit("commentary", {
-      message: String(commentaryMessage || "").trim(),
-      source: source || "llm",
-      kind: kind || "commentary",
-      toolName: toolName || null,
-      stepIndex: stepIndex ?? null,
-      signals: Array.isArray(signals) ? signals : [],
-      visibility,
-      interactionMode,
-    });
   };
 
   const emitVisibleAssistantText = async ({
@@ -1770,6 +1361,39 @@ router.post("/agent/chat", async (req, res) => {
     );
   };
 
+  const emitStatus = (action, phase = "working", interactionMode = "operational") => {
+    const safeAction = String(action || "").trim();
+    if (!safeAction) return;
+    emit("status", {
+      action: safeAction,
+      phase,
+      visibility: "visible",
+      interactionMode,
+      timestamp: new Date().toISOString(),
+    });
+  };
+
+  const emitAssistantFinal = async ({
+    text,
+    fallbackText,
+    output,
+    intent = "CHATBOT_AGENT_MODE",
+    interactionMode = "operational",
+  }) => {
+    if (assistantFinalEmitted) return;
+    assistantFinalEmitted = true;
+    await emitVisibleAssistantText({
+      text: buildChatbotAssistantMessage({
+        userMessage: message,
+        text,
+        fallbackText,
+        output,
+        intent,
+      }),
+      interactionMode,
+    });
+  };
+
   try {
     let documentContext = resolveDocumentContext(sessionId, documentIds);
     if (
@@ -1788,12 +1412,6 @@ router.post("/agent/chat", async (req, res) => {
       documentContext,
       metadata,
     );
-    const directDocumentAnswerMode =
-      isDocumentFocusedPrompt(message) &&
-      requestContext?.documentContext &&
-      Array.isArray(requestContext.documentContext.documents) &&
-      requestContext.documentContext.documents.length > 0;
-
     emit("start", {
       intent: "CHATBOT_AGENT_MODE",
       agentVersion: agentVersion || "v3",
@@ -1821,16 +1439,16 @@ router.post("/agent/chat", async (req, res) => {
         endpoint: "/agent/chat",
         timestamp: new Date().toISOString(),
       });
-      emitIntent({
-        message: "Resuming your previous request with the selected entity.",
-        action: "DOCUMENT_GENERATION",
-        missingEntities: [],
-        interactionMode,
-      });
+      emitStatus("Preparing action preview...", "working", interactionMode);
       emit("result", {
         output: resumedPending.output,
         intent: resumedPending.intent || "DOCUMENT_GENERATION",
         visibility: "visible",
+        interactionMode,
+      });
+      await emitAssistantFinal({
+        output: resumedPending.output,
+        intent: resumedPending.intent || "DOCUMENT_GENERATION",
         interactionMode,
       });
       emit("done", {
@@ -1880,16 +1498,16 @@ router.post("/agent/chat", async (req, res) => {
         endpoint: "/agent/chat",
         timestamp: new Date().toISOString(),
       });
-      emitIntent({
-        message: "Planning document generation from structured data.",
-        action: "DOCUMENT_GENERATION",
-        missingEntities: [],
-        interactionMode,
-      });
+      emitStatus("Preparing document preview...", "working", interactionMode);
       emit("result", {
         output: artifact,
         intent: "DOCUMENT_GENERATION",
         visibility: "visible",
+        interactionMode,
+      });
+      await emitAssistantFinal({
+        output: artifact,
+        intent: "DOCUMENT_GENERATION",
         interactionMode,
       });
       emit("done", {
@@ -1907,6 +1525,7 @@ router.post("/agent/chat", async (req, res) => {
       (preReadIntent.intent === READ_INTENTS.WEB_SEARCH ||
         preReadIntent.intent === READ_INTENTS.DEEP_SEARCH);
     if (shouldPreRouteRead) {
+      emitStatus(getStatusAction(preReadIntent.intent, "fetching"), "fetching");
       const runResult = await agentEngine.run({
         message,
         context: requestContext,
@@ -1928,19 +1547,26 @@ router.post("/agent/chat", async (req, res) => {
         endpoint: "/agent/chat",
         timestamp: new Date().toISOString(),
       });
-      emitIntent({
-        message: "Running deterministic read flow for this request.",
-        action: runResult?.intent || "READ_DATA",
-        missingEntities: [],
-        interactionMode,
+      const preReadOutput = runResult?.output || {
+        type: "chat",
+        message: "No output produced by read flow.",
+      };
+      const preReadAttachment = buildChatbotAttachmentArtifact({
+        output: preReadOutput,
+        toolExecutions: [],
       });
-      emit("result", {
-        output: runResult?.output || {
-          type: "chat",
-          message: "No output produced by read flow.",
-        },
+      if (preReadAttachment) {
+        emit("result", {
+          output: preReadAttachment,
+          intent: runResult?.intent || "READ_DATA",
+          visibility: "visible",
+          interactionMode,
+        });
+      }
+      await emitAssistantFinal({
+        text: preReadOutput?.message,
+        output: preReadOutput,
         intent: runResult?.intent || "READ_DATA",
-        visibility: "visible",
         interactionMode,
       });
       emit("done", {
@@ -1970,18 +1596,9 @@ router.post("/agent/chat", async (req, res) => {
           .map((entry) => normalizeChatSearchArtifact(entry))
           .find((output) => Boolean(output)) || null
       : null;
-    const stepCommentaries = Array.isArray(result?.stepCommentaries)
-      ? result.stepCommentaries.filter(
-          (row) =>
-            row &&
-            typeof row.message === "string" &&
-            row.message.trim().length > 0,
-        )
+    const toolExecutions = Array.isArray(result?.toolExecutions)
+      ? result.toolExecutions
       : [];
-    const suppressIntentFraming =
-      result?.suppressIntentFraming === true || directDocumentAnswerMode;
-    const suppressCommentary =
-      result?.suppressCommentary === true || directDocumentAnswerMode;
     const effectiveOutput = result?.ambiguityArtifact || searchArtifact || {
       type: "chat",
       message: result?.message || "",
@@ -1990,9 +1607,7 @@ router.post("/agent/chat", async (req, res) => {
       output: effectiveOutput,
       intent: result?.intent || "CHATBOT_AGENT_MODE",
       result,
-      toolExecutions: Array.isArray(result?.toolExecutions)
-        ? result.toolExecutions
-        : [],
+      toolExecutions,
       documentContext: requestContext?.documentContext || null,
     });
     agentEngine.ledger.record({
@@ -2001,117 +1616,40 @@ router.post("/agent/chat", async (req, res) => {
       endpoint: "/agent/chat",
       timestamp: new Date().toISOString(),
     });
-
-    if (!suppressIntentFraming) {
-      const chatIntentMessage = await generateChatIntentFramingMessage(
-        message,
-        abortController.signal,
+    if (toolExecutions.length > 0) {
+      emitStatus(
+        resolveChatbotStatusAction({
+          output: effectiveOutput,
+          toolExecutions,
+          userMessage: message,
+        }),
+        "working",
+        interactionMode,
       );
-      emitIntent({
-        message: chatIntentMessage,
-        action: "CHATBOT_AGENT_MODE",
-        missingEntities: [],
-        interactionMode,
-      });
-    }
-    if (!suppressCommentary) {
-      for (const row of stepCommentaries) {
-        const stepMessage = String(row.message || "").trim();
-        if (!stepMessage) continue;
-        if (isClarificationStyleChat(result.message)) continue;
-        if (isRedundantWithFinalResponse(stepMessage, result.message)) continue;
-        emitCommentary({
-          message: stepMessage,
-          source: row.source || "llm",
-          kind: row.kind || "tool_step",
-          toolName: row.toolName || null,
-          stepIndex: row.stepIndex ?? null,
-          signals: ["tool_step_commentary"],
-          interactionMode,
-        });
-      }
     }
 
-    if (result?.ambiguityArtifact) {
+    const chatbotAttachment = buildChatbotAttachmentArtifact({
+      output: result?.ambiguityArtifact || searchArtifact || null,
+      toolExecutions,
+    });
+    if (chatbotAttachment) {
       emit("result", {
-        output: result.ambiguityArtifact,
+        output: chatbotAttachment,
         intent: "CHATBOT_AGENT_MODE",
         visibility: "visible",
         interactionMode,
       });
-      if (!suppressCommentary) {
-        const chatCommentaryMessage = await generateChatCommentaryMessage(
-          message,
-          String(result?.ambiguityArtifact?.message || result?.message || ""),
-          abortController.signal,
-        );
-        if (
-          chatCommentaryMessage &&
-          !isRedundantWithFinalResponse(
-            chatCommentaryMessage,
-            String(result?.ambiguityArtifact?.message || result?.message || ""),
-          )
-        ) {
-          emitCommentary({
-            message: chatCommentaryMessage,
-            signals: [],
-            interactionMode,
-          });
-        }
-      }
-    } else if (searchArtifact) {
-      emit("result", {
-        output: searchArtifact,
-        intent: "CHATBOT_AGENT_MODE",
-        visibility: "visible",
-        interactionMode,
-      });
-      if (!suppressCommentary && !isClarificationStyleChat(result.message)) {
-        const chatCommentaryMessage = await generateChatCommentaryMessage(
-          message,
-          result.message,
-          abortController.signal,
-        );
-        if (
-          chatCommentaryMessage &&
-          !isRedundantWithFinalResponse(chatCommentaryMessage, result.message)
-        ) {
-          emitCommentary({
-            message: chatCommentaryMessage,
-            signals: [],
-            interactionMode,
-          });
-        }
-      }
-    } else {
-      await emitVisibleAssistantText({
-        text: result?.message || "",
-        interactionMode,
-      });
-      if (!suppressCommentary && !isClarificationStyleChat(result.message)) {
-        const chatCommentaryMessage = await generateChatCommentaryMessage(
-          message,
-          result.message,
-          abortController.signal,
-        );
-        if (
-          chatCommentaryMessage &&
-          !isRedundantWithFinalResponse(chatCommentaryMessage, result.message)
-        ) {
-          emitCommentary({
-            message: chatCommentaryMessage,
-            signals: [],
-            interactionMode,
-          });
-        }
-      }
     }
+    await emitAssistantFinal({
+      text: result?.message,
+      output: effectiveOutput,
+      intent: result?.intent || "CHATBOT_AGENT_MODE",
+      interactionMode,
+    });
     emit("done", {
       timestamp: new Date().toISOString(),
       mode: "chatbot",
-      toolCalls: Array.isArray(result?.toolExecutions)
-        ? result.toolExecutions.length
-        : 0,
+      toolCalls: toolExecutions.length,
       interactionMode,
     });
   } catch (error) {
@@ -2133,6 +1671,12 @@ router.post("/agent/chat", async (req, res) => {
       output: mapped.recovery,
       intent: "RECOVERY",
       visibility: "visible",
+      interactionMode: "operational",
+    });
+    await emitAssistantFinal({
+      fallbackText: "I could not complete that request.",
+      output: mapped.recovery,
+      intent: "RECOVERY",
       interactionMode: "operational",
     });
     emit("done", {
@@ -2356,505 +1900,6 @@ function newEventId(prefix = "evt") {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function extractJsonObject(rawText) {
-  const raw = String(rawText || "").trim();
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    const start = raw.indexOf("{");
-    const end = raw.lastIndexOf("}");
-    if (start < 0 || end < start) return null;
-    try {
-      return JSON.parse(raw.slice(start, end + 1));
-    } catch {
-      return null;
-    }
-  }
-}
-
-function cleanUserText(text, fallback = "") {
-  const raw = String(text || "").replace(/\s+/g, " ").trim();
-  if (!raw) return fallback;
-  const blocked = /\b(token|permission|confidence|assumption|risk flag|internal|auth|firewall)\b/i;
-  if (blocked.test(raw)) {
-    return fallback || "I understood your request and will proceed.";
-  }
-  return raw;
-}
-
-function normalizeQuestion(question, fallback = null) {
-  const q = cleanUserText(question, "").trim();
-  if (!q) return fallback;
-  if (/[?؟]$/.test(q)) return q;
-  return `${q.replace(/[.!\s]+$/g, "")}?`;
-}
-
-function coerceIntentPayload(payload, userMessage) {
-  const source = payload && typeof payload === "object" ? payload : {};
-  const contextEchoCandidate = cleanUserText(source.contextEcho || userMessage, "");
-  const summary =
-    cleanUserText(source.summary, "") ||
-    `Got it — you want me to handle "${cleanUserText(userMessage, "this request")}".`;
-  const rawNextQuestion = normalizeQuestion(source.nextQuestion, null);
-  const lowValueIdentifierQuestion =
-    rawNextQuestion &&
-    /\b(case number|reference|reference id|identifier|party names|more details|provide.*details)\b/i.test(
-      rawNextQuestion,
-    );
-  return {
-    kind: "intent",
-    summary,
-    contextEcho: contextEchoCandidate || null,
-    nextQuestion: lowValueIdentifierQuestion ? null : rawNextQuestion,
-  };
-}
-
-function buildCommentaryFallbackFromArtifact(output, userMessage) {
-  const artifact = output && typeof output === "object" ? output : {};
-  const type = String(artifact.type || "").toLowerCase();
-  const fallback = {
-    kind: "commentary",
-    lines: [],
-    options: [],
-    question: null,
-  };
-
-  if (type === "context_suggestion") {
-    const suggestions = Array.isArray(artifact.suggestions)
-      ? artifact.suggestions
-      : [];
-    const entityType = cleanUserText(artifact.entityType, "item");
-    const messageLine =
-      cleanUserText(artifact.message, "") ||
-      `I found ${suggestions.length} possible ${entityType} matches.`;
-    fallback.lines = [messageLine];
-    fallback.options = suggestions.slice(0, 8).map((item) => ({
-      label:
-        cleanUserText(item?.label, "") ||
-        `${cleanUserText(item?.entityType, entityType)} ${String(item?.entityId || "").trim()}`,
-      value: String(item?.id || item?.entityId || "").trim(),
-    })).filter((item) => item.label && item.value);
-    fallback.question = "Which one do you mean?";
-    return fallback;
-  }
-
-  if (type === "collection") {
-    const items = Array.isArray(artifact.items) ? artifact.items : [];
-    const entity = cleanUserText(artifact.entityType, "item");
-    const summary = cleanUserText(artifact.summary, "");
-    fallback.lines = [
-      summary || `I found ${items.length} ${entity}${items.length === 1 ? "" : "s"}.`,
-    ];
-    if (items.length > 1) {
-      fallback.options = items.slice(0, 8).map((item) => ({
-        label:
-          cleanUserText(item?.title, "") ||
-          cleanUserText(item?.subtitle, "") ||
-          `${entity} ${String(item?.id || "").trim()}`,
-        value: String(item?.entityId || item?.id || "").trim(),
-      })).filter((row) => row.label && row.value);
-      fallback.question =
-        fallback.options.length > 0 ? "Which one do you mean?" : null;
-    }
-    return fallback;
-  }
-
-  if (type === "clarification" || type === "routing_clarification") {
-    const candidates = Array.isArray(artifact.candidates) ? artifact.candidates : [];
-    const promptLine =
-      cleanUserText(artifact.prompt || artifact.message, "") ||
-      "I need one more detail to continue.";
-    fallback.lines = [promptLine];
-    fallback.options = candidates.slice(0, 8).map((item) => ({
-      label:
-        cleanUserText(item?.label, "") ||
-        `${cleanUserText(item?.entityType, "Option")} ${String(item?.id || "").trim()}`,
-      value: String(item?.id || "").trim(),
-    })).filter((item) => item.label && item.value);
-    fallback.question = normalizeQuestion(artifact.prompt, "Could you clarify your selection?");
-    return fallback;
-  }
-
-  if (type === "web_search_results" || type === "web_deep_search_results") {
-    const count = Number.isFinite(artifact.resultCount)
-      ? Number(artifact.resultCount)
-      : Array.isArray(artifact.results)
-        ? artifact.results.length
-        : 0;
-    const query = cleanUserText(artifact.query, cleanUserText(userMessage, "your request"));
-    fallback.lines = [
-      `I found ${count} source${count === 1 ? "" : "s"} for "${query}".`,
-    ];
-    fallback.question = null;
-    return fallback;
-  }
-
-  if (type === "draft" || type === "client_email" || type === "invitation") {
-    fallback.lines = ["Here is the draft. You can review and edit it before sending."];
-    fallback.question = null;
-    return fallback;
-  }
-
-  const summary = cleanUserText(artifact.summary || artifact.message, "");
-  if (summary) {
-    fallback.lines = [summary];
-  } else {
-    fallback.lines = ["I found the relevant information and organized it for you."];
-  }
-  return fallback;
-}
-
-function dedupeLines(lines = []) {
-  const seen = new Set();
-  const out = [];
-  for (const line of lines) {
-    const key = String(line || "").trim().toLowerCase();
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    out.push(String(line).trim());
-  }
-  return out;
-}
-
-function deriveKnownResultCount(output) {
-  if (!output || typeof output !== "object") return null;
-  if (typeof output.resultCount === "number" && Number.isFinite(output.resultCount)) {
-    return output.resultCount;
-  }
-  if (Array.isArray(output.items)) return output.items.length;
-  if (Array.isArray(output.results)) return output.results.length;
-  if (Array.isArray(output.suggestions)) return output.suggestions.length;
-  return null;
-}
-
-function getArtifactSummaryText(output) {
-  const artifact = output && typeof output === "object" ? output : {};
-  const summary = [
-    artifact.summary,
-    artifact.message,
-    artifact.prompt,
-    artifact.facts?.summary,
-    ...(Array.isArray(artifact.facts?.details) ? artifact.facts.details : []),
-    ...(Array.isArray(artifact.details) ? artifact.details : []),
-  ]
-    .filter(Boolean)
-    .join(" ");
-  return String(summary || "").toLowerCase();
-}
-
-function shouldForceCommentaryFallback(output) {
-  const artifact = output && typeof output === "object" ? output : {};
-  const type = String(artifact.type || "").toLowerCase();
-  if (type === "clarification" || type === "routing_clarification") return true;
-  if (type === "context_suggestion") return true;
-
-  const status = String(artifact.status || "").toLowerCase();
-  if (status === "pending_clarification") return true;
-
-  const summaryText = getArtifactSummaryText(artifact);
-  if (!summaryText) return false;
-  const unstableResolutionPattern =
-    /\b(which|specify|provide|clarif|multiple|ambiguous|unable to retrieve|not found|no\s+\w+\s+found|could not)\b/i;
-  return unstableResolutionPattern.test(summaryText);
-}
-
-function hasCountContradiction(lines = [], count = null) {
-  if (!Array.isArray(lines) || lines.length === 0 || typeof count !== "number") {
-    return false;
-  }
-  const text = lines.join(" ").toLowerCase();
-  const noResultsClaim =
-    /\b(no\b|none|couldn.?t find|didn.?t find|not found|aucun|introuvable|لا يوجد|لم يتم العثور)\b/i.test(
-      text,
-    );
-  const foundClaim = /\b(found|identified|located|retrieved|تم العثور)\b/i.test(text);
-  if (count > 0 && noResultsClaim) return true;
-  if (count === 0 && foundClaim && !noResultsClaim) return true;
-  const numericMatch = text.match(/\b(\d+)\b/);
-  if (numericMatch) {
-    const claimed = parseInt(numericMatch[1], 10);
-    if (Number.isFinite(claimed) && claimed !== count) return true;
-  }
-  return false;
-}
-
-function isGenericOptionLabel(label) {
-  const normalized = String(label || "").trim().toLowerCase();
-  if (!normalized) return true;
-  return /^(option|item|result|choice|selection|record|entry|client|dossier|case)\s*[-:#]?\s*\d+$/.test(
-    normalized,
-  );
-}
-
-function extractReferenceToken(text) {
-  const raw = String(text || "");
-  if (!raw) return "";
-  const match = raw.match(/\b([A-Z]{2,10}-\d{2,8}(?:-\d{1,8})?)\b/i);
-  return match ? String(match[1]).trim() : "";
-}
-
-function extractClientName(text) {
-  const raw = String(text || "");
-  if (!raw) return "";
-  const prefixed = raw.match(/\bclient\s*:\s*([^|]+)/i);
-  if (prefixed && prefixed[1]) return String(prefixed[1]).trim();
-  return "";
-}
-
-function splitSubtitleParts(subtitle) {
-  return String(subtitle || "")
-    .split("|")
-    .map((part) => cleanUserText(part, ""))
-    .filter(Boolean);
-}
-
-function normalizeDetailPart(part) {
-  return String(part || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9\u0600-\u06ff]+/g, "")
-    .trim();
-}
-
-function dedupeDetailParts(parts = []) {
-  const out = [];
-  const seen = new Set();
-  for (const part of parts) {
-    const clean = cleanUserText(part, "");
-    if (!clean) continue;
-    const key = normalizeDetailPart(clean);
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    out.push(clean);
-  }
-  return out;
-}
-
-function buildCanonicalOptionPool(output) {
-  const artifact = output && typeof output === "object" ? output : {};
-  const pool = [];
-
-  const withDetails = (label, details = []) => {
-    const base = cleanUserText(label, "");
-    const extras = dedupeDetailParts(Array.isArray(details) ? details : []);
-    if (!base) return extras.join(" | ");
-    if (extras.length === 0) return base;
-    return `${base} (${extras.join(" | ")})`;
-  };
-
-  const pushOption = (label, value) => {
-    const cleanLabel = cleanUserText(label, "");
-    const cleanValue = String(value || "").trim();
-    if (!cleanLabel || !cleanValue) return;
-    if (pool.some((item) => item.value === cleanValue)) return;
-    pool.push({ label: cleanLabel, value: cleanValue });
-  };
-
-  const suggestions = Array.isArray(artifact.suggestions) ? artifact.suggestions : [];
-  for (const suggestion of suggestions) {
-    const subtitle = cleanUserText(suggestion?.subtitle || "", "");
-    const subtitleParts = splitSubtitleParts(subtitle);
-    const reference =
-      suggestion?.reference ||
-      suggestion?.metadata?.reference ||
-      extractReferenceToken(subtitleParts.join(" | "));
-    const client =
-      suggestion?.clientName ||
-      suggestion?.metadata?.clientName ||
-      suggestion?.metadata?.client_name ||
-      extractClientName(subtitleParts.join(" | "));
-    const extraDetails = subtitleParts.filter((part) => {
-      const normalized = part.toLowerCase();
-      if (reference && normalizeDetailPart(part) === normalizeDetailPart(reference)) {
-        return false;
-      }
-      if (client && normalized.includes(String(client).toLowerCase())) {
-        return false;
-      }
-      if (normalized.startsWith("client:")) return false;
-      return true;
-    });
-    pushOption(
-      withDetails(
-        suggestion?.label ||
-        `${cleanUserText(suggestion?.entityType, "Item")} ${String(suggestion?.entityId || "").trim()}`,
-        [reference, client ? `Client: ${client}` : "", ...extraDetails],
-      ),
-      suggestion?.id || suggestion?.entityId,
-    );
-  }
-
-  const items = Array.isArray(artifact.items) ? artifact.items : [];
-  for (const item of items) {
-    const reference = item?.reference || item?.subtitle || "";
-    const client = item?.client || item?.clientName || "";
-    pushOption(
-      withDetails(item?.title || item?.subtitle || item?.label, [
-        reference,
-        client,
-      ]),
-      item?.entityId || item?.id || item?.value,
-    );
-  }
-
-  const candidates = Array.isArray(artifact.candidates) ? artifact.candidates : [];
-  for (const candidate of candidates) {
-    const reference = candidate?.reference || candidate?.ref || "";
-    const client = candidate?.clientName || candidate?.client || "";
-    pushOption(
-      withDetails(
-        candidate?.label ||
-        `${cleanUserText(candidate?.entityType, "Option")} ${String(candidate?.id || "").trim()}`,
-        [reference, client],
-      ),
-      candidate?.id || candidate?.value,
-    );
-  }
-
-  const directOptions = Array.isArray(artifact.options) ? artifact.options : [];
-  for (const option of directOptions) {
-    pushOption(option?.label, option?.value || option?.id);
-  }
-
-  return pool;
-}
-
-function enforceNonGenericOptionLabels(options = [], output) {
-  if (!Array.isArray(options) || options.length === 0) return [];
-  const canonical = buildCanonicalOptionPool(output);
-  const byValue = new Map(canonical.map((item) => [item.value, item.label]));
-
-  const sanitized = options.map((option, index) => {
-    const value = String(option?.value || "").trim();
-    let label = cleanUserText(option?.label, "");
-    if (!value) return null;
-
-    const canonicalByValue = byValue.get(value);
-    const canonicalByIndex =
-      canonical[index] && String(canonical[index].value || "").trim() === value
-        ? canonical[index].label
-        : canonical[index]?.label;
-
-    if (isGenericOptionLabel(label)) {
-      label = canonicalByValue || canonicalByIndex || label;
-    }
-
-    return {
-      label: cleanUserText(label, canonicalByValue || canonicalByIndex || value),
-      value,
-    };
-  }).filter(Boolean);
-
-  const deduped = [];
-  const seen = new Set();
-  for (const option of sanitized) {
-    const key = String(option.value || "");
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    deduped.push(option);
-  }
-  return deduped;
-}
-
-function buildDisambiguatedOptionsFromOutput(output) {
-  const artifact = output && typeof output === "object" ? output : {};
-  const suggestions = Array.isArray(artifact.suggestions) ? artifact.suggestions : [];
-  if (suggestions.length === 0) return [];
-
-  return suggestions.slice(0, 8).map((s) => {
-    const title = cleanUserText(s?.label || s?.name || s?.title, "");
-    const subtitle = cleanUserText(s?.subtitle || "", "");
-    const subtitleParts = splitSubtitleParts(subtitle);
-    const reference =
-      cleanUserText(s?.reference || s?.metadata?.reference, "") ||
-      extractReferenceToken(subtitleParts.join(" | "));
-    const clientName =
-      cleanUserText(
-        s?.clientName ||
-          s?.metadata?.clientName ||
-          s?.metadata?.client_name ||
-          "",
-        "",
-      ) || extractClientName(subtitleParts.join(" | "));
-    const extraParts = subtitleParts.filter((part) => {
-      const normalized = part.toLowerCase();
-      if (reference && normalizeDetailPart(part) === normalizeDetailPart(reference)) {
-        return false;
-      }
-      if (clientName && normalized.includes(String(clientName).toLowerCase())) {
-        return false;
-      }
-      if (normalized.startsWith("client:")) return false;
-      return true;
-    });
-    const details = dedupeDetailParts([
-      reference,
-      clientName ? `Client: ${clientName}` : "",
-      ...extraParts,
-    ]);
-    const label = details.length > 0 ? `${title} (${details.join(" | ")})` : title;
-    return {
-      label: cleanUserText(label, title || String(s?.entityId || s?.id || "")),
-      value: String(s?.id || s?.entityId || "").trim(),
-    };
-  }).filter((o) => o.label && o.value);
-}
-
-function coerceCommentaryPayload(payload, output, userMessage) {
-  const source = payload && typeof payload === "object" ? payload : {};
-  const fallback = buildCommentaryFallbackFromArtifact(output, userMessage);
-  if (shouldForceCommentaryFallback(output)) {
-    return fallback;
-  }
-  const rawLines = Array.isArray(source.lines) ? source.lines : [];
-  let lines = rawLines
-    .map((line) => cleanUserText(line, ""))
-    .filter(Boolean)
-    .slice(0, 6);
-  const rawOptions = Array.isArray(source.options) ? source.options : [];
-  const parsedOptions = rawOptions
-    .map((item) => ({
-      label: cleanUserText(item?.label, ""),
-      value: String(item?.value || "").trim(),
-    }))
-    .filter((item) => item.label && item.value)
-    .slice(0, 8);
-  lines = dedupeLines(lines);
-  const knownCount = deriveKnownResultCount(output);
-  if (hasCountContradiction(lines, knownCount)) {
-    lines = fallback.lines;
-  }
-
-  let question = normalizeQuestion(source.question, fallback.question);
-  const baseOptions = parsedOptions.length > 0 ? parsedOptions : fallback.options;
-  const strictDisambiguatedOptions = buildDisambiguatedOptionsFromOutput(output);
-  const finalOptions = strictDisambiguatedOptions.length > 1
-    ? strictDisambiguatedOptions
-    : enforceNonGenericOptionLabels(baseOptions, output);
-  if ((!question || !String(question).trim()) && finalOptions.length > 1) {
-    question = "Which one do you mean?";
-  }
-
-  return {
-    kind: "commentary",
-    lines: lines.length > 0 ? lines : fallback.lines,
-    options: finalOptions,
-    question,
-  };
-}
-
-function buildIntentPreview(payload) {
-  return String(payload.summary || "").trim();
-}
-
-function buildCommentaryPreview(payload) {
-  const line = Array.isArray(payload.lines) && payload.lines.length > 0
-    ? payload.lines[0]
-    : "";
-  const question = payload.question || "";
-  return [line, question].filter(Boolean).join(" ");
-}
-
 function buildArtifactDigest(output) {
   if (!output || typeof output !== "object") return { type: "unknown" };
   const digest = {
@@ -2903,119 +1948,6 @@ function createDeltaEmitter(emitDelta) {
       buffer = "";
       lastFlushAt = Date.now();
     },
-  };
-}
-
-function buildIntentMessages({
-  message,
-  intentHint,
-  strictJson = false,
-}) {
-  const basePrompt = [
-    "Return only one JSON object.",
-    "No markdown, no prose, no extra keys, no internal/system details.",
-    "Schema:",
-    "{",
-    '  "kind": "intent",',
-    '  "summary": "string",',
-    '  "contextEcho": "string|null",',
-    '  "nextQuestion": "string|null"',
-    "}",
-    "Constraints:",
-    '- summary: one friendly conversational sentence for the user (for example: "Got it — you want ...").',
-    "- contextEcho: short echo of the user's exact topic/request when available, else null.",
-    "- nextQuestion: only if required to continue; must be a direct user-facing question; else null.",
-    "- Never include confidence, risk, assumptions, permissions, tokens, or internal process terms.",
-    strictJson
-      ? "STRICT: Output must be valid JSON with exact keys and types."
-      : "Keep values concise and user-friendly.",
-    `Intent hint: ${String(intentHint || "UNKNOWN")}`,
-    `User request: ${String(message || "").trim()}`,
-  ].join("\n");
-  return [
-    { role: "system", content: "You are a structured output generator." },
-    { role: "user", content: basePrompt },
-  ];
-}
-
-function buildCommentaryMessages({
-  message,
-  intent,
-  output,
-  strictJson = false,
-}) {
-  const digest = buildArtifactDigest(output);
-  const prompt = [
-    "Return only one JSON object.",
-    "No markdown, no prose outside JSON, no internal/system details.",
-    "Schema:",
-    "{",
-    '  "kind": "commentary",',
-    '  "lines": ["string"],',
-    '  "options": [{"label":"string","value":"string"}],',
-    '  "question": "string|null"',
-    "}",
-    "Constraints:",
-    "- lines: short user-facing conversational lines explaining what was found and what matters now.",
-    "- options: only when the user must choose between matches; label should be human-readable and concise.",
-    "- question: user-facing clarification question when needed, otherwise null.",
-    "- Never invent tool results not present in digest.",
-    "- Never include confidence, tokens, assumptions, risk flags, permissions, or internal workflow terms.",
-    '- For ambiguous matches, ask directly: "Which one do you mean?"',
-    strictJson
-      ? "STRICT: Output must be valid JSON and exactly match keys."
-      : "Use concise conversational language.",
-    `Intent: ${String(intent || "UNKNOWN")}`,
-    `User request: ${String(message || "").trim()}`,
-    `Artifact digest: ${JSON.stringify(digest)}`,
-  ].join("\n");
-  return [
-    { role: "system", content: "You generate typed reasoning blocks." },
-    { role: "user", content: prompt },
-  ];
-}
-
-async function generateStructuredPayload({
-  kind,
-  schema,
-  validate,
-  buildMessages,
-  signal,
-  onDelta,
-}) {
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const strictJson = attempt === 1;
-    const messages = buildMessages({ strictJson });
-    let raw = "";
-
-    for await (const part of streamLLM({
-      provider: process.env.LLM_PROVIDER || "auto",
-      model: process.env.LLM_MODEL,
-      mode: "json",
-      schema,
-      messages,
-      signal,
-      temperature: strictJson ? 0 : 0.1,
-      maxTokens: 420,
-    })) {
-      if (part?.kind === "delta" && part.text) {
-        raw += part.text;
-        onDelta?.(part.text);
-      }
-      if (part?.kind === "final_text" && typeof part.text === "string") {
-        raw = raw || part.text;
-      }
-    }
-
-    const parsed = extractJsonObject(raw);
-    if (parsed && validate(parsed)) {
-      return { ok: true, value: parsed };
-    }
-  }
-
-  return {
-    ok: false,
-    error: `${kind.toUpperCase()}_SCHEMA_VALIDATION_FAILED`,
   };
 }
 
@@ -3073,9 +2005,7 @@ router.post("/agent/stream", async (req, res) => {
 
   let seq = 0;
   let didEnd = false;
-  let intentTerminal = false;
   let artifactTerminal = false;
-  let commentaryTerminal = false;
   let hasStageFailure = false;
   let hasVisibleArtifact = false;
 
@@ -3189,67 +2119,12 @@ router.post("/agent/stream", async (req, res) => {
       toolExecutions: [],
       documentContext: requestContext?.documentContext || null,
     });
-    const intentVisibility = resolveStageVisibility(interactionMode, "intent");
-    const commentaryVisibility = resolveStageVisibility(
-      interactionMode,
-      "commentary",
-    );
     agentEngine.ledger.record({
       type: "interaction_mode_selected",
       mode: interactionMode,
       endpoint: "/agent/stream",
       timestamp: new Date().toISOString(),
     });
-
-    const intentDelta = createDeltaEmitter((chunk) =>
-      emit("intent.delta", { chunk, visibility: intentVisibility, interactionMode }),
-    );
-    const intentResult = await generateStructuredPayload({
-      kind: "intent",
-      schema: intentSchema,
-      validate: validateIntent,
-      buildMessages: ({ strictJson }) =>
-        buildIntentMessages({
-          message: effectiveMessage,
-          intentHint: followUpIntent?.intent || "UNKNOWN",
-          strictJson,
-        }),
-      signal: abortController.signal,
-      onDelta: (chunk) => intentDelta.push(chunk),
-    });
-    intentDelta.flush();
-
-    if (!intentResult.ok) {
-      emitFailed("intent.failed", {
-        stage: "intent",
-        code: intentResult.error,
-        message: "Could not produce structured intent payload",
-        retryable: true,
-        visibility: intentVisibility,
-        interactionMode,
-      });
-      intentTerminal = true;
-    } else {
-      const intentPayload = coerceIntentPayload(intentResult.value, effectiveMessage);
-      if (!validateIntent(intentPayload)) {
-        emitFailed("intent.failed", {
-          stage: "intent",
-          code: "INTENT_SCHEMA_INVALID",
-          message: "Intent payload failed schema validation",
-          retryable: false,
-          visibility: intentVisibility,
-          interactionMode,
-        });
-        intentTerminal = true;
-      } else {
-        emit("intent.final", {
-          ...intentPayload,
-          visibility: intentVisibility,
-          interactionMode,
-        });
-        intentTerminal = true;
-      }
-    }
 
     if (!artifactOutput || typeof artifactOutput !== "object") {
       emitFailed("artifact.failed", {
@@ -3284,103 +2159,16 @@ router.post("/agent/stream", async (req, res) => {
       artifactTerminal = true;
     }
 
-    const commentaryDelta = createDeltaEmitter((chunk) =>
-      emit("commentary.delta", {
-        chunk,
-        visibility: commentaryVisibility,
-        interactionMode,
-      }),
-    );
-
-    if (!artifactOutput || typeof artifactOutput !== "object") {
-      emitFailed("commentary.failed", {
-        stage: "commentary",
-        code: "NO_ARTIFACT_FOR_COMMENTARY",
-        message: "Cannot derive commentary without artifact output",
-        retryable: false,
-        visibility: commentaryVisibility,
-        interactionMode,
-      });
-      commentaryTerminal = true;
-    } else {
-      const commentaryResult = await generateStructuredPayload({
-        kind: "commentary",
-        schema: commentarySchema,
-        validate: validateCommentary,
-        buildMessages: ({ strictJson }) =>
-          buildCommentaryMessages({
-            message: effectiveMessage,
-            intent: unifiedResult.intent,
-            output: artifactOutput,
-            strictJson,
-          }),
-        signal: abortController.signal,
-        onDelta: (chunk) => commentaryDelta.push(chunk),
-      });
-      commentaryDelta.flush();
-
-      if (!commentaryResult.ok) {
-        emitFailed("commentary.failed", {
-          stage: "commentary",
-          code: commentaryResult.error,
-          message: "Could not produce structured commentary payload",
-          retryable: true,
-          visibility: commentaryVisibility,
-          interactionMode,
-        });
-        commentaryTerminal = true;
-      } else {
-        const commentaryPayload = coerceCommentaryPayload(
-          commentaryResult.value,
-          artifactOutput,
-          effectiveMessage,
-        );
-        if (!validateCommentary(commentaryPayload)) {
-          emitFailed("commentary.failed", {
-            stage: "commentary",
-            code: "COMMENTARY_SCHEMA_INVALID",
-            message: "Commentary payload failed schema validation",
-            retryable: false,
-            visibility: commentaryVisibility,
-            interactionMode,
-          });
-          commentaryTerminal = true;
-        } else {
-          emit("commentary.final", {
-            ...commentaryPayload,
-            message: buildCommentaryPreview(commentaryPayload),
-            visibility: commentaryVisibility,
-            interactionMode,
-          });
-          commentaryTerminal = true;
-        }
-      }
-    }
-
     emit("turn.end", {
       status: "success",
       hadStageFailures: hasStageFailure,
       preview: {
         intent: unifiedResult?.intent || "UNKNOWN",
-        intentText: intentResult.ok
-          ? buildIntentPreview(coerceIntentPayload(intentResult.value, effectiveMessage))
-          : null,
       },
       interactionMode,
     });
     didEnd = true;
   } catch (err) {
-    if (!intentTerminal) {
-      emitFailed("intent.failed", {
-        stage: "intent",
-        code: "INTENT_ABORTED",
-        message: "Intent stage aborted before finalization",
-        retryable: false,
-        visibility: "metadata",
-        interactionMode: "operational",
-      });
-      intentTerminal = true;
-    }
     if (!artifactTerminal) {
       emitFailed("artifact.failed", {
         stage: "artifact",
@@ -3391,17 +2179,6 @@ router.post("/agent/stream", async (req, res) => {
         interactionMode: "operational",
       });
       artifactTerminal = true;
-    }
-    if (!commentaryTerminal) {
-      emitFailed("commentary.failed", {
-        stage: "commentary",
-        code: "COMMENTARY_ABORTED",
-        message: "Commentary stage aborted before finalization",
-        retryable: false,
-        visibility: "metadata",
-        interactionMode: "operational",
-      });
-      commentaryTerminal = true;
     }
     await emitRecoveryArtifact({
       error: err,

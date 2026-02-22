@@ -638,6 +638,14 @@ export interface WebDeepSearchResultsOutput {
   requires_validation: boolean;
 }
 
+export interface ChatContextSummaryOutput {
+  type: 'chat_context_summary';
+  title?: string;
+  summary?: string;
+  sourceType?: string;
+  rows: Array<{ label: string; value: string }>;
+}
+
 // Execution result — V3 execution confirmation result
 export interface ExecutionResult {
   type: 'execution_result';
@@ -681,6 +689,7 @@ export type AgentOutput =
   | RecoveryOutput
   | WebSearchResultsOutput
   | WebDeepSearchResultsOutput
+  | ChatContextSummaryOutput
   | { type: 'action_plan'; actions: ActionProposal[] };
 
 // Agent response from backend
@@ -1118,6 +1127,20 @@ export interface StreamCallbacks {
   onCancelled?: () => void;
 }
 
+const SUPPRESSED_AUXILIARY_STREAM_EVENTS = new Set<string>([
+  'intent.delta',
+  'intent.final',
+  'intent.failed',
+  'commentary.delta',
+  'commentary.final',
+  'commentary.failed',
+  'intent',
+  'intent_framing',
+  'intent_framing_chunk',
+  'commentary',
+  'commentary_chunk',
+]);
+
 function buildLocalRecoveryOutput(
   message: string,
   severity: 'blocking' | 'partial' | 'temporary' = 'temporary',
@@ -1258,6 +1281,9 @@ export function streamAgentMessage(
         if (!currentEvent || !currentData) return;
         try {
           const data = JSON.parse(currentData);
+          if (SUPPRESSED_AUXILIARY_STREAM_EVENTS.has(currentEvent)) {
+            return;
+          }
           switch (currentEvent) {
             case 'turn.start': {
               const payload = data?.payload || {};

@@ -18,6 +18,7 @@ import type {
   CollectionOutput,
   CollectionItem,
   AgentRequestMetadata,
+  ChatContextSummaryOutput,
 } from "../../services/api/agent";
 import {
   cancelDocumentGenerationPreview,
@@ -37,16 +38,9 @@ import { CollectionArtifact } from "./artifacts/CollectionArtifact";
 import { WebSearchResultsArtifact } from "./artifacts/WebSearchResultsArtifact";
 import { DocumentGenerationPreviewArtifact } from "./artifacts/DocumentGenerationPreviewArtifact";
 import { RecoveryArtifact } from "./artifacts/RecoveryArtifact";
-import { FollowUpSuggestions } from "./artifacts/FollowUpSuggestions";
-import { CommentaryBubble } from "./artifacts/CommentaryBubble";
 import { ContextSuggestionRenderer } from "./artifacts/ContextSuggestionRenderer";
 import { MarkdownOutput } from "../../components/MarkdownOutput";
 import { useAgentSessions } from "../hooks/useAgentSessions";
-import {
-  decideCommentary,
-  filterFollowUps,
-  getResultCountFromMessage,
-} from "../utils/responsePolicy";
 
 // Staged message renderers
 import { AckMessage } from "./messages/AckMessage";
@@ -252,7 +246,7 @@ export function AgentWorkflow({
         <div className="agent-status-line">
           <Loader2 className="w-3.5 h-3.5 text-slate-400 animate-spin" />
           <span className="text-xs text-slate-500 dark:text-slate-400">
-            Analyzing request...
+            Working...
           </span>
         </div>
       </div>
@@ -273,74 +267,42 @@ export function AgentWorkflow({
 
   // Phase: working (acknowledged + work steps)
   if (displayPhase === "working") {
+    const statusText = getAcknowledgment(message.intent)
+      .replace(/\.\.\.$/, "...")
+      .replace(/^[A-Z]/, (c) => c);
     return (
-      <WorkingPhase
-        intent={message.intent}
-        resultArrived={resultArrivedRef.current}
-      />
+      <div className="workflow-phase-enter agent-message-row">
+        <div className="agent-status-line">
+          <Loader2 className="w-3.5 h-3.5 text-slate-400 animate-spin" />
+          <span className="text-xs text-slate-500 dark:text-slate-400">
+            {statusText}
+          </span>
+        </div>
+      </div>
     );
   }
 
   // Phase: revealing (artifact expanding into view)
   if (displayPhase === "revealing") {
-    const followUps = message.data?.explanation?.followUps;
-    const resultCount = getResultCountFromMessage(message);
-    const safeCommentary = decideCommentary(message);
-    const isWebSearchArtifact =
-      message.data?.type === "web_search_results" ||
-      message.data?.type === "web_deep_search_results";
-    const filteredFollowUps = filterFollowUps(followUps, resultCount);
-
     return (
       <div className="space-y-2">
-        {/* Artifact reveal — primary factual output */}
-        {isWebSearchArtifact ? (
-          <ArtifactBody
-            message={message}
-            onFollowUpClick={onFollowUpClick}
-            onExampleClick={onExampleClick}
-            onConfirmWebSearch={onConfirmWebSearch}
-            activeSessionId={activeSessionId}
-            activeSessionMessages={activeSession?.messages}
-            updateSessionMessages={updateSessionMessages}
-          />
-        ) : (
-          <div className="artifact-reveal agent-artifact-focus">
-            <ArtifactBody
-              message={message}
-              onFollowUpClick={onFollowUpClick}
-              onExampleClick={onExampleClick}
-              onConfirmWebSearch={onConfirmWebSearch}
-              activeSessionId={activeSessionId}
-              activeSessionMessages={activeSession?.messages}
-              updateSessionMessages={updateSessionMessages}
-            />
-          </div>
-        )}
-
-        {/* Assistive reasoning — appears AFTER the artifact it references */}
-        {safeCommentary && !isWebSearchArtifact && (
-          <CommentaryBubble commentary={safeCommentary} />
-        )}
+        <MinimalChatbotTurn
+          message={message}
+          onFollowUpClick={onFollowUpClick}
+          onExampleClick={onExampleClick}
+          onConfirmWebSearch={onConfirmWebSearch}
+          activeSessionId={activeSessionId}
+          activeSessionMessages={activeSession?.messages}
+          updateSessionMessages={updateSessionMessages}
+        />
       </div>
     );
   }
 
   // Phase: complete
-  const followUps = message.data?.explanation?.followUps;
-  const resultCount = getResultCountFromMessage(message);
-  const safeCommentary = decideCommentary(message);
-  const isWebSearchArtifact =
-    message.data?.type === "web_search_results" ||
-    message.data?.type === "web_deep_search_results";
-  const filteredFollowUps = filterFollowUps(followUps, resultCount);
-
-  const allowFollowUps =
-    isComplete && filteredFollowUps.length > 0 && onFollowUpClick;
-
   return (
     <div className="space-y-2">
-      <ArtifactBody
+      <MinimalChatbotTurn
         message={message}
         onFollowUpClick={onFollowUpClick}
         onExampleClick={onExampleClick}
@@ -349,19 +311,6 @@ export function AgentWorkflow({
         activeSessionMessages={activeSession?.messages}
         updateSessionMessages={updateSessionMessages}
       />
-
-      {/* Assistive reasoning — appears AFTER the artifact it references */}
-      {safeCommentary && !isWebSearchArtifact && (
-        <CommentaryBubble commentary={safeCommentary} />
-      )}
-
-      {/* Follow-up suggestions — shown OUTSIDE the artifact card */}
-      {allowFollowUps && (
-        <FollowUpSuggestions
-          followUps={filteredFollowUps}
-          onFollowUpClick={onFollowUpClick}
-        />
-      )}
     </div>
   );
 }
@@ -1072,6 +1021,146 @@ function mapPriority(priority?: string): CollectionItem["priority"] {
   if (p === "high") return "high";
   if (p === "low") return "low";
   return "normal";
+}
+
+function isChatbotActionBlockType(dataType?: string): boolean {
+  return (
+    dataType === "proposal" ||
+    dataType === "document_generation_preview" ||
+    dataType === "document_generation_missing_fields" ||
+    dataType === "context_suggestion" ||
+    dataType === "clarification"
+  );
+}
+
+function buildGenericContextRows(message: AgentMessage): Array<{ label: string; value: string }> {
+  const rows: Array<{ label: string; value: string }> = [];
+  const dataType = message.data?.type;
+  if (!dataType) return rows;
+  rows.push({ label: "Type", value: dataType.replace(/_/g, " ") });
+
+  if (dataType === "web_search_results" || dataType === "web_deep_search_results") {
+    const data = message.data.webSearchResults;
+    if (data) {
+      rows.push({ label: "Sources", value: String(data.results?.length || 0) });
+      if (data.query) rows.push({ label: "Query", value: String(data.query) });
+      if (data.status) rows.push({ label: "Status", value: String(data.status) });
+    }
+    return rows;
+  }
+
+  if (dataType === "collection" && message.data.collection) {
+    rows.push({ label: "Items", value: String(message.data.collection.items?.length || 0) });
+    if (message.data.collection.entityType) {
+      rows.push({ label: "Entity", value: String(message.data.collection.entityType) });
+    }
+    return rows;
+  }
+
+  if (dataType === "explanation" && message.data.explanation) {
+    if (message.data.explanation.entityType) {
+      rows.push({ label: "Entity", value: String(message.data.explanation.entityType) });
+    }
+    if (message.data.explanation.entityId) {
+      rows.push({ label: "Reference", value: String(message.data.explanation.entityId) });
+    }
+    const detailCount = message.data.explanation.facts?.details?.length || 0;
+    if (detailCount > 0) rows.push({ label: "Facts", value: String(detailCount) });
+    return rows;
+  }
+
+  if (dataType === "recovery" && message.data.recovery) {
+    rows.push({
+      label: "Retry",
+      value: message.data.recovery.canRetry ? "available" : "not available",
+    });
+    return rows;
+  }
+
+  return rows;
+}
+
+function ChatbotContextPanel({
+  summary,
+}: {
+  summary: ChatContextSummaryOutput | { title?: string; summary?: string; rows: Array<{ label: string; value: string }> };
+}) {
+  const rows = Array.isArray(summary?.rows) ? summary.rows.filter((r) => r?.label && r?.value) : [];
+  if (rows.length === 0) return null;
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/40">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-3 py-2 text-left"
+      >
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            {summary.title || "Context"}
+          </div>
+          {summary.summary ? (
+            <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              {summary.summary}
+            </div>
+          ) : null}
+        </div>
+        {open ? (
+          <ChevronUp className="w-4 h-4 text-slate-400" />
+        ) : (
+          <ChevronDown className="w-4 h-4 text-slate-400" />
+        )}
+      </button>
+      {open ? (
+        <div className="px-3 pb-3 grid gap-1.5">
+          {rows.map((row, idx) => (
+            <div key={`${row.label}-${idx}`} className="flex items-start justify-between gap-3 text-sm">
+              <span className="text-slate-500 dark:text-slate-400">{row.label}</span>
+              <span className="text-slate-800 dark:text-slate-200 text-right break-words">
+                {row.value}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function MinimalChatbotTurn(props: {
+  message: AgentMessage;
+  onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
+  onExampleClick?: (example: string) => void;
+  onConfirmWebSearch?: (metadata: AgentRequestMetadata) => void;
+  activeSessionId?: string;
+  activeSessionMessages?: AgentMessage[];
+  updateSessionMessages?: (id: string, messages: AgentMessage[]) => void;
+}) {
+  const { message } = props;
+  const dataType = message.data?.type;
+  const hasContent = Boolean(message.content && message.content.trim().length > 0);
+
+  let attachment: JSX.Element | null = null;
+  if (message.data) {
+    if (isChatbotActionBlockType(dataType)) {
+      attachment = <ArtifactBody {...props} />;
+    }
+  }
+
+  if (!hasContent && attachment) {
+    return attachment;
+  }
+
+  if (!hasContent && message.data) {
+    return <ArtifactBody {...props} />;
+  }
+
+  return (
+    <div className="space-y-2">
+      {hasContent ? <ChatArtifact content={message.content} /> : null}
+      {attachment}
+    </div>
+  );
 }
 
 // ────────────────────────────────────────────────────────────────

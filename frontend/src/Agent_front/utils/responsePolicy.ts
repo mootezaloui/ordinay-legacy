@@ -8,6 +8,7 @@ const REDUNDANT_PHRASES = [
   "error occurred",
   "something went wrong",
 ];
+const ENABLE_COMMENTARY_RENDERING = false;
 
 function splitSentences(text: string): string[] {
   return (text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [])
@@ -74,6 +75,7 @@ export function getResultCountFromMessage(message: AgentMessage): number | null 
 }
 
 export function decideCommentary(message: AgentMessage): CommentaryOutput | null {
+  if (!ENABLE_COMMENTARY_RENDERING) return null;
   const commentary = message.commentary;
   if (!commentary) return null;
   const synthesizedMessage =

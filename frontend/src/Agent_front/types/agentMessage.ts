@@ -8,6 +8,7 @@ import type {
   IntentFramingOutput,
   ClarificationOutput,
   CollectionOutput,
+  ChatContextSummaryOutput,
   ProposalOutput,
   DocumentGenerationPreviewOutput,
   WebSearchResultsOutput,
@@ -91,13 +92,14 @@ export interface AgentMessage {
 }
 
 export interface AgentMessageData {
-  type: "explanation" | "risks" | "draft" | "actions" | "clarification" | "collection" | "context_suggestion" | "proposal" | "document_generation_preview" | "document_generation_missing_fields" | "web_search_results" | "web_deep_search_results" | "recovery" | "error";
+  type: "explanation" | "risks" | "draft" | "actions" | "clarification" | "collection" | "context_suggestion" | "proposal" | "document_generation_preview" | "document_generation_missing_fields" | "web_search_results" | "web_deep_search_results" | "chat_context_summary" | "recovery" | "error";
   explanation?: ExplanationOutput;
   risks?: RiskAnalysisOutput;
   draft?: DraftOutput;
   actionProposals?: ActionProposal[];
   clarification?: ClarificationOutput;
   collection?: CollectionOutput;
+  chatContextSummary?: ChatContextSummaryOutput;
   contextSuggestion?: import("../../services/api/agent").ContextSuggestionOutput;
   proposal?: ProposalOutput;
   documentGenerationPreview?: DocumentGenerationPreviewOutput;

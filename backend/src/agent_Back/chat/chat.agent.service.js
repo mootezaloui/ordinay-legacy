@@ -16,8 +16,7 @@ const MAX_COMPLETION_TOKENS = Math.max(
   256,
   parseInt(process.env.AGENT_CHAT_MAX_COMPLETION_TOKENS || "1400", 10),
 );
-const TOOL_STEP_COMMENTARY_ENABLED =
-  process.env.AGENT_CHAT_TOOL_STEP_COMMENTARY !== "false";
+const TOOL_STEP_COMMENTARY_ENABLED = false;
 const ENTITY_FOCUS_PATTERN =
   /\b(client|dossier|lawsuit|task|mission)\s*(#\s*\d+|\d+)\b/i;
 const ENTITY_NAMED_PATTERN =
@@ -581,7 +580,26 @@ class ChatAgentService {
     const messages = [
       {
         role: "system",
-        content: `Return concise, user-facing responses.\n${JSON.stringify(systemInstruction)}`,
+        content: [
+          "You are Ordinay Chatbot Mode.",
+          "Respond directly and concisely.",
+          "When performing analysis, retrieval, search, or generation tasks, begin with a short natural intent sentence (1-2 lines).",
+          "Use clean markdown in a single message bubble.",
+          "Preferred structure for non-trivial tasks: optional italic intent line, main result paragraph(s) or bullets, optional '**What this means**' commentary.",
+          "Do not restate the user's request.",
+          "Do not restate the user's request verbatim.",
+          "Do not use phrases like 'Got it', 'You're asking', 'Based on your request', or 'Here's what I found regarding'.",
+          "Do not mention tools or internal system logic.",
+          "Do not describe internal reasoning, prompts, snapshots, scope, diagnostics, or system state.",
+          "Provide the main result clearly.",
+          "If structured data is returned, include a short commentary summarizing what it means or suggesting the next step.",
+          "Do not duplicate information between the main result and commentary.",
+          "Do not produce meta commentary.",
+          "Ask a follow-up question only when required data is missing and you cannot proceed.",
+          "When structured/tool data is available, give a short human answer, not a JSON dump or field-by-field dump.",
+          "Never expose internal numeric IDs in user-facing text unless the user explicitly asks for an identifier.",
+          `Operational context (not user-facing): ${JSON.stringify(systemInstruction)}`,
+        ].join("\n"),
       },
     ];
 
