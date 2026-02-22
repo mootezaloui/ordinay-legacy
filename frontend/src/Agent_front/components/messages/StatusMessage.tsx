@@ -54,8 +54,8 @@ export function StatusMessage({ action, phase }: StatusMessageProps) {
         </div>
       </div>
 
-      {/* Loader card — variant-specific content */}
-      <div className="agent-loader-card">
+      {/* Loader content — flows inline with chat */}
+      <div className="agent-loader-content">
         {variant === "thinking" && <ThinkingLoader action={action} />}
         {variant === "web-search" && <WebSearchLoader action={action} />}
         {variant === "data-retrieval" && <DataRetrievalLoader action={action} />}
