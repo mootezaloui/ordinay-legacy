@@ -33,8 +33,8 @@ export default function PageLayout({ children, fullHeight = false, noHeaderSpace
     : "min-h-full w-full h-full titlebar-offset-padding overflow-x-hidden";
 
   const mainClassName = fullHeight
-    ? "flex-1 min-h-0 flex flex-col"
-    : "px-4 sm:px-6 lg:px-8 pb-8 pt-6 md:pt-16 flex-1 min-h-0";
+    ? "flex-1 min-h-0 min-w-0 flex flex-col"
+    : "px-4 sm:px-6 lg:px-8 pb-8 pt-6 md:pt-16 flex-1 min-h-0 min-w-0";
 
   return (
     <div className={rootClassName}>
@@ -52,7 +52,7 @@ export default function PageLayout({ children, fullHeight = false, noHeaderSpace
 
       {/* Main content with dynamic left margin based on sidebar state */}
       <div
-        className={`${fullHeight ? "h-full" : "min-h-full"} flex flex-col ${fullHeight ? "transition-[margin-left]" : "transition-all"} duration-300 ${isCollapsed ? "md:ml-20" : "md:ml-64"} ml-0`}
+        className={`${fullHeight ? "h-full" : "min-h-full"} min-w-0 flex flex-col ${fullHeight ? "transition-[margin-left]" : "transition-all"} duration-300 ${isCollapsed ? "md:ml-20" : "md:ml-64"} ml-0`}
       >
         {/* Header */}
         <HeaderBar />

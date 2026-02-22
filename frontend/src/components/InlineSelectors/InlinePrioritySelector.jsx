@@ -286,10 +286,11 @@ export default function InlinePrioritySelector({
         type="button"
         ref={buttonRef}
         onClick={handleToggle}
+        data-inline-selector="priority"
         className={`inline-flex items-center gap-2 rounded-full font-medium transition-all hover:ring-2 hover:ring-blue-300 dark:hover:ring-blue-700 min-w-max flex-shrink-0 ${sizeClasses[size]} ${priorityColors[value] || priorityColors["Medium"]}`}
       >
         {currentPriority?.icon && <i className={`${currentPriority.icon} text-xs flex-shrink-0`}></i>}
-        <span className="whitespace-nowrap">{currentPriority?.label || value}</span>
+        <span data-inline-selector-label className="whitespace-nowrap">{currentPriority?.label || value}</span>
         {isOpen ? (
           <i className="fas fa-chevron-up text-xs flex-shrink-0"></i>
         ) : (

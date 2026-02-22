@@ -464,6 +464,37 @@
    while keeping them visible and accessible.
 -------------------------- */
 
+/* Compact inline selector badges inside shared table cells so status/priority columns
+   can shrink before forcing horizontal overflow. Scoped to table cells only. */
+td[data-column-id="status"] [data-inline-selector],
+td[data-column-id="priority"] [data-inline-selector] {
+  max-width: 100%;
+  min-width: 0;
+  flex-shrink: 1;
+  padding-inline: 0.5rem;
+}
+
+td[data-column-id="status"] [data-inline-selector-label],
+td[data-column-id="priority"] [data-inline-selector-label] {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Actions column: keep icon buttons visible on laptop widths before grid kicks in */
+td[data-column-id="actions"] [data-table-actions] {
+  justify-content: flex-end;
+  gap: 0.375rem;
+}
+
+td[data-column-id="actions"] [data-table-action-button] {
+  padding: 0.375rem;
+  border-radius: 0.625rem;
+}
+
 /* Prominent: Urgent items that need immediate attention */
 .table-row-prominent {
   @apply relative;

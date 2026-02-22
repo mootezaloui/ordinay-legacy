@@ -12,7 +12,7 @@ export default function TableActions({
   const baseClass = mobileHidden ? "hidden md:flex" : "flex";
 
   return (
-    <div className={`${baseClass} items-center gap-2 ${className}`}>
+    <div data-table-actions className={`${baseClass} items-center gap-2 ${className}`}>
       {children}
     </div>
   );
@@ -62,6 +62,7 @@ export function IconButton({
     <button
       onClick={onClick}
       title={title}
+      data-table-action-button
       className={`p-2 rounded-xl transition-colors duration-200 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 ${variants[variant]}`}
     >
       {icons[icon] || icons.more}

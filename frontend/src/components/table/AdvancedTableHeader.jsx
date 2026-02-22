@@ -79,7 +79,7 @@ export default function AdvancedTableHeader({
               onDragEnd={handleDragEnd}
               style={getColumnStyle(column)}
             className={`
-                h-10 px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider
+                min-h-10 px-4 py-2.5 align-middle text-left text-[10px] font-semibold uppercase tracking-wider leading-tight
                 transition-colors duration-150
                 ${isEmpty
                   ? "text-slate-400 dark:text-slate-500"
@@ -93,9 +93,11 @@ export default function AdvancedTableHeader({
             >
               {/* When empty: just show label. When populated: show full controls */}
               {isEmpty ? (
-                <span className="block break-words whitespace-normal">{column.label}</span>
+                <span className="block min-w-0 max-w-full break-words whitespace-normal leading-tight line-clamp-2">
+                  {column.label}
+                </span>
               ) : (
-                <div className="flex items-center gap-2 h-full">
+                <div className="flex min-w-0 items-center gap-2 min-h-5">
                   {/* Drag handle */}
                   {canDrag && (
                     <svg
@@ -109,7 +111,9 @@ export default function AdvancedTableHeader({
                   )}
 
                   {/* Column label - no truncation to preserve readability */}
-                  <span className="flex-1 break-words whitespace-normal">{column.label}</span>
+                  <span className="flex-1 min-w-0 max-w-full break-words whitespace-normal leading-tight line-clamp-2">
+                    {column.label}
+                  </span>
 
                   {/* Sort indicator */}
                   {isSortable && (

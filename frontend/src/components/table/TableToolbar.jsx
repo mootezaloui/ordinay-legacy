@@ -221,7 +221,10 @@ export default function TableToolbar({
   ) : null;
 
   return (
-    <div className="px-4 lg:px-6 py-4 border-b border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80">
+    <div
+      data-table-toolbar="true"
+      className="px-4 lg:px-6 py-4 border-b border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 shrink-0"
+    >
       {/* Mobile controls */}
       <div className="flex items-center justify-between gap-3 md:hidden">
         <button

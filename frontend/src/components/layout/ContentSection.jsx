@@ -23,7 +23,7 @@ export default function ContentSection({
 
   return (
     <div
-      className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 ${overflowClass} ${className}`}
+      className={`content-section bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 ${overflowClass} flex flex-col min-h-0 min-w-0 ${className}`}
       {...rest}
     >
       {/* Optional section header */}
@@ -43,7 +43,8 @@ export default function ContentSection({
       )}
 
       {/* Content */}
-      <div>
+      {/* min-h-0 is required so nested flex/table scroll regions can shrink on window resize without clipping */}
+      <div className="flex flex-col min-h-0 min-w-0">
         {children}
       </div>
     </div>

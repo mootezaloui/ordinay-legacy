@@ -22,24 +22,29 @@ export default function TableCell({
   mobilePriority,
   className = "",
 }) {
+  const isActionsColumn = columnId === "actions" || mobileRole === "actions";
   const alignClass = {
     left: "text-left",
     center: "text-center",
     right: "text-right",
   }[align];
 
-  // For adaptive cells: don't apply min-w-0 which forces shrinking
-  // This allows flex children to size naturally
-  const sizeClass = adaptive ? "" : "min-w-0";
+  // Cells must remain shrink-safe in table layouts.
+  // `adaptive` only changes content layout behavior, not shrink eligibility.
+  const sizeClass = "min-w-0";
+  const adaptiveContentClass = adaptive ? "max-w-full" : "";
+  const shouldTruncate = truncate && !isActionsColumn;
 
-  const content = truncate ? (
+  const content = shouldTruncate ? (
     <div
-      className={`block ${sizeClass} break-words whitespace-normal lg:overflow-hidden lg:text-ellipsis lg:whitespace-nowrap`}
+      className={`block ${sizeClass} ${adaptiveContentClass} break-words whitespace-normal lg:overflow-hidden lg:text-ellipsis lg:whitespace-nowrap`}
     >
       {children}
     </div>
   ) : (
-    <div className={`flex items-center flex-wrap gap-2 ${sizeClass}`}>
+    <div
+      className={`flex items-center gap-2 ${isActionsColumn ? "justify-end flex-nowrap" : "flex-wrap"} ${sizeClass} ${adaptiveContentClass}`}
+    >
       {children}
     </div>
   );
@@ -51,7 +56,7 @@ export default function TableCell({
       data-mobile-role={mobileRole}
       data-mobile-hidden={mobileHidden ? "true" : "false"}
       data-mobile-priority={mobilePriority}
-      className={`px-4 lg:px-6 py-3.5 lg:py-4 text-[13px] lg:text-sm text-slate-700 dark:text-slate-100 h-12 lg:h-14 ${alignClass} ${className}`}
+      className={`min-w-0 px-4 lg:px-6 py-3.5 lg:py-4 text-[13px] lg:text-sm text-slate-700 dark:text-slate-100 min-h-12 lg:min-h-14 align-middle ${isActionsColumn ? "text-right" : alignClass} ${className}`}
     >
       {content}
     </td>

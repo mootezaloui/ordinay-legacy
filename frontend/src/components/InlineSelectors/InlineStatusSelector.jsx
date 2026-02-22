@@ -389,10 +389,11 @@ export default function InlineStatusSelector({
         type="button"
         ref={buttonRef}
         onClick={handleToggle}
+        data-inline-selector="status"
         className={`inline-flex items-center gap-2 rounded-full font-medium border transition-all hover:shadow-md hover:scale-105 min-w-max flex-shrink-0 ${sizeClasses[size]} ${getButtonColor()}`}
       >
         {currentStatus?.icon && <i className={`${currentStatus.icon} text-xs flex-shrink-0`}></i>}
-        <span className="whitespace-nowrap">{currentStatus?.label || value}</span>
+        <span data-inline-selector-label className="whitespace-nowrap">{currentStatus?.label || value}</span>
         {isOpen ? (
           <i className="fas fa-chevron-up text-xs flex-shrink-0"></i>
         ) : (

@@ -16,7 +16,11 @@
 
 import { useRef, useEffect, useState } from "react";
 
-export default function Table({ children, className = "" }) {
+export default function Table({
+  children,
+  className = "",
+  allowHorizontalScroll = false,
+}) {
   const scrollContainerRef = useRef(null);
   const [scrollState, setScrollState] = useState({
     hasScrollLeft: false,
@@ -24,6 +28,11 @@ export default function Table({ children, className = "" }) {
   });
 
   useEffect(() => {
+    if (!allowHorizontalScroll) {
+      setScrollState({ hasScrollLeft: false, hasScrollRight: false });
+      return;
+    }
+
     const container = scrollContainerRef.current;
     if (!container) return;
 
@@ -49,25 +58,35 @@ export default function Table({ children, className = "" }) {
       container.removeEventListener("scroll", updateScrollState);
       resizeObserver.disconnect();
     };
-  }, []);
+  }, [allowHorizontalScroll]);
 
   return (
-    <div className="w-full bg-white dark:bg-slate-900 relative">
+    <div className="w-full bg-white dark:bg-slate-900 relative flex flex-col min-h-0">
       {/* Scroll fade indicators */}
-      <div
-        className={`absolute left-0 top-0 bottom-0 w-6 pointer-events-none z-10 transition-opacity duration-300 bg-gradient-to-r from-white to-transparent dark:from-slate-900 ${
-          scrollState.hasScrollLeft ? "opacity-100" : "opacity-0"
-        }`}
-      />
-      <div
-        className={`absolute right-0 top-0 bottom-0 w-6 pointer-events-none z-10 transition-opacity duration-300 bg-gradient-to-l from-white to-transparent dark:from-slate-900 ${
-          scrollState.hasScrollRight ? "opacity-100" : "opacity-0"
-        }`}
-      />
+      {allowHorizontalScroll && (
+        <>
+          <div
+            className={`absolute left-0 top-0 bottom-0 w-4 pointer-events-none z-10 transition-opacity duration-300 bg-gradient-to-r from-white/70 via-white/35 to-transparent dark:from-slate-900/70 dark:via-slate-900/35 ${
+              scrollState.hasScrollLeft ? "opacity-100" : "opacity-0"
+            }`}
+          />
+          <div
+            className={`absolute right-0 top-0 bottom-0 w-4 pointer-events-none z-10 transition-opacity duration-300 bg-gradient-to-l from-white/70 via-white/35 to-transparent dark:from-slate-900/70 dark:via-slate-900/35 ${
+              scrollState.hasScrollRight ? "opacity-100" : "opacity-0"
+            }`}
+          />
+        </>
+      )}
 
-      {/* Scroll container - only the table scrolls, not the entire content section */}
-      <div ref={scrollContainerRef} className="overflow-x-auto">
-        <table className={`w-full border-collapse ${className}`}>
+      {/* Default policy: no horizontal scrollbar on shared list tables.
+          `table-fixed` + shrink-safe cells/headers compacts content instead. */}
+      <div
+        ref={scrollContainerRef}
+        className={`min-h-0 min-w-0 overflow-y-visible ${
+          allowHorizontalScroll ? "overflow-x-auto" : "overflow-x-hidden"
+        }`}
+      >
+        <table className={`w-full border-collapse ${allowHorizontalScroll ? "" : "table-fixed"} ${className}`}>
           {children}
         </table>
       </div>

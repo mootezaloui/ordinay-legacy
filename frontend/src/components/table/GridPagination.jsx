@@ -36,7 +36,7 @@ export default function GridPagination({
     const endItem = Math.min(currentPage * itemsPerPage, totalItems);
 
     return (
-        <div className="flex items-center justify-between px-6 py-4 bg-white dark:bg-slate-900 border-t border-slate-300 dark:border-slate-700">
+        <div className="flex items-center justify-between px-6 py-4 bg-white dark:bg-slate-900 border-t border-slate-300 dark:border-slate-700 shrink-0">
             {/* Left side - Simplified items info for grid */}
             <div className="flex items-center gap-4">
                 <p className="text-sm text-slate-700 dark:text-slate-300">
