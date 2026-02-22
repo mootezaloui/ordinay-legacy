@@ -14,13 +14,17 @@
  * - Column min-widths set in AdvancedTableHeader prevent collapse
  */
 
-import { useRef, useEffect, useState } from "react";
+import { Children, isValidElement, useRef, useEffect, useState } from "react";
 
 export default function Table({
   children,
   className = "",
   allowHorizontalScroll = false,
 }) {
+  const hasEmptyBody = Children.toArray(children).some((child) => (
+    isValidElement(child) && child.props?.isEmpty === true
+  ));
+  const useFixedLayout = !allowHorizontalScroll && !hasEmptyBody;
   const scrollContainerRef = useRef(null);
   const [scrollState, setScrollState] = useState({
     hasScrollLeft: false,
@@ -79,14 +83,15 @@ export default function Table({
       )}
 
       {/* Default policy: no horizontal scrollbar on shared list tables.
-          `table-fixed` + shrink-safe cells/headers compacts content instead. */}
+          Use fixed layout for populated tables, but fall back to auto layout
+          for empty tbody states to avoid Chromium table-row stretching artifacts. */}
       <div
         ref={scrollContainerRef}
         className={`min-h-0 min-w-0 overflow-y-visible ${
           allowHorizontalScroll ? "overflow-x-auto" : "overflow-x-hidden"
         }`}
       >
-        <table className={`w-full border-collapse ${allowHorizontalScroll ? "" : "table-fixed"} ${className}`}>
+        <table className={`w-full border-collapse ${useFixedLayout ? "table-fixed" : ""} ${className}`}>
           {children}
         </table>
       </div>

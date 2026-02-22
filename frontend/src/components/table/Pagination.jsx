@@ -15,6 +15,7 @@ export default function Pagination({
   onItemsPerPageChange = () => {},
 }) {
   const { t } = useTranslation("common");
+  const isEmpty = totalItems === 0;
   const pages = [];
   const maxPagesToShow = 5;
 
@@ -30,8 +31,8 @@ export default function Pagination({
     pages.push(i);
   }
 
-  const startItem = (currentPage - 1) * itemsPerPage + 1;
-  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+  const startItem = isEmpty ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const endItem = isEmpty ? 0 : Math.min(currentPage * itemsPerPage, totalItems);
 
   return (
     <div className="flex items-center justify-between px-6 py-4 bg-white dark:bg-slate-900 border-t border-slate-300 dark:border-slate-700 shrink-0">
@@ -63,7 +64,7 @@ export default function Pagination({
         {/* Previous button */}
         <button
           onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage === 1}
+          disabled={isEmpty || currentPage === 1}
           className="px-3 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900/70 border border-slate-300 dark:border-slate-700/60 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800/70 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 shadow-sm"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -72,7 +73,7 @@ export default function Pagination({
         </button>
 
         {/* Page numbers */}
-        {startPage > 1 && (
+        {!isEmpty && startPage > 1 && (
           <>
             <button
               onClick={() => onPageChange(1)}
@@ -86,7 +87,7 @@ export default function Pagination({
           </>
         )}
 
-        {pages.map((page) => (
+        {!isEmpty && pages.map((page) => (
           <button
             key={page}
             onClick={() => onPageChange(page)}
@@ -100,7 +101,7 @@ export default function Pagination({
           </button>
         ))}
 
-        {endPage < totalPages && (
+        {!isEmpty && endPage < totalPages && (
           <>
             {endPage < totalPages - 1 && (
               <span className="px-2 text-slate-500 dark:text-slate-400">...</span>
@@ -117,7 +118,7 @@ export default function Pagination({
         {/* Next button */}
         <button
           onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
+          disabled={isEmpty || currentPage === totalPages || totalPages <= 1}
           className="px-3 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900/70 border border-slate-300 dark:border-slate-700/60 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800/70 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 shadow-sm"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -17,8 +17,12 @@ export default function TableBody({ children, isEmpty = false, emptyMessage = nu
       <tbody className="bg-transparent">
         <tr className="hover:bg-transparent">
           {/* colSpan must be a number; 999 ensures it spans all columns regardless of count */}
-          <td colSpan={999} className="p-0 border-0">
-            <TableEmpty message={emptyMessage} />
+          <td
+            colSpan={999}
+            className="p-0 border-0 !align-top"
+            style={{ verticalAlign: "top" }}
+          >
+            <TableEmpty message={emptyMessage} compact />
           </td>
         </tr>
       </tbody>

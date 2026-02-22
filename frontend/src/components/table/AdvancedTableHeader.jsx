@@ -57,6 +57,12 @@ export default function AdvancedTableHeader({
     return style;
   };
 
+  // Empty table view uses a dedicated empty-state card; hiding the header avoids
+  // extra table geometry/spacing artifacts in Chromium when no rows exist.
+  if (isEmpty) {
+    return null;
+  }
+
   return (
     <thead className="hidden sm:table-header-group bg-slate-100/70 dark:bg-slate-800 border-b border-slate-300 dark:border-slate-700">
       <tr>
@@ -91,52 +97,45 @@ export default function AdvancedTableHeader({
               `}
               onClick={() => isSortable && isInteractive && onSort(column.id)}
             >
-              {/* When empty: just show label. When populated: show full controls */}
-              {isEmpty ? (
-                <span className="block min-w-0 max-w-full break-words whitespace-normal leading-tight line-clamp-2">
+              <div className="flex min-w-0 items-center gap-2 min-h-5">
+                {/* Drag handle */}
+                {canDrag && (
+                  <svg
+                    className="w-4 h-4 flex-shrink-0 text-slate-400 dark:text-slate-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                  </svg>
+                )}
+
+                {/* Column label - no truncation to preserve readability */}
+                <span className="flex-1 min-w-0 max-w-full break-words whitespace-normal leading-tight line-clamp-2">
                   {column.label}
                 </span>
-              ) : (
-                <div className="flex min-w-0 items-center gap-2 min-h-5">
-                  {/* Drag handle */}
-                  {canDrag && (
-                    <svg
-                      className="w-4 h-4 flex-shrink-0 text-slate-400 dark:text-slate-600"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                    </svg>
-                  )}
 
-                  {/* Column label - no truncation to preserve readability */}
-                  <span className="flex-1 min-w-0 max-w-full break-words whitespace-normal leading-tight line-clamp-2">
-                    {column.label}
-                  </span>
-
-                  {/* Sort indicator */}
-                  {isSortable && (
-                    <span className="w-4 h-4 flex-shrink-0 flex items-center justify-center">
-                      {isSorted ? (
-                        sortDirection === "asc" ? (
-                          <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
-                          </svg>
-                        ) : (
-                          <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                          </svg>
-                        )
+                {/* Sort indicator */}
+                {isSortable && (
+                  <span className="w-4 h-4 flex-shrink-0 flex items-center justify-center">
+                    {isSorted ? (
+                      sortDirection === "asc" ? (
+                        <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                        </svg>
                       ) : (
-                        <svg className="w-3 h-3 text-slate-400 dark:text-slate-600" fill="currentColor" viewBox="0 0 20 20">
+                        <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                         </svg>
-                      )}
-                    </span>
-                  )}
-                </div>
-              )}
+                      )
+                    ) : (
+                      <svg className="w-3 h-3 text-slate-400 dark:text-slate-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </span>
+                )}
+              </div>
             </th>
           );
         })}

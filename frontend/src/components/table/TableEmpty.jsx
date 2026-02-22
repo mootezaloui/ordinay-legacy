@@ -14,7 +14,8 @@ import { useTranslation } from "react-i18next";
 export default function TableEmpty({
   icon = "inbox",
   message = null,
-  action
+  action,
+  compact = false,
 }) {
   const { t } = useTranslation("common");
 
@@ -39,8 +40,12 @@ export default function TableEmpty({
     ),
   };
 
+  const layoutClass = compact
+    ? "min-h-[140px] py-8 px-6"
+    : "min-h-[200px] py-12 px-6";
+
   return (
-    <div className="min-h-[200px] py-12 px-6 flex flex-col items-center justify-center text-center bg-slate-50/80 dark:bg-slate-900/60 border border-dashed border-slate-300 dark:border-slate-700 rounded-2xl">
+    <div className={`${layoutClass} flex flex-col items-center justify-center text-center bg-slate-50/80 dark:bg-slate-900/60 border border-dashed border-slate-300 dark:border-slate-700 rounded-2xl`}>
       <div className="mb-4">
         {icons[icon] || icons.inbox}
       </div>
