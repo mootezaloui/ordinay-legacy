@@ -43,7 +43,7 @@ export default function TableCell({
     </div>
   ) : (
     <div
-      className={`flex items-center gap-2 ${isActionsColumn ? "justify-end flex-nowrap" : "flex-wrap"} ${sizeClass} ${adaptiveContentClass}`}
+      className={`flex items-center gap-2 ${isActionsColumn ? "flex-nowrap" : "flex-wrap"} ${sizeClass} ${adaptiveContentClass}`}
     >
       {children}
     </div>
@@ -56,7 +56,7 @@ export default function TableCell({
       data-mobile-role={mobileRole}
       data-mobile-hidden={mobileHidden ? "true" : "false"}
       data-mobile-priority={mobilePriority}
-      className={`min-w-0 px-4 lg:px-6 py-3.5 lg:py-4 text-[13px] lg:text-sm text-slate-700 dark:text-slate-100 min-h-12 lg:min-h-14 align-middle ${isActionsColumn ? "text-right" : alignClass} ${className}`}
+      className={`min-w-0 px-4 lg:px-6 py-3.5 lg:py-4 text-[13px] lg:text-sm text-slate-700 dark:text-slate-100 min-h-12 lg:min-h-14 align-middle ${alignClass} ${className}`}
     >
       {content}
     </td>

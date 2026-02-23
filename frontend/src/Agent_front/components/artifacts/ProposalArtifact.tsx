@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import type { ActionProposal, ExecutionResult, ProposalOutput } from "../../../services/api/agent";
 import { useData } from "../../../contexts/DataContext";
+import { ChatbotMutationStatus } from "../chatbot/ChatbotMutationStatus";
+import type { ChatbotTurnMutation } from "../../types/agentMessage";
 
 interface ProposalArtifactProps {
   data: ProposalOutput;
@@ -208,6 +210,59 @@ function proposalSummary(proposal: ActionProposal, context: DataContextLike) {
   };
 }
 
+function extractMutationStatusFromProposal(
+  proposal: ActionProposal,
+  summaryTitle: string,
+  state: ProposalState,
+): ChatbotTurnMutation | null {
+  if (!["confirming", "confirmed", "failed"].includes(state.status)) return null;
+
+  const actionType = String(proposal.actionType || proposal.action || "").toUpperCase();
+  const params = proposal.params || {};
+
+  let operation: ChatbotTurnMutation["operation"];
+  if (actionType === "CREATE_ENTITY") operation = "create";
+  if (actionType === "UPDATE_ENTITY") operation = "update";
+  if (actionType === "DELETE_ENTITY") operation = "delete";
+
+  let entityType =
+    typeof params.entityType === "string" && params.entityType.trim()
+      ? String(params.entityType).trim().toLowerCase()
+      : undefined;
+  let entityId: number | undefined = Number(params.entityId);
+  if (!Number.isFinite(entityId) || entityId <= 0) entityId = undefined;
+
+  if (state.executionResult?.status === "success") {
+    const firstResult = state.executionResult.executedActions?.[0]?.result as
+      | { entityType?: unknown; entityId?: unknown; operation?: unknown }
+      | undefined;
+    if (!entityType && typeof firstResult?.entityType === "string" && firstResult.entityType.trim()) {
+      entityType = firstResult.entityType.trim().toLowerCase();
+    }
+    const resultEntityId = Number(firstResult?.entityId);
+    if (!entityId && Number.isFinite(resultEntityId) && resultEntityId > 0) {
+      entityId = resultEntityId;
+    }
+    const resultOperation = String(firstResult?.operation || "").trim().toLowerCase();
+    if (!operation && (resultOperation === "create" || resultOperation === "update" || resultOperation === "delete")) {
+      operation = resultOperation;
+    }
+  }
+
+  return {
+    state:
+      state.status === "confirming"
+        ? "pending"
+        : state.status === "confirmed"
+          ? "success"
+          : "error",
+    label: summaryTitle,
+    entityType,
+    entityId,
+    operation,
+  };
+}
+
 function renderChangeDiff(changes: Record<string, { from: unknown; to: unknown }> | undefined) {
   if (!changes || Object.keys(changes).length === 0) return null;
   return (
@@ -306,11 +361,18 @@ export function ProposalArtifact({ data, onConfirm, onCancel }: ProposalArtifact
         {data.proposals.map((proposal) => {
           const state = proposalStates[proposal.proposalId];
           const isPending = state.status === "pending";
-          const isConfirming = state.status === "confirming";
           const isConfirmed = state.status === "confirmed";
           const isCancelled = state.status === "cancelled";
           const isFailed = state.status === "failed";
           const summary = proposalSummary(proposal, contextData);
+          const mutationStatus = extractMutationStatusFromProposal(
+            proposal,
+            summary.title,
+            state,
+          );
+          const completedAtLabel = state.executionResult?.audit?.executedAt
+            ? `Completed ${new Date(state.executionResult.audit.executedAt).toLocaleString()}`
+            : undefined;
           const changes =
             proposal.actionType === "UPDATE_ENTITY"
               ? (proposal.params?.changes as Record<string, { from: unknown; to: unknown }> | undefined)
@@ -402,23 +464,14 @@ export function ProposalArtifact({ data, onConfirm, onCancel }: ProposalArtifact
                 </div>
               )}
 
-              {isConfirmed && (
-                <div className="mt-3 rounded-lg border border-emerald-200/70 bg-emerald-50/70 p-3 dark:border-emerald-800/60 dark:bg-emerald-950/20">
-                  <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400">
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Confirmed and executed</span>
-                  </div>
-                  {state.executionResult?.executedActions?.map((ea, i) => (
-                    <div key={i} className="ml-6 mt-1 text-xs text-emerald-700/90 dark:text-emerald-300/90">
-                      {toTitleCase(String(ea.actionType || "Action"))} completed at{" "}
-                      {new Date(ea.executedAt).toLocaleTimeString()}
-                    </div>
-                  ))}
-                  {state.executionResult?.audit?.executedAt && (
-                    <div className="ml-6 mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      Completed on {new Date(state.executionResult.audit.executedAt).toLocaleString()}
-                    </div>
-                  )}
+              {mutationStatus && (
+                <div className="mt-3">
+                  <ChatbotMutationStatus
+                    mutation={mutationStatus}
+                    variant="embedded"
+                    timestampLabel={isConfirmed ? completedAtLabel : undefined}
+                    showLoggedBadge={isConfirmed}
+                  />
                 </div>
               )}
 
@@ -429,39 +482,27 @@ export function ProposalArtifact({ data, onConfirm, onCancel }: ProposalArtifact
                 </div>
               )}
 
-              {isFailed && (
+              {isFailed && state.executionResult?.error?.requiresReproposal && (
                 <div className="mt-3 rounded-lg border border-red-200/70 bg-red-50/70 p-3 dark:border-red-800/60 dark:bg-red-950/20">
-                  <div className="flex items-center gap-2 text-sm text-red-700 dark:text-red-400">
-                    <AlertCircle className="w-4 h-4" />
-                    <span>{state.error || "Execution failed"}</span>
+                  <div className="text-xs text-red-600 dark:text-red-400">
+                    Please retry to generate a new proposal.
                   </div>
-                  {state.executionResult?.error?.requiresReproposal && (
-                    <div className="ml-6 mt-1 text-xs text-red-600 dark:text-red-400">
-                      Please retry to generate a new proposal.
-                    </div>
-                  )}
                 </div>
               )}
 
-              {(isPending || isConfirming) && (
+              {isPending && (
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button
                     onClick={() => handleConfirm(proposal.proposalId)}
-                    disabled={isConfirming}
-                    className={`agent-action-btn min-w-[108px] justify-center ${
-                      isConfirming
-                        ? "bg-violet-300 text-violet-900 cursor-wait"
-                        : "agent-action-btn-primary"
-                    }`}
+                    className="agent-action-btn min-w-[108px] justify-center agent-action-btn-primary"
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    {isConfirming ? "Confirming..." : "Confirm"}
+                    Confirm
                   </button>
 
                   <button
                     onClick={() => handleCancel(proposal.proposalId)}
-                    disabled={isConfirming}
-                    className="agent-action-btn agent-action-btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="agent-action-btn agent-action-btn-secondary"
                   >
                     <XCircle className="w-4 h-4" />
                     Cancel

@@ -432,51 +432,57 @@ export default function InlineStatusSelector({
         )
       )}
 
-      {/* Blocker Modal - ENHANCED with interactive actions */}
-      <BlockerModal
-        isOpen={blockerModalOpen}
-        onClose={() => setBlockerModalOpen(false)}
-        actionName={t("detail.blocker.actions.changeStatusTo", { status: statusOptions.find(s => s.value === pendingValue)?.label || pendingValue })}
-        blockers={validationResult?.blockers || []}
-        warnings={validationResult?.warnings || []}
-        entityName={
-          entityData?.name ||
-          entityData?.lawsuitNumber ||
-          entityData?.title ||
-          entityData?.missionNumber ||
-          `${entityType} #${entityId}`
-        }
-        entityType={entityType}
-        entityId={entityId}
-        action="changeStatus"
-        context={{
-          newValue: pendingValue,
-          currentValue: value,
-          data: entityData,
-          entities: contextData
-        }}
-        onRetry={() => {
-          // Retry the status change after blockers are resolved
-          onChange(pendingValue);
-          setPendingValue(null);
-          setValidationResult(null);
-        }}
-        onUpdate={async () => {
-          // Callback to refresh data when inline actions are performed
-          if (contextData?.loadData) {
-            await contextData.loadData();
+      {/* Blocker Modal - portaled to body to escape overflow-hidden ancestors (e.g. EntityCard in grid view) */}
+      {createPortal(
+        <BlockerModal
+          isOpen={blockerModalOpen}
+          onClose={() => setBlockerModalOpen(false)}
+          actionName={t("detail.blocker.actions.changeStatusTo", { status: statusOptions.find(s => s.value === pendingValue)?.label || pendingValue })}
+          blockers={validationResult?.blockers || []}
+          warnings={validationResult?.warnings || []}
+          entityName={
+            entityData?.name ||
+            entityData?.lawsuitNumber ||
+            entityData?.title ||
+            entityData?.missionNumber ||
+            `${entityType} #${entityId}`
           }
-        }}
-      />
+          entityType={entityType}
+          entityId={entityId}
+          action="changeStatus"
+          context={{
+            newValue: pendingValue,
+            currentValue: value,
+            data: entityData,
+            entities: contextData
+          }}
+          onRetry={() => {
+            // Retry the status change after blockers are resolved
+            onChange(pendingValue);
+            setPendingValue(null);
+            setValidationResult(null);
+          }}
+          onUpdate={async () => {
+            // Callback to refresh data when inline actions are performed
+            if (contextData?.loadData) {
+              await contextData.loadData();
+            }
+          }}
+        />,
+        document.body
+      )}
 
-      {/* 📧 Client Notification Prompt */}
-      <ClientNotificationPrompt
-        isOpen={notificationPrompt.isOpen}
-        onClose={handleCloseNotificationPrompt}
-        onConfirm={handleSendNotification}
-        eventType={notificationPrompt.eventType}
-        eventData={notificationPrompt.eventData}
-      />
+      {/* 📧 Client Notification Prompt - portaled to body to escape overflow-hidden ancestors */}
+      {createPortal(
+        <ClientNotificationPrompt
+          isOpen={notificationPrompt.isOpen}
+          onClose={handleCloseNotificationPrompt}
+          onConfirm={handleSendNotification}
+          eventType={notificationPrompt.eventType}
+          eventData={notificationPrompt.eventData}
+        />,
+        document.body
+      )}
     </>
   );
 }
