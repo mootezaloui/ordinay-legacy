@@ -1,6 +1,8 @@
 const db = require('../db/connection');
 const { assert, filterPayload, buildUpdateClause, ensureXor, normalizeData } = require('./_utils');
 const notesService = require('./notes.service');
+const { withTx } = require('../db/withTx');
+const auditMutations = require('./auditMutations.service');
 
 const table = 'missions';
 const allowedFields = [
@@ -256,7 +258,7 @@ function remove(id) {
   if (!mission) return false;
 
   // Use transaction for atomic deletion
-  const deleteTransaction = db.transaction(() => {
+  return withTx(db, () => {
     // 1. Delete financial entries (FK constraint)
     const deleteFinancial = db.prepare(
       `DELETE FROM financial_entries WHERE mission_id = @id`
@@ -278,36 +280,50 @@ function remove(id) {
     // 4. Delete notes (soft reference via notes table)
     notesService.deleteNotesForEntity('mission', id);
 
-    // 5. Delete history events for this mission
-    historyService.deleteByEntity('mission', id);
-
-    // 6. Finally, delete the mission itself
+    // 5. Finally, delete the mission itself
     const stmt = db.prepare(`DELETE FROM ${table} WHERE id = @id`);
     const result = stmt.run({ id });
 
-    // 7. Add deletion event to parent's history (dossier or lawsuit)
-    if (result.changes > 0) {
-      if (mission.dossier_id) {
-        historyService.create({
-          entity_type: 'dossier',
-          entity_id: mission.dossier_id,
-          action: 'child_deleted',
-          description: `Mission "${mission.title}" (${mission.reference}) was deleted with all dependencies`,
-        });
-      } else if (mission.lawsuit_id) {
-        historyService.create({
-          entity_type: 'lawsuit',
-          entity_id: mission.lawsuit_id,
-          action: 'child_deleted',
-          description: `Mission "${mission.title}" (${mission.reference}) was deleted with all dependencies`,
-        });
-      }
+    if (result.changes === 0) return false;
+
+    historyService.create({
+      entity_type: 'mission',
+      entity_id: id,
+      action: 'entity_deleted',
+      description: `Mission "${mission.title}" (${mission.reference}) was deleted with all dependencies`,
+    });
+
+    if (mission.dossier_id) {
+      historyService.create({
+        entity_type: 'dossier',
+        entity_id: mission.dossier_id,
+        action: 'child_deleted',
+        description: `Mission "${mission.title}" (${mission.reference}) was deleted with all dependencies`,
+      });
+    } else if (mission.lawsuit_id) {
+      historyService.create({
+        entity_type: 'lawsuit',
+        entity_id: mission.lawsuit_id,
+        action: 'child_deleted',
+        description: `Mission "${mission.title}" (${mission.reference}) was deleted with all dependencies`,
+      });
     }
 
-    return result.changes > 0;
-  });
+    auditMutations.append(
+      {
+        entity_type: 'mission',
+        entity_id: id,
+        operation: 'delete',
+        source: 'rest_api',
+        before: mission,
+        after: null,
+        metadata: { cascade: true },
+      },
+      db
+    );
 
-  return deleteTransaction();
+    return true;
+  });
 }
 
 module.exports = {

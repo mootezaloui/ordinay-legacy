@@ -5,12 +5,19 @@ const Ajv = require("ajv");
 const addFormats = require("ajv-formats");
 const AgentEngine = require("./agent.engine");
 const { ChatAgentService } = require("./chat/chat.agent.service");
+const {
+  detectStrongMutationIntent,
+  getMutationIntentDetectorConfig,
+} = require("./chat/chat.mutationIntentDetector");
 const { getAvailableCommands, detectReadIntent, READ_INTENTS } = require("./intent.classifier");
 const db = require("../db/connection");
 const documentGenerationService = require("../services/documentGeneration/documentGeneration.service");
 const documentGenerationPreviewService = require("../services/documentGeneration/documentGenerationPreview.service");
 const { resolveInteractionMode } = require("./interactionMode.resolver");
 const { mapUserFailure } = require("./failure/userFailure.mapper");
+const { toProposalArtifact } = require("./proposals/proposalArtifact");
+const { generateChatResponse } = require("./llm.client");
+const { enforceUserSafeResponsePolicy } = require("./chat/chat.userSafeResponsePolicy");
 const eventEnvelopeSchema = require("./schemas/event-envelope.schema.json");
 const failureSchema = require("./schemas/failure.schema.json");
 
@@ -133,6 +140,40 @@ function hasProcessingDocuments(documentContext) {
 
 function waitMs(duration) {
   return new Promise((resolve) => setTimeout(resolve, duration));
+}
+
+function envFlag(name, fallback = false) {
+  const raw = process.env[name];
+  if (raw === undefined) return fallback;
+  return ["1", "true", "yes", "on"].includes(String(raw).toLowerCase());
+}
+
+function getStreamMutationDetectionState(requestContext = {}) {
+  const operationalStore = agentEngine.contextStore?._operationalStore;
+  const conversationId = requestContext?.conversationId;
+  const userId = requestContext?.userId || "default";
+  if (
+    !operationalStore ||
+    typeof operationalStore.get !== "function" ||
+    !conversationId
+  ) {
+    return null;
+  }
+  return operationalStore.get(userId, conversationId);
+}
+
+function updateStreamMutationDetectionState(requestContext = {}, updates = {}) {
+  const operationalStore = agentEngine.contextStore?._operationalStore;
+  const conversationId = requestContext?.conversationId;
+  const userId = requestContext?.userId || "default";
+  if (
+    !operationalStore ||
+    typeof operationalStore.update !== "function" ||
+    !conversationId
+  ) {
+    return null;
+  }
+  return operationalStore.update(userId, conversationId, updates);
 }
 
 async function waitForDocumentContextStabilization({
@@ -1005,29 +1046,6 @@ async function detectDocumentGenerationIntent(message, context = {}) {
   };
 }
 
-function toProposalArtifact(proposal, sessionId) {
-  return {
-    type: "proposal",
-    sessionId: sessionId || null,
-    proposals: [
-      {
-        proposalId: proposal.proposalId,
-        status: proposal.status,
-        actionType: proposal.actionType,
-        requiresConfirmation: proposal.requiresConfirmation,
-        humanReadableSummary: proposal.humanReadableSummary,
-        affectedEntities: proposal.affectedEntities,
-        reversible: proposal.reversible,
-        version: proposal.version,
-        posture: proposal.posture,
-        snapshot: proposal.snapshot,
-        sessionId: proposal.sessionId || sessionId || null,
-        params: proposal.params,
-      },
-    ],
-  };
-}
-
 async function createGeneratedDocumentProposalFromPlan({
   requestContext,
   sessionId,
@@ -1377,21 +1395,46 @@ router.post("/agent/chat", async (req, res) => {
     text,
     fallbackText,
     output,
+    mutationOutcome = null,
     intent = "CHATBOT_AGENT_MODE",
     interactionMode = "operational",
   }) => {
     if (assistantFinalEmitted) return;
     assistantFinalEmitted = true;
+    const safe = enforceUserSafeResponsePolicy({
+      text,
+      output,
+      mutationOutcome,
+      route: "/agent/chat",
+      logger: (entry) => agentEngine.ledger.record(entry),
+    });
     await emitVisibleAssistantText({
       text: buildChatbotAssistantMessage({
         userMessage: message,
-        text,
+        text: safe.text,
         fallbackText,
-        output,
+        output: safe.output,
         intent,
       }),
       interactionMode,
     });
+  };
+
+  const emitSafeChatResult = ({ output, intent, interactionMode, mutationOutcome = null }) => {
+    const safe = enforceUserSafeResponsePolicy({
+      text: "",
+      output,
+      mutationOutcome,
+      route: "/agent/chat",
+      logger: (entry) => agentEngine.ledger.record(entry),
+    });
+    emit("result", {
+      output: safe.output,
+      intent,
+      visibility: "visible",
+      interactionMode,
+    });
+    return safe.output;
   };
 
   try {
@@ -1440,10 +1483,9 @@ router.post("/agent/chat", async (req, res) => {
         timestamp: new Date().toISOString(),
       });
       emitStatus("Preparing action preview...", "working", interactionMode);
-      emit("result", {
+      emitSafeChatResult({
         output: resumedPending.output,
         intent: resumedPending.intent || "DOCUMENT_GENERATION",
-        visibility: "visible",
         interactionMode,
       });
       await emitAssistantFinal({
@@ -1499,10 +1541,9 @@ router.post("/agent/chat", async (req, res) => {
         timestamp: new Date().toISOString(),
       });
       emitStatus("Preparing document preview...", "working", interactionMode);
-      emit("result", {
+      emitSafeChatResult({
         output: artifact,
         intent: "DOCUMENT_GENERATION",
-        visibility: "visible",
         interactionMode,
       });
       await emitAssistantFinal({
@@ -1556,10 +1597,9 @@ router.post("/agent/chat", async (req, res) => {
         toolExecutions: [],
       });
       if (preReadAttachment) {
-        emit("result", {
+        emitSafeChatResult({
           output: preReadAttachment,
           intent: runResult?.intent || "READ_DATA",
-          visibility: "visible",
           interactionMode,
         });
       }
@@ -1633,16 +1673,17 @@ router.post("/agent/chat", async (req, res) => {
       toolExecutions,
     });
     if (chatbotAttachment) {
-      emit("result", {
+      emitSafeChatResult({
         output: chatbotAttachment,
         intent: "CHATBOT_AGENT_MODE",
-        visibility: "visible",
         interactionMode,
+        mutationOutcome: result?.mutationOutcome || null,
       });
     }
     await emitAssistantFinal({
       text: result?.message,
       output: effectiveOutput,
+      mutationOutcome: result?.mutationOutcome || null,
       intent: result?.intent || "CHATBOT_AGENT_MODE",
       interactionMode,
     });
@@ -1651,6 +1692,7 @@ router.post("/agent/chat", async (req, res) => {
       mode: "chatbot",
       toolCalls: toolExecutions.length,
       interactionMode,
+      mutationOutcome: result?.mutationOutcome || null,
     });
   } catch (error) {
     console.error(
@@ -1667,10 +1709,9 @@ router.post("/agent/chat", async (req, res) => {
       message: mapped.internalMessage,
       timestamp: new Date().toISOString(),
     });
-    emit("result", {
+    emitSafeChatResult({
       output: mapped.recovery,
       intent: "RECOVERY",
-      visibility: "visible",
       interactionMode: "operational",
     });
     await emitAssistantFinal({
@@ -1697,6 +1738,8 @@ router.__setChatAgentServiceForTests = (service) => {
     chatAgentService = service;
   }
 };
+
+router.__getAgentEngineForTests = () => agentEngine;
 
 /**
  * POST /agent/edit - Edit the last user message
@@ -1806,13 +1849,24 @@ router.post("/agent/edit", async (req, res, next) => {
  * Validates posture, snapshot, permissions, then executes action
  */
 router.post("/agent/confirm", async (req, res, next) => {
-  const { proposalId, sessionId } = req.body || {};
+  const { proposalId, sessionId, ackRisk } = req.body || {};
+  if (["1", "true", "yes", "on"].includes(String(process.env.AGENT_CHAT_MUTATION_DEBUG || "").toLowerCase())) {
+    try {
+      console.warn("[agent-confirm-debug]", "route_confirm_received", {
+        proposalId: proposalId || null,
+        sessionId: sessionId || null,
+        ackRisk: ackRisk === true,
+        bodyKeys: req.body && typeof req.body === "object" ? Object.keys(req.body) : [],
+      });
+    } catch (_) {}
+  }
 
   try {
     const result = await agentEngine.confirmProposal({
       proposalId,
       sessionId,
       userId: req.user?.id,
+      ackRisk: ackRisk === true,
     });
 
     res.json({ status: "ok", data: result });
@@ -2095,6 +2149,178 @@ router.post("/agent/stream", async (req, res) => {
       agentVersion,
       intent: "PENDING",
     });
+
+    const detectorConfig = getMutationIntentDetectorConfig();
+    const streamDetectorEnabled =
+      envFlag("AGENT_MUTATION_INTENT_STREAM_DETECTION", false) &&
+      detectorConfig.enabled &&
+      (!detectorConfig.chatOnly || envFlag("AGENT_MUTATION_INTENT_STREAM_DETECTION", false));
+
+    if (streamDetectorEnabled && typeof effectiveMessage === "string") {
+      const state = getStreamMutationDetectionState(requestContext) || {};
+      const pendingProposal = state.pendingMutationProposal || null;
+      const pendingProposalActive =
+        pendingProposal &&
+        pendingProposal.proposalId &&
+        (!pendingProposal.expiresAt || Date.parse(pendingProposal.expiresAt) > Date.now());
+
+      if (
+        !(
+          state.suppressMutationDetectionUntilResolved === true &&
+          pendingProposalActive
+        )
+      ) {
+        const llmHistory =
+          typeof agentEngine.contextStore?.getContextForLLMInjection === "function"
+            ? agentEngine.contextStore.getContextForLLMInjection(requestContext)
+            : {};
+        const policy = agentEngine._resolvePolicy(agentVersion);
+        const detectorDecision = await detectStrongMutationIntent({
+          message: effectiveMessage,
+          llmHistory,
+          executionContext: {
+            ...requestContext,
+            posture: "WORK",
+            confirmed: true,
+            sessionId: sessionId || requestContext?.conversationId || null,
+            userId: requestContext?.userId || null,
+            tenantId: requestContext?.tenantId || null,
+            dataAccess:
+              requestContext?.dataAccess && typeof requestContext.dataAccess === "object"
+                ? requestContext.dataAccess
+                : {},
+          },
+          pendingClarification: state.pendingMutationClarification || null,
+          llmExtractor: generateChatResponse,
+          logger: (entry) => agentEngine.ledger.record(entry),
+          sourceRoute: "/agent/stream",
+        });
+
+        if (detectorDecision?.decision === "clarify") {
+          updateStreamMutationDetectionState(requestContext, {
+            pendingMutationClarification:
+              detectorDecision.clearPendingClarification === true
+                ? null
+                : detectorDecision.pendingClarification !== undefined
+                  ? detectorDecision.pendingClarification
+                  : state.pendingMutationClarification || null,
+            suppressMutationDetectionUntilResolved: Boolean(
+              detectorDecision.pendingClarification,
+            ),
+          });
+
+          const output = {
+            type: "explanation",
+            summary:
+              String(detectorDecision.question || "").trim() ||
+              "I need one more detail to prepare a mutation proposal.",
+            details: {
+              reason: detectorDecision.reason || null,
+              detectionConfidence: detectorDecision?.scores?.finalConfidence ?? null,
+            },
+          };
+          const interactionMode = "conversational";
+          emit("artifact.final", {
+            intent: "CHATBOT_AGENT_MODE",
+            output,
+            contextLifecycle: null,
+            visibility: "visible",
+            interactionMode,
+          });
+          hasVisibleArtifact = true;
+          artifactTerminal = true;
+          emit("turn.end", {
+            status: "success",
+            hadStageFailures: false,
+            preview: { intent: "CHATBOT_AGENT_MODE" },
+            interactionMode,
+          });
+          didEnd = true;
+          res.end();
+          return;
+        }
+
+        if (detectorDecision?.decision === "propose" && detectorDecision.shadowMode !== true) {
+          const execCtx = {
+            ...requestContext,
+            posture: "WORK",
+            confirmed: true,
+            explicitMutationCommand: false,
+            strongMutationIntent: true,
+            sessionId: sessionId || requestContext?.conversationId || null,
+            userId: requestContext?.userId || null,
+            tenantId: requestContext?.tenantId || null,
+            dataAccess:
+              requestContext?.dataAccess && typeof requestContext.dataAccess === "object"
+                ? requestContext.dataAccess
+                : {},
+            sourceRoute: "/agent/stream",
+          };
+
+          const v2Result = await agentEngine.executeToolV2(
+            "propose_entity_mutation",
+            detectorDecision.proposalInput,
+            policy,
+            execCtx,
+          );
+          const proposal = v2Result?.result;
+          if (!proposal?.proposalId || proposal.requiresConfirmation !== true) {
+            throw new Error("Failed to create mutation proposal.");
+          }
+
+          if (typeof agentEngine.storeProposal === "function") {
+            agentEngine.storeProposal(proposal, {
+              explicitMutationCommand: false,
+              strongMutationIntent: true,
+              origin: "strong_mutation_intent",
+              proposalKind: "entity_mutation",
+              sourceRoute: "/agent/stream",
+              conversationId: requestContext?.conversationId || null,
+              sessionId: execCtx.sessionId || null,
+              userId: execCtx.userId || null,
+              tenantId: execCtx.tenantId || null,
+              detectionConfidence: detectorDecision.scores?.finalConfidence ?? null,
+              detectionScores: detectorDecision.scores || null,
+              riskLevel: detectorDecision.risk || "low",
+              requiresExtraConfirmation:
+                detectorDecision.requiresExtraConfirmation === true,
+            });
+          }
+
+          updateStreamMutationDetectionState(requestContext, {
+            pendingMutationClarification: null,
+            pendingMutationProposal: {
+              proposalId: proposal.proposalId,
+              createdAt: new Date().toISOString(),
+              expiresAt: new Date(Date.now() + 300000).toISOString(),
+              riskLevel: detectorDecision.risk || "low",
+            },
+            suppressMutationDetectionUntilResolved: true,
+          });
+
+          const output = toProposalArtifact(proposal, execCtx.sessionId);
+          const interactionMode = "operational";
+          emit("artifact.final", {
+            intent: "COMMAND",
+            output,
+            contextLifecycle: null,
+            visibility: "visible",
+            interactionMode,
+          });
+          hasVisibleArtifact = true;
+          artifactTerminal = true;
+          emit("turn.end", {
+            status: "success",
+            hadStageFailures: false,
+            preview: { intent: "COMMAND" },
+            interactionMode,
+          });
+          didEnd = true;
+          res.end();
+          return;
+        }
+      }
+    }
 
     const runResult = await agentEngine.run({
       message: effectiveMessage,

@@ -5,7 +5,18 @@ const { generateToolCallingTurn, generateChatResponse } = require("../llm.client
 const { resolveInteractionPosture, POSTURES } = require("../posture.resolver");
 const { filterToolsForChat } = require("./chat.tool.exposure");
 const { resolveChatAmbiguity } = require("./chat.ambiguity.resolver");
-const { detectDraftIntent } = require("../intent.classifier");
+const {
+  detectMutationIntent,
+  getMutationIntentDetectorConfig,
+} = require("./chat.mutationIntentDetector");
+const {
+  logMutationIntentProposalCreated,
+  logMutationIntentActionAttempted,
+  logMutationIntentActionOutcome,
+} = require("./chat.mutationIntentLogging");
+const { resolveAdaptiveMutationRemediation } = require("../engine/agentMutationConstraintResolver");
+const { detectDraftIntent, isSlashCommand, parseSlashCommand } = require("../intent.classifier");
+const { toProposalArtifact } = require("../proposals/proposalArtifact");
 const operatorsService = require("../../services/operators.service");
 
 const MAX_TOOL_ROUNDS = Math.max(
@@ -21,6 +32,25 @@ const ENTITY_FOCUS_PATTERN =
   /\b(client|dossier|lawsuit|task|mission)\s*(#\s*\d+|\d+)\b/i;
 const ENTITY_NAMED_PATTERN =
   /\b(our|this|that|my)\s+(client|dossier|lawsuit|task|mission)\b|\b(client|dossier|lawsuit|task|mission)\s+([A-Za-z\u00C0-\u024F\u0600-\u06FF][^?.,!\n]{1,90})|\b(قضية|ملف)\s+([\u0600-\u06FF][^?.,!\n]{1,90})/iu;
+
+const BLOCKED_MUTATION_ERROR_CODES = new Set([
+  "DOMAIN_ACCESS_DENIED",
+  "MUTATION_PERMISSION_DENIED",
+  "ACCESS_DENIED",
+  "PERMISSION_DENIED",
+  "POSTURE_MISMATCH",
+  "RISK_ACK_REQUIRED",
+  "EXPLICIT_MUTATION_COMMAND_REQUIRED",
+  "CONFIRMATION_REQUIRED",
+  "EXECUTION_NOT_PERMITTED",
+  "DOMAIN_RULE_BLOCKED",
+]);
+const CHAT_MUTATION_DEBUG_ENABLED = ["1", "true", "yes", "on"].includes(
+  String(process.env.AGENT_CHAT_MUTATION_DEBUG || "").toLowerCase(),
+);
+const CHAT_ADAPTIVE_DOMAIN_CONSTRAINTS_ENABLED = ["1", "true", "yes", "on"].includes(
+  String(process.env.AGENT_ADAPTIVE_DOMAIN_CONSTRAINTS ?? "1").toLowerCase(),
+);
 
 function toErrorCode(message, fallback = "TOOL_EXECUTION_FAILED") {
   const raw = String(message || "").trim();
@@ -40,13 +70,20 @@ function isLikelyResolutionReply(message = "", followUpIntent = null) {
 }
 
 class ChatAgentService {
-  constructor({ engine, llmClient, maxToolRounds, maxCompletionTokens } = {}) {
+  constructor({
+    engine,
+    llmClient,
+    mutationIntentExtractor,
+    maxToolRounds,
+    maxCompletionTokens,
+  } = {}) {
     if (!engine) {
       throw new Error("ChatAgentService requires an engine instance");
     }
     this.engine = engine;
     this.ajv = engine.ajv;
     this.llmClient = llmClient || generateToolCallingTurn;
+    this.mutationIntentExtractor = mutationIntentExtractor || generateChatResponse;
     this.maxToolRounds = maxToolRounds || MAX_TOOL_ROUNDS;
     this.maxCompletionTokens = maxCompletionTokens || MAX_COMPLETION_TOKENS;
   }
@@ -95,6 +132,18 @@ class ChatAgentService {
         label: resolvedSelection.label,
       };
       requestContext._resolvedFromSuggestion = true;
+    }
+
+    const explicitMutationSlashResult = await this._tryHandleExplicitMutationSlashCommand({
+      userMessage,
+      requestContext,
+      policy,
+      sessionId,
+      userId: requestContext.userId || userId || null,
+      tenantId: requestContext.tenantId || tenantId || null,
+    });
+    if (explicitMutationSlashResult) {
+      return explicitMutationSlashResult;
     }
 
     const pendingOperation =
@@ -301,6 +350,19 @@ class ChatAgentService {
         timestamp: new Date().toISOString(),
       });
       return documentFallback;
+    }
+
+    const conversationalMutationProposal =
+      await this._tryHandleStrongMutationIntentDetection({
+        userMessage,
+        effectiveUserMessage,
+        requestContext,
+        executionContext,
+        llmHistory,
+        policy,
+      });
+    if (conversationalMutationProposal) {
+      return conversationalMutationProposal;
     }
 
     const messages = this._buildModelMessages({
@@ -536,7 +598,7 @@ class ChatAgentService {
         "Validate facts with tool results before answering.",
         "Never expose internal numeric IDs in user-facing text. Use names, titles, and references.",
         "For entity-specific legal work, call getEntityGraph first to ground parent/child context before synthesis.",
-        "For execute operations, call universalMutation to create proposals. Never claim execution happened.",
+        "Do not expose internal mutation commands or command syntax in chat responses.",
         "If a requested capability is unavailable, explain constraint briefly.",
         "You are not allowed to fabricate legal references or leave placeholders. If information is missing, ask.",
         "Prefer real grounded values. If a required value is missing, bracket placeholders are allowed.",
@@ -729,6 +791,1468 @@ class ChatAgentService {
       return [graphTool, ...list.filter((tool) => tool.name !== "getEntityGraph")].slice(0, 12);
     }
     return list.slice(0, 12);
+  }
+
+  async _tryHandleExplicitMutationSlashCommand({
+    userMessage,
+    requestContext,
+    policy,
+    sessionId,
+    userId,
+    tenantId,
+  }) {
+    if (!isSlashCommand(userMessage)) return null;
+
+    const parsed = parseSlashCommand(userMessage);
+    if (!parsed?.valid || parsed.commandKey !== "mutate") return null;
+
+    let args;
+    try {
+      const raw = Array.isArray(parsed.args) ? parsed.args.join(" ").trim() : "";
+      if (!raw) throw new Error("Command /mutate requires a JSON payload.");
+      args = JSON.parse(raw);
+      if (!args || typeof args !== "object" || Array.isArray(args)) {
+        throw new Error("Mutation command payload must be a JSON object.");
+      }
+    } catch (error) {
+      const message =
+        error?.message && /json/i.test(String(error.message))
+          ? error.message
+          : "Invalid JSON for /mutate command.";
+      const finalMessage =
+        `${message} Use: /mutate {"entityType":"task","entityId":"123","operation":"update","payload":{"status":"completed"},"reasoningSummary":"..."}`;
+      this._recordTranscript({
+        requestContext,
+        userMessage,
+        finalMessage,
+        posture: "WORK",
+        toolExecutions: [],
+      });
+      return {
+        message: finalMessage,
+        intent: "COMMAND",
+        agentVersion: policy.version,
+        posture: "WORK",
+        toolExecutions: [],
+        stepCommentaries: [],
+        rounds: 0,
+        ambiguityArtifact: null,
+        resolutionMeta: null,
+        availableTools: [],
+      };
+    }
+
+    const executionContext = {
+      ...requestContext,
+      explicitMutationCommand: true,
+      confirmed: true,
+      posture: "WORK",
+      sessionId: sessionId || requestContext?.conversationId || null,
+      userId: userId || requestContext?.userId || null,
+      tenantId: tenantId || requestContext?.tenantId || null,
+      dataAccess:
+        requestContext?.dataAccess && typeof requestContext.dataAccess === "object"
+          ? requestContext.dataAccess
+          : {},
+      sourceRoute: "/agent/chat",
+    };
+
+    try {
+      const v2Result = await this.engine.executeToolV2(
+        "propose_entity_mutation",
+        args,
+        policy,
+        executionContext,
+      );
+      const proposal = v2Result?.result;
+      if (!proposal?.proposalId || proposal.requiresConfirmation !== true) {
+        throw new Error("Failed to create mutation proposal.");
+      }
+
+      if (typeof this.engine.storeProposal === "function") {
+        this.engine.storeProposal(proposal, {
+          explicitMutationCommand: true,
+          proposalKind: "entity_mutation",
+          sourceRoute: "/agent/chat",
+          conversationId: requestContext?.conversationId || null,
+          sessionId: executionContext.sessionId || null,
+          userId: executionContext.userId || null,
+          tenantId: executionContext.tenantId || null,
+        });
+      }
+
+      this._updateOperationalMutationDetectionState(requestContext, {
+        pendingMutationClarification: null,
+        pendingMutationProposal: {
+          proposalId: proposal.proposalId,
+          createdAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 300000).toISOString(),
+          riskLevel: "unknown",
+        },
+        suppressMutationDetectionUntilResolved: true,
+      });
+
+      const proposalArtifact = toProposalArtifact(proposal, executionContext.sessionId);
+      const toolExecutions = [
+        {
+          ok: true,
+          toolName: "propose_entity_mutation",
+          args,
+          result: proposal,
+          responseForModel: null,
+        },
+      ];
+      const finalMessage =
+        "I prepared a mutation proposal. Please review and confirm it before execution.";
+      this._recordTranscript({
+        requestContext,
+        userMessage,
+        finalMessage,
+        posture: "WORK",
+        toolExecutions,
+        artifactType: "proposal",
+        artifact: proposalArtifact,
+      });
+      this.engine.ledger.record({
+        type: "chat_mode_tool_call",
+        toolName: "propose_entity_mutation",
+        success: true,
+        timestamp: new Date().toISOString(),
+      });
+
+      return {
+        message: finalMessage,
+        intent: "COMMAND",
+        agentVersion: policy.version,
+        posture: "WORK",
+        toolExecutions,
+        stepCommentaries: [],
+        rounds: 0,
+        ambiguityArtifact: proposalArtifact,
+        resolutionMeta: null,
+        availableTools: [],
+      };
+    } catch (error) {
+      const safeMessage =
+        String(error?.message || "").trim() || "Mutation proposal failed.";
+      this.engine.ledger.record({
+        type: "chat_mode_tool_call",
+        toolName: "propose_entity_mutation",
+        success: false,
+        error: safeMessage,
+        timestamp: new Date().toISOString(),
+      });
+      const finalMessage = `Could not create mutation proposal: ${safeMessage}`;
+      this._recordTranscript({
+        requestContext,
+        userMessage,
+        finalMessage,
+        posture: "WORK",
+        toolExecutions: [],
+      });
+      return {
+        message: finalMessage,
+        intent: "COMMAND",
+        agentVersion: policy.version,
+        posture: "WORK",
+        toolExecutions: [],
+        stepCommentaries: [],
+        rounds: 0,
+        ambiguityArtifact: null,
+        resolutionMeta: null,
+        availableTools: [],
+      };
+    }
+  }
+
+  _getOperationalMutationDetectionState(requestContext = {}) {
+    const operationalStore = this.engine.contextStore?._operationalStore;
+    const conversationId = requestContext?.conversationId;
+    const userId = requestContext?.userId || "default";
+    if (
+      !operationalStore ||
+      typeof operationalStore.get !== "function" ||
+      !conversationId
+    ) {
+      return null;
+    }
+    return operationalStore.get(userId, conversationId);
+  }
+
+  _updateOperationalMutationDetectionState(requestContext = {}, updates = {}) {
+    const operationalStore = this.engine.contextStore?._operationalStore;
+    const conversationId = requestContext?.conversationId;
+    const userId = requestContext?.userId || "default";
+    if (
+      !operationalStore ||
+      typeof operationalStore.update !== "function" ||
+      !conversationId
+    ) {
+      return null;
+    }
+    return operationalStore.update(userId, conversationId, updates);
+  }
+
+  _buildMutationDetectorLogger() {
+    return (entry) => {
+      if (this.engine?.ledger && typeof this.engine.ledger.record === "function") {
+        this.engine.ledger.record(entry);
+      }
+    };
+  }
+
+  _debugChatMutation(event, payload = {}) {
+    if (!CHAT_MUTATION_DEBUG_ENABLED) return;
+    try {
+      console.warn("[chat-mutation-debug]", event, payload);
+    } catch (_) {}
+  }
+
+  _resolveMutationOrchestrationPolicy(policy = null) {
+    const currentVersion = String(policy?.version || "").toLowerCase();
+    if (currentVersion === "v3") return policy;
+    if (this.engine && typeof this.engine._resolvePolicy === "function") {
+      try {
+        const v3Policy = this.engine._resolvePolicy("v3");
+        if (v3Policy?.version) {
+          this._debugChatMutation("policy_override", {
+            fromPolicyVersion: policy?.version || null,
+            toPolicyVersion: v3Policy.version,
+          });
+          return v3Policy;
+        }
+      } catch (error) {
+        this._debugChatMutation("policy_override_failed", {
+          fromPolicyVersion: policy?.version || null,
+          error: error?.message || String(error),
+        });
+      }
+    }
+    return policy;
+  }
+
+  _resolveChatMutationExecutionMode({ requestContext = {}, detectorResult = null } = {}) {
+    if (detectorResult?.requiresExtraConfirmation === true) return "confirm";
+    const metadata = requestContext?.requestMetadata || {};
+    if (String(metadata.chatMutationExecutionMode || "").toLowerCase() === "auto_execute") {
+      return "auto_execute";
+    }
+    if (metadata.autoExecuteMutations === true) {
+      return "auto_execute";
+    }
+    return "confirm";
+  }
+
+  _adaptiveDomainConstraintsEnabled() {
+    return CHAT_ADAPTIVE_DOMAIN_CONSTRAINTS_ENABLED;
+  }
+
+  async _createMutationWorkflowProposal({
+    workflowProposalInput,
+    policy,
+    executionContext,
+  }) {
+    const stageExecutionContext = {
+      ...executionContext,
+      posture: "WORK",
+      confirmed: true,
+      strongMutationIntent: true,
+      explicitMutationCommand: false,
+      sourceRoute: "/agent/chat",
+    };
+    const v2Result = await this.engine.executeToolV2(
+      "propose_mutation_workflow",
+      workflowProposalInput,
+      policy,
+      stageExecutionContext,
+    );
+    const proposal = v2Result?.result;
+    if (!proposal?.proposalId || proposal.requiresConfirmation !== true) {
+      const err = new Error("Failed to create mutation workflow proposal.");
+      err.code = "MUTATION_WORKFLOW_PROPOSAL_INVALID";
+      throw err;
+    }
+    return { proposal, stageExecutionContext };
+  }
+
+  _extractConfirmedWorkflowExecutionResult(confirmResult = null) {
+    const actionResult = confirmResult?.executedActions?.[0]?.result;
+    if (!actionResult || typeof actionResult !== "object") {
+      const err = new Error("Workflow execution returned no result.");
+      err.code = "MUTATION_WORKFLOW_RESULT_INVALID";
+      throw err;
+    }
+    if (actionResult.ok !== true) {
+      const err = new Error("Workflow execution did not succeed.");
+      err.code = String(actionResult.errorCode || actionResult.code || "MUTATION_WORKFLOW_FAILED");
+      throw err;
+    }
+    return actionResult;
+  }
+
+  _buildAdaptiveWorkflowOutcomeMessage({
+    status,
+    resolverResult,
+    failure = null,
+    executionMode = "confirm",
+    workflowResult = null,
+  }) {
+    if (status === "PROPOSED") {
+      return String(
+        resolverResult?.userFacingSummary ||
+          "I found related records that need to be cleaned up first. I will handle them and then continue. Do you want me to proceed?",
+      );
+    }
+    if (status === "EXECUTED") {
+      if (workflowResult?.goalReached === false) {
+        return String(
+          workflowResult?.message ||
+            "I cleaned up the open items, but I could not complete the final requested change yet.",
+        );
+      }
+      return "Done. I applied the requested changes and cleaned up the related records.";
+    }
+    if (status === "BLOCKED") {
+      return String(
+        resolverResult?.blocked?.safeMessage ||
+          failure?.safeMessage ||
+          "I can’t apply that change right now.",
+      );
+    }
+    if (status === "FAILED") {
+      return String(
+        failure?.safeMessage ||
+          (executionMode === "auto_execute"
+            ? "I couldn’t apply those changes due to a system error. Try again, or I can prepare them for confirmation."
+            : "I couldn’t prepare those changes due to a system error. Try again, or I can prepare them for confirmation."),
+      );
+    }
+    return "I couldn’t complete that request right now.";
+  }
+
+  async _tryAdaptiveWorkflowForBlockedMutation({
+    error,
+    detectorResult,
+    requestContext,
+    executionContext,
+    policy,
+    userMessage,
+    toolExecutions,
+    logger,
+  }) {
+    if (!this._adaptiveDomainConstraintsEnabled()) return null;
+    if (String(error?.code || "").toUpperCase() !== "DOMAIN_RULE_BLOCKED") return null;
+
+    const toolArgs = detectorResult?.proposalInput || {};
+    const executionMode = this._resolveChatMutationExecutionMode({ requestContext, detectorResult });
+    const resolverResult = resolveAdaptiveMutationRemediation({
+      requestedMutation: {
+        entityType: toolArgs.entityType,
+        entityId: toolArgs.entityId,
+        operation: toolArgs.operation,
+        payload: toolArgs.payload || {},
+      },
+      executionMode,
+      existing: null,
+      allowFinancialAutoCleanup: false,
+      mode: "proposal_preflight",
+      evaluation: error?.domainRule?.evaluation || null,
+    });
+
+    this.engine.ledger.record?.({
+      type: "mutation_constraint_adaptation_selected",
+      sourceRoute: "/agent/chat",
+      route: resolverResult?.route || "none",
+      entityType: toolArgs.entityType || null,
+      entityId: toolArgs.entityId || null,
+      timestamp: new Date().toISOString(),
+    });
+
+    if (!resolverResult || resolverResult.route === "blocked") {
+      const finalMessage = this._buildAdaptiveWorkflowOutcomeMessage({
+        status: "BLOCKED",
+        resolverResult,
+      });
+      this._recordTranscript({
+        requestContext,
+        userMessage,
+        finalMessage,
+        posture: "WORK",
+        toolExecutions,
+      });
+      return {
+        message: finalMessage,
+        agentVersion: policy.version,
+        posture: "WORK",
+        toolExecutions,
+        stepCommentaries: [],
+        rounds: 0,
+        ambiguityArtifact: null,
+        resolutionMeta: null,
+        availableTools: [],
+        suppressIntentFraming: true,
+        suppressCommentary: false,
+        mutationOutcome: this._buildMutationOutcomeEnvelope({
+          status: "BLOCKED",
+          entityType: toolArgs.entityType || null,
+          entityId: Number(toolArgs.entityId) || null,
+          operation: toolArgs.operation || "update",
+          safeMessage: finalMessage,
+          reasonCode: "DOMAIN_CONSTRAINT_UNRESOLVED",
+        }),
+      };
+    }
+
+    if (resolverResult.route === "clarify") {
+      const finalMessage = String(
+        resolverResult?.clarification?.question ||
+          "I need one more detail before I can safely continue.",
+      );
+      this._recordTranscript({
+        requestContext,
+        userMessage,
+        finalMessage,
+        posture: "WORK",
+        toolExecutions,
+      });
+      return {
+        message: finalMessage,
+        agentVersion: policy.version,
+        posture: "WORK",
+        toolExecutions,
+        stepCommentaries: [],
+        rounds: 0,
+        ambiguityArtifact: null,
+        resolutionMeta: null,
+        availableTools: [],
+        suppressIntentFraming: true,
+        suppressCommentary: false,
+      };
+    }
+
+    if (!resolverResult.workflowProposalInput) return null;
+
+    let workflowProposalBundle;
+    try {
+      workflowProposalBundle = await this._createMutationWorkflowProposal({
+        workflowProposalInput: resolverResult.workflowProposalInput,
+        policy,
+        executionContext,
+      });
+    } catch (workflowError) {
+      const normalizedFailure = this._normalizeMutationToolOrExecutionFailure(workflowError, {
+        phase: "proposal",
+      });
+      const finalMessage = this._buildAdaptiveWorkflowOutcomeMessage({
+        status: normalizedFailure.outcome,
+        resolverResult,
+        failure: normalizedFailure,
+        executionMode,
+      });
+      this._recordTranscript({
+        requestContext,
+        userMessage,
+        finalMessage,
+        posture: "WORK",
+        toolExecutions,
+      });
+      return {
+        message: finalMessage,
+        agentVersion: policy.version,
+        posture: "WORK",
+        toolExecutions,
+        stepCommentaries: [],
+        rounds: 0,
+        ambiguityArtifact: null,
+        resolutionMeta: null,
+        availableTools: [],
+        suppressIntentFraming: true,
+        suppressCommentary: false,
+        mutationOutcome: this._buildMutationOutcomeEnvelope({
+          status: normalizedFailure.outcome,
+          entityType: toolArgs.entityType || null,
+          entityId: Number(toolArgs.entityId) || null,
+          operation: toolArgs.operation || "update",
+          safeMessage: finalMessage,
+          reasonCode: normalizedFailure.code,
+          workflowType: resolverResult.workflowProposalInput.workflowType,
+          factsSummary: resolverResult.facts || null,
+        }),
+      };
+    }
+
+    const { proposal } = workflowProposalBundle;
+    toolExecutions.push({
+      ok: true,
+      toolName: "propose_mutation_workflow",
+      args: resolverResult.workflowProposalInput,
+      result: proposal,
+      responseForModel: null,
+    });
+
+    const expiresAt = new Date(Date.now() + 300000).toISOString();
+    if (typeof this.engine.storeProposal === "function") {
+      this.engine.storeProposal(proposal, {
+        explicitMutationCommand: false,
+        strongMutationIntent: true,
+        origin: "strong_mutation_intent",
+        proposalKind: "entity_mutation_workflow",
+        sourceRoute: "/agent/chat",
+        conversationId: requestContext?.conversationId || null,
+        sessionId: executionContext.sessionId || null,
+        userId: executionContext.userId || null,
+        tenantId: executionContext.tenantId || null,
+        requiresExtraConfirmation: true,
+        riskLevel: resolverResult.risk || "high",
+      });
+    }
+
+    if (resolverResult.route !== "auto_execute_workflow") {
+      this._updateOperationalMutationDetectionState(requestContext, {
+        pendingMutationClarification: null,
+        pendingMutationProposal: {
+          proposalId: proposal.proposalId,
+          createdAt: new Date().toISOString(),
+          expiresAt,
+          riskLevel: resolverResult.risk || "high",
+        },
+        suppressMutationDetectionUntilResolved: true,
+      });
+      const proposalArtifact = toProposalArtifact(proposal, executionContext.sessionId);
+      const finalMessage = this._buildAdaptiveWorkflowOutcomeMessage({
+        status: "PROPOSED",
+        resolverResult,
+        executionMode,
+      });
+      this._recordTranscript({
+        requestContext,
+        userMessage,
+        finalMessage,
+        posture: "WORK",
+        toolExecutions,
+        artifactType: "proposal",
+        artifact: proposalArtifact,
+      });
+      return {
+        message: finalMessage,
+        agentVersion: policy.version,
+        posture: "WORK",
+        toolExecutions,
+        stepCommentaries: [],
+        rounds: 0,
+        ambiguityArtifact: proposalArtifact,
+        resolutionMeta: null,
+        availableTools: [],
+        suppressIntentFraming: true,
+        suppressCommentary: false,
+        mutationOutcome: this._buildMutationOutcomeEnvelope({
+          status: "PROPOSED",
+          entityType: toolArgs.entityType || null,
+          entityId: Number(toolArgs.entityId) || null,
+          operation: toolArgs.operation || "update",
+          proposalId: proposal.proposalId,
+          workflowType: resolverResult.workflowProposalInput.workflowType,
+          factsSummary: resolverResult.facts || null,
+        }),
+      };
+    }
+
+    let confirmResult;
+    try {
+      confirmResult = await this._tryAutoExecuteStoredProposal({
+        proposal,
+        executionContext,
+      });
+      const workflowResult = this._extractConfirmedWorkflowExecutionResult(confirmResult);
+      toolExecutions.push({
+        ok: true,
+        toolName: "confirmProposal",
+        args: { proposalId: proposal.proposalId },
+        result: confirmResult,
+        responseForModel: null,
+      });
+      this._updateOperationalMutationDetectionState(requestContext, {
+        pendingMutationClarification: null,
+        pendingMutationProposal: null,
+        suppressMutationDetectionUntilResolved: false,
+      });
+      const finalMessage = this._buildAdaptiveWorkflowOutcomeMessage({
+        status: "EXECUTED",
+        resolverResult,
+        executionMode,
+        workflowResult,
+      });
+      this._recordTranscript({
+        requestContext,
+        userMessage,
+        finalMessage,
+        posture: "WORK",
+        toolExecutions,
+      });
+      return {
+        message: finalMessage,
+        agentVersion: policy.version,
+        posture: "WORK",
+        toolExecutions,
+        stepCommentaries: [],
+        rounds: 0,
+        ambiguityArtifact: null,
+        resolutionMeta: null,
+        availableTools: [],
+        suppressIntentFraming: true,
+        suppressCommentary: false,
+        mutationOutcome: this._buildMutationOutcomeEnvelope({
+          status: "EXECUTED",
+          entityType: toolArgs.entityType || null,
+          entityId: Number(toolArgs.entityId) || null,
+          operation: toolArgs.operation || "update",
+          proposalId: proposal.proposalId,
+          workflowType: resolverResult.workflowProposalInput.workflowType,
+          goalReached: workflowResult.goalReached !== false,
+          factsSummary: resolverResult.facts || null,
+        }),
+      };
+    } catch (workflowExecError) {
+      const normalizedFailure = this._normalizeMutationToolOrExecutionFailure(workflowExecError, {
+        phase: "execution",
+      });
+      const finalMessage = this._buildAdaptiveWorkflowOutcomeMessage({
+        status: normalizedFailure.outcome,
+        resolverResult,
+        failure: normalizedFailure,
+        executionMode,
+      });
+      this._recordTranscript({
+        requestContext,
+        userMessage,
+        finalMessage,
+        posture: "WORK",
+        toolExecutions,
+      });
+      return {
+        message: finalMessage,
+        agentVersion: policy.version,
+        posture: "WORK",
+        toolExecutions,
+        stepCommentaries: [],
+        rounds: 0,
+        ambiguityArtifact: null,
+        resolutionMeta: null,
+        availableTools: [],
+        suppressIntentFraming: true,
+        suppressCommentary: false,
+        mutationOutcome: this._buildMutationOutcomeEnvelope({
+          status: normalizedFailure.outcome,
+          entityType: toolArgs.entityType || null,
+          entityId: Number(toolArgs.entityId) || null,
+          operation: toolArgs.operation || "update",
+          proposalId: proposal.proposalId,
+          workflowType: resolverResult.workflowProposalInput.workflowType,
+          reasonCode: normalizedFailure.code,
+          safeMessage: finalMessage,
+          factsSummary: resolverResult.facts || null,
+        }),
+      };
+    }
+  }
+
+  _isBlockedMutationErrorCode(code) {
+    return BLOCKED_MUTATION_ERROR_CODES.has(String(code || "").toUpperCase());
+  }
+
+  _normalizeMutationToolOrExecutionFailure(failure, context = {}) {
+    const phase = String(context.phase || "mutation").toLowerCase();
+    const errorObj =
+      failure && typeof failure === "object" && failure.error && typeof failure.error === "object"
+        ? failure.error
+        : failure && typeof failure === "object"
+          ? failure
+          : {};
+    const code = String(
+      errorObj.code || failure?.code || failure?.reason || toErrorCode(failure?.message),
+    )
+      .trim()
+      .toUpperCase() || "EXECUTION_ERROR";
+    const internalMessage = String(
+      errorObj.message || failure?.message || "Mutation operation failed",
+    ).trim() || "Mutation operation failed";
+
+    const outcome = this._isBlockedMutationErrorCode(code) ? "BLOCKED" : "FAILED";
+    let safeMessage = "";
+
+    if (outcome === "BLOCKED") {
+      if (code === "RISK_ACK_REQUIRED") {
+        safeMessage = "This change needs an extra confirmation before I can apply it.";
+      } else if (code === "DOMAIN_RULE_BLOCKED") {
+        safeMessage =
+          internalMessage ||
+          "I can’t apply that change because related records need to be updated first.";
+      } else {
+        safeMessage = "I can’t apply that change right now.";
+      }
+    } else if (code === "ENTITY_NOT_FOUND" || code === "SNAPSHOT_MISMATCH") {
+      safeMessage =
+        "I couldn’t apply that change because the record changed. Try again, and I can prepare the update again if needed.";
+    } else if (phase === "proposal") {
+      safeMessage =
+        "I couldn’t prepare that change due to a system error. Try again, or I can help you prepare it for confirmation.";
+    } else {
+      safeMessage =
+        "I couldn’t update the record due to a system error. Try again, or I can prepare the change for confirmation.";
+    }
+
+    return {
+      outcome,
+      code,
+      internalMessage,
+      safeMessage,
+      canRetry: true,
+      canProposeFallback: phase !== "proposal",
+    };
+  }
+
+  _describeMutationTarget(detectorResult = null) {
+    const entityType = String(detectorResult?.proposalInput?.entityType || "").toLowerCase();
+    const metadata = detectorResult?.metadata || {};
+    const field = String(metadata.field || "").toLowerCase();
+    const payload = detectorResult?.proposalInput?.payload || {};
+    if (entityType === "client" && field === "status") {
+      const statusValue = String(payload.status || "").toLowerCase();
+      if (statusValue === "inactive" || payload.status === "inActive") {
+        return {
+          objectLabel: "the client",
+          proposalLabel: "mark the client as inactive",
+          completedLabel: "marked the client as inactive",
+        };
+      }
+      return {
+        objectLabel: "the client",
+        proposalLabel: "update the client status",
+        completedLabel: "updated the client status",
+      };
+    }
+    const prettyEntity = entityType ? entityType.replace(/_/g, " ") : "record";
+    const prettyField = field ? field.replace(/_/g, " ") : "record";
+    return {
+      objectLabel: `the ${prettyEntity}`,
+      proposalLabel: `update the ${prettyEntity} ${prettyField}`,
+      completedLabel: `updated the ${prettyEntity} ${prettyField}`,
+    };
+  }
+
+  _buildUserFacingMutationOutcomeMessage({
+    status,
+    detectorResult,
+    failure = null,
+    executionMode = "confirm",
+  }) {
+    const labels = this._describeMutationTarget(detectorResult);
+    if (status === "EXECUTED") {
+      return `Done. I ${labels.completedLabel}.`;
+    }
+    if (status === "PROPOSED") {
+      return `I can ${labels.proposalLabel}. Confirm?`;
+    }
+    if (status === "BLOCKED") {
+      return String(failure?.safeMessage || "I can’t apply that change right now.");
+    }
+    if (status === "FAILED") {
+      if (executionMode === "auto_execute") {
+        return String(
+          failure?.safeMessage ||
+            "I couldn’t update the record due to a system error. Try again, or I can prepare the change for confirmation.",
+        );
+      }
+      return String(
+        failure?.safeMessage ||
+          "I couldn’t prepare that change due to a system error. Try again, or I can help you prepare it for confirmation.",
+      );
+    }
+    return "I couldn’t complete that change safely.";
+  }
+
+  _recordMutationOutcomeLedger(logger, payload = {}) {
+    logMutationIntentActionOutcome(logger, payload);
+  }
+
+  _buildMutationOutcomeEnvelope(payload = {}) {
+    const allowed = new Set(["EXECUTED", "PROPOSED", "FAILED", "BLOCKED"]);
+    const status = String(payload.status || "").toUpperCase();
+    if (!allowed.has(status)) {
+      return {
+        ...payload,
+        status: "FAILED",
+        reasonCode: payload.reasonCode || "INVALID_MUTATION_OUTCOME",
+        safeMessage:
+          payload.safeMessage || "I couldn’t complete that change due to a system error.",
+      };
+    }
+    return { ...payload, status };
+  }
+
+  _extractConfirmedMutationExecutionResult(confirmResult = null, { operation = "update" } = {}) {
+    const actionResult = confirmResult?.executedActions?.[0]?.result;
+    if (!actionResult || typeof actionResult !== "object") {
+      const err = new Error("Mutation execution returned no result.");
+      err.code = "MUTATION_EXECUTION_RESULT_INVALID";
+      throw err;
+    }
+    if (actionResult.ok !== true) {
+      const err = new Error("Mutation execution did not succeed.");
+      err.code = String(actionResult.errorCode || actionResult.code || "MUTATION_EXECUTION_FAILED");
+      throw err;
+    }
+    if (String(operation || "").toLowerCase() === "update") {
+      const rowCount = Number(actionResult.rowCount);
+      if (!Number.isFinite(rowCount) || rowCount !== 1) {
+        const err = new Error("Mutation execution did not update exactly one record.");
+        err.code = "MUTATION_ROWCOUNT_INVALID";
+        throw err;
+      }
+    }
+    return actionResult;
+  }
+
+  async _createMutationProposalFromStrongIntent({
+    detectorResult,
+    policy,
+    executionContext,
+  }) {
+    const toolArgs = detectorResult.proposalInput;
+    const stage3ExecutionContext = {
+      ...executionContext,
+      posture: "WORK",
+      confirmed: true,
+      strongMutationIntent: true,
+      explicitMutationCommand: false,
+      sourceRoute: "/agent/chat",
+    };
+    const v2Result = await this.engine.executeToolV2(
+      "propose_entity_mutation",
+      toolArgs,
+      policy,
+      stage3ExecutionContext,
+    );
+    const proposal = v2Result?.result;
+    if (!proposal?.proposalId || proposal.requiresConfirmation !== true) {
+      const err = new Error("Failed to create mutation proposal.");
+      err.code = "MUTATION_PROPOSAL_INVALID";
+      throw err;
+    }
+    return { proposal, toolArgs, stage3ExecutionContext };
+  }
+
+  async _tryAutoExecuteStoredProposal({ proposal, executionContext }) {
+    if (typeof this.engine.confirmProposal !== "function") {
+      const err = new Error("Mutation execution is not available in this chat context.");
+      err.code = "EXECUTION_NOT_PERMITTED";
+      throw err;
+    }
+    return this.engine.confirmProposal({
+      proposalId: proposal.proposalId,
+      sessionId: executionContext?.sessionId || null,
+      userId: executionContext?.userId || null,
+      ackRisk: false,
+    });
+  }
+
+  async _executeDetectedMutationFlow({
+    detectorResult,
+    requestContext,
+    executionContext,
+    policy,
+    userMessage,
+  }) {
+    const logger = this._buildMutationDetectorLogger();
+    const mutationPolicy = this._resolveMutationOrchestrationPolicy(policy);
+    const executionMode = this._resolveChatMutationExecutionMode({
+      requestContext,
+      detectorResult,
+      policy: mutationPolicy,
+    });
+    const toolExecutions = [];
+    const toolArgs = detectorResult?.proposalInput || null;
+
+    logMutationIntentActionAttempted(logger, {
+      sourceRoute: "/agent/chat",
+      stage: "proposal",
+      toolName: "propose_entity_mutation",
+      executionMode,
+      entityType: toolArgs?.entityType || null,
+      entityId: toolArgs?.entityId || null,
+      operation: toolArgs?.operation || null,
+      field: detectorResult?.metadata?.field || null,
+      finalConfidence: detectorResult?.scores?.finalConfidence ?? null,
+    });
+
+    let proposalBundle;
+    try {
+      proposalBundle = await this._createMutationProposalFromStrongIntent({
+        detectorResult,
+        policy: mutationPolicy,
+        executionContext,
+      });
+    } catch (error) {
+      const adaptiveResponse = await this._tryAdaptiveWorkflowForBlockedMutation({
+        error,
+        detectorResult,
+        requestContext,
+        executionContext,
+        policy: mutationPolicy,
+        userMessage,
+        toolExecutions,
+        logger,
+      });
+      if (adaptiveResponse) {
+        return adaptiveResponse;
+      }
+      this._debugChatMutation("proposal_failed", {
+        code: error?.code || error?.reason || null,
+        message: error?.message || null,
+        policyVersion: mutationPolicy?.version || policy?.version || null,
+        entityType: toolArgs?.entityType || null,
+        entityId: toolArgs?.entityId || null,
+      });
+      const normalizedFailure = this._normalizeMutationToolOrExecutionFailure(error, {
+        phase: "proposal",
+      });
+      const finalMessage = this._buildUserFacingMutationOutcomeMessage({
+        status: normalizedFailure.outcome,
+        detectorResult,
+        failure: normalizedFailure,
+        executionMode,
+      });
+      this._recordMutationOutcomeLedger(logger, {
+        sourceRoute: "/agent/chat",
+        outcome: normalizedFailure.outcome,
+        stage: "proposal",
+        toolName: "propose_entity_mutation",
+        success: false,
+        reasonCode: normalizedFailure.code,
+      });
+      this._recordTranscript({
+        requestContext,
+        userMessage,
+        finalMessage,
+        posture: "WORK",
+        toolExecutions: [],
+      });
+      return {
+        message: finalMessage,
+        agentVersion: policy.version,
+        posture: "WORK",
+        toolExecutions: [],
+        stepCommentaries: [],
+        rounds: 0,
+        ambiguityArtifact: null,
+        resolutionMeta: null,
+        availableTools: [],
+        suppressIntentFraming: true,
+        suppressCommentary: false,
+        mutationOutcome: this._buildMutationOutcomeEnvelope({
+          status: normalizedFailure.outcome,
+          entityType: toolArgs?.entityType || null,
+          entityId: toolArgs?.entityId || null,
+          operation: "update",
+          field: detectorResult?.metadata?.field || null,
+          value: toolArgs?.payload?.[detectorResult?.metadata?.field] ?? null,
+          reasonCode: normalizedFailure.code,
+          safeMessage: finalMessage,
+        }),
+      };
+    }
+
+    const { proposal, toolArgs: resolvedToolArgs } = proposalBundle;
+    const proposalRequiresExtraConfirmation =
+      detectorResult.requiresExtraConfirmation === true ||
+      proposal?.confirmation?.extraRiskAck === true;
+    toolExecutions.push({
+      ok: true,
+      toolName: "propose_entity_mutation",
+      args: resolvedToolArgs,
+      result: proposal,
+      responseForModel: null,
+    });
+
+    const expiresAt = new Date(Date.now() + 300000).toISOString();
+    if (typeof this.engine.storeProposal === "function") {
+      this.engine.storeProposal(proposal, {
+        explicitMutationCommand: false,
+        strongMutationIntent: true,
+        origin: "strong_mutation_intent",
+        proposalKind: "entity_mutation",
+        sourceRoute: "/agent/chat",
+        conversationId: requestContext?.conversationId || null,
+        sessionId: executionContext.sessionId || null,
+        userId: executionContext.userId || null,
+        tenantId: executionContext.tenantId || null,
+        detectionConfidence: detectorResult.scores?.finalConfidence ?? null,
+        detectionScores: detectorResult.scores || null,
+        riskLevel: proposalRequiresExtraConfirmation ? "high" : detectorResult.risk || "low",
+        requiresExtraConfirmation: proposalRequiresExtraConfirmation,
+      });
+    }
+
+    logMutationIntentProposalCreated(logger, {
+      proposalId: proposal.proposalId,
+      entityType: resolvedToolArgs.entityType,
+      entityId: resolvedToolArgs.entityId,
+      operation: resolvedToolArgs.operation,
+      finalConfidence: detectorResult.scores?.finalConfidence ?? null,
+      riskLevel: proposalRequiresExtraConfirmation ? "high" : detectorResult.risk || "low",
+      sourceRoute: "/agent/chat",
+    });
+
+    const forceProposal =
+      executionMode !== "auto_execute" || proposalRequiresExtraConfirmation === true;
+
+    if (forceProposal) {
+      this._updateOperationalMutationDetectionState(requestContext, {
+        pendingMutationClarification: null,
+        pendingMutationProposal: {
+          proposalId: proposal.proposalId,
+          createdAt: new Date().toISOString(),
+          expiresAt,
+          riskLevel: proposalRequiresExtraConfirmation ? "high" : detectorResult.risk || "low",
+        },
+        suppressMutationDetectionUntilResolved: true,
+      });
+
+      const proposalArtifact = toProposalArtifact(proposal, executionContext.sessionId);
+      const finalMessage = this._buildUserFacingMutationOutcomeMessage({
+        status: "PROPOSED",
+        detectorResult,
+        executionMode,
+      });
+
+      this._recordMutationOutcomeLedger(logger, {
+        sourceRoute: "/agent/chat",
+        outcome: "PROPOSED",
+        stage: "proposal",
+        toolName: "propose_entity_mutation",
+        success: true,
+        proposalId: proposal.proposalId,
+      });
+      this._recordTranscript({
+        requestContext,
+        userMessage,
+        finalMessage,
+        posture: "WORK",
+        toolExecutions,
+        artifactType: "proposal",
+        artifact: proposalArtifact,
+      });
+      return {
+        message: finalMessage,
+        agentVersion: policy.version,
+        posture: "WORK",
+        toolExecutions,
+        stepCommentaries: [],
+        rounds: 0,
+        ambiguityArtifact: proposalArtifact,
+        resolutionMeta: null,
+        availableTools: [],
+        suppressIntentFraming: true,
+        suppressCommentary: false,
+        mutationOutcome: this._buildMutationOutcomeEnvelope({
+          status: "PROPOSED",
+          entityType: resolvedToolArgs.entityType,
+          entityId: resolvedToolArgs.entityId,
+          operation: "update",
+          field: detectorResult?.metadata?.field || null,
+          value: resolvedToolArgs?.payload?.[detectorResult?.metadata?.field] ?? null,
+          proposalId: proposal.proposalId,
+        }),
+      };
+    }
+
+    logMutationIntentActionAttempted(logger, {
+      sourceRoute: "/agent/chat",
+      stage: "execution",
+      toolName: "confirmProposal",
+      executionMode,
+      proposalId: proposal.proposalId,
+      entityType: resolvedToolArgs.entityType,
+      entityId: resolvedToolArgs.entityId,
+      operation: resolvedToolArgs.operation,
+    });
+
+    let confirmResult;
+    try {
+      confirmResult = await this._tryAutoExecuteStoredProposal({
+        proposal,
+        executionContext,
+      });
+    } catch (error) {
+      this._debugChatMutation("execution_failed", {
+        code: error?.code || error?.reason || null,
+        message: error?.message || null,
+        proposalId: proposal?.proposalId || null,
+      });
+      const normalizedFailure = this._normalizeMutationToolOrExecutionFailure(error, {
+        phase: "execution",
+      });
+      const finalMessage = this._buildUserFacingMutationOutcomeMessage({
+        status: normalizedFailure.outcome,
+        detectorResult,
+        failure: normalizedFailure,
+        executionMode,
+      });
+      this._updateOperationalMutationDetectionState(requestContext, {
+        pendingMutationClarification: null,
+        pendingMutationProposal: null,
+        suppressMutationDetectionUntilResolved: false,
+      });
+      this._recordMutationOutcomeLedger(logger, {
+        sourceRoute: "/agent/chat",
+        outcome: normalizedFailure.outcome,
+        stage: "execution",
+        toolName: "confirmProposal",
+        success: false,
+        reasonCode: normalizedFailure.code,
+        proposalId: proposal.proposalId,
+      });
+      this._recordTranscript({
+        requestContext,
+        userMessage,
+        finalMessage,
+        posture: "WORK",
+        toolExecutions,
+      });
+      return {
+        message: finalMessage,
+        agentVersion: policy.version,
+        posture: "WORK",
+        toolExecutions,
+        stepCommentaries: [],
+        rounds: 0,
+        ambiguityArtifact: null,
+        resolutionMeta: null,
+        availableTools: [],
+        suppressIntentFraming: true,
+        suppressCommentary: false,
+        mutationOutcome: this._buildMutationOutcomeEnvelope({
+          status: normalizedFailure.outcome,
+          entityType: resolvedToolArgs.entityType,
+          entityId: resolvedToolArgs.entityId,
+          operation: "update",
+          field: detectorResult?.metadata?.field || null,
+          value: resolvedToolArgs?.payload?.[detectorResult?.metadata?.field] ?? null,
+          proposalId: proposal.proposalId,
+          reasonCode: normalizedFailure.code,
+          safeMessage: finalMessage,
+        }),
+      };
+    }
+
+    const confirmStatus = String(confirmResult?.status || "").toLowerCase();
+    if (confirmStatus !== "success") {
+      const normalizedFailure = this._normalizeMutationToolOrExecutionFailure(confirmResult, {
+        phase: "execution",
+      });
+      const finalMessage = this._buildUserFacingMutationOutcomeMessage({
+        status: normalizedFailure.outcome,
+        detectorResult,
+        failure: normalizedFailure,
+        executionMode,
+      });
+      this._updateOperationalMutationDetectionState(requestContext, {
+        pendingMutationClarification: null,
+        pendingMutationProposal: null,
+        suppressMutationDetectionUntilResolved: false,
+      });
+      this._recordMutationOutcomeLedger(logger, {
+        sourceRoute: "/agent/chat",
+        outcome: normalizedFailure.outcome,
+        stage: "execution",
+        toolName: "confirmProposal",
+        success: false,
+        reasonCode: normalizedFailure.code,
+        proposalId: proposal.proposalId,
+      });
+      this._recordTranscript({
+        requestContext,
+        userMessage,
+        finalMessage,
+        posture: "WORK",
+        toolExecutions,
+      });
+      return {
+        message: finalMessage,
+        agentVersion: policy.version,
+        posture: "WORK",
+        toolExecutions,
+        stepCommentaries: [],
+        rounds: 0,
+        ambiguityArtifact: null,
+        resolutionMeta: null,
+        availableTools: [],
+        suppressIntentFraming: true,
+        suppressCommentary: false,
+        mutationOutcome: this._buildMutationOutcomeEnvelope({
+          status: normalizedFailure.outcome,
+          entityType: resolvedToolArgs.entityType,
+          entityId: resolvedToolArgs.entityId,
+          operation: "update",
+          field: detectorResult?.metadata?.field || null,
+          value: resolvedToolArgs?.payload?.[detectorResult?.metadata?.field] ?? null,
+          proposalId: proposal.proposalId,
+          reasonCode: normalizedFailure.code,
+          safeMessage: finalMessage,
+        }),
+      };
+    }
+
+    try {
+      this._extractConfirmedMutationExecutionResult(confirmResult, {
+        operation: resolvedToolArgs?.operation || "update",
+      });
+    } catch (error) {
+      const normalizedFailure = this._normalizeMutationToolOrExecutionFailure(error, {
+        phase: "execution",
+      });
+      const finalMessage = this._buildUserFacingMutationOutcomeMessage({
+        status: normalizedFailure.outcome,
+        detectorResult,
+        failure: normalizedFailure,
+        executionMode,
+      });
+      this._updateOperationalMutationDetectionState(requestContext, {
+        pendingMutationClarification: null,
+        pendingMutationProposal: null,
+        suppressMutationDetectionUntilResolved: false,
+      });
+      this._recordMutationOutcomeLedger(logger, {
+        sourceRoute: "/agent/chat",
+        outcome: normalizedFailure.outcome,
+        stage: "execution",
+        toolName: "confirmProposal",
+        success: false,
+        reasonCode: normalizedFailure.code,
+        proposalId: proposal.proposalId,
+      });
+      this._recordTranscript({
+        requestContext,
+        userMessage,
+        finalMessage,
+        posture: "WORK",
+        toolExecutions,
+      });
+      return {
+        message: finalMessage,
+        agentVersion: policy.version,
+        posture: "WORK",
+        toolExecutions,
+        stepCommentaries: [],
+        rounds: 0,
+        ambiguityArtifact: null,
+        resolutionMeta: null,
+        availableTools: [],
+        suppressIntentFraming: true,
+        suppressCommentary: false,
+        mutationOutcome: this._buildMutationOutcomeEnvelope({
+          status: normalizedFailure.outcome,
+          entityType: resolvedToolArgs.entityType,
+          entityId: resolvedToolArgs.entityId,
+          operation: "update",
+          field: detectorResult?.metadata?.field || null,
+          value: resolvedToolArgs?.payload?.[detectorResult?.metadata?.field] ?? null,
+          proposalId: proposal.proposalId,
+          reasonCode: normalizedFailure.code,
+          safeMessage: finalMessage,
+        }),
+      };
+    }
+
+    toolExecutions.push({
+      ok: true,
+      toolName: "confirmProposal",
+      args: { proposalId: proposal.proposalId },
+      result: confirmResult,
+      responseForModel: null,
+    });
+    this._updateOperationalMutationDetectionState(requestContext, {
+      pendingMutationClarification: null,
+      pendingMutationProposal: null,
+      suppressMutationDetectionUntilResolved: false,
+    });
+    const finalMessage = this._buildUserFacingMutationOutcomeMessage({
+      status: "EXECUTED",
+      detectorResult,
+      executionMode,
+    });
+    this._recordMutationOutcomeLedger(logger, {
+      sourceRoute: "/agent/chat",
+      outcome: "EXECUTED",
+      stage: "execution",
+      toolName: "confirmProposal",
+      success: true,
+      proposalId: proposal.proposalId,
+    });
+    this._recordTranscript({
+      requestContext,
+      userMessage,
+      finalMessage,
+      posture: "WORK",
+      toolExecutions,
+    });
+    return {
+      message: finalMessage,
+      agentVersion: policy.version,
+      posture: "WORK",
+      toolExecutions,
+      stepCommentaries: [],
+      rounds: 0,
+      ambiguityArtifact: null,
+      resolutionMeta: null,
+      availableTools: [],
+      suppressIntentFraming: true,
+      suppressCommentary: false,
+      mutationOutcome: this._buildMutationOutcomeEnvelope({
+        status: "EXECUTED",
+        entityType: resolvedToolArgs.entityType,
+        entityId: resolvedToolArgs.entityId,
+        operation: "update",
+        field: detectorResult?.metadata?.field || null,
+        value: resolvedToolArgs?.payload?.[detectorResult?.metadata?.field] ?? null,
+        proposalId: proposal.proposalId,
+      }),
+    };
+  }
+
+  async _tryHandleStrongMutationIntentDetection({
+    userMessage,
+    effectiveUserMessage,
+    requestContext,
+    executionContext,
+    llmHistory,
+    policy,
+  }) {
+    const detectorConfig = getMutationIntentDetectorConfig();
+    if (!detectorConfig.enabled) return null;
+
+    const state = this._getOperationalMutationDetectionState(requestContext) || {};
+    const nowMs = Date.now();
+    const pendingProposal = state.pendingMutationProposal || null;
+    const pendingProposalActive =
+      pendingProposal &&
+      pendingProposal.proposalId &&
+      (!pendingProposal.expiresAt || Date.parse(pendingProposal.expiresAt) > nowMs);
+
+    if (pendingProposal && !pendingProposalActive) {
+      this._updateOperationalMutationDetectionState(requestContext, {
+        pendingMutationProposal: null,
+        suppressMutationDetectionUntilResolved: false,
+      });
+    }
+
+    if (
+      state.suppressMutationDetectionUntilResolved === true &&
+      pendingProposalActive
+    ) {
+      return null;
+    }
+
+    const mutationIntent = await detectMutationIntent(effectiveUserMessage, {
+      llmHistory,
+      executionContext,
+      pendingClarification: state.pendingMutationClarification || null,
+      llmExtractor: this.mutationIntentExtractor,
+      logger: this._buildMutationDetectorLogger(),
+      sourceRoute: "/agent/chat",
+    });
+
+    if (!mutationIntent) {
+      return null;
+    }
+
+    if (mutationIntent.routeDecision === "clarify") {
+      const detectorResult = mutationIntent.stage3Decision || null;
+      this._updateOperationalMutationDetectionState(requestContext, {
+        pendingMutationClarification:
+          detectorResult?.clearPendingClarification === true
+            ? null
+            : detectorResult?.pendingClarification !== undefined
+              ? detectorResult.pendingClarification
+              : state.pendingMutationClarification || null,
+        suppressMutationDetectionUntilResolved:
+          detectorResult?.pendingClarification ? true : false,
+      });
+
+      const finalMessage = String(mutationIntent.question || detectorResult?.question || "").trim() ||
+        "I need one more detail to prepare a safe mutation proposal.";
+      this._recordTranscript({
+        requestContext,
+        userMessage,
+        finalMessage,
+        posture: "WORK",
+        toolExecutions: [],
+      });
+      return {
+        message: finalMessage,
+        agentVersion: policy.version,
+        posture: "WORK",
+        toolExecutions: [],
+        stepCommentaries: [],
+        rounds: 0,
+        ambiguityArtifact: null,
+        resolutionMeta: null,
+        availableTools: [],
+        suppressIntentFraming: true,
+        suppressCommentary: false,
+      };
+    }
+
+    if (mutationIntent.routeDecision === "blocked") {
+      const finalMessage = String(
+        mutationIntent.safeMessage || "I can’t apply that change right now.",
+      );
+      this._recordTranscript({
+        requestContext,
+        userMessage,
+        finalMessage,
+        posture: "WORK",
+        toolExecutions: [],
+      });
+      return {
+        message: finalMessage,
+        agentVersion: policy.version,
+        posture: "WORK",
+        toolExecutions: [],
+        stepCommentaries: [],
+        rounds: 0,
+        ambiguityArtifact: null,
+        resolutionMeta: null,
+        availableTools: [],
+        suppressIntentFraming: true,
+        suppressCommentary: false,
+        mutationOutcome: this._buildMutationOutcomeEnvelope({
+          status: "BLOCKED",
+          entityType: mutationIntent.entityType || null,
+          entityId: mutationIntent.entityId || null,
+          operation: mutationIntent.operation || "unknown",
+          field: mutationIntent.field || null,
+          value: mutationIntent.value ?? null,
+          reasonCode: mutationIntent.reasonCode || "MUTATION_INTENT_BLOCKED",
+          safeMessage: finalMessage,
+        }),
+      };
+    }
+
+    if (mutationIntent.routeDecision !== "orchestrate") return null;
+
+    const detectorResult = mutationIntent.stage3Decision || null;
+    if (!detectorResult || detectorResult.decision !== "propose") return null;
+    if (detectorResult.shadowMode === true) {
+      return null;
+    }
+    return this._executeDetectedMutationFlow({
+      detectorResult,
+      requestContext,
+      executionContext,
+      policy,
+      userMessage,
+    });
   }
 
   async _executeToolCall({

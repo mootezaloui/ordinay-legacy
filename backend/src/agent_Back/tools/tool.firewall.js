@@ -84,6 +84,8 @@ const TOOL_DOMAIN_MAP = Object.freeze({
   compileDossierResearch: "dossiers",
 
   // EXECUTE tools
+  propose_entity_mutation: null, // Multi-domain proposal tool (explicit command only)
+  propose_mutation_workflow: null, // Multi-domain proposal tool (strong-intent adaptive workflows)
   universalMutation: null, // Multi-domain — domain resolved per operation params
   createTask: "tasks",
   updateTask: "tasks",
@@ -206,7 +208,10 @@ class ToolFirewall {
     });
 
     // GATE 3: Tool category must be allowed by policy
-    if (!policy.allowedToolCategories.includes(tool.category)) {
+    const isMutationProposalOverride =
+      (toolName === "propose_entity_mutation" || toolName === "propose_mutation_workflow") &&
+      (context?.explicitMutationCommand === true || context?.strongMutationIntent === true);
+    if (!policy.allowedToolCategories.includes(tool.category) && !isMutationProposalOverride) {
       const result = this._buildRejection({
         toolName,
         reason: "CATEGORY_NOT_ALLOWED",
@@ -223,7 +228,9 @@ class ToolFirewall {
     checks.push({
       gate: "CATEGORY_CHECK",
       passed: true,
-      message: `Category '${tool.category}' is allowed by policy`,
+      message: isMutationProposalOverride
+        ? `Category '${tool.category}' allowed by approved mutation proposal override`
+        : `Category '${tool.category}' is allowed by policy`,
     });
 
     // GATE 3.5: External tools are blocked in all versions (placeholder for MCP)
@@ -488,6 +495,7 @@ class ToolFirewall {
     // Map execute tools to their read equivalents
     const alternatives = {
       universalMutation: "listDossiers",
+      propose_entity_mutation: "listDossiers",
       createTask: "listTasks",
       updateTask: "getTask",
       addNote: "getDossier",

@@ -14,7 +14,7 @@ import { useData } from "../../../contexts/DataContext";
 
 interface ProposalArtifactProps {
   data: ProposalOutput;
-  onConfirm: (proposalId: string) => Promise<ExecutionResult>;
+  onConfirm: (proposalId: string, options?: { ackRisk?: boolean }) => Promise<ExecutionResult>;
   onCancel: (proposalId: string) => void;
 }
 
@@ -34,6 +34,30 @@ interface DataContextLike {
   sessions?: Array<{ id: number; title?: string; type?: string }>;
   missions?: Array<{ id: number; missionNumber?: string; title?: string }>;
   financialEntries?: Array<{ id: number; title?: string; description?: string }>;
+}
+
+const AGENT_MUTATION_EXECUTED_EVENT = "ordinay:agent-mutation-executed";
+
+function emitExecutedMutationFromExecutionResult(execResult?: ExecutionResult) {
+  if (typeof window === "undefined" || typeof window.dispatchEvent !== "function") return;
+  if (!execResult || String(execResult.status || "").toLowerCase() !== "success") return;
+  const mutation = execResult.executedActions?.[0]?.result as
+    | { ok?: boolean; entityType?: string; entityId?: number | string }
+    | undefined;
+  if (!mutation || mutation.ok !== true) return;
+  const entityType = String(mutation.entityType || "").trim().toLowerCase();
+  const entityId = Number(mutation.entityId || 0);
+  if (!entityType || !Number.isInteger(entityId) || entityId <= 0) return;
+  window.dispatchEvent(
+    new CustomEvent(AGENT_MUTATION_EXECUTED_EVENT, {
+      detail: {
+        status: "EXECUTED",
+        entityType,
+        entityId,
+        operation: "update",
+      },
+    }),
+  );
 }
 
 function toTitleCase(value: string) {
@@ -226,8 +250,12 @@ export function ProposalArtifact({ data, onConfirm, onCancel }: ProposalArtifact
     }));
 
     try {
-      const execResult = await onConfirm(proposalId);
+      const proposal = data.proposals.find((p) => p.proposalId === proposalId);
+      const execResult = await onConfirm(proposalId, {
+        ackRisk: proposal?.confirmation?.extraRiskAck === true,
+      });
       if (execResult.status === "success") {
+        emitExecutedMutationFromExecutionResult(execResult);
         setProposalStates((prev) => ({
           ...prev,
           [proposalId]: { status: "confirmed", executionResult: execResult },
@@ -314,6 +342,22 @@ export function ProposalArtifact({ data, onConfirm, onCancel }: ProposalArtifact
               </div>
 
               <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{summary.title}</p>
+
+              {proposal.confirmation?.extraRiskAck === true && (
+                <div className="mt-2 rounded-lg border border-amber-200/70 bg-amber-50/70 p-2.5 dark:border-amber-800/60 dark:bg-amber-950/20">
+                  <div className="flex items-start gap-2 text-xs text-amber-800 dark:text-amber-300">
+                    <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                    <div className="space-y-1">
+                      <div>This action needs an explicit risk confirmation.</div>
+                      {proposal.confirmation.impactSummary?.slice(0, 3).map((line, idx) => (
+                        <div key={idx} className="text-amber-700/90 dark:text-amber-200/90">
+                          • {line}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {proposal.actionType === "ATTACH_TO_ENTITY" &&
                 proposal.params?.attachmentType === "doc_draft" &&

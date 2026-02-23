@@ -1,5 +1,7 @@
 const db = require("../db/connection");
 const notesService = require("./notes.service");
+const { withTx } = require("../db/withTx");
+const auditMutations = require("./auditMutations.service");
 const {
   assert,
   filterPayload,
@@ -151,15 +153,35 @@ function update(id, payload) {
 
 function remove(id) {
   const historyService = require("./history.service");
+  const client = get(id);
+  if (!client) return false;
 
-  // Delete all history events for this client
-  historyService.deleteByEntity("client", id);
-  notesService.deleteNotesForEntity("client", id);
+  return withTx(db, () => {
+    notesService.deleteNotesForEntity("client", id);
 
-  // Delete the client
-  const stmt = db.prepare(`DELETE FROM ${table} WHERE id = @id`);
-  const result = stmt.run({ id });
-  return result.changes > 0;
+    const stmt = db.prepare(`DELETE FROM ${table} WHERE id = @id`);
+    const result = stmt.run({ id });
+    if (result.changes === 0) return false;
+
+    historyService.create({
+      entity_type: "client",
+      entity_id: id,
+      action: "entity_deleted",
+      description: `Client "${client.name}" was deleted`,
+    });
+    auditMutations.append(
+      {
+        entity_type: "client",
+        entity_id: id,
+        operation: "delete",
+        source: "rest_api",
+        before: client,
+        after: null,
+      },
+      db,
+    );
+    return true;
+  });
 }
 
 module.exports = {

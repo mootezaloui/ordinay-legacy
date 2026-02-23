@@ -94,12 +94,42 @@ function getReversibilityRules() {
   };
 }
 
+const FIELD_ALIASES = {
+  update: {
+    title: ["title", "name"],
+    notes: ["notes", "note", "description"],
+    copy_type: ["copy type", "copy kind"],
+    category: ["category", "type"],
+  },
+};
+
+const FIELD_TYPES = {
+  update: {
+    title: "string",
+    notes: "string",
+    copy_type: "string",
+    category: "string",
+  },
+};
+
+const VALUE_PARSERS = {
+  update: {
+    title: "string",
+    notes: "string",
+    copy_type: "string",
+    category: "string",
+  },
+};
+
 module.exports = {
   entityType: 'document',
   allowedFields: ALLOWED_FIELDS,
   requiredCreateFields: REQUIRED_CREATE_FIELDS,
   allowedUpdateFields: ALLOWED_UPDATE_FIELDS,
   allowedDelete: true, // Documents (drafts especially) can be deleted
+  fieldAliases: FIELD_ALIASES,
+  fieldTypes: FIELD_TYPES,
+  valueParsers: VALUE_PARSERS,
   validate,
   computeSnapshotHash,
   getReversibilityRules,

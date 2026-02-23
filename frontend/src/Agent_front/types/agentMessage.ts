@@ -20,6 +20,20 @@ import type {
 export type AgentMessageRole = "user" | "agent";
 
 export type AgentMessageStatus = "sending" | "success" | "error";
+export type ChatbotMutationState = "pending" | "success" | "error";
+export type ChatbotMutationOperation = "create" | "update" | "delete";
+
+export interface ChatbotTurnMutation {
+  state: ChatbotMutationState;
+  entityType?: string;
+  entityId?: number;
+  operation?: ChatbotMutationOperation;
+  label?: string;
+}
+
+export interface ChatbotTurnState {
+  mutation?: ChatbotTurnMutation;
+}
 
 /**
  * Message stage types for staged agent responses.
@@ -57,6 +71,7 @@ export interface AgentMessage {
   // Agent response metadata
   status?: AgentMessageStatus;
   intent?: string;
+  chatbotTurn?: ChatbotTurnState;
   /**
    * Message stage - determines rendering and timing behavior.
    * If not set, defaults to 'artifact' for backwards compatibility.

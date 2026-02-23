@@ -26,6 +26,7 @@ import {
 
 const DataContext = createContext(null);
 const STORAGE_PREFIX = "lawyer-app:data:";
+const AGENT_MUTATION_EXECUTED_EVENT = "ordinay:agent-mutation-executed";
 
 /**
  * Convert notes array from frontend format (camelCase) to backend format (snake_case)
@@ -623,6 +624,192 @@ export function DataProvider({ children }) {
       cancelled = true;
     };
   }, []);
+
+  // Sync local cached entities when /agent/chat executes a backend mutation outside DataContext methods.
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.addEventListener !== "function") {
+      return undefined;
+    }
+    let cancelled = false;
+
+    const handleAgentMutationExecuted = async (event) => {
+      const detail = event?.detail || {};
+      const status = String(detail.status || "").toUpperCase();
+      if (status !== "EXECUTED") return;
+
+      const entityType = String(detail.entityType || "").toLowerCase();
+      const entityId = Number(detail.entityId || 0);
+      if (!Number.isInteger(entityId) || entityId <= 0) return;
+
+      const upsertInList = (prev, nextRow) => {
+        if (!Array.isArray(prev) || prev.length === 0) return prev;
+        let changed = false;
+        const next = prev.map((row) => {
+          if (Number(row?.id) !== entityId) return row;
+          changed = true;
+          return typeof nextRow === "function" ? nextRow(row) : { ...row, ...nextRow };
+        });
+        return changed ? next : prev;
+      };
+
+      try {
+        if (entityType === "client") {
+          const apiRow = await apiClient.get(`/clients/${entityId}`);
+          if (cancelled || !apiRow) return;
+          const adapted = adaptClient(apiRow);
+          setClients((prev) => {
+            const next = upsertInList(prev, (row) => ({
+              ...row,
+              ...adapted,
+              timeline: row.timeline || adapted.timeline || [],
+            }));
+            if (next !== prev) debouncedSaveToStorage("clients", next);
+            return next;
+          });
+          return;
+        }
+
+        if (entityType === "dossier") {
+          const apiRow = await apiClient.get(`/dossiers/${entityId}`);
+          if (cancelled || !apiRow) return;
+          const clientsById = Object.fromEntries((clients || []).map((c) => [c.id, c]));
+          const adapted = adaptDossier(apiRow, clientsById);
+          setDossiers((prev) => {
+            const next = upsertInList(prev, adapted);
+            if (next !== prev) debouncedSaveToStorage("dossiers", next);
+            return next;
+          });
+          return;
+        }
+
+        if (entityType === "lawsuit") {
+          const apiRow = await apiClient.get(`/lawsuits/${entityId}`);
+          if (cancelled || !apiRow) return;
+          const dossiersById = Object.fromEntries((dossiers || []).map((d) => [d.id, d]));
+          const adapted = adaptLawsuit(apiRow, dossiersById);
+          setLawsuits((prev) => {
+            const next = upsertInList(prev, adapted);
+            if (next !== prev) debouncedSaveToStorage("lawsuits", next);
+            return next;
+          });
+          return;
+        }
+
+        if (entityType === "task") {
+          const apiRow = await apiClient.get(`/tasks/${entityId}`);
+          if (cancelled || !apiRow) return;
+          const dossiersById = Object.fromEntries((dossiers || []).map((d) => [d.id, d]));
+          const lawsuitsById = Object.fromEntries((lawsuits || []).map((l) => [l.id, l]));
+          const adapted = adaptTask(apiRow, dossiersById, lawsuitsById);
+          setTasks((prev) => {
+            const next = upsertInList(prev, adapted);
+            if (next !== prev) debouncedSaveToStorage("tasks", next);
+            return next;
+          });
+          return;
+        }
+
+        if (entityType === "session") {
+          const apiRow = await apiClient.get(`/sessions/${entityId}`);
+          if (cancelled || !apiRow) return;
+          const dossiersById = Object.fromEntries((dossiers || []).map((d) => [d.id, d]));
+          const lawsuitsById = Object.fromEntries((lawsuits || []).map((l) => [l.id, l]));
+          const adapted = adaptSession(apiRow, dossiersById, lawsuitsById);
+          setSessions((prev) => {
+            const next = upsertInList(prev, adapted);
+            if (next !== prev) debouncedSaveToStorage("sessions", next);
+            return next;
+          });
+          return;
+        }
+
+        if (entityType === "mission") {
+          const apiRow = await apiClient.get(`/missions/${entityId}`);
+          if (cancelled || !apiRow) return;
+          const dossiersById = Object.fromEntries((dossiers || []).map((d) => [d.id, d]));
+          const lawsuitsById = Object.fromEntries((lawsuits || []).map((l) => [l.id, l]));
+          const officersById = Object.fromEntries((officers || []).map((o) => [o.id, o]));
+          const base = adaptMission(apiRow, dossiersById, lawsuitsById);
+          const adapted = {
+            ...base,
+            officerName: base.officerId ? officersById[base.officerId]?.name || "" : "",
+          };
+          setMissions((prev) => {
+            const next = upsertInList(prev, adapted);
+            if (next !== prev) debouncedSaveToStorage("missions", next);
+            return next;
+          });
+          return;
+        }
+
+        if (entityType === "officer") {
+          const apiRow = await apiClient.get(`/officers/${entityId}`);
+          if (cancelled || !apiRow) return;
+          const adapted = adaptOfficer(apiRow);
+          const currentOfficerMissions = (missions || []).filter((m) => Number(m.officerId) === entityId);
+          setOfficers((prev) => {
+            const next = upsertInList(prev, (row) => ({
+              ...row,
+              ...adapted,
+              missions: currentOfficerMissions,
+            }));
+            if (next !== prev) debouncedSaveToStorage("officers", next);
+            return next;
+          });
+          // Refresh mission officerName labels if the officer name changed.
+          if (adapted.name) {
+            setMissions((prev) => {
+              if (!Array.isArray(prev) || prev.length === 0) return prev;
+              let changed = false;
+              const next = prev.map((m) => {
+                if (Number(m?.officerId) !== entityId) return m;
+                changed = true;
+                return { ...m, officerName: adapted.name };
+              });
+              if (changed) debouncedSaveToStorage("missions", next);
+              return changed ? next : prev;
+            });
+          }
+          return;
+        }
+
+        if (entityType === "personal_task") {
+          const apiRow = await apiClient.get(`/personal-tasks/${entityId}`);
+          if (cancelled || !apiRow) return;
+          const adapted = adaptPersonalTask(apiRow);
+          setPersonalTasks((prev) => {
+            const next = upsertInList(prev, adapted);
+            if (next !== prev) debouncedSaveToStorage("personalTasks", next);
+            return next;
+          });
+          return;
+        }
+
+        if (entityType === "financial_entry") {
+          const apiRow = await apiClient.get(`/financial/${entityId}`);
+          if (cancelled || !apiRow) return;
+          const clientsById = Object.fromEntries((clients || []).map((c) => [c.id, c]));
+          const dossiersById = Object.fromEntries((dossiers || []).map((d) => [d.id, d]));
+          const lawsuitsById = Object.fromEntries((lawsuits || []).map((l) => [l.id, l]));
+          const adapted = adaptFinancialEntry(apiRow, clientsById, dossiersById, lawsuitsById);
+          setFinancialEntries((prev) => {
+            const next = upsertInList(prev, adapted);
+            if (next !== prev) debouncedSaveToStorage("financialEntries", next);
+            return next;
+          });
+          return;
+        }
+      } catch (error) {
+        console.warn(`[DataContext] Failed to sync ${entityType} after agent mutation`, error);
+      }
+    };
+
+    window.addEventListener(AGENT_MUTATION_EXECUTED_EVENT, handleAgentMutationExecuted);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(AGENT_MUTATION_EXECUTED_EVENT, handleAgentMutationExecuted);
+    };
+  }, [debouncedSaveToStorage, clients, dossiers, lawsuits, officers, missions]);
 
   // --- Clients ---
   const addClient = useCallback(async (client) => {
@@ -3256,8 +3443,6 @@ export const useData = () => {
   }
   return context;
 };
-
-
 
 
 

@@ -19,6 +19,7 @@ const financialEntryAdapter = require('./financialEntry.adapter');
 const notificationAdapter = require('./notification.adapter');
 const documentAdapter = require('./document.adapter');
 const historyEventAdapter = require('./historyEvent.adapter');
+const noteAdapter = require('./note.adapter');
 
 const adapters = new Map([
   [taskAdapter.entityType, taskAdapter],
@@ -32,6 +33,7 @@ const adapters = new Map([
   [financialEntryAdapter.entityType, financialEntryAdapter],
   [notificationAdapter.entityType, notificationAdapter],
   [documentAdapter.entityType, documentAdapter],
+  [noteAdapter.entityType, noteAdapter],
   [historyEventAdapter.entityType, historyEventAdapter],
 ]);
 

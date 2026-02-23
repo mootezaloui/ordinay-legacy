@@ -95,12 +95,57 @@ function getReversibilityRules() {
   };
 }
 
+const FIELD_ALIASES = {
+  update: {
+    email: ["email", "e-mail"],
+    phone: ["phone", "phone number", "mobile"],
+    alternate_phone: ["alternate phone", "secondary phone"],
+    address: ["address"],
+    agency: ["agency", "office"],
+    location: ["location", "city"],
+    specialization: ["specialization", "speciality", "specialty"],
+    registration_number: ["registration number", "license", "license number"],
+    status: ["status", "state"],
+  },
+};
+
+const FIELD_TYPES = {
+  update: {
+    email: "string",
+    phone: "string",
+    alternate_phone: "string",
+    address: "string",
+    agency: "string",
+    location: "string",
+    specialization: "string",
+    registration_number: "string",
+    status: "enum_token",
+  },
+};
+
+const VALUE_PARSERS = {
+  update: {
+    status: "enum_token",
+    email: "string",
+    phone: "string",
+    alternate_phone: "string",
+    address: "string",
+    agency: "string",
+    location: "string",
+    specialization: "string",
+    registration_number: "string",
+  },
+};
+
 module.exports = {
   entityType: 'officer',
   allowedFields: ALLOWED_FIELDS,
   requiredCreateFields: REQUIRED_CREATE_FIELDS,
   allowedUpdateFields: ALLOWED_UPDATE_FIELDS,
   allowedDelete: true,
+  fieldAliases: FIELD_ALIASES,
+  fieldTypes: FIELD_TYPES,
+  valueParsers: VALUE_PARSERS,
   validate,
   computeSnapshotHash,
   getReversibilityRules,

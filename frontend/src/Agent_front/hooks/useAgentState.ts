@@ -4,6 +4,7 @@ import { AgentMessage, AgentMessageData } from "../types/agentMessage";
 import { useAgentSessions } from "./useAgentSessions";
 import {
   streamAgentMessage,
+  ChatMutationLifecycleEvent,
   ContextScope,
   AgentVersion,
   DataAccessPermissions,
@@ -20,6 +21,12 @@ import {
 import { uploadAttachments } from "../../services/api/agentDocuments";
 import type { AttachedFile } from "../components/AgentInput";
 import { buildFollowUpLabel } from "../utils/followUpLabels";
+import {
+  attachChatbotTurn,
+  chatbotTurnReducer,
+  resolveChatbotMutationStateFromAssistantResult,
+  resolveChatbotMutationStateFromDone,
+} from "../utils/chatbotTurnReducer";
 
 // Default data access - all domains enabled
 const DEFAULT_DATA_ACCESS: DataAccessPermissions = {
@@ -135,6 +142,28 @@ function saveDataAccessToStorage(dataAccess: DataAccessPermissions): void {
 
 function createMessageId(prefix: "u" | "a" | "i"): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+const AGENT_MUTATION_EXECUTED_EVENT = "ordinay:agent-mutation-executed";
+
+function emitAgentMutationExecuted(detail: unknown) {
+  if (typeof window === "undefined" || typeof window.dispatchEvent !== "function") return;
+  const payload = detail && typeof detail === "object" ? (detail as Record<string, unknown>) : null;
+  if (!payload) return;
+  if (String(payload.status || "").toUpperCase() !== "EXECUTED") return;
+  const entityType = typeof payload.entityType === "string" ? payload.entityType : null;
+  const parsedId = Number.parseInt(String(payload.entityId ?? ""), 10);
+  if (!entityType || !Number.isFinite(parsedId) || parsedId <= 0) return;
+  window.dispatchEvent(
+    new CustomEvent(AGENT_MUTATION_EXECUTED_EVENT, {
+      detail: {
+        status: "EXECUTED",
+        entityType,
+        entityId: parsedId,
+        operation: typeof payload.operation === "string" ? payload.operation : "update",
+      },
+    }),
+  );
 }
 
 export function useAgentState() {
@@ -562,26 +591,32 @@ export function useAgentState() {
     let commentary: CommentaryOutput | undefined;
     let hasAgentMessage = false;
     let hasIntentMessage = false;
+    let chatbotTurnState: AgentMessage["chatbotTurn"] | undefined;
     // Track streaming intent framing content
     let streamedIntentContent = "";
     // Track streaming commentary content
     let streamedCommentaryContent = "";
 
+    const decorateAgentMessage = (message: AgentMessage) =>
+      attachChatbotTurn(message, chatbotTurnState);
+
     const appendMessage = (message: AgentMessage) => {
+      const nextMessage = decorateAgentMessage(message);
       const idx = workingMessages.findIndex((m) => m.id === message.id);
       if (idx !== -1) {
         workingMessages = workingMessages.map((m) =>
-          m.id === message.id ? message : m
+          m.id === message.id ? nextMessage : m
         );
       } else {
-        workingMessages = [...workingMessages, message];
+        workingMessages = [...workingMessages, nextMessage];
       }
       updateSessionMessages(sessionId, workingMessages);
     };
 
     const updateMessage = (message: AgentMessage) => {
+      const nextMessage = decorateAgentMessage(message);
       workingMessages = workingMessages.map((msg) =>
-        msg.id === message.id ? message : msg
+        msg.id === message.id ? nextMessage : msg
       );
       updateSessionMessages(sessionId, workingMessages);
     };
@@ -641,6 +676,30 @@ export function useAgentState() {
           if (streamSessionRef.current !== sessionId) return;
           setSessionStatus(sessionId, { action: data.action, phase: data.phase });
         },
+        onChatMutationLifecycle: (action: ChatMutationLifecycleEvent) => {
+          if (streamSessionRef.current !== sessionId) return;
+          chatbotTurnState = chatbotTurnReducer(chatbotTurnState, {
+            type: "mutation_execution",
+            action,
+          });
+          if (hasAgentMessage) {
+            const existing = workingMessages.find((msg) => msg.id === agentMessageId);
+            if (existing) updateMessage(existing);
+          } else {
+            appendMessage({
+              id: agentMessageId,
+              role: "agent",
+              content: "",
+              timestamp: new Date(),
+              status: "sending",
+              stage: "artifact",
+              intent,
+              data: agentData,
+            });
+            hasAgentMessage = true;
+          }
+          clearSessionStatus(sessionId);
+        },
         onChunk: (content) => {
           // Ignore if session changed
           if (streamSessionRef.current !== sessionId) return;
@@ -668,9 +727,21 @@ export function useAgentState() {
           // ========== STAGE 3: ARTIFACT ==========
           // Non-streaming structured result (for non-chat intents)
           if (streamSessionRef.current !== sessionId) return;
+          emitAgentMutationExecuted((data as { mutationOutcome?: unknown })?.mutationOutcome);
 
           const output = data.output;
           intent = data.intent;
+          const mutationResolution = resolveChatbotMutationStateFromAssistantResult({
+            mutationOutcome: (data as { mutationOutcome?: { status?: string | null } | null })
+              ?.mutationOutcome,
+            outputType: output?.type,
+          });
+          if (mutationResolution) {
+            chatbotTurnState = chatbotTurnReducer(chatbotTurnState, {
+              type: "mutation_resolved",
+              state: mutationResolution,
+            });
+          }
 
           // TURN COMPLETION INVARIANT: Handle chat outputs defensively
           // The backend should send chat via chunks, but if it arrives as result, handle it
@@ -819,8 +890,20 @@ export function useAgentState() {
             hasAgentMessage = true;
           }
         },
-        onDone: () => {
+        onDone: (data) => {
           if (streamSessionRef.current !== sessionId) return;
+          emitAgentMutationExecuted((data as { mutationOutcome?: unknown })?.mutationOutcome);
+          const mutationResolution = resolveChatbotMutationStateFromDone({
+            mutationOutcome: (data as { mutationOutcome?: { status?: string | null } | null })
+              ?.mutationOutcome,
+            hasPendingMutation: chatbotTurnState?.mutation?.state === "pending",
+          });
+          if (mutationResolution) {
+            chatbotTurnState = chatbotTurnReducer(chatbotTurnState, {
+              type: "mutation_resolved",
+              state: mutationResolution,
+            });
+          }
 
           if (deferredFollowUps && agentData?.type === "explanation" && agentData.explanation) {
             agentData = {
@@ -852,6 +935,12 @@ export function useAgentState() {
         },
         onError: (error) => {
           if (streamSessionRef.current !== sessionId) return;
+          if (chatbotTurnState?.mutation?.state === "pending") {
+            chatbotTurnState = chatbotTurnReducer(chatbotTurnState, {
+              type: "mutation_resolved",
+              state: "error",
+            });
+          }
 
           const errorMessage: AgentMessage = {
             id: agentMessageId,
@@ -952,20 +1041,22 @@ export function useAgentState() {
     setSessionStatus(sessionId, { action: "Processing follow-up…", phase: "init" });
 
     const appendMessage = (message: AgentMessage) => {
+      const nextMessage = decorateAgentMessage(message);
       const idx = workingMessages.findIndex((m) => m.id === message.id);
       if (idx !== -1) {
         workingMessages = workingMessages.map((m) =>
-          m.id === message.id ? message : m
+          m.id === message.id ? nextMessage : m
         );
       } else {
-        workingMessages = [...workingMessages, message];
+        workingMessages = [...workingMessages, nextMessage];
       }
       updateSessionMessages(sessionId, workingMessages);
     };
 
     const updateMessage = (message: AgentMessage) => {
+      const nextMessage = decorateAgentMessage(message);
       workingMessages = workingMessages.map((msg) =>
-        msg.id === message.id ? message : msg
+        msg.id === message.id ? nextMessage : msg
       );
       updateSessionMessages(sessionId, workingMessages);
     };
@@ -983,8 +1074,12 @@ export function useAgentState() {
     let commentary: CommentaryOutput | undefined;
     let hasAgentMessage = false;
     let hasIntentMessage = false;
+    let chatbotTurnState: AgentMessage["chatbotTurn"] | undefined;
     let streamedIntentContent = "";
     let streamedCommentaryContent = "";
+
+    const decorateAgentMessage = (message: AgentMessage) =>
+      attachChatbotTurn(message, chatbotTurnState);
 
     const upsertIntentMessage = (
       content: string,
@@ -1043,6 +1138,30 @@ export function useAgentState() {
           if (streamSessionRef.current !== sessionId) return;
           setSessionStatus(sessionId, { action: data.action, phase: data.phase });
         },
+        onChatMutationLifecycle: (action: ChatMutationLifecycleEvent) => {
+          if (streamSessionRef.current !== sessionId) return;
+          chatbotTurnState = chatbotTurnReducer(chatbotTurnState, {
+            type: "mutation_execution",
+            action,
+          });
+          if (hasAgentMessage) {
+            const existing = workingMessages.find((msg) => msg.id === agentMessageId);
+            if (existing) updateMessage(existing);
+          } else {
+            appendMessage({
+              id: agentMessageId,
+              role: "agent",
+              content: "",
+              timestamp: new Date(),
+              status: "sending",
+              stage: "artifact",
+              intent,
+              data: agentData,
+            });
+            hasAgentMessage = true;
+          }
+          clearSessionStatus(sessionId);
+        },
         onChunk: (content) => {
           if (streamSessionRef.current !== sessionId) return;
 
@@ -1068,9 +1187,21 @@ export function useAgentState() {
         onResult: (data) => {
           // ========== STAGE 3: ARTIFACT ==========
           if (streamSessionRef.current !== sessionId) return;
+          emitAgentMutationExecuted((data as { mutationOutcome?: unknown })?.mutationOutcome);
 
           const output = data.output;
           intent = data.intent;
+          const mutationResolution = resolveChatbotMutationStateFromAssistantResult({
+            mutationOutcome: (data as { mutationOutcome?: { status?: string | null } | null })
+              ?.mutationOutcome,
+            outputType: output?.type,
+          });
+          if (mutationResolution) {
+            chatbotTurnState = chatbotTurnReducer(chatbotTurnState, {
+              type: "mutation_resolved",
+              state: mutationResolution,
+            });
+          }
 
           // TURN COMPLETION INVARIANT: Handle chat outputs defensively
           if (output.type === "chat") {
@@ -1219,8 +1350,20 @@ export function useAgentState() {
             hasAgentMessage = true;
           }
         },
-        onDone: () => {
+        onDone: (data) => {
           if (streamSessionRef.current !== sessionId) return;
+          emitAgentMutationExecuted((data as { mutationOutcome?: unknown })?.mutationOutcome);
+          const mutationResolution = resolveChatbotMutationStateFromDone({
+            mutationOutcome: (data as { mutationOutcome?: { status?: string | null } | null })
+              ?.mutationOutcome,
+            hasPendingMutation: chatbotTurnState?.mutation?.state === "pending",
+          });
+          if (mutationResolution) {
+            chatbotTurnState = chatbotTurnReducer(chatbotTurnState, {
+              type: "mutation_resolved",
+              state: mutationResolution,
+            });
+          }
 
           if (deferredFollowUps && agentData?.type === "explanation" && agentData.explanation) {
             agentData = {
@@ -1252,6 +1395,12 @@ export function useAgentState() {
         },
         onError: (error) => {
           if (streamSessionRef.current !== sessionId) return;
+          if (chatbotTurnState?.mutation?.state === "pending") {
+            chatbotTurnState = chatbotTurnReducer(chatbotTurnState, {
+              type: "mutation_resolved",
+              state: "error",
+            });
+          }
 
           const errorMessage: AgentMessage = {
             id: agentMessageId,
@@ -1391,20 +1540,22 @@ export function useAgentState() {
     streamSessionRef.current = activeSessionId;
 
     const appendMessage = (message: AgentMessage) => {
+      const nextMessage = decorateAgentMessage(message);
       const idx = workingMessages.findIndex((m) => m.id === message.id);
       if (idx !== -1) {
         workingMessages = workingMessages.map((m) =>
-          m.id === message.id ? message : m
+          m.id === message.id ? nextMessage : m
         );
       } else {
-        workingMessages = [...workingMessages, message];
+        workingMessages = [...workingMessages, nextMessage];
       }
       updateSessionMessages(activeSessionId, workingMessages);
     };
 
     const updateMessage = (message: AgentMessage) => {
+      const nextMessage = decorateAgentMessage(message);
       workingMessages = workingMessages.map((msg) =>
-        msg.id === message.id ? message : msg
+        msg.id === message.id ? nextMessage : msg
       );
       updateSessionMessages(activeSessionId, workingMessages);
     };
@@ -1416,8 +1567,12 @@ export function useAgentState() {
       let commentary: CommentaryOutput | undefined;
       let hasAgentMessage = false;
       let hasIntentMessage = false;
+      let chatbotTurnState: AgentMessage["chatbotTurn"] | undefined;
       let streamedIntentContent = "";
       let streamedCommentaryContent = "";
+
+      const decorateAgentMessage = (message: AgentMessage) =>
+        attachChatbotTurn(message, chatbotTurnState);
 
       const upsertIntentMessage = (
         content: string,
@@ -1479,6 +1634,32 @@ export function useAgentState() {
           if (streamSessionRef.current !== activeSessionId) return;
           setSessionStatus(activeSessionId, { action: data.action, phase: data.phase });
         },
+        onChatMutationLifecycle: (action: ChatMutationLifecycleEvent) => {
+          if (streamSessionRef.current !== activeSessionId) return;
+          chatbotTurnState = chatbotTurnReducer(chatbotTurnState, {
+            type: "mutation_execution",
+            action,
+          });
+          const targetId = opts?.replaceMessageId || agentMessageId;
+          if (hasAgentMessage) {
+            const existing = workingMessages.find((msg) => msg.id === targetId);
+            if (existing) updateMessage(existing);
+          } else {
+            appendMessage({
+              id: targetId,
+              role: "agent",
+              content: "",
+              timestamp: new Date(),
+              status: "sending",
+              stage: "artifact",
+              intent,
+              data: agentData,
+              retryOf: opts?.retryOf,
+            });
+            hasAgentMessage = true;
+          }
+          clearSessionStatus(activeSessionId);
+        },
         onChunk: (content) => {
           if (streamSessionRef.current !== activeSessionId) return;
           streamedContent += content;
@@ -1504,8 +1685,20 @@ export function useAgentState() {
         onResult: (data) => {
           // ========== STAGE 3: ARTIFACT ==========
           if (streamSessionRef.current !== activeSessionId) return;
+          emitAgentMutationExecuted((data as { mutationOutcome?: unknown })?.mutationOutcome);
           const output = data.output;
           intent = data.intent;
+          const mutationResolution = resolveChatbotMutationStateFromAssistantResult({
+            mutationOutcome: (data as { mutationOutcome?: { status?: string | null } | null })
+              ?.mutationOutcome,
+            outputType: output?.type,
+          });
+          if (mutationResolution) {
+            chatbotTurnState = chatbotTurnReducer(chatbotTurnState, {
+              type: "mutation_resolved",
+              state: mutationResolution,
+            });
+          }
 
           // TURN COMPLETION INVARIANT: Handle chat outputs defensively
           if (output.type === "chat") {
@@ -1660,8 +1853,20 @@ export function useAgentState() {
             hasAgentMessage = true;
           }
         },
-        onDone: () => {
+        onDone: (data) => {
           if (streamSessionRef.current !== activeSessionId) return;
+          emitAgentMutationExecuted((data as { mutationOutcome?: unknown })?.mutationOutcome);
+          const mutationResolution = resolveChatbotMutationStateFromDone({
+            mutationOutcome: (data as { mutationOutcome?: { status?: string | null } | null })
+              ?.mutationOutcome,
+            hasPendingMutation: chatbotTurnState?.mutation?.state === "pending",
+          });
+          if (mutationResolution) {
+            chatbotTurnState = chatbotTurnReducer(chatbotTurnState, {
+              type: "mutation_resolved",
+              state: mutationResolution,
+            });
+          }
 
           if (deferredFollowUps && agentData?.type === "explanation" && agentData.explanation) {
             agentData = {
@@ -1694,6 +1899,12 @@ export function useAgentState() {
         },
         onError: (error) => {
           if (streamSessionRef.current !== activeSessionId) return;
+          if (chatbotTurnState?.mutation?.state === "pending") {
+            chatbotTurnState = chatbotTurnReducer(chatbotTurnState, {
+              type: "mutation_resolved",
+              state: "error",
+            });
+          }
 
           const errorMessage: AgentMessage = {
             id: opts?.replaceMessageId || agentMessageId,

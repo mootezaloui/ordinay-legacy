@@ -93,12 +93,52 @@ function getReversibilityRules() {
   };
 }
 
+const FIELD_ALIASES = {
+  update: {
+    status: ["status", "state", "mark", "mark as"],
+    outcome: ["outcome", "result"],
+    location: ["location", "place", "venue", "court room", "room"],
+    scheduled_at: [
+      "date",
+      "time",
+      "hearing date",
+      "hearing time",
+      "session date",
+      "scheduled at",
+      "schedule",
+      "reschedule",
+      "move",
+    ],
+  },
+};
+
+const FIELD_TYPES = {
+  update: {
+    status: "enum_token",
+    outcome: "string",
+    location: "string",
+    scheduled_at: "date",
+  },
+};
+
+const VALUE_PARSERS = {
+  update: {
+    status: "enum_token",
+    outcome: "string",
+    location: "string",
+    scheduled_at: "date",
+  },
+};
+
 module.exports = {
   entityType: 'session',
   allowedFields: ALLOWED_FIELDS,
   requiredCreateFields: REQUIRED_CREATE_FIELDS,
   allowedUpdateFields: ALLOWED_UPDATE_FIELDS,
   allowedDelete: true,
+  fieldAliases: FIELD_ALIASES,
+  fieldTypes: FIELD_TYPES,
+  valueParsers: VALUE_PARSERS,
   validate,
   computeSnapshotHash,
   getReversibilityRules,

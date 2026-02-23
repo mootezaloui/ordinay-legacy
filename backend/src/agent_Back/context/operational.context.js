@@ -37,6 +37,9 @@ function createOperationalContext({
   posture = null,
   pendingSelection = null,
   pendingOperation = null,
+  pendingMutationClarification = null,
+  pendingMutationProposal = null,
+  suppressMutationDetectionUntilResolved = null,
   lastSnapshot = null,
   lastIntent = null,
   lastEntityType = null,
@@ -51,6 +54,16 @@ function createOperationalContext({
     posture: posture || null,
     pendingSelection: pendingSelection ? Object.freeze({ ...pendingSelection }) : null,
     pendingOperation: pendingOperation ? Object.freeze({ ...pendingOperation }) : null,
+    pendingMutationClarification: pendingMutationClarification
+      ? Object.freeze({ ...pendingMutationClarification })
+      : null,
+    pendingMutationProposal: pendingMutationProposal
+      ? Object.freeze({ ...pendingMutationProposal })
+      : null,
+    suppressMutationDetectionUntilResolved:
+      suppressMutationDetectionUntilResolved === undefined
+        ? null
+        : Boolean(suppressMutationDetectionUntilResolved),
     lastSnapshot: lastSnapshot ? Object.freeze({ ...lastSnapshot }) : null,
     lastIntent: lastIntent || null,
     lastEntityType: lastEntityType || null,
@@ -112,6 +125,18 @@ class OperationalContextStore {
         updates.pendingOperation !== undefined
           ? updates.pendingOperation
           : existing?.pendingOperation,
+      pendingMutationClarification:
+        updates.pendingMutationClarification !== undefined
+          ? updates.pendingMutationClarification
+          : existing?.pendingMutationClarification,
+      pendingMutationProposal:
+        updates.pendingMutationProposal !== undefined
+          ? updates.pendingMutationProposal
+          : existing?.pendingMutationProposal,
+      suppressMutationDetectionUntilResolved:
+        updates.suppressMutationDetectionUntilResolved !== undefined
+          ? updates.suppressMutationDetectionUntilResolved
+          : existing?.suppressMutationDetectionUntilResolved,
       lastSnapshot: updates.lastSnapshot !== undefined ? updates.lastSnapshot : existing?.lastSnapshot,
       lastIntent: updates.lastIntent !== undefined ? updates.lastIntent : existing?.lastIntent,
       lastEntityType: updates.lastEntityType !== undefined ? updates.lastEntityType : existing?.lastEntityType,

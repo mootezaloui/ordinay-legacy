@@ -1,6 +1,8 @@
 const db = require("../db/connection");
 const historyService = require("./history.service");
 const notesService = require("./notes.service");
+const { withTx } = require("../db/withTx");
+const auditMutations = require("./auditMutations.service");
 const {
   assert,
   filterPayload,
@@ -99,7 +101,7 @@ function list(includeDeleted = false) {
   const entries = db.prepare(`SELECT * FROM ${table} ${whereClause}`).all();
   return entries.map((entry) => ({
     ...entry,
-    notes: notesService.getNotesForEntity("financialEntry", entry.id),
+    notes: notesService.getNotesForEntity("financial_entry", entry.id),
   }));
 }
 
@@ -177,7 +179,7 @@ function get(id) {
   if (!entry) return null;
   return {
     ...entry,
-    notes: notesService.getNotesForEntity("financialEntry", id),
+    notes: notesService.getNotesForEntity("financial_entry", id),
   };
 }
 
@@ -237,30 +239,45 @@ function create(payload) {
   }
 
   try {
-    const stmt = db.prepare(
-      `INSERT INTO ${table} (scope, client_id, dossier_id, lawsuit_id, mission_id, task_id, personal_task_id, entry_type, status, category, amount, currency, occurred_at, due_date, paid_at, title, description, reference, direction)
-       VALUES (@scope, @client_id, @dossier_id, @lawsuit_id, @mission_id, @task_id, @personal_task_id, @entry_type, @status, @category, @amount, @currency, @occurred_at, @due_date, @paid_at, @title, @description, @reference, @direction)`
-    );
-    const result = stmt.run(insertData);
+    return withTx(db, () => {
+      const stmt = db.prepare(
+        `INSERT INTO ${table} (scope, client_id, dossier_id, lawsuit_id, mission_id, task_id, personal_task_id, entry_type, status, category, amount, currency, occurred_at, due_date, paid_at, title, description, reference, direction)
+         VALUES (@scope, @client_id, @dossier_id, @lawsuit_id, @mission_id, @task_id, @personal_task_id, @entry_type, @status, @category, @amount, @currency, @occurred_at, @due_date, @paid_at, @title, @description, @reference, @direction)`
+      );
+      const result = stmt.run(insertData);
+      let created = get(result.lastInsertRowid);
 
-    // Record creation in history
-    const created = get(result.lastInsertRowid);
-    historyService.create({
-      entity_type: "financial_entry",
-      entity_id: created.id,
-      action: "created",
-      description: `Financial entry created: ${
-        created.title || created.entry_type
-      } - ${created.amount} ${created.currency}`,
-      changed_fields: { entry: created },
-      actor: payload.actor || null,
+      if (payload?.notes !== undefined) {
+        notesService.saveNotesForEntity("financial_entry", created.id, payload.notes);
+        created = get(created.id);
+      }
+
+      auditMutations.append(
+        {
+          entity_type: "financial_entry",
+          entity_id: created.id,
+          operation: "create",
+          actor_id: payload.actor || null,
+          source: "rest_api",
+          before: null,
+          after: created,
+        },
+        db
+      );
+
+      historyService.create({
+        entity_type: "financial_entry",
+        entity_id: created.id,
+        action: "created",
+        description: `Financial entry created: ${
+          created.title || created.entry_type
+        } - ${created.amount} ${created.currency}`,
+        changed_fields: { entry: created },
+        actor: payload.actor || null,
+      });
+
+      return created;
     });
-
-    if (payload?.notes !== undefined) {
-      notesService.saveNotesForEntity("financialEntry", created.id, payload.notes);
-      return get(created.id);
-    }
-    return created;
   } catch (error) {
     console.error("[financial.service] Create failed:", error.message);
     console.error(
@@ -283,64 +300,76 @@ function update(id, payload) {
     assert(false, "No fields provided for update");
   }
 
-  if (hasDataFields) {
-    const setClause = buildUpdateClause(data);
-    const stmt = db.prepare(
-      `UPDATE ${table} SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = @id AND deleted_at IS NULL`
+  return withTx(db, () => {
+    if (hasDataFields) {
+      const setClause = buildUpdateClause(data);
+      const stmt = db.prepare(
+        `UPDATE ${table} SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = @id AND deleted_at IS NULL`
+      );
+      const result = stmt.run({ ...data, id });
+      if (result.changes === 0) return null;
+    }
+
+    if (notesArray !== undefined) {
+      notesService.saveNotesForEntity("financial_entry", id, notesArray);
+    }
+    const updatedEntry = get(id);
+
+    const changedFields = {};
+    if (existingEntry.amount !== updatedEntry.amount) {
+      changedFields.previous_amount = existingEntry.amount;
+      changedFields.new_amount = updatedEntry.amount;
+    }
+    if (existingEntry.status !== updatedEntry.status) {
+      changedFields.previous_status = existingEntry.status;
+      changedFields.new_status = updatedEntry.status;
+    }
+    if (existingEntry.paid_at !== updatedEntry.paid_at) {
+      changedFields.previous_paid_at = existingEntry.paid_at;
+      changedFields.new_paid_at = updatedEntry.paid_at;
+    }
+    changedFields.previous_entry = existingEntry;
+    changedFields.new_entry = updatedEntry;
+
+    const changeSummaryParts = [];
+    if (changedFields.previous_amount !== undefined) {
+      changeSummaryParts.push(
+        `amount ${existingEntry.amount} -> ${updatedEntry.amount} ${updatedEntry.currency}`
+      );
+    }
+    if (changedFields.previous_status !== undefined) {
+      changeSummaryParts.push(
+        `status ${existingEntry.status || "-"} -> ${updatedEntry.status || "-"}`
+      );
+    }
+
+    auditMutations.append(
+      {
+        entity_type: "financial_entry",
+        entity_id: id,
+        operation: "update",
+        actor_id: payload.actor || payload.updated_by || payload.modified_by || null,
+        source: "rest_api",
+        before: existingEntry,
+        after: updatedEntry,
+      },
+      db
     );
-    const result = stmt.run({ ...data, id });
-    if (result.changes === 0) return null;
-  }
 
-  const updatedEntry = get(id);
-  if (notesArray !== undefined) {
-    notesService.saveNotesForEntity("financialEntry", id, notesArray);
-  }
+    historyService.create({
+      entity_type: "financial_entry",
+      entity_id: id,
+      action: "updated",
+      description:
+        changeSummaryParts.length > 0
+          ? `Financial entry corrected (${changeSummaryParts.join(", ")})`
+          : "Financial entry updated",
+      changed_fields: changedFields,
+      actor: payload.actor || payload.updated_by || payload.modified_by || null,
+    });
 
-  // Track meaningful changes for auditability
-  const changedFields = {};
-  if (existingEntry.amount !== updatedEntry.amount) {
-    changedFields.previous_amount = existingEntry.amount;
-    changedFields.new_amount = updatedEntry.amount;
-  }
-  if (existingEntry.status !== updatedEntry.status) {
-    changedFields.previous_status = existingEntry.status;
-    changedFields.new_status = updatedEntry.status;
-  }
-  if (existingEntry.paid_at !== updatedEntry.paid_at) {
-    changedFields.previous_paid_at = existingEntry.paid_at;
-    changedFields.new_paid_at = updatedEntry.paid_at;
-  }
-
-  // Always keep a lightweight before/after snapshot for traceability
-  changedFields.previous_entry = existingEntry;
-  changedFields.new_entry = updatedEntry;
-
-  const changeSummaryParts = [];
-  if (changedFields.previous_amount !== undefined) {
-    changeSummaryParts.push(
-      `amount ${existingEntry.amount} -> ${updatedEntry.amount} ${updatedEntry.currency}`
-    );
-  }
-  if (changedFields.previous_status !== undefined) {
-    changeSummaryParts.push(
-      `status ${existingEntry.status || "-"} -> ${updatedEntry.status || "-"}`
-    );
-  }
-
-  historyService.create({
-    entity_type: "financial_entry",
-    entity_id: id,
-    action: "updated",
-    description:
-      changeSummaryParts.length > 0
-        ? `Financial entry corrected (${changeSummaryParts.join(", ")})`
-        : "Financial entry updated",
-    changed_fields: changedFields,
-    actor: payload.actor || payload.updated_by || payload.modified_by || null,
+    return updatedEntry;
   });
-
-  return updatedEntry;
 }
 
 function remove(id, options = {}) {
@@ -357,13 +386,32 @@ function remove(id, options = {}) {
 
   // Determine if we can hard-delete or must soft-delete
   const shouldHardDelete = forceHardDelete && canHardDelete(entry);
+  return withTx(db, () => {
+    if (shouldHardDelete) {
+      const stmt = db.prepare(`DELETE FROM ${table} WHERE id = @id`);
+      const result = stmt.run({ id });
+      if (result.changes === 0) {
+        return { success: false, reason: "not_found" };
+      }
 
-  if (shouldHardDelete) {
-    // HARD DELETE: Only for draft entries that were never confirmed
-    const stmt = db.prepare(`DELETE FROM ${table} WHERE id = @id`);
-    const result = stmt.run({ id });
+      notesService.deleteNotesForEntity("financial_entry", id);
+      auditMutations.append(
+        {
+          entity_type: "financial_entry",
+          entity_id: id,
+          operation: "delete",
+          actor_id: actor || null,
+          source: "rest_api",
+          before: entry,
+          after: null,
+          metadata: {
+            method: "hard_delete",
+            reason: reason || "Draft entry deleted before confirmation",
+          },
+        },
+        db
+      );
 
-    if (result.changes > 0) {
       historyService.create({
         entity_type: "financial_entry",
         entity_id: id,
@@ -373,6 +421,13 @@ function remove(id, options = {}) {
           previous_entry: entry,
           reason: reason || "Draft entry deleted before confirmation",
         },
+        actor,
+      });
+      historyService.create({
+        entity_type: "financial_entry",
+        entity_id: id,
+        action: "entity_deleted",
+        description: `Financial entry "${entryDesc}" was deleted`,
         actor,
       });
 
@@ -385,33 +440,44 @@ function remove(id, options = {}) {
           actor,
         });
       }
+      return { success: true, method: "hard_delete" };
     }
 
-    if (result.changes > 0) {
-      notesService.deleteNotesForEntity("financialEntry", id);
-    }
-    return { success: result.changes > 0, method: "hard_delete" };
-  }
+    const cancelStmt = db.prepare(`
+      UPDATE ${table}
+      SET status = 'cancelled',
+          cancelled_at = CURRENT_TIMESTAMP,
+          cancellation_reason = @reason,
+          deleted_at = CURRENT_TIMESTAMP,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = @id AND deleted_at IS NULL
+    `);
 
-  // SOFT DELETE: Cancel the entry instead of deleting
-  // This preserves history and prevents FK errors
-  const cancelStmt = db.prepare(`
-    UPDATE ${table}
-    SET status = 'cancelled',
-        cancelled_at = CURRENT_TIMESTAMP,
-        cancellation_reason = @reason,
-        deleted_at = CURRENT_TIMESTAMP,
-        updated_at = CURRENT_TIMESTAMP
-    WHERE id = @id AND deleted_at IS NULL
-  `);
+    const result = cancelStmt.run({
+      id,
+      reason: reason || "Deleted by user",
+    });
+    if (result.changes === 0) return { success: false, reason: "not_found" };
 
-  const result = cancelStmt.run({
-    id,
-    reason: reason || "Deleted by user",
-  });
+    notesService.deleteNotesForEntity("financial_entry", id);
 
-  if (result.changes > 0) {
-    // Record cancellation in history (not deletion)
+    auditMutations.append(
+      {
+        entity_type: "financial_entry",
+        entity_id: id,
+        operation: "delete",
+        actor_id: actor || null,
+        source: "rest_api",
+        before: entry,
+        after: null,
+        metadata: {
+          method: "soft_delete",
+          reason: reason || "Deleted by user",
+        },
+      },
+      db
+    );
+
     historyService.create({
       entity_type: "financial_entry",
       entity_id: id,
@@ -425,6 +491,13 @@ function remove(id, options = {}) {
       },
       actor,
     });
+    historyService.create({
+      entity_type: "financial_entry",
+      entity_id: id,
+      action: "entity_deleted",
+      description: `Financial entry "${entryDesc}" was deleted`,
+      actor,
+    });
 
     if (entry.client_id) {
       historyService.create({
@@ -435,12 +508,9 @@ function remove(id, options = {}) {
         actor,
       });
     }
-  }
 
-  if (result.changes > 0) {
-    notesService.deleteNotesForEntity("financialEntry", id);
-  }
-  return { success: result.changes > 0, method: "soft_delete" };
+    return { success: true, method: "soft_delete" };
+  });
 }
 
 /**
@@ -465,48 +535,64 @@ function cancel(id, options = {}) {
     entry.title ||
     `${entry.entry_type} - ${entry.amount} ${entry.currency}`;
 
-  const stmt = db.prepare(`
-    UPDATE ${table}
-    SET status = 'cancelled',
-        cancelled_at = CURRENT_TIMESTAMP,
-        cancellation_reason = @reason,
-        updated_at = CURRENT_TIMESTAMP
-    WHERE id = @id AND deleted_at IS NULL
-  `);
+  return withTx(db, () => {
+    const stmt = db.prepare(`
+      UPDATE ${table}
+      SET status = 'cancelled',
+          cancelled_at = CURRENT_TIMESTAMP,
+          cancellation_reason = @reason,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = @id AND deleted_at IS NULL
+    `);
 
-  const result = stmt.run({ id, reason: reason || "Cancelled by user" });
-  if (result.changes === 0) return null;
+    const result = stmt.run({ id, reason: reason || "Cancelled by user" });
+    if (result.changes === 0) return null;
 
-  const updatedEntry = get(id);
+    const updatedEntry = get(id);
 
-  historyService.create({
-    entity_type: "financial_entry",
-    entity_id: id,
-    action: "cancelled",
-    description: `Financial entry "${entryDesc}" was cancelled: ${
-      reason || "No reason provided"
-    }`,
-    changed_fields: {
-      previous_status: entry.status,
-      new_status: "cancelled",
-      previous_entry: entry,
-      new_entry: updatedEntry,
-      cancellation_reason: reason,
-    },
-    actor,
-  });
+    auditMutations.append(
+      {
+        entity_type: "financial_entry",
+        entity_id: id,
+        operation: "cancel",
+        actor_id: actor || null,
+        source: "rest_api",
+        before: entry,
+        after: updatedEntry,
+        metadata: { reason: reason || null },
+      },
+      db
+    );
 
-  if (entry.client_id) {
     historyService.create({
-      entity_type: "client",
-      entity_id: entry.client_id,
-      action: "financial_cancelled",
-      description: `Financial entry "${entryDesc}" was cancelled`,
+      entity_type: "financial_entry",
+      entity_id: id,
+      action: "cancelled",
+      description: `Financial entry "${entryDesc}" was cancelled: ${
+        reason || "No reason provided"
+      }`,
+      changed_fields: {
+        previous_status: entry.status,
+        new_status: "cancelled",
+        previous_entry: entry,
+        new_entry: updatedEntry,
+        cancellation_reason: reason,
+      },
       actor,
     });
-  }
 
-  return updatedEntry;
+    if (entry.client_id) {
+      historyService.create({
+        entity_type: "client",
+        entity_id: entry.client_id,
+        action: "financial_cancelled",
+        description: `Financial entry "${entryDesc}" was cancelled`,
+        actor,
+      });
+    }
+
+    return updatedEntry;
+  });
 }
 
 /**

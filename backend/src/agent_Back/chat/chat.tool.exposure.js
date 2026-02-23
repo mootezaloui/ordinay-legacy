@@ -77,11 +77,18 @@ function filterToolsForChat({ engine, policy, executionContext }) {
       continue;
     }
 
-    // Only expose universalMutation for execute category in chatbot mode.
+    // Never expose mutation proposal/execution tools in chatbot mode.
+    // Mutations must come from explicit slash commands (/mutate).
     if (
-      tool.category === TOOL_CATEGORIES.EXECUTE &&
-      tool.name !== "universalMutation"
+      tool.name === "universalMutation" ||
+      tool.name === "propose_entity_mutation" ||
+      tool.name === "propose_mutation_workflow"
     ) {
+      continue;
+    }
+
+    // Do not expose execute-category tools in chatbot mode.
+    if (tool.category === TOOL_CATEGORIES.EXECUTE) {
       continue;
     }
 
@@ -113,4 +120,3 @@ module.exports = {
   getEnabledEntityTypes,
   applyEntityScopeToSchema,
 };
-

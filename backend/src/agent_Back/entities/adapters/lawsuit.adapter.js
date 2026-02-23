@@ -95,12 +95,42 @@ function getReversibilityRules() {
   };
 }
 
+const FIELD_ALIASES = {
+  update: {
+    status: ["status", "state"],
+    priority: ["priority", "urgency"],
+    next_hearing: ["next hearing", "hearing date", "next session", "next court date"],
+    court: ["court", "tribunal"],
+  },
+};
+
+const FIELD_TYPES = {
+  update: {
+    status: "enum_token",
+    priority: "enum_token",
+    next_hearing: "date",
+    court: "string",
+  },
+};
+
+const VALUE_PARSERS = {
+  update: {
+    status: "enum_token",
+    priority: "enum_token",
+    next_hearing: "date",
+    court: "string",
+  },
+};
+
 module.exports = {
   entityType: 'lawsuit',
   allowedFields: ALLOWED_FIELDS,
   requiredCreateFields: REQUIRED_CREATE_FIELDS,
   allowedUpdateFields: ALLOWED_UPDATE_FIELDS,
   allowedDelete: false, // Risky entity — soft-delete via status change only
+  fieldAliases: FIELD_ALIASES,
+  fieldTypes: FIELD_TYPES,
+  valueParsers: VALUE_PARSERS,
   validate,
   computeSnapshotHash,
   getReversibilityRules,

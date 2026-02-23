@@ -6,6 +6,8 @@ const {
   normalizeData,
 } = require("./_utils");
 const notesService = require("./notes.service");
+const { withTx } = require("../db/withTx");
+const auditMutations = require("./auditMutations.service");
 
 const table = "dossiers";
 const allowedFields = [
@@ -190,21 +192,6 @@ function remove(id) {
     return result.changes;
   };
 
-  const deleteByEntity = (entityType, ids) => {
-    if (!ids || ids.length === 0) return 0;
-    const params = { entity_type: entityType };
-    const placeholders = ids.map((value, index) => {
-      const key = `id${index}`;
-      params[key] = value;
-      return `@${key}`;
-    });
-    const stmt = db.prepare(
-      `DELETE FROM history_events WHERE entity_type = @entity_type AND entity_id IN (${placeholders.join(", ")})`
-    );
-    const result = stmt.run(params);
-    return result.changes;
-  };
-
   const deleteNotesByEntity = (entityType, ids) => {
     if (!ids || ids.length === 0) return 0;
     const params = { entity_type: entityType };
@@ -235,7 +222,7 @@ function remove(id) {
     return result.changes;
   };
 
-  const deleteTransaction = db.transaction(() => {
+  const deleted = withTx(db, () => {
     const lawsuitIds = db
       .prepare(`SELECT id FROM lawsuits WHERE dossier_id = ?`)
       .all(id)
@@ -333,7 +320,7 @@ function remove(id) {
     // Delete financial entries next (documents may reference them)
     deleteIn("financial_entries", "id", financialEntryIds);
 
-    // Delete notifications, notes, history for all impacted entities
+    // Delete notifications and notes for all impacted entities
     const dossierIds = [id];
     deleteNotificationsByEntity("document", documentIds);
     deleteNotificationsByEntity("financial_entry", financialEntryIds);
@@ -351,38 +338,51 @@ function remove(id) {
     deleteNotesByEntity("lawsuit", lawsuitIds);
     deleteNotesByEntity("dossier", dossierIds);
 
-    deleteByEntity("document", documentIds);
-    deleteByEntity("financial_entry", financialEntryIds);
-    deleteByEntity("mission", missionIds);
-    deleteByEntity("task", taskIds);
-    deleteByEntity("session", sessionIds);
-    deleteByEntity("lawsuit", lawsuitIds);
-    deleteByEntity("dossier", dossierIds);
-
     // Delete child entities
     deleteIn("missions", "id", missionIds);
     deleteIn("tasks", "id", taskIds);
     deleteIn("sessions", "id", sessionIds);
     deleteIn("lawsuits", "id", lawsuitIds);
 
-    // Delete the dossier
     const stmt = db.prepare(`DELETE FROM ${table} WHERE id = @id`);
-    return stmt.run({ id });
-  });
+    const result = stmt.run({ id });
+    if (result.changes === 0) return false;
 
-  const result = deleteTransaction();
-
-  // Add deletion event to parent client's history
-  if (result.changes > 0 && dossier.client_id) {
     historyService.create({
-      entity_type: "client",
-      entity_id: dossier.client_id,
-      action: "child_deleted",
+      entity_type: "dossier",
+      entity_id: id,
+      action: "entity_deleted",
       description: `Dossier "${dossier.title}" (${dossier.reference}) was deleted`,
     });
-  }
 
-  return result.changes > 0;
+    if (dossier.client_id) {
+      historyService.create({
+        entity_type: "client",
+        entity_id: dossier.client_id,
+        action: "child_deleted",
+        description: `Dossier "${dossier.title}" (${dossier.reference}) was deleted`,
+      });
+    }
+
+    auditMutations.append(
+      {
+        entity_type: "dossier",
+        entity_id: id,
+        operation: "delete",
+        source: "rest_api",
+        before: dossier,
+        after: null,
+        metadata: {
+          cascade: true,
+        },
+      },
+      db
+    );
+
+    return true;
+  });
+
+  return deleted;
 }
 
 module.exports = {

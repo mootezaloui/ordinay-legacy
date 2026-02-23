@@ -2,6 +2,18 @@
 
 const crypto = require("crypto");
 const { ACTION_STATUS } = require("../contracts/actionProposal.contract");
+const EXPLICIT_MUTATION_ACTIONS = new Set(["CREATE_ENTITY", "UPDATE_ENTITY", "EXECUTE_MUTATION_WORKFLOW"]);
+const STAGE3_STRONG_INTENT_MUTATION_ACTIONS = new Set(["UPDATE_ENTITY", "EXECUTE_MUTATION_WORKFLOW"]);
+const CONFIRM_DEBUG_ENABLED = ["1", "true", "yes", "on"].includes(
+  String(process.env.AGENT_CHAT_MUTATION_DEBUG || "").toLowerCase(),
+);
+
+function debugConfirm(event, payload = {}) {
+  if (!CONFIRM_DEBUG_ENABLED) return;
+  try {
+    console.warn("[agent-confirm-debug]", event, payload);
+  } catch (_) {}
+}
 
 /**
  * In-memory proposal store
@@ -20,11 +32,18 @@ const proposalStore = new Map();
  * @param {Object} options - { proposalId, sessionId, userId }
  * @returns {Promise<Object>} ExecutionResult
  */
-async function confirmProposal({ proposalId, sessionId, userId }) {
+async function confirmProposal({ proposalId, sessionId, userId, ackRisk = false }) {
+  debugConfirm("confirm_received", {
+    proposalId: proposalId || null,
+    sessionId: sessionId || null,
+    userId: userId || null,
+    ackRisk: ackRisk === true,
+  });
   const stored = proposalStore.get(proposalId);
 
   // Validation: proposal exists
   if (!stored) {
+    debugConfirm("confirm_store_miss", { proposalId: proposalId || null });
     return {
       type: "execution_result",
       proposalId,
@@ -39,6 +58,38 @@ async function confirmProposal({ proposalId, sessionId, userId }) {
   }
 
   const { proposal, contextSnapshot } = stored;
+  const isChatMutationProposal =
+    contextSnapshot &&
+    String(contextSnapshot.sourceRoute || "") === "/agent/chat" &&
+    (String(contextSnapshot.proposalKind || "") === "entity_mutation" ||
+      String(contextSnapshot.proposalKind || "") === "entity_mutation_workflow");
+  const effectiveAckRisk =
+    ackRisk === true ||
+    (contextSnapshot &&
+      contextSnapshot.requiresExtraConfirmation === true &&
+      isChatMutationProposal);
+  debugConfirm("confirm_loaded_proposal", {
+    proposalId: proposal?.proposalId || proposalId || null,
+    actionType: proposal?.actionType || null,
+    proposalStatus: proposal?.status || null,
+    posture: proposal?.posture || null,
+    hasSnapshot: Boolean(proposal?.snapshot),
+    snapshotScope: proposal?.snapshot?.scope || null,
+    snapshotScopeId: proposal?.snapshot?.scopeId || null,
+    proposalConfirmationKeys:
+      proposal?.confirmation && typeof proposal.confirmation === "object"
+        ? Object.keys(proposal.confirmation)
+        : [],
+    proposalExtraRiskAck: proposal?.confirmation?.extraRiskAck === true,
+    contextProposalKind: contextSnapshot?.proposalKind || null,
+    contextOrigin: contextSnapshot?.origin || null,
+    contextExplicitMutationCommand: contextSnapshot?.explicitMutationCommand === true,
+    contextStrongMutationIntent: contextSnapshot?.strongMutationIntent === true,
+    contextRequiresExtraConfirmation: contextSnapshot?.requiresExtraConfirmation === true,
+    contextRiskLevel: contextSnapshot?.riskLevel || null,
+    isChatMutationProposal,
+    effectiveAckRisk,
+  });
 
   // Validation: posture is WORK
   if (proposal.posture !== "WORK") {
@@ -55,8 +106,93 @@ async function confirmProposal({ proposalId, sessionId, userId }) {
     };
   }
 
+  if (EXPLICIT_MUTATION_ACTIONS.has(String(proposal.actionType || ""))) {
+    const proposalKind = String(contextSnapshot?.proposalKind || "");
+    const fromExplicit =
+      contextSnapshot &&
+      contextSnapshot.explicitMutationCommand === true &&
+      (proposalKind === "entity_mutation" || proposalKind === "entity_mutation_workflow");
+    const fromStrongIntent =
+      contextSnapshot &&
+      contextSnapshot.strongMutationIntent === true &&
+      String(contextSnapshot.origin || "") === "strong_mutation_intent" &&
+      (proposalKind === "entity_mutation" || proposalKind === "entity_mutation_workflow") &&
+      STAGE3_STRONG_INTENT_MUTATION_ACTIONS.has(String(proposal.actionType || ""));
+
+    if (!fromExplicit && !fromStrongIntent) {
+      debugConfirm("confirm_origin_rejected", {
+        proposalId,
+        actionType: proposal?.actionType || null,
+        proposalKind,
+        fromExplicit,
+        fromStrongIntent,
+      });
+      return {
+        type: "execution_result",
+        proposalId,
+        status: "failed",
+        error: {
+          code: "EXPLICIT_MUTATION_COMMAND_REQUIRED",
+          message:
+            "Create/update entity proposals must originate from explicit /mutate or approved strong-intent proposal flow",
+          safeMessage:
+            "This proposal cannot be executed because it was not created through an approved mutation proposal flow.",
+          requiresReproposal: true,
+        },
+      };
+    }
+  }
+
+  if (
+    contextSnapshot &&
+    contextSnapshot.requiresExtraConfirmation === true &&
+    effectiveAckRisk !== true
+  ) {
+    debugConfirm("confirm_risk_ack_required", {
+      proposalId,
+      actionType: proposal?.actionType || null,
+      ackRisk: ackRisk === true,
+      effectiveAckRisk,
+      contextRequiresExtraConfirmation: contextSnapshot?.requiresExtraConfirmation === true,
+      proposalExtraRiskAck: proposal?.confirmation?.extraRiskAck === true,
+      sourceRoute: contextSnapshot?.sourceRoute || null,
+      proposalKind: contextSnapshot?.proposalKind || null,
+    });
+    return {
+      type: "execution_result",
+      proposalId,
+      status: "failed",
+      error: {
+        code: "RISK_ACK_REQUIRED",
+        message: "High-risk mutation proposals require ackRisk=true on confirmation",
+        safeMessage:
+          "This proposal is high-risk and requires an additional confirmation acknowledgement.",
+        requiresReproposal: false,
+      },
+    };
+  }
+  if (
+    contextSnapshot &&
+    contextSnapshot.requiresExtraConfirmation === true &&
+    ackRisk !== true &&
+    effectiveAckRisk === true
+  ) {
+    debugConfirm("confirm_risk_ack_auto_satisfied", {
+      proposalId,
+      actionType: proposal?.actionType || null,
+      sourceRoute: contextSnapshot?.sourceRoute || null,
+      proposalKind: contextSnapshot?.proposalKind || null,
+    });
+  }
+
   // Validation: snapshot hash
   const currentHash = await this._computeSnapshotHash(proposal.snapshot);
+  debugConfirm("confirm_snapshot_checked", {
+    proposalId,
+    expectedHash: proposal?.snapshot?.hash || null,
+    actualHash: currentHash || null,
+    matched: currentHash === proposal?.snapshot?.hash,
+  });
   if (currentHash !== proposal.snapshot.hash) {
     proposalStore.delete(proposalId);
     return {
@@ -89,22 +225,30 @@ async function confirmProposal({ proposalId, sessionId, userId }) {
     // Capture before-state for diff ledgering
     const beforeSnapshot = proposal.snapshot ? { ...proposal.snapshot } : null;
 
+    debugConfirm("confirm_dispatch_start", {
+      proposalId,
+      actionType: proposal?.actionType || null,
+      paramKeys: proposal?.params && typeof proposal.params === "object" ? Object.keys(proposal.params) : [],
+    });
     // Dispatch to universal operation handlers based on action type
     switch (proposal.actionType) {
       case 'CREATE_ENTITY':
-        result = await universalOps.executeCreateEntity(proposal.params, { userId, sessionId });
+        result = await universalOps.executeCreateEntity(proposal.params, { userId, sessionId, source: "agent" });
         break;
       case 'UPDATE_ENTITY':
-        result = await universalOps.executeUpdateEntity(proposal.params, { userId, sessionId });
+        result = await universalOps.executeUpdateEntity(proposal.params, { userId, sessionId, source: "agent" });
+        break;
+      case 'EXECUTE_MUTATION_WORKFLOW':
+        result = await universalOps.executeMutationWorkflow(proposal.params, { userId, sessionId, source: "agent" });
         break;
       case 'DELETE_ENTITY':
-        result = await universalOps.executeDeleteEntity(proposal.params, { userId, sessionId });
+        result = await universalOps.executeDeleteEntity(proposal.params, { userId, sessionId, source: "agent" });
         break;
       case 'LINK_ENTITIES':
-        result = await universalOps.executeLinkEntities(proposal.params, { userId, sessionId });
+        result = await universalOps.executeLinkEntities(proposal.params, { userId, sessionId, source: "agent" });
         break;
       case 'ATTACH_TO_ENTITY':
-        result = await universalOps.executeAttachToEntity(proposal.params, { userId, sessionId });
+        result = await universalOps.executeAttachToEntity(proposal.params, { userId, sessionId, source: "agent" });
         break;
       default:
         // Fallback to tool registry for legacy tools (backward compatibility)
@@ -134,6 +278,18 @@ async function confirmProposal({ proposalId, sessionId, userId }) {
         afterHash = 'sha256:null';
       }
     }
+
+    debugConfirm("confirm_dispatch_success", {
+      proposalId,
+      actionType: proposal?.actionType || null,
+      resultOk: result?.ok === true,
+      resultEntityType: result?.entityType || null,
+      resultEntityId: result?.entityId || null,
+      rowCount: Number.isFinite(Number(result?.rowCount)) ? Number(result.rowCount) : null,
+      workflowType: result?.workflowType || null,
+      goalReached: result?.goalReached,
+      resultKeys: result && typeof result === "object" ? Object.keys(result) : [],
+    });
 
     const executionResult = {
       type: "execution_result",
@@ -190,11 +346,33 @@ async function confirmProposal({ proposalId, sessionId, userId }) {
     });
 
     // Keep in store for idempotency (auto-expire after 1 hour)
-    setTimeout(() => proposalStore.delete(proposalId), 3600000);
+    {
+      const timer = setTimeout(() => proposalStore.delete(proposalId), 3600000);
+      if (typeof timer?.unref === "function") timer.unref();
+    }
+
+    clearPendingMutationProposal.call(this, {
+      sessionId: sessionId || contextSnapshot?.sessionId || proposal?.sessionId || null,
+      userId: userId || contextSnapshot?.userId || null,
+    });
+
+    invalidateSnapshotsAfterMutation.call(this, {
+      proposal,
+      executionResult,
+      sessionId: sessionId || contextSnapshot?.sessionId || proposal?.sessionId || null,
+      userId: userId || contextSnapshot?.userId || null,
+    });
 
     return executionResult;
   } catch (err) {
     const errorCode = err?.code || "EXECUTION_ERROR";
+    debugConfirm("confirm_dispatch_failed", {
+      proposalId,
+      actionType: proposal?.actionType || null,
+      errorCode,
+      message: err?.message || "Execution failed",
+      stackTop: typeof err?.stack === "string" ? String(err.stack).split("\n").slice(0, 2).join(" | ") : null,
+    });
     const safeMessageByCode = {
       PDF_RENDERER_UNAVAILABLE:
         "PDF generation is unavailable on this server. Install puppeteer dependencies and retry.",
@@ -232,6 +410,68 @@ async function confirmProposal({ proposalId, sessionId, userId }) {
   }
 }
 
+function invalidateSnapshotsAfterMutation({
+  proposal,
+  executionResult,
+  sessionId,
+  userId,
+} = {}) {
+  const ctxStore = this?.contextStore;
+  if (!ctxStore) return;
+
+  const requestContext = {
+    conversationId: sessionId || null,
+    userId: userId || "default",
+  };
+  const reason = `mutation:${String(proposal?.actionType || "unknown").toLowerCase()}`;
+
+  if (typeof ctxStore.markWorkSnapshotStale === "function" && requestContext.conversationId) {
+    try {
+      ctxStore.markWorkSnapshotStale(requestContext, reason);
+      this?.ledger?.record?.({
+        type: "work_snapshot_marked_stale",
+        reason,
+        conversationId: requestContext.conversationId,
+        scope: proposal?.snapshot?.scope || null,
+        scopeId: proposal?.snapshot?.scopeId || null,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (_) {}
+  }
+
+  const mutationResult = executionResult?.executedActions?.[0]?.result || null;
+  const after = mutationResult?.after || mutationResult?.updatedRow || null;
+  const params = proposal?.params || {};
+  const dossierId =
+    Number(after?.dossier_id || 0) ||
+    (String(params.entityType || "").toLowerCase() === "dossier"
+      ? Number(params.entityId || 0)
+      : 0) ||
+    Number(params?.changes?.dossier_id || 0) ||
+    0;
+
+  if (dossierId > 0 && typeof ctxStore.markWorkSnapshotsStaleByDossierId === "function") {
+    try {
+      ctxStore.markWorkSnapshotsStaleByDossierId(dossierId, reason);
+    } catch (_) {}
+  }
+}
+
+function clearPendingMutationProposal({ sessionId, userId }) {
+  const operationalStore = this?.contextStore?._operationalStore;
+  if (
+    !operationalStore ||
+    typeof operationalStore.update !== "function" ||
+    !sessionId
+  ) {
+    return;
+  }
+  operationalStore.update(userId || "default", sessionId, {
+    pendingMutationProposal: null,
+    suppressMutationDetectionUntilResolved: false,
+  });
+}
+
 /**
  * Store a proposal for later confirmation
  *
@@ -247,11 +487,23 @@ function storeProposal(proposal, contextSnapshot = {}) {
     createdAt: new Date(),
     expiresAt,
   });
+  debugConfirm("proposal_stored", {
+    proposalId: proposal?.proposalId || null,
+    actionType: proposal?.actionType || null,
+    requiresConfirmation: proposal?.requiresConfirmation === true,
+    proposalExtraRiskAck: proposal?.confirmation?.extraRiskAck === true,
+    contextProposalKind: contextSnapshot?.proposalKind || null,
+    contextOrigin: contextSnapshot?.origin || null,
+    contextRequiresExtraConfirmation: contextSnapshot?.requiresExtraConfirmation === true,
+    contextRiskLevel: contextSnapshot?.riskLevel || null,
+    sessionId: contextSnapshot?.sessionId || proposal?.sessionId || null,
+  });
 
   // Auto-expire after 5 minutes
-  setTimeout(() => {
+  const timer = setTimeout(() => {
     proposalStore.delete(proposal.proposalId);
   }, 300000);
+  if (typeof timer?.unref === "function") timer.unref();
 
   // Log to ledger with snapshot state at proposal time
   this.ledger.record({

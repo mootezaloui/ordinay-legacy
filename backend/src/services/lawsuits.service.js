@@ -6,6 +6,8 @@ const {
   normalizeData,
 } = require("./_utils");
 const notesService = require("./notes.service");
+const { withTx } = require("../db/withTx");
+const auditMutations = require("./auditMutations.service");
 
 const table = "lawsuits";
 const allowedFields = [
@@ -232,27 +234,43 @@ function remove(id) {
   const lawsuitRecord = get(id);
   if (!lawsuitRecord) return false;
 
-  // Delete all history events for this lawsuit
-  historyService.deleteByEntity("lawsuit", id);
+  return withTx(db, () => {
+    notesService.deleteNotesForEntity("lawsuit", id);
 
-  // Delete all notes for this lawsuit
-  notesService.deleteNotesForEntity("lawsuit", id);
+    const stmt = db.prepare(`DELETE FROM ${table} WHERE id = @id`);
+    const result = stmt.run({ id });
+    if (result.changes === 0) return false;
 
-  // Delete the lawsuit
-  const stmt = db.prepare(`DELETE FROM ${table} WHERE id = @id`);
-  const result = stmt.run({ id });
-
-  // Add deletion event to parent dossier's history
-  if (result.changes > 0 && lawsuitRecord.dossier_id) {
     historyService.create({
-      entity_type: "dossier",
-      entity_id: lawsuitRecord.dossier_id,
-      action: "child_deleted",
+      entity_type: "lawsuit",
+      entity_id: id,
+      action: "entity_deleted",
       description: `Lawsuit "${lawsuitRecord.title}" (${lawsuitRecord.reference}) was deleted`,
     });
-  }
 
-  return result.changes > 0;
+    if (lawsuitRecord.dossier_id) {
+      historyService.create({
+        entity_type: "dossier",
+        entity_id: lawsuitRecord.dossier_id,
+        action: "child_deleted",
+        description: `Lawsuit "${lawsuitRecord.title}" (${lawsuitRecord.reference}) was deleted`,
+      });
+    }
+
+    auditMutations.append(
+      {
+        entity_type: "lawsuit",
+        entity_id: id,
+        operation: "delete",
+        source: "rest_api",
+        before: lawsuitRecord,
+        after: null,
+      },
+      db,
+    );
+
+    return true;
+  });
 }
 
 module.exports = {

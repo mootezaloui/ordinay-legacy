@@ -398,8 +398,11 @@ export interface ActionProposal {
   };
   userMessageDraft?: string;
   confirmation?: {
-    mode: string;
-    expiresAt: string;
+    mode?: string;
+    expiresAt?: string;
+    extraRiskAck?: boolean;
+    warnings?: string[];
+    impactSummary?: string[];
   };
   sessionId?: string;
   actionType?: 'CREATE_ENTITY' | 'UPDATE_ENTITY' | 'DELETE_ENTITY' | 'LINK_ENTITIES' | 'ATTACH_TO_ENTITY' | string;
@@ -906,12 +909,13 @@ export const INTENT_EXAMPLES: Record<string, string[]> = {
  */
 export async function confirmProposal(
   proposalId: string,
-  sessionId: string
+  sessionId: string,
+  options: { ackRisk?: boolean } = {}
 ): Promise<ExecutionResult> {
   try {
     const response = await apiClient.post<{ status: string; data: ExecutionResult }>(
       '/agent/confirm',
-      { proposalId, sessionId }
+      { proposalId, sessionId, ackRisk: options.ackRisk === true }
     );
 
     if (response.status !== 'ok' || !response.data) {
@@ -1077,6 +1081,7 @@ export interface IntentFramingOutput {
 export type StreamEventType =
   | 'turn.start'
   | 'turn.end'
+  | 'action'
   | 'intent.delta'
   | 'intent.final'
   | 'intent.failed'
@@ -1110,19 +1115,38 @@ export interface StatusEventData {
   phase?: string;      // Optional phase identifier
 }
 
+export interface ChatMutationLifecycleEvent {
+  turnKey?: string;
+  kind: 'mutation_execution';
+  entityType?: string;
+  entityId?: number | string;
+  operation?: 'create' | 'update' | 'delete' | string;
+  label?: string;
+}
+
+export function extractChatMutationLifecycleEvent(
+  value: unknown,
+): ChatMutationLifecycleEvent | null {
+  const payload = ((value as { payload?: unknown } | null | undefined)?.payload ??
+    value) as Partial<ChatMutationLifecycleEvent> | null | undefined;
+  if (!payload || payload.kind !== 'mutation_execution') return null;
+  return payload as ChatMutationLifecycleEvent;
+}
+
 /** Callback for stream events */
 export interface StreamCallbacks {
   onStart?: (data: { intent: string; agentVersion: string }) => void;
   onStatus?: (data: StatusEventData) => void;
+  onChatMutationLifecycle?: (data: ChatMutationLifecycleEvent) => void;
   onIntentFraming?: (data: { message: string; messageType?: string; signal?: SemanticSignal | null; structured?: IntentFramingOutput; visibility?: 'visible' | 'metadata'; interactionMode?: 'conversational' | 'operational' }) => void;
   /** Streaming chunk for intent framing message (for real-time display) */
   onIntentFramingChunk?: (chunk: string) => void;
   onChunk?: (content: string) => void;
-  onResult?: (data: { output: AgentOutput; intent: string; contextLifecycle?: ContextLifecycleEvent | null; visibility?: 'visible' | 'metadata'; interactionMode?: 'conversational' | 'operational' }) => void;
+  onResult?: (data: { output: AgentOutput; intent: string; contextLifecycle?: ContextLifecycleEvent | null; visibility?: 'visible' | 'metadata'; interactionMode?: 'conversational' | 'operational'; mutationOutcome?: { status?: string; entityType?: string; entityId?: number | string; operation?: string } | null }) => void;
   onCommentary?: (data: CommentaryOutput) => void;
   /** Streaming chunk for commentary message (for real-time display) */
   onCommentaryChunk?: (chunk: string) => void;
-  onDone?: (data: { timestamp: string; fullContent?: string }) => void;
+  onDone?: (data: { timestamp: string; fullContent?: string; mutationOutcome?: { status?: string; entityType?: string; entityId?: number | string; operation?: string } | null }) => void;
   onError?: (error: string) => void;
   onCancelled?: () => void;
 }
@@ -1437,6 +1461,11 @@ export function streamAgentMessage(
             case 'status':
               callbacks.onStatus?.(data);
               break;
+            case 'action': {
+              const payload = extractChatMutationLifecycleEvent(data);
+              if (payload) callbacks.onChatMutationLifecycle?.(payload);
+              break;
+            }
             case 'intent':
             case 'intent_framing':
               if (String(data?.visibility || 'visible').toLowerCase() !== 'metadata') {

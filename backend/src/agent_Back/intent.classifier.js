@@ -264,6 +264,15 @@ const SLASH_COMMANDS = Object.freeze({
     params: { requiresArg: true, argType: "query" },
     category: "deep_search",
   },
+  mutate: {
+    command: "/mutate",
+    description: "Create an explicit mutation proposal (JSON payload, no execution)",
+    usage:
+      '/mutate {"entityType":"task","entityId":"123","operation":"update","payload":{"status":"completed"},"reasoningSummary":"User explicitly requested completion."}',
+    tools: ["propose_entity_mutation"],
+    params: { requiresArg: true, argType: "json" },
+    category: "mutations",
+  },
 
   // Help command
   help: {

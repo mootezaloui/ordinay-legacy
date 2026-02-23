@@ -5,6 +5,82 @@ const {
   getAvailableCommands,
   READ_INTENTS,
 } = require("../../intent.classifier");
+const { toProposalArtifact } = require("../../proposals/proposalArtifact");
+
+function _parseMutateCommandArgs(parsed) {
+  const argText = Array.isArray(parsed?.args) ? parsed.args.join(" ").trim() : "";
+  if (!argText) {
+    const err = new Error("Command /mutate requires a JSON payload. Usage: /mutate { ... }");
+    err.status = 400;
+    err.code = "MUTATE_COMMAND_JSON_REQUIRED";
+    throw err;
+  }
+
+  try {
+    const parsedJson = JSON.parse(argText);
+    if (!parsedJson || typeof parsedJson !== "object" || Array.isArray(parsedJson)) {
+      const err = new Error("Mutation command payload must be a JSON object");
+      err.status = 400;
+      err.code = "MUTATE_COMMAND_JSON_OBJECT_REQUIRED";
+      throw err;
+    }
+    return parsedJson;
+  } catch (error) {
+    if (error && error.code) throw error;
+    const err = new Error("Invalid JSON for /mutate command");
+    err.status = 400;
+    err.code = "MUTATE_COMMAND_INVALID_JSON";
+    throw err;
+  }
+}
+
+async function _runExplicitMutationCommand(parsed, context, policy, engineContext) {
+  const args = _parseMutateCommandArgs(parsed);
+  const executionContext = {
+    ...(context || {}),
+    explicitMutationCommand: true,
+    confirmed: true,
+    posture: "WORK",
+    sessionId:
+      engineContext?.sessionId ||
+      context?.sessionId ||
+      context?.conversationId ||
+      null,
+    userId: engineContext?.userId || context?.userId || null,
+    dataAccess: context?.dataAccess || engineContext?.dataAccess || {},
+    sourceRoute: context?.sourceRoute || null,
+  };
+
+  const v2Result = await this.executeToolV2(
+    "propose_entity_mutation",
+    args,
+    policy,
+    executionContext,
+  );
+  const proposal = v2Result?.result;
+  if (!proposal || !proposal.proposalId || proposal.requiresConfirmation !== true) {
+    throw new Error("Failed to create mutation proposal");
+  }
+
+  if (typeof this.storeProposal === "function") {
+    this.storeProposal(proposal, {
+      explicitMutationCommand: true,
+      proposalKind: "entity_mutation",
+      sourceRoute: executionContext.sourceRoute || null,
+      conversationId: context?.conversationId || executionContext.sessionId || null,
+      sessionId: executionContext.sessionId || null,
+      userId: executionContext.userId || null,
+    });
+  }
+
+  return {
+    intent: "COMMAND",
+    agentVersion: policy.version,
+    reasoner: "command",
+    output: toProposalArtifact(proposal, executionContext.sessionId),
+    isCommand: true,
+  };
+}
 
 async function _executeSlashCommand(message, context, policy, engineContext) {
   const parsed = parseSlashCommand(message);
@@ -101,6 +177,53 @@ async function _executeSlashCommand(message, context, policy, engineContext) {
       },
       isCommand: true,
     };
+  }
+
+  if (parsed.commandKey === "mutate") {
+    try {
+      const result = await _runExplicitMutationCommand.call(
+        this,
+        parsed,
+        context,
+        policy,
+        engineContext,
+      );
+      this.ledger.record({
+        type: "slash_command_executed",
+        command: parsed.command,
+        success: true,
+        timestamp: new Date().toISOString(),
+      });
+      return result;
+    } catch (err) {
+      this.ledger.record({
+        type: "slash_command_error",
+        command: parsed.command,
+        error: err.message,
+        timestamp: new Date().toISOString(),
+      });
+      return {
+        intent: "COMMAND",
+        agentVersion: policy.version,
+        reasoner: "command",
+        output: {
+          type: "explanation",
+          entityId: "command_error",
+          entityType: "command",
+          summary: `Command failed: ${err.message}`,
+          details: [
+            'Expected format: /mutate {"entityType":"task","entityId":"123","operation":"update","payload":{"status":"completed"},"reasoningSummary":"..."}',
+          ],
+          timestamp: new Date().toISOString(),
+          confidence: 1,
+          sources: [{ sourceType: "system", reference: "command-parser" }],
+          status: "error",
+          source: "command-parser",
+          requires_validation: false,
+        },
+        isCommand: true,
+      };
+    }
   }
 
   // Execute command using READ intent pipeline

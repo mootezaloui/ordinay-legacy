@@ -39,6 +39,7 @@ import { WebSearchResultsArtifact } from "./artifacts/WebSearchResultsArtifact";
 import { DocumentGenerationPreviewArtifact } from "./artifacts/DocumentGenerationPreviewArtifact";
 import { RecoveryArtifact } from "./artifacts/RecoveryArtifact";
 import { ContextSuggestionRenderer } from "./artifacts/ContextSuggestionRenderer";
+import { ChatbotMutationStatus } from "./chatbot/ChatbotMutationStatus";
 import { MarkdownOutput } from "../../components/MarkdownOutput";
 import { useAgentSessions } from "../hooks/useAgentSessions";
 
@@ -1139,6 +1140,9 @@ function MinimalChatbotTurn(props: {
   const { message } = props;
   const dataType = message.data?.type;
   const hasContent = Boolean(message.content && message.content.trim().length > 0);
+  const mutationStatus = message.chatbotTurn?.mutation ? (
+    <ChatbotMutationStatus mutation={message.chatbotTurn.mutation} />
+  ) : null;
 
   let attachment: JSX.Element | null = null;
   if (message.data) {
@@ -1148,16 +1152,31 @@ function MinimalChatbotTurn(props: {
   }
 
   if (!hasContent && attachment) {
-    return attachment;
+    return (
+      <div className="space-y-2">
+        {attachment}
+        {mutationStatus}
+      </div>
+    );
   }
 
   if (!hasContent && message.data) {
-    return <ArtifactBody {...props} />;
+    return (
+      <div className="space-y-2">
+        <ArtifactBody {...props} />
+        {mutationStatus}
+      </div>
+    );
+  }
+
+  if (!hasContent && !attachment && mutationStatus) {
+    return mutationStatus;
   }
 
   return (
     <div className="space-y-2">
       {hasContent ? <ChatArtifact content={message.content} /> : null}
+      {mutationStatus}
       {attachment}
     </div>
   );
@@ -1436,9 +1455,9 @@ function ArtifactBody({
     return (
       <ProposalArtifact
         data={message.data.proposal}
-        onConfirm={async (proposalId) => {
+        onConfirm={async (proposalId, options) => {
           const sessionId = message.data!.proposal!.sessionId;
-          return confirmProposal(proposalId, sessionId);
+          return confirmProposal(proposalId, sessionId, options);
         }}
         onCancel={() => {
           // Cancel is UI-only — proposal expires server-side after 5 minutes

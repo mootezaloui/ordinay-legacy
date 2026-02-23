@@ -21,7 +21,9 @@ const officersService = require('../../services/officers.service');
 const notesService = require('../../services/notes.service');
 const documentsService = require('../../services/documents.service');
 const documentGenerationService = require('../../services/documentGeneration/documentGeneration.service');
+const auditMutations = require('../../services/auditMutations.service');
 const { validatePayload } = require('./entityAdapters');
+const { assertDomainMutationAllowed } = require('./agentDomainMutationRules');
 
 /**
  * Map entity type to service
@@ -38,7 +40,44 @@ const serviceMap = {
   notification: notificationsService,
   document: documentsService,
   officer: officersService,
+  note: notesService,
 };
+
+function _appendAgentAudit({ entityType, entityId, operation, before, after, context = {} }) {
+  try {
+    auditMutations.append({
+      entity_type: entityType,
+      entity_id: entityId,
+      operation,
+      actor_id: context?.userId ?? null,
+      source: context?.source || 'agent',
+      route: context?.route || null,
+      before,
+      after,
+      metadata: {
+        initiated_by: 'agent',
+        sessionId: context?.sessionId || null,
+      },
+    });
+  } catch (error) {
+    // Do not hide the mutation result, but surface the audit issue in logs.
+    console.warn('[universalOperations] Failed to append agent audit:', error.message);
+  }
+}
+
+function _computeChangedFields(before, after, requested = {}) {
+  const keys = Array.isArray(requested)
+    ? requested
+    : Object.keys(requested && typeof requested === 'object' ? requested : {});
+  if (!before || typeof before !== 'object' || !after || typeof after !== 'object') {
+    return keys;
+  }
+  return keys.filter((key) => {
+    const prev = before[key];
+    const next = after[key];
+    return JSON.stringify(prev) !== JSON.stringify(next);
+  });
+}
 
 /**
  * FK exclusivity groups (derived from DB CHECK constraints).
@@ -95,17 +134,45 @@ async function executeCreateEntity(params, context) {
   // Map payload to service format (camelCase to snake_case)
   const servicePayload = _mapPayloadToService(payload);
 
+  assertDomainMutationAllowed({
+    entityType,
+    operation: 'create',
+    entityId: null,
+    payload: servicePayload,
+    existing: null,
+  });
+
   // Create entity
-  const entity = service.create(servicePayload);
+  const entity = service.create(servicePayload, {
+    actor_id: context?.userId ?? null,
+    source: context?.source || 'agent',
+    route: context?.route || null,
+  });
 
   if (!entity) {
     throw new Error(`Failed to create ${entityType}`);
   }
 
-  return {
-    id: entity.id,
+  _appendAgentAudit({
     entityType,
-    ...entity,
+    entityId: entity.id,
+    operation: 'create',
+    before: null,
+    after: entity,
+    context,
+  });
+
+  return {
+    ok: true,
+    entityType,
+    entityId: entity.id,
+    rowCount: 1,
+    changedFields: Object.keys(servicePayload || {}),
+    before: null,
+    after: entity,
+    createdRow: entity,
+    message: `Created ${entityType} ${entity.id}`,
+    id: entity.id,
   };
 }
 
@@ -126,21 +193,61 @@ async function executeUpdateEntity(params, context) {
 
   // Get service
   const service = _getService(entityType);
+  const before = typeof service.get === 'function' ? service.get(entityId) : null;
+  if (!before) {
+    throw new Error(`${entityType} ${entityId} not found`);
+  }
 
   // Map changes to service format
   const serviceChanges = _mapPayloadToService(changes);
 
+  assertDomainMutationAllowed({
+    entityType,
+    operation: 'update',
+    entityId,
+    payload: serviceChanges,
+    existing: before,
+  });
+
   // Update entity
-  const entity = service.update(entityId, serviceChanges);
+  const entity = service.update(entityId, serviceChanges, {
+    actor_id: context?.userId ?? null,
+    source: context?.source || 'agent',
+    route: context?.route || null,
+  });
 
   if (!entity) {
     throw new Error(`${entityType} ${entityId} not found or update failed`);
   }
 
-  return {
-    id: entity.id,
+  _appendAgentAudit({
     entityType,
-    ...entity,
+    entityId,
+    operation: 'update',
+    before,
+    after: entity,
+    context,
+  });
+
+  const changedFields = _computeChangedFields(before, entity, serviceChanges);
+  const rowCount = entity ? 1 : 0;
+  if (rowCount !== 1) {
+    const err = new Error(`Expected exactly one row to update for ${entityType} ${entityId}`);
+    err.code = 'ROWCOUNT_MISMATCH';
+    throw err;
+  }
+
+  return {
+    entityType,
+    entityId: entity.id,
+    ok: true,
+    rowCount,
+    changedFields,
+    before,
+    after: entity,
+    updatedRow: entity,
+    message: `Updated ${entityType} ${entity.id}`,
+    id: entity.id,
   };
 }
 
@@ -494,6 +601,122 @@ async function executeAttachToEntity(params, context) {
 }
 
 /**
+ * EXECUTE_MUTATION_WORKFLOW operation
+ *
+ * Executes a sequenced multi-step mutation workflow (currently UPDATE_ENTITY steps only).
+ * Designed for adaptive cleanup + target mutation flows proposed by chat.
+ *
+ * @param {Object} params - { workflow }
+ * @param {Object} context - { userId, sessionId, source }
+ * @returns {Promise<Object>} Structured workflow execution result
+ */
+async function executeMutationWorkflow(params, context) {
+  const workflow = params?.workflow;
+  if (!workflow || typeof workflow !== 'object') {
+    const err = new Error('workflow params are required');
+    err.code = 'INVALID_WORKFLOW';
+    throw err;
+  }
+
+  const workflowType = String(workflow.workflowType || '').trim();
+  const rootEntity = workflow.rootEntity || null;
+  const steps = Array.isArray(workflow.steps) ? workflow.steps : [];
+  const requestedGoal = workflow.requestedGoal || null;
+  const blockedTerminalStep =
+    workflow.blockedTerminalStep && typeof workflow.blockedTerminalStep === 'object'
+      ? workflow.blockedTerminalStep
+      : null;
+  const canReachRequestedGoal = workflow.canReachRequestedGoal !== false;
+
+  if (!workflowType || !rootEntity || !rootEntity.type || !Number.isInteger(Number(rootEntity.id))) {
+    const err = new Error('workflowType and valid rootEntity are required');
+    err.code = 'INVALID_WORKFLOW';
+    throw err;
+  }
+  if (!Array.isArray(steps) || steps.length === 0) {
+    const err = new Error('workflow.steps must be a non-empty array');
+    err.code = 'INVALID_WORKFLOW_STEPS';
+    throw err;
+  }
+
+  const stepResults = [];
+  let stepsSucceeded = 0;
+  for (const step of steps) {
+    const actionType = String(step?.actionType || '').toUpperCase();
+    if (actionType !== 'UPDATE_ENTITY') {
+      const err = new Error(`Unsupported workflow step action: ${actionType || 'UNKNOWN'}`);
+      err.code = 'UNSUPPORTED_WORKFLOW_STEP_ACTION';
+      throw err;
+    }
+    try {
+      const result = await executeUpdateEntity(step.params || {}, context);
+      stepResults.push({
+        stepId: step.stepId || null,
+        actionType,
+        ok: true,
+        result,
+        risk: step.risk || null,
+        reason: step.reason || null,
+      });
+      stepsSucceeded += 1;
+    } catch (error) {
+      const code = error?.code || 'WORKFLOW_STEP_FAILED';
+      const err = new Error(error?.message || 'Workflow step failed');
+      err.code = code;
+      err.workflowFailure = {
+        workflowType,
+        stepId: step.stepId || null,
+        stepActionType: actionType,
+        stepsSucceeded,
+        stepResults,
+      };
+      throw err;
+    }
+  }
+
+  let goalReached = Boolean(canReachRequestedGoal);
+  if (requestedGoal && String(requestedGoal.operation || '').toLowerCase() === 'update') {
+    // If a workflow claims it can reach the goal, ensure the last matching update succeeded on the root entity.
+    const lastRootUpdate = [...stepResults]
+      .reverse()
+      .find(
+        (s) =>
+          s?.ok === true &&
+          String(s?.result?.entityType || '').toLowerCase() === String(rootEntity.type || '').toLowerCase() &&
+          Number(s?.result?.entityId) === Number(rootEntity.id),
+      );
+    if (canReachRequestedGoal && !lastRootUpdate) {
+      goalReached = false;
+    }
+  }
+
+  const message = goalReached
+    ? 'Workflow completed and requested goal reached.'
+    : blockedTerminalStep?.message || 'Workflow completed, but the requested final change remains blocked.';
+
+  return {
+    ok: true,
+    workflowType,
+    rootEntity: {
+      type: String(rootEntity.type || '').toLowerCase(),
+      id: Number(rootEntity.id),
+    },
+    stepsAttempted: steps.length,
+    stepsSucceeded,
+    stepsFailed: steps.length - stepsSucceeded,
+    stepResults,
+    goalReached,
+    finalStateSummary: {
+      canReachRequestedGoal: Boolean(canReachRequestedGoal),
+      blockedTerminalStep,
+      requestedGoal,
+      facts: workflow.facts || null,
+    },
+    message,
+  };
+}
+
+/**
  * Map payload from camelCase to snake_case (service format)
  * @param {Object} payload - Payload with camelCase keys
  * @returns {Object} Payload with snake_case keys
@@ -511,6 +734,7 @@ function _mapPayloadToService(payload) {
 module.exports = {
   executeCreateEntity,
   executeUpdateEntity,
+  executeMutationWorkflow,
   executeDeleteEntity,
   executeLinkEntities,
   executeAttachToEntity,

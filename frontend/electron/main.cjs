@@ -369,7 +369,7 @@ async function startBackend() {
   });
 
   // Wait for backend to be ready
-  await waitForBackend();
+  await waitForBackend(120);
 
   console.log(
     `[Electron] Backend started successfully on pipe ${backendPipePath}`,

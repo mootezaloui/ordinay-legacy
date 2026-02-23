@@ -99,12 +99,45 @@ function getReversibilityRules() {
   };
 }
 
+const FIELD_ALIASES = {
+  update: {
+    status: ["status", "state"],
+    due_date: ["due", "due date", "deadline"],
+    paid_at: ["paid at", "paid date", "payment date"],
+    category: ["category", "type"],
+    description: ["description", "details", "note"],
+  },
+};
+
+const FIELD_TYPES = {
+  update: {
+    status: "enum_token",
+    due_date: "date",
+    paid_at: "date",
+    category: "string",
+    description: "string",
+  },
+};
+
+const VALUE_PARSERS = {
+  update: {
+    status: "enum_token",
+    due_date: "date",
+    paid_at: "date",
+    category: "string",
+    description: "string",
+  },
+};
+
 module.exports = {
   entityType: 'financial_entry',
   allowedFields: ALLOWED_FIELDS,
   requiredCreateFields: REQUIRED_CREATE_FIELDS,
   allowedUpdateFields: ALLOWED_UPDATE_FIELDS,
   allowedDelete: false, // Risky entity — use cancel instead of delete
+  fieldAliases: FIELD_ALIASES,
+  fieldTypes: FIELD_TYPES,
+  valueParsers: VALUE_PARSERS,
   validate,
   computeSnapshotHash,
   getReversibilityRules,

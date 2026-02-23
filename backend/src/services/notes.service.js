@@ -1,87 +1,197 @@
-const db = require('../db/connection');
+const db = require("../db/connection");
+const { withTx } = require("../db/withTx");
+const auditMutations = require("./auditMutations.service");
 
-/**
- * Notes Service
- * Helper functions to manage notes for any entity type
- */
+const ENTITY_TYPE_ALIASES = {
+  financial_entry: ["financial_entry", "financialEntry"],
+  personal_task: ["personal_task", "personalTask"],
+};
 
-/**
- * Get all notes for an entity
- * @param {string} entityType - Type of entity (mission, dossier, lawsuit, etc.)
- * @param {number} entityId - ID of the entity
- * @returns {Array} Array of notes
- */
-function getNotesForEntity(entityType, entityId) {
-  return db.prepare(`
-    SELECT
-      id,
-      entity_type,
-      entity_id,
-      content,
-      created_by,
-      created_at,
-      updated_at,
-      deleted_at
-    FROM notes
-    WHERE entity_type = ? AND entity_id = ? AND deleted_at IS NULL
-    ORDER BY created_at DESC
-  `).all(entityType, entityId);
+function canonicalizeEntityType(rawType) {
+  if (!rawType) return null;
+  const value = String(rawType).trim();
+  if (!value) return null;
+  const lowered = value.toLowerCase();
+  if (value === "financialEntry" || lowered === "financialentry") {
+    return "financial_entry";
+  }
+  if (value === "personalTask" || lowered === "personaltask") {
+    return "personal_task";
+  }
+  return lowered;
 }
 
-/**
- * Save notes array for an entity (bulk save)
- * Handles insert/update/delete based on incoming array
- * @param {string} entityType - Type of entity
- * @param {number} entityId - ID of the entity
- * @param {Array} notesArray - Array of note objects from frontend
- * @returns {Array} Updated array of notes
- */
-function saveNotesForEntity(entityType, entityId, notesArray) {
-  if (!Array.isArray(notesArray)) {
-    throw new Error('Notes must be an array');
+function expandReadEntityTypes(rawType) {
+  const canonical = canonicalizeEntityType(rawType);
+  if (!canonical) return [];
+  const aliases = ENTITY_TYPE_ALIASES[canonical] || [canonical];
+  return [...new Set(aliases)];
+}
+
+function buildEntityTypeInClause(entityTypes) {
+  return entityTypes.map((_, index) => `@t${index}`).join(", ");
+}
+
+function buildEntityTypeParams(entityTypes, extra = {}) {
+  const params = { ...extra };
+  entityTypes.forEach((value, index) => {
+    params[`t${index}`] = value;
+  });
+  return params;
+}
+
+function getNotesForEntityFromDb(database, entityType, entityId) {
+  const readTypes = expandReadEntityTypes(entityType);
+  if (!readTypes.length) return [];
+  const inClause = buildEntityTypeInClause(readTypes);
+  const params = buildEntityTypeParams(readTypes, { entity_id: Number(entityId) });
+  return database
+    .prepare(
+      `
+      SELECT
+        id,
+        entity_type,
+        entity_id,
+        content,
+        created_by,
+        created_at,
+        updated_at,
+        deleted_at
+      FROM notes
+      WHERE entity_type IN (${inClause})
+        AND entity_id = @entity_id
+        AND deleted_at IS NULL
+      ORDER BY created_at DESC, id DESC
+      `
+    )
+    .all(params);
+}
+
+function getNotesForEntity(entityType, entityId) {
+  return getNotesForEntityFromDb(db, entityType, entityId);
+}
+
+function listByEntity(entityType, entityId) {
+  return getNotesForEntity(entityType, entityId);
+}
+
+function get(id) {
+  return db
+    .prepare(
+      `
+      SELECT
+        id,
+        entity_type,
+        entity_id,
+        content,
+        created_by,
+        created_at,
+        updated_at,
+        deleted_at
+      FROM notes
+      WHERE id = @id AND deleted_at IS NULL
+      `
+    )
+    .get({ id: Number(id) });
+}
+
+function create(payload = {}) {
+  const entityType = canonicalizeEntityType(payload.entity_type);
+  const entityId = Number(payload.entity_id);
+  const content = typeof payload.content === "string" ? payload.content.trim() : "";
+  const createdBy =
+    payload.created_by === undefined || payload.created_by === null
+      ? null
+      : String(payload.created_by);
+
+  if (!entityType || !Number.isFinite(entityId) || entityId <= 0 || !content) {
+    const err = new Error("entity_type, entity_id, and content are required");
+    err.status = 400;
+    throw err;
   }
 
-  console.log('[notes.service] saveNotesForEntity called:', {
-    entityType,
-    entityId,
-    notesArrayLength: notesArray.length,
-    notesArray: JSON.stringify(notesArray, null, 2)
-  });
-
-  // Start a transaction
-  const transaction = db.transaction(() => {
-    // Get existing notes for this entity
-    const existingNotes = db.prepare(`
-      SELECT id FROM notes
-      WHERE entity_type = ? AND entity_id = ? AND deleted_at IS NULL
-    `).all(entityType, entityId);
-
-    const existingIds = existingNotes.map(n => n.id);
-
-    // Frontend uses Date.now() for temporary IDs, which are very large numbers
-    // Real database IDs are much smaller (sequential integers)
-    // We consider IDs < 1000000 as real database IDs
-    const incomingIds = notesArray
-      .filter(n => n.id && typeof n.id === 'number' && n.id < 1000000)
-      .map(n => n.id);
-
-    console.log('[notes.service] IDs comparison:', {
-      existingIds,
-      incomingIds,
-      toDelete: existingIds.filter(id => !incomingIds.includes(id))
+  const result = db
+    .prepare(
+      `INSERT INTO notes (entity_type, entity_id, content, created_by)
+       VALUES (@entity_type, @entity_id, @content, @created_by)`
+    )
+    .run({
+      entity_type: entityType,
+      entity_id: entityId,
+      content,
+      created_by: createdBy,
     });
 
-    // Delete notes that are no longer in the incoming array (HARD DELETE)
-    existingIds.forEach(id => {
-      if (!incomingIds.includes(id)) {
-        console.log('[notes.service] Hard-deleting note ID:', id);
-        db.prepare(`
-          DELETE FROM notes WHERE id = ?
-        `).run(id);
+  return get(result.lastInsertRowid);
+}
+
+function update(id, payload = {}) {
+  const content = typeof payload.content === "string" ? payload.content.trim() : "";
+  if (!content) {
+    const err = new Error("content is required");
+    err.status = 400;
+    throw err;
+  }
+
+  const result = db
+    .prepare(
+      `
+      UPDATE notes
+      SET content = @content, updated_at = CURRENT_TIMESTAMP
+      WHERE id = @id AND deleted_at IS NULL
+      `
+    )
+    .run({ id: Number(id), content });
+
+  if (result.changes === 0) return null;
+  return get(id);
+}
+
+function remove(id) {
+  const stmt = db.prepare(`DELETE FROM notes WHERE id = @id`);
+  const result = stmt.run({ id: Number(id) });
+  return result.changes > 0;
+}
+
+function isPersistedNoteId(note) {
+  return Boolean(note && note.id && typeof note.id === "number" && note.id < 1000000);
+}
+
+function saveNotesForEntity(entityType, entityId, notesArray, options = {}) {
+  if (!Array.isArray(notesArray)) {
+    throw new Error("Notes must be an array");
+  }
+
+  const canonicalType = canonicalizeEntityType(entityType);
+  const numericEntityId = Number(entityId);
+  if (!canonicalType || !Number.isFinite(numericEntityId) || numericEntityId <= 0) {
+    throw new Error("Valid entityType and entityId are required");
+  }
+
+  return withTx(db, () => {
+    const before = getNotesForEntityFromDb(db, canonicalType, numericEntityId);
+    const readTypes = expandReadEntityTypes(canonicalType);
+    const inClause = buildEntityTypeInClause(readTypes);
+    const params = buildEntityTypeParams(readTypes, { entity_id: numericEntityId });
+
+    const existingNotes = db
+      .prepare(
+        `SELECT id FROM notes
+         WHERE entity_type IN (${inClause})
+           AND entity_id = @entity_id
+           AND deleted_at IS NULL`
+      )
+      .all(params);
+
+    const existingIds = existingNotes.map((n) => n.id);
+    const incomingIds = notesArray.filter(isPersistedNoteId).map((n) => n.id);
+
+    existingIds.forEach((noteId) => {
+      if (!incomingIds.includes(noteId)) {
+        db.prepare(`DELETE FROM notes WHERE id = ?`).run(noteId);
       }
     });
 
-    // Insert or update notes
     const insertStmt = db.prepare(`
       INSERT INTO notes (entity_type, entity_id, content, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?)
@@ -93,51 +203,68 @@ function saveNotesForEntity(entityType, entityId, notesArray) {
       WHERE id = ?
     `);
 
-    notesArray.forEach(note => {
-      if (!note.content || !note.content.trim()) {
-        // Skip empty notes
+    notesArray.forEach((note) => {
+      const content = typeof note?.content === "string" ? note.content.trim() : "";
+      if (!content) return;
+      if (isPersistedNoteId(note)) {
+        updateStmt.run(note.content, note.updatedAt || new Date().toISOString(), note.id);
         return;
       }
-
-      if (note.id && typeof note.id === 'number' && note.id < 1000000) {
-        // Existing note (has a real database ID)
-        updateStmt.run(
-          note.content,
-          note.updatedAt || new Date().toISOString(),
-          note.id
-        );
-      } else {
-        // New note (frontend temporary ID or no ID)
-        insertStmt.run(
-          entityType,
-          entityId,
-          note.content,
-          note.createdAt || new Date().toISOString(),
-          note.updatedAt || new Date().toISOString()
-        );
-      }
+      insertStmt.run(
+        canonicalType,
+        numericEntityId,
+        content,
+        note.createdAt || new Date().toISOString(),
+        note.updatedAt || new Date().toISOString()
+      );
     });
+
+    const after = getNotesForEntityFromDb(db, canonicalType, numericEntityId);
+    auditMutations.append(
+      {
+        entity_type: canonicalType,
+        entity_id: numericEntityId,
+        operation: "update",
+        actor_id: options.actor_id || options.actorId || null,
+        source: options.source || "rest_api",
+        route: options.route || null,
+        before,
+        after,
+        metadata: {
+          mode: "bulk_sync",
+          note_count: after.length,
+        },
+      },
+      db
+    );
+
+    return after;
   });
-
-  transaction();
-
-  // Return updated notes
-  return getNotesForEntity(entityType, entityId);
 }
 
-/**
- * Delete all notes for an entity (used when entity is deleted) - HARD DELETE
- * @param {string} entityType - Type of entity
- * @param {number} entityId - ID of the entity
- */
 function deleteNotesForEntity(entityType, entityId) {
-  db.prepare(`
-    DELETE FROM notes
-    WHERE entity_type = ? AND entity_id = ?
-  `).run(entityType, entityId);
+  const readTypes = expandReadEntityTypes(entityType);
+  if (!readTypes.length) return 0;
+  const inClause = buildEntityTypeInClause(readTypes);
+  const params = buildEntityTypeParams(readTypes, { entity_id: Number(entityId) });
+  const result = db
+    .prepare(
+      `DELETE FROM notes
+       WHERE entity_type IN (${inClause})
+         AND entity_id = @entity_id`
+    )
+    .run(params);
+  return result.changes;
 }
 
 module.exports = {
+  canonicalizeEntityType,
+  expandReadEntityTypes,
+  listByEntity,
+  get,
+  create,
+  update,
+  remove,
   getNotesForEntity,
   saveNotesForEntity,
   deleteNotesForEntity,

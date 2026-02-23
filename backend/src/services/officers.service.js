@@ -1,6 +1,8 @@
 const db = require("../db/connection");
 const notesService = require("./notes.service");
 const { assert, filterPayload, buildUpdateClause, normalizeData } = require("./_utils");
+const { withTx } = require("../db/withTx");
+const auditMutations = require("./auditMutations.service");
 
 const table = "officers";
 const allowedFields = ["name", "email", "phone", "alternate_phone", "address", "agency", "location", "specialization", "registration_number", "status"];
@@ -107,9 +109,10 @@ function update(id, payload) {
 
 function remove(id) {
   const historyService = require("./history.service");
+  const officer = get(id);
+  if (!officer) return false;
 
-  // Start a transaction to ensure atomicity
-  const transaction = db.transaction(() => {
+  return withTx(db, () => {
     // First, set officer_id to NULL for all missions referencing this officer
     // (these should be completed missions since active ones are blocked by domain rules)
     const updateMissionsStmt = db.prepare(`
@@ -119,17 +122,32 @@ function remove(id) {
     `);
     updateMissionsStmt.run({ id });
 
-    // Delete all history events for this officer
-    historyService.deleteByEntity("officer", id);
     notesService.deleteNotesForEntity("officer", id);
 
     // Delete the officer
     const stmt = db.prepare(`DELETE FROM ${table} WHERE id = @id`);
     const result = stmt.run({ id });
-    return result.changes > 0;
-  });
+    if (result.changes === 0) return false;
 
-  return transaction();
+    historyService.create({
+      entity_type: "officer",
+      entity_id: id,
+      action: "entity_deleted",
+      description: `Officer "${officer.name}" was deleted`,
+    });
+    auditMutations.append(
+      {
+        entity_type: "officer",
+        entity_id: id,
+        operation: "delete",
+        source: "rest_api",
+        before: officer,
+        after: null,
+      },
+      db,
+    );
+    return true;
+  });
 }
 
 module.exports = {

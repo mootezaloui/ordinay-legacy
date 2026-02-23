@@ -80,12 +80,42 @@ function getReversibilityRules() {
   };
 }
 
+const FIELD_ALIASES = {
+  update: {
+    status: ["status", "state", "mark", "mark as"],
+    priority: ["priority", "urgency"],
+    due_date: ["due", "due date", "deadline"],
+    category: ["category", "type"],
+  },
+};
+
+const FIELD_TYPES = {
+  update: {
+    status: "enum_token",
+    priority: "enum_token",
+    due_date: "date",
+    category: "string",
+  },
+};
+
+const VALUE_PARSERS = {
+  update: {
+    status: "enum_token",
+    priority: "enum_token",
+    due_date: "date",
+    category: "string",
+  },
+};
+
 module.exports = {
   entityType: 'personal_task',
   allowedFields: ALLOWED_FIELDS,
   requiredCreateFields: REQUIRED_CREATE_FIELDS,
   allowedUpdateFields: ALLOWED_UPDATE_FIELDS,
   allowedDelete: true, // Safe entity — personal tasks can be deleted
+  fieldAliases: FIELD_ALIASES,
+  fieldTypes: FIELD_TYPES,
+  valueParsers: VALUE_PARSERS,
   validate,
   computeSnapshotHash,
   getReversibilityRules,

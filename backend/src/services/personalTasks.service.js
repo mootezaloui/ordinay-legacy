@@ -1,6 +1,8 @@
 const db = require("../db/connection");
 const { assert, filterPayload, buildUpdateClause, normalizeData } = require("./_utils");
 const notesService = require("./notes.service");
+const { withTx } = require("../db/withTx");
+const auditMutations = require("./auditMutations.service");
 
 const table = "personal_tasks";
 const allowedFields = [
@@ -91,15 +93,35 @@ function update(id, payload) {
 
 function remove(id) {
   const historyService = require("./history.service");
+  const task = get(id);
+  if (!task) return false;
 
-  // Delete all history events for this personal task
-  historyService.deleteByEntity("personal_task", id);
-  notesService.deleteNotesForEntity("personal_task", id);
+  return withTx(db, () => {
+    notesService.deleteNotesForEntity("personal_task", id);
 
-  // Delete the personal task
-  const stmt = db.prepare(`DELETE FROM ${table} WHERE id = @id`);
-  const result = stmt.run({ id });
-  return result.changes > 0;
+    const stmt = db.prepare(`DELETE FROM ${table} WHERE id = @id`);
+    const result = stmt.run({ id });
+    if (result.changes === 0) return false;
+
+    historyService.create({
+      entity_type: "personal_task",
+      entity_id: id,
+      action: "entity_deleted",
+      description: `Personal task "${task.title}" was deleted`,
+    });
+    auditMutations.append(
+      {
+        entity_type: "personal_task",
+        entity_id: id,
+        operation: "delete",
+        source: "rest_api",
+        before: task,
+        after: null,
+      },
+      db,
+    );
+    return true;
+  });
 }
 
 module.exports = {

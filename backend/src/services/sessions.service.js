@@ -7,6 +7,8 @@ const {
   normalizeData,
 } = require("./_utils");
 const notesService = require("./notes.service");
+const { withTx } = require("../db/withTx");
+const auditMutations = require("./auditMutations.service");
 
 const table = "sessions";
 const allowedFields = [
@@ -180,19 +182,21 @@ function remove(id) {
   const session = get(id);
   if (!session) return false;
 
-  // Delete all history events for this session
-  historyService.deleteByEntity("session", id);
+  return withTx(db, () => {
+    notesService.deleteNotesForEntity("session", id);
 
-  // Delete all notes for this session
-  notesService.deleteNotesForEntity("session", id);
+    const stmt = db.prepare(`DELETE FROM ${table} WHERE id = @id`);
+    const result = stmt.run({ id });
+    if (result.changes === 0) return false;
 
-  // Delete the session
-  const stmt = db.prepare(`DELETE FROM ${table} WHERE id = @id`);
-  const result = stmt.run({ id });
-
-  // Add deletion event to parent's history (dossier or lawsuit)
-  if (result.changes > 0) {
     const sessionTitle = session.title || `Session (${session.session_type})`;
+    historyService.create({
+      entity_type: "session",
+      entity_id: id,
+      action: "entity_deleted",
+      description: `Session "${sessionTitle}" was deleted`,
+    });
+
     if (session.dossier_id) {
       historyService.create({
         entity_type: "dossier",
@@ -208,9 +212,21 @@ function remove(id) {
         description: `Session "${sessionTitle}" was deleted`,
       });
     }
-  }
 
-  return result.changes > 0;
+    auditMutations.append(
+      {
+        entity_type: "session",
+        entity_id: id,
+        operation: "delete",
+        source: "rest_api",
+        before: session,
+        after: null,
+      },
+      db,
+    );
+
+    return true;
+  });
 }
 
 module.exports = {

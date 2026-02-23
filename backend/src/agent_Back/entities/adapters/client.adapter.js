@@ -85,12 +85,45 @@ function getReversibilityRules() {
   };
 }
 
+const FIELD_ALIASES = {
+  update: {
+    email: ["email", "e-mail"],
+    phone: ["phone", "phone number", "number", "mobile"],
+    alternate_phone: ["alternate phone", "secondary phone"],
+    address: ["address"],
+    status: ["status", "state"],
+  },
+};
+
+const FIELD_TYPES = {
+  update: {
+    email: "string",
+    phone: "string",
+    alternate_phone: "string",
+    address: "string",
+    status: "enum_token",
+  },
+};
+
+const VALUE_PARSERS = {
+  update: {
+    status: "enum_token",
+    email: "string",
+    phone: "string",
+    alternate_phone: "string",
+    address: "string",
+  },
+};
+
 module.exports = {
   entityType: 'client',
   allowedFields: ALLOWED_FIELDS,
   requiredCreateFields: REQUIRED_CREATE_FIELDS,
   allowedUpdateFields: ALLOWED_UPDATE_FIELDS,
   allowedDelete: false,
+  fieldAliases: FIELD_ALIASES,
+  fieldTypes: FIELD_TYPES,
+  valueParsers: VALUE_PARSERS,
   validate,
   computeSnapshotHash,
   getReversibilityRules,

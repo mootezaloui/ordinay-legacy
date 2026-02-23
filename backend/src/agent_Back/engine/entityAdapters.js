@@ -62,6 +62,32 @@ function getAllowedFields(entityType, operation) {
   return [];
 }
 
+function getFieldAliases(entityType, operation = "update") {
+  const adapter = getAdapter(entityType);
+  const aliases = adapter.fieldAliases;
+  if (!aliases || typeof aliases !== "object") return {};
+  if (aliases[operation] && typeof aliases[operation] === "object") {
+    return aliases[operation];
+  }
+  return aliases;
+}
+
+function getFieldTypes(entityType, operation = "update") {
+  const adapter = getAdapter(entityType);
+  const meta = adapter.fieldTypes;
+  if (!meta || typeof meta !== "object") return {};
+  if (meta[operation] && typeof meta[operation] === "object") return meta[operation];
+  return meta;
+}
+
+function getValueParsers(entityType, operation = "update") {
+  const adapter = getAdapter(entityType);
+  const meta = adapter.valueParsers;
+  if (!meta || typeof meta !== "object") return {};
+  if (meta[operation] && typeof meta[operation] === "object") return meta[operation];
+  return meta;
+}
+
 /**
  * Get reversibility rules for entity type
  * @param {string} entityType - Entity type
@@ -77,5 +103,8 @@ module.exports = {
   computeSnapshotHash,
   validatePayload,
   getAllowedFields,
+  getFieldAliases,
+  getFieldTypes,
+  getValueParsers,
   getReversibilityRules,
 };

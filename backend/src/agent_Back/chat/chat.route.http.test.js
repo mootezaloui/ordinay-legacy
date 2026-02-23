@@ -40,6 +40,24 @@ async function readSse(response) {
   return frames;
 }
 
+function assertNoForbiddenMutationLeak(text) {
+  const source = String(text || "");
+  const forbidden = [
+    /\/mutate\b/i,
+    /\bpropose_entity_mutation\b/i,
+    /\buniversalmutation\b/i,
+    /\bpayload\b/i,
+    /\bendpoint\b/i,
+    /\bapi\b/i,
+    /\bsyntax\b/i,
+    /\bError:\b/,
+    /\bnode:/i,
+  ];
+  for (const re of forbidden) {
+    assert.strictEqual(re.test(source), false, `unexpected leak ${re}`);
+  }
+}
+
 async function testChatHttpSuccess() {
   let captured = null;
   agentRouter.__setChatAgentServiceForTests({
@@ -296,6 +314,74 @@ async function testChatHttpAmbiguityArtifact() {
   }
 }
 
+async function testChatUserSafeResponsePolicySanitizesInternalLeakage() {
+  agentRouter.__setChatAgentServiceForTests({
+    async run() {
+      return {
+        message:
+          'Use /mutate then call propose_entity_mutation with payload {"status":"inactive"} on the endpoint.',
+        toolExecutions: [],
+        mutationOutcome: {
+          status: "FAILED",
+          safeMessage:
+            "I couldn’t update the client record due to a system error. Try again, or I can prepare the change for confirmation.",
+        },
+        ambiguityArtifact: {
+          type: "proposal",
+          sessionId: "sess-sanitize",
+          proposals: [
+            {
+              proposalId: "p-test",
+              status: "PROPOSED",
+              actionType: "UPDATE_ENTITY",
+              requiresConfirmation: true,
+              humanReadableSummary:
+                'Update client #1 via /mutate payload {"status":"inactive"}',
+              affectedEntities: [{ type: "client", id: 1, operation: "update" }],
+              reversible: true,
+              version: "v3",
+              posture: "WORK",
+              snapshot: { scope: "client", scopeId: 1, hash: "sha256:test" },
+              params: { entityType: "client", entityId: 1, changes: { status: "inActive" } },
+            },
+          ],
+        },
+      };
+    },
+  });
+
+  const { server, baseUrl } = await startServer();
+  try {
+    const response = await fetch(`${baseUrl}/agent/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: "please change it",
+        sessionId: "sess-sanitize",
+      }),
+    });
+
+    assert.strictEqual(response.status, 200);
+    const frames = await readSse(response);
+    const streamed = frames
+      .filter((f) => f.event === "chunk")
+      .map((f) => String(f.data?.content || ""))
+      .join("");
+    assert.match(streamed, /(couldn.t|could not)/i);
+    assertNoForbiddenMutationLeak(streamed);
+
+    const resultFrame = frames.find((f) => f.event === "result");
+    assert(resultFrame);
+    const proposal = resultFrame.data?.output?.proposals?.[0];
+    assert(proposal);
+    assert.strictEqual("params" in proposal, false);
+    assert.strictEqual("snapshot" in proposal, false);
+    assertNoForbiddenMutationLeak(proposal.humanReadableSummary || "");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+}
+
 async function run() {
   await testChatHttpSuccess();
   await testChatHttpFollowUpIntentForwarding();
@@ -303,6 +389,7 @@ async function run() {
   await testChatHttpValidationError();
   await testChatHttpServiceError();
   await testChatHttpAmbiguityArtifact();
+  await testChatUserSafeResponsePolicySanitizesInternalLeakage();
   console.log("chat.route.http tests passed");
 }
 

@@ -7,6 +7,8 @@ const {
   normalizeData,
 } = require("./_utils");
 const notesService = require('./notes.service');
+const { withTx } = require("../db/withTx");
+const auditMutations = require("./auditMutations.service");
 
 const table = "tasks";
 const allowedFields = [
@@ -146,18 +148,20 @@ function remove(id) {
   const task = get(id);
   if (!task) return false;
 
-  // Delete all history events for this task
-  historyService.deleteByEntity("task", id);
+  return withTx(db, () => {
+    notesService.deleteNotesForEntity('task', id);
 
-  // Delete all notes for this task
-  notesService.deleteNotesForEntity('task', id);
+    const stmt = db.prepare(`DELETE FROM ${table} WHERE id = @id`);
+    const result = stmt.run({ id });
+    if (result.changes === 0) return false;
 
-  // Delete the task
-  const stmt = db.prepare(`DELETE FROM ${table} WHERE id = @id`);
-  const result = stmt.run({ id });
+    historyService.create({
+      entity_type: "task",
+      entity_id: id,
+      action: "entity_deleted",
+      description: `Task "${task.title}" was deleted`,
+    });
 
-  // Add deletion event to parent's history (dossier or lawsuit)
-  if (result.changes > 0) {
     if (task.dossier_id) {
       historyService.create({
         entity_type: "dossier",
@@ -173,9 +177,21 @@ function remove(id) {
         description: `Task "${task.title}" was deleted`,
       });
     }
-  }
 
-  return result.changes > 0;
+    auditMutations.append(
+      {
+        entity_type: "task",
+        entity_id: id,
+        operation: "delete",
+        source: "rest_api",
+        before: task,
+        after: null,
+      },
+      db,
+    );
+
+    return true;
+  });
 }
 
 module.exports = {

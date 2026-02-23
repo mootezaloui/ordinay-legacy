@@ -66,6 +66,8 @@ const summarizeEntityProgressTool = require("./plan/summarizeEntityProgress.tool
 const compileDossierResearchTool = require("./research/compileDossierResearch.tool");
 
 // EXECUTE tools
+const proposeEntityMutationTool = require("./execute/proposeEntityMutation.tool");
+const proposeMutationWorkflowTool = require("./execute/proposeMutationWorkflow.tool");
 const universalMutationTool = require("./execute/universalMutation.tool");
 const createTaskTool = require("./execute/createTask.tool");
 const updateTaskTool = require("./execute/updateTask.tool");
@@ -135,6 +137,8 @@ function initializeToolRegistry() {
   registry.register(analyzeEntityStateTool);
   registry.register(buildActionPlanTool);
   registry.register(summarizeEntityProgressTool);
+  registry.register(proposeEntityMutationTool);
+  registry.register(proposeMutationWorkflowTool);
 
   // Register RESEARCH tools
   registry.register(compileDossierResearchTool);
