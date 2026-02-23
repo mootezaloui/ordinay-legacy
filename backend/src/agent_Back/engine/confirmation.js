@@ -7,12 +7,80 @@ const STAGE3_STRONG_INTENT_MUTATION_ACTIONS = new Set(["UPDATE_ENTITY", "EXECUTE
 const CONFIRM_DEBUG_ENABLED = ["1", "true", "yes", "on"].includes(
   String(process.env.AGENT_CHAT_MUTATION_DEBUG || "").toLowerCase(),
 );
+const ADAPTIVE_CONSTRAINTS_ENABLED = ["1", "true", "yes", "on"].includes(
+  String(process.env.AGENT_ADAPTIVE_DOMAIN_CONSTRAINTS ?? "1").toLowerCase(),
+);
 
 function debugConfirm(event, payload = {}) {
   if (!CONFIRM_DEBUG_ENABLED) return;
   try {
     console.warn("[agent-confirm-debug]", event, payload);
   } catch (_) {}
+}
+
+async function maybeExecuteAdaptiveWorkflowFallback({
+  proposal,
+  contextSnapshot,
+  universalOps,
+  userId,
+  sessionId,
+}) {
+  if (!ADAPTIVE_CONSTRAINTS_ENABLED) return null;
+  if (String(proposal?.actionType || "").toUpperCase() !== "UPDATE_ENTITY") return null;
+  if (String(contextSnapshot?.sourceRoute || "") !== "/agent/chat") return null;
+  if (String(contextSnapshot?.proposalKind || "") !== "entity_mutation") return null;
+
+  const params = proposal?.params || {};
+  const entityType = String(params.entityType || "").toLowerCase();
+  const entityId = Number(params.entityId || 0);
+  const changes =
+    params?.changes && typeof params.changes === "object" && !Array.isArray(params.changes)
+      ? params.changes
+      : null;
+  if (!entityType || !Number.isInteger(entityId) || entityId <= 0 || !changes) return null;
+
+  try {
+    const { resolveAdaptiveMutationRemediation } = require("./agentMutationConstraintResolver");
+    const resolverResult = resolveAdaptiveMutationRemediation({
+      requestedMutation: {
+        entityType,
+        entityId,
+        operation: "update",
+        payload: changes,
+      },
+      executionMode: "confirm",
+      existing: null,
+      mode: "execution",
+    });
+
+    if (!resolverResult || !resolverResult.workflowProposalInput) return null;
+    debugConfirm("confirm_adaptive_upgrade_attempt", {
+      proposalId: proposal?.proposalId || null,
+      originalActionType: proposal?.actionType || null,
+      workflowType: resolverResult?.workflowProposalInput?.workflowType || null,
+      route: resolverResult?.route || null,
+      rootEntityType: entityType,
+      rootEntityId: entityId,
+    });
+
+    const workflowResult = await universalOps.executeMutationWorkflow(
+      { workflow: resolverResult.workflowProposalInput },
+      { userId, sessionId, source: "agent" },
+    );
+
+    return {
+      upgraded: true,
+      workflowType: resolverResult.workflowProposalInput.workflowType || null,
+      result: workflowResult,
+    };
+  } catch (upgradeError) {
+    debugConfirm("confirm_adaptive_upgrade_failed", {
+      proposalId: proposal?.proposalId || null,
+      errorCode: upgradeError?.code || null,
+      message: upgradeError?.message || null,
+    });
+    return null;
+  }
 }
 
 /**
@@ -366,6 +434,109 @@ async function confirmProposal({ proposalId, sessionId, userId, ackRisk = false 
     return executionResult;
   } catch (err) {
     const errorCode = err?.code || "EXECUTION_ERROR";
+    if (errorCode === "DOMAIN_RULE_BLOCKED") {
+      const upgraded = await maybeExecuteAdaptiveWorkflowFallback({
+        proposal,
+        contextSnapshot,
+        universalOps,
+        userId,
+        sessionId,
+      });
+      if (upgraded?.upgraded === true) {
+        debugConfirm("confirm_adaptive_upgrade_success", {
+          proposalId,
+          originalActionType: proposal?.actionType || null,
+          workflowType: upgraded.workflowType || null,
+          goalReached: upgraded?.result?.goalReached,
+          stepsSucceeded: upgraded?.result?.stepsSucceeded,
+        });
+
+        let afterHash = null;
+        const beforeSnapshot = proposal.snapshot ? { ...proposal.snapshot } : null;
+        if (beforeSnapshot && beforeSnapshot.scope && beforeSnapshot.scopeId) {
+          try {
+            afterHash = await this._computeSnapshotHash(beforeSnapshot);
+          } catch (_) {
+            afterHash = "sha256:null";
+          }
+        }
+
+        const executionResult = {
+          type: "execution_result",
+          proposalId,
+          status: "success",
+          executedActions: [
+            {
+              actionType: "EXECUTE_MUTATION_WORKFLOW",
+              result: upgraded.result,
+              executedAt: new Date().toISOString(),
+            },
+          ],
+          artifact: {
+            proposalId,
+            operation: "EXECUTE_MUTATION_WORKFLOW",
+            params: { workflowType: upgraded.workflowType || null },
+            result: upgraded.result,
+            posture: proposal.posture,
+            version: proposal.version,
+          },
+          audit: {
+            userId,
+            sessionId,
+            executedAt: new Date().toISOString(),
+            snapshotValidation: {
+              expected: proposal.snapshot.hash,
+              actual: currentHash,
+              matched: true,
+            },
+            diff: {
+              before: beforeSnapshot ? { hash: beforeSnapshot.hash } : null,
+              after: afterHash ? { hash: afterHash } : null,
+            },
+          },
+        };
+
+        stored.proposal = { ...proposal, status: ACTION_STATUS.EXECUTED };
+        stored.executionResult = executionResult;
+
+        this.ledger.record({
+          type: "proposal_executed",
+          proposalId,
+          actionType: "EXECUTE_MUTATION_WORKFLOW",
+          userId,
+          sessionId,
+          diff: {
+            before: beforeSnapshot
+              ? { hash: beforeSnapshot.hash, scope: beforeSnapshot.scope, scopeId: beforeSnapshot.scopeId }
+              : null,
+            after: afterHash
+              ? { hash: afterHash, scope: beforeSnapshot.scope, scopeId: beforeSnapshot.scopeId }
+              : null,
+            params: proposal.params,
+          },
+          timestamp: new Date().toISOString(),
+        });
+
+        {
+          const timer = setTimeout(() => proposalStore.delete(proposalId), 3600000);
+          if (typeof timer?.unref === "function") timer.unref();
+        }
+
+        clearPendingMutationProposal.call(this, {
+          sessionId: sessionId || contextSnapshot?.sessionId || proposal?.sessionId || null,
+          userId: userId || contextSnapshot?.userId || null,
+        });
+
+        invalidateSnapshotsAfterMutation.call(this, {
+          proposal,
+          executionResult,
+          sessionId: sessionId || contextSnapshot?.sessionId || proposal?.sessionId || null,
+          userId: userId || contextSnapshot?.userId || null,
+        });
+
+        return executionResult;
+      }
+    }
     debugConfirm("confirm_dispatch_failed", {
       proposalId,
       actionType: proposal?.actionType || null,
@@ -382,7 +553,22 @@ async function confirmProposal({ proposalId, sessionId, userId, ackRisk = false 
         "DOCX generation is unavailable on this server. Install docx dependency and retry.",
       MISSING_REQUIRED_FIELDS:
         "Document data is incomplete. Please provide missing information and retry.",
+      DOMAIN_RULE_BLOCKED:
+        "This change cannot be completed yet because related records still need to be updated.",
     };
+    const derivedDomainSafeMessage =
+      errorCode === "DOMAIN_RULE_BLOCKED"
+        ? String(
+            err?.safeMessage ||
+              err?.domainRule?.primaryBlocker?.userFacingFactText ||
+              err?.domainRule?.evaluation?.blockers?.[0]?.userFacingFactText ||
+              "",
+          ).trim()
+        : "";
+    const finalSafeMessage =
+      derivedDomainSafeMessage ||
+      safeMessageByCode[errorCode] ||
+      "The action could not be completed. Please try again.";
 
     // Log failure
     this.ledger.record({
@@ -401,9 +587,7 @@ async function confirmProposal({ proposalId, sessionId, userId, ackRisk = false 
       error: {
         code: errorCode,
         message: err?.message || "Execution failed",
-        safeMessage:
-          safeMessageByCode[errorCode] ||
-          "The action could not be completed. Please try again.",
+        safeMessage: finalSafeMessage,
         requiresReproposal: false,
       },
     };

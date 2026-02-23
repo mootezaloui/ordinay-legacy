@@ -28,6 +28,25 @@ interface ProposalState {
   executionResult?: ExecutionResult;
 }
 
+function restoreProposalState(proposal: ActionProposal): ProposalState {
+  const persisted = proposal?.uiState;
+  const status = String(persisted?.status || "").toLowerCase();
+  if (status === "confirmed") {
+    return { status: "confirmed", executionResult: persisted?.executionResult };
+  }
+  if (status === "failed") {
+    return {
+      status: "failed",
+      error: persisted?.error,
+      executionResult: persisted?.executionResult,
+    };
+  }
+  if (status === "cancelled") {
+    return { status: "cancelled" };
+  }
+  return { status: "pending" };
+}
+
 interface DataContextLike {
   clients?: Array<{ id: number; name?: string; reference?: string }>;
   dossiers?: Array<{ id: number; lawsuitNumber?: string; title?: string; clientId?: number }>;
@@ -40,26 +59,80 @@ interface DataContextLike {
 
 const AGENT_MUTATION_EXECUTED_EVENT = "ordinay:agent-mutation-executed";
 
-function emitExecutedMutationFromExecutionResult(execResult?: ExecutionResult) {
+function emitExecutedMutationEvent(detail: {
+  entityType: string;
+  entityId: number;
+  operation?: string;
+}) {
   if (typeof window === "undefined" || typeof window.dispatchEvent !== "function") return;
-  if (!execResult || String(execResult.status || "").toLowerCase() !== "success") return;
-  const mutation = execResult.executedActions?.[0]?.result as
-    | { ok?: boolean; entityType?: string; entityId?: number | string }
-    | undefined;
-  if (!mutation || mutation.ok !== true) return;
-  const entityType = String(mutation.entityType || "").trim().toLowerCase();
-  const entityId = Number(mutation.entityId || 0);
+  const entityType = String(detail?.entityType || "").trim().toLowerCase();
+  const entityId = Number(detail?.entityId || 0);
   if (!entityType || !Number.isInteger(entityId) || entityId <= 0) return;
+  const op = String(detail?.operation || "update").trim().toLowerCase();
   window.dispatchEvent(
     new CustomEvent(AGENT_MUTATION_EXECUTED_EVENT, {
       detail: {
         status: "EXECUTED",
         entityType,
         entityId,
-        operation: "update",
+        operation: op === "create" || op === "update" || op === "delete" ? op : "update",
       },
     }),
   );
+}
+
+function emitExecutedMutationFromExecutionResult(execResult?: ExecutionResult) {
+  if (!execResult || String(execResult.status || "").toLowerCase() !== "success") return;
+  const seen = new Set<string>();
+  const emitOnce = (detail: { entityType?: unknown; entityId?: unknown; operation?: unknown }) => {
+    const entityType = String(detail?.entityType || "").trim().toLowerCase();
+    const entityId = Number(detail?.entityId || 0);
+    if (!entityType || !Number.isInteger(entityId) || entityId <= 0) return;
+    const key = `${entityType}:${entityId}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    emitExecutedMutationEvent({
+      entityType,
+      entityId,
+      operation: typeof detail?.operation === "string" ? detail.operation : "update",
+    });
+  };
+
+  for (const action of execResult.executedActions || []) {
+    const result = action?.result as
+      | {
+          ok?: boolean;
+          entityType?: string;
+          entityId?: number | string;
+          operation?: string;
+          stepResults?: Array<{
+            ok?: boolean;
+            actionType?: string;
+            result?: { ok?: boolean; entityType?: string; entityId?: number | string; operation?: string };
+          }>;
+        }
+      | undefined;
+    if (!result || result.ok !== true) continue;
+
+    // Single-entity execution path.
+    emitOnce(result);
+
+    // Workflow execution path: emit refresh events for every successful step entity mutation.
+    if (Array.isArray(result.stepResults)) {
+      for (const step of result.stepResults) {
+        if (!step || step.ok !== true || !step.result || step.result.ok !== true) continue;
+        const actionType = String(step.actionType || "").toUpperCase();
+        let op = "update";
+        if (actionType === "CREATE_ENTITY") op = "create";
+        else if (actionType === "DELETE_ENTITY") op = "delete";
+        emitOnce({
+          entityType: step.result.entityType,
+          entityId: step.result.entityId,
+          operation: step.result.operation || op,
+        });
+      }
+    }
+  }
 }
 
 function toTitleCase(value: string) {
@@ -256,7 +329,7 @@ function extractMutationStatusFromProposal(
         : state.status === "confirmed"
           ? "success"
           : "error",
-    label: summaryTitle,
+    label: state.status === "failed" ? (state.error || summaryTitle) : summaryTitle,
     entityType,
     entityId,
     operation,
@@ -293,7 +366,7 @@ export function ProposalArtifact({ data, onConfirm, onCancel }: ProposalArtifact
   const [proposalStates, setProposalStates] = useState<Record<string, ProposalState>>(() => {
     const initial: Record<string, ProposalState> = {};
     data.proposals.forEach((proposal) => {
-      initial[proposal.proposalId] = { status: "pending" };
+      initial[proposal.proposalId] = restoreProposalState(proposal);
     });
     return initial;
   });

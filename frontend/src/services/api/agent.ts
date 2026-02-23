@@ -433,6 +433,12 @@ export interface ActionProposal {
   reversible?: boolean;
   humanReadableSummary?: string;
   affectedEntities?: Array<{ type: string; id: number; reference?: string }>;
+  // Frontend-only persisted UI state (stored in chat session history)
+  uiState?: {
+    status: "pending" | "confirmed" | "cancelled" | "failed";
+    error?: string;
+    executionResult?: ExecutionResult;
+  };
 }
 
 // Chat output

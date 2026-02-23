@@ -266,3 +266,90 @@ test("confirmProposal treats single /agent/chat confirm as risk acknowledgement 
     }
   }
 });
+
+test("confirmProposal returns domain-blocker safe message when execution is rejected by domain constraints", async () => {
+  const engine = makeEngineStub();
+  const proposal = createActionProposal({
+    proposalId: `v3-UPDATE_ENTITY-${Date.now()}-domain-block`,
+    actionType: "UPDATE_ENTITY",
+    toolCategory: "execute",
+    params: {
+      entityType: "client",
+      entityId: 1,
+      changes: { status: "inActive" },
+    },
+    reversible: true,
+    requiresConfirmation: true,
+    humanReadableSummary: "Update client #1 status inactive",
+    affectedEntities: [{ type: "client", id: 1 }],
+    status: ACTION_STATUS.PROPOSED,
+    version: "v3",
+    posture: "WORK",
+    snapshot: {
+      scope: "client",
+      scopeId: 1,
+      hash: "sha256:null",
+      timestamp: new Date().toISOString(),
+    },
+    sessionId: "sess-domain-block",
+  });
+
+  storeProposal.call(engine, proposal, {
+    proposalKind: "entity_mutation",
+    origin: "strong_mutation_intent",
+    strongMutationIntent: true,
+    sourceRoute: "/agent/chat",
+  });
+
+  const modulePath = require.resolve("./universalOperations");
+  const previousExports = require.cache[modulePath]?.exports;
+  const domainErr = new Error("1 open dossier is still linked to this client.");
+  domainErr.code = "DOMAIN_RULE_BLOCKED";
+  domainErr.domainRule = {
+    primaryBlocker: { userFacingFactText: "1 open dossier is still linked to this client." },
+  };
+  require.cache[modulePath] = {
+    id: modulePath,
+    filename: modulePath,
+    loaded: true,
+    exports: {
+      executeCreateEntity: async () => {
+        throw new Error("not used");
+      },
+      executeUpdateEntity: async () => {
+        throw domainErr;
+      },
+      executeMutationWorkflow: async () => {
+        throw new Error("not used");
+      },
+      executeDeleteEntity: async () => {
+        throw new Error("not used");
+      },
+      executeLinkEntities: async () => {
+        throw new Error("not used");
+      },
+      executeAttachToEntity: async () => {
+        throw new Error("not used");
+      },
+    },
+  };
+
+  try {
+    const result = await confirmProposal.call(engine, {
+      proposalId: proposal.proposalId,
+      sessionId: "sess-domain-block",
+      userId: 7,
+    });
+
+    assert.equal(result.type, "execution_result");
+    assert.equal(result.status, "failed");
+    assert.equal(result.error.code, "DOMAIN_RULE_BLOCKED");
+    assert.match(String(result.error.safeMessage || ""), /open dossier/i);
+  } finally {
+    if (previousExports) {
+      require.cache[modulePath].exports = previousExports;
+    } else {
+      delete require.cache[modulePath];
+    }
+  }
+});

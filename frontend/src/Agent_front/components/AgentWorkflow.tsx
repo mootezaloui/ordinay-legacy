@@ -1457,9 +1457,66 @@ function ArtifactBody({
         data={message.data.proposal}
         onConfirm={async (proposalId, options) => {
           const sessionId = message.data!.proposal!.sessionId;
-          return confirmProposal(proposalId, sessionId, options);
+          const execResult = await confirmProposal(proposalId, sessionId, options);
+          if (activeSessionId && activeSessionMessages && updateSessionMessages) {
+            const safeMsg =
+              execResult.error?.safeMessage ||
+              execResult.error?.message ||
+              "Execution failed";
+            const nextMessages = activeSessionMessages.map((msg) => {
+              if (msg.id !== message.id) return msg;
+              if (msg.data?.type !== "proposal" || !msg.data?.proposal) return msg;
+              return {
+                ...msg,
+                data: {
+                  ...msg.data,
+                  proposal: {
+                    ...msg.data.proposal,
+                    proposals: (msg.data.proposal.proposals || []).map((p) =>
+                      p.proposalId !== proposalId
+                        ? p
+                        : {
+                            ...p,
+                            uiState:
+                              execResult.status === "success"
+                                ? { status: "confirmed", executionResult: execResult }
+                                : {
+                                    status: "failed",
+                                    error: safeMsg,
+                                    executionResult: execResult,
+                                  },
+                          },
+                    ),
+                  },
+                },
+              };
+            });
+            updateSessionMessages(activeSessionId, nextMessages);
+          }
+          return execResult;
         }}
-        onCancel={() => {
+        onCancel={(proposalId) => {
+          if (activeSessionId && activeSessionMessages && updateSessionMessages) {
+            const nextMessages = activeSessionMessages.map((msg) => {
+              if (msg.id !== message.id) return msg;
+              if (msg.data?.type !== "proposal" || !msg.data?.proposal) return msg;
+              return {
+                ...msg,
+                data: {
+                  ...msg.data,
+                  proposal: {
+                    ...msg.data.proposal,
+                    proposals: (msg.data.proposal.proposals || []).map((p) =>
+                      p.proposalId !== proposalId
+                        ? p
+                        : { ...p, uiState: { status: "cancelled" } },
+                    ),
+                  },
+                },
+              };
+            });
+            updateSessionMessages(activeSessionId, nextMessages);
+          }
           // Cancel is UI-only — proposal expires server-side after 5 minutes
         }}
       />
