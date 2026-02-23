@@ -27,6 +27,7 @@ const inputSchema = {
         id: { type: "integer", minimum: 1 },
       },
     },
+    rootLabel: { type: "string", minLength: 1 },
     requestedGoal: {
       type: "object",
       additionalProperties: true,
@@ -80,4 +81,3 @@ module.exports = {
   confirmationRequired: false,
   handler,
 };
-

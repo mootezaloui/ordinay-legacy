@@ -36,10 +36,12 @@ function assertDomainMutationAllowed({
   throw _domainRuleError(msg, {
     evaluation,
     primaryBlocker: primary,
+    entityType: entityType || null,
+    entityId: entityId == null ? null : Number(entityId),
+    existing: existing && typeof existing === "object" ? { ...existing } : null,
   });
 }
 
 module.exports = {
   assertDomainMutationAllowed,
 };
-

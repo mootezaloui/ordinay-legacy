@@ -222,7 +222,7 @@ test("e2e /agent/chat -> proposal -> /agent/confirm executes low-risk session up
   }
 });
 
-test("e2e /agent/chat high-risk proposal requires ackRisk on /agent/confirm", async () => {
+test("e2e /agent/chat high-risk proposal confirms with single click on chat-origin proposals", async () => {
   const dbPath = tmpDbPath("chat-stage3-e2e-risk");
   const { router, db, restore } = await bootstrapRouterWithTempDb({
     dbPath,
@@ -257,21 +257,7 @@ test("e2e /agent/chat high-risk proposal requires ackRisk on /agent/confirm", as
     });
     assert.equal(confirmWithoutAck.status, 200);
     const noAckJson = await confirmWithoutAck.json();
-    assert.equal(noAckJson.data?.status, "failed");
-    assert.equal(noAckJson.data?.error?.code, "RISK_ACK_REQUIRED");
-
-    const confirmWithAck = await fetch(`${baseUrl}/agent/confirm`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        proposalId,
-        sessionId: "e2e-chat-risk",
-        ackRisk: true,
-      }),
-    });
-    assert.equal(confirmWithAck.status, 200);
-    const ackJson = await confirmWithAck.json();
-    assert.equal(ackJson.data?.status, "success");
+    assert.equal(noAckJson.data?.status, "success");
 
     const taskRow = db.prepare(`SELECT status FROM tasks WHERE id = 123`).get();
     assert.equal(taskRow.status, "cancelled");
@@ -421,6 +407,11 @@ test("e2e /agent/chat adaptive workflow proposal for client inactive includes fa
     const proposal = resultFrame.data?.output?.proposals?.[0];
     assert.ok(proposal, "expected proposal");
     assert.equal(proposal.actionType, "EXECUTE_MUTATION_WORKFLOW");
+    assert.equal(/client #1/i.test(text), false);
+    assert.equal(/client #1/i.test(String(proposal.humanReadableSummary || "")), false);
+    assert.equal(/client_inactivation_cleanup/i.test(String(proposal.humanReadableSummary || "")), false);
+    assert.equal(Array.isArray(proposal.affectedEntities), true);
+    assert.equal(proposal.affectedEntities.length, 1);
   } finally {
     await new Promise((resolve) => server.close(resolve));
     restore();

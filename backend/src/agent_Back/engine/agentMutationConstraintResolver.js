@@ -1,6 +1,9 @@
 "use strict";
 
 const { evaluateMutationConstraints } = require("./agentDomainConstraintEvaluator");
+const clientsService = require("../../services/clients.service");
+const dossiersService = require("../../services/dossiers.service");
+const lawsuitsService = require("../../services/lawsuits.service");
 
 function _normalizeToken(value) {
   return String(value || "")
@@ -22,14 +25,38 @@ function _isClientInactiveMutation({ entityType, operation, payload }) {
 }
 
 function _toDisplayName(entityType, existing, entityId) {
+  const numericId = Number(entityId);
+  const safeLookup = (service, pick) => {
+    try {
+      if (!service || typeof service.get !== "function" || !Number.isInteger(numericId) || numericId <= 0) {
+        return null;
+      }
+      const row = service.get(numericId);
+      return row ? pick(row) : null;
+    } catch (_) {
+      return null;
+    }
+  };
   if (entityType === "client") {
-    return existing?.name || `Client #${entityId}`;
+    return (
+      existing?.name ||
+      safeLookup(clientsService, (row) => row.name || row.reference || null) ||
+      `Client #${entityId}`
+    );
   }
   if (entityType === "dossier") {
-    return existing?.title || `Dossier #${entityId}`;
+    return (
+      existing?.title ||
+      safeLookup(dossiersService, (row) => row.title || row.reference || null) ||
+      `Dossier #${entityId}`
+    );
   }
   if (entityType === "lawsuit") {
-    return existing?.title || `Lawsuit #${entityId}`;
+    return (
+      existing?.title ||
+      safeLookup(lawsuitsService, (row) => row.title || row.lawsuit_number || row.reference || null) ||
+      `Lawsuit #${entityId}`
+    );
   }
   return `${entityType} #${entityId}`;
 }
@@ -130,6 +157,7 @@ function _buildLawsuitClosureWorkflow({ entityId, existing, evaluation, executio
     workflowProposalInput: {
       workflowType: "lawsuit_closure_cleanup",
       rootEntity: { type: "lawsuit", id: Number(entityId) },
+      rootLabel: rootName,
       requestedGoal: { entityType: "lawsuit", operation: "update", changes: { status: "closed" } },
       facts: counts,
       steps: _dedupeSteps(steps),
@@ -182,6 +210,7 @@ function _buildDossierClosureWorkflow({ entityId, existing, evaluation, executio
     workflowProposalInput: {
       workflowType: "dossier_closure_cleanup",
       rootEntity: { type: "dossier", id: Number(entityId) },
+      rootLabel: rootName,
       requestedGoal: { entityType: "dossier", operation: "update", changes: { status: "closed" } },
       facts: counts,
       steps: _dedupeSteps(steps),
@@ -259,6 +288,7 @@ function _buildClosedParentChildUpdateWorkflow({
     workflowProposalInput: {
       workflowType: "closed_parent_child_update",
       rootEntity: { type: entityType, id: Number(entityId) },
+      rootLabel: rootName,
       requestedGoal: { entityType, operation: "update", changes: payload },
       facts: {
         parentDossierClosed: Boolean(parentDossierBlocker),
@@ -365,6 +395,7 @@ function _buildClientInactiveWorkflow({
     workflowProposalInput: {
       workflowType: "client_inactivation_cleanup",
       rootEntity: { type: "client", id: Number(entityId) },
+      rootLabel: rootName,
       requestedGoal: {
         entityType: "client",
         operation: "update",

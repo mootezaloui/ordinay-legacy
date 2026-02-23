@@ -101,13 +101,19 @@ function _validateWorkflowSteps(steps = []) {
   }
 }
 
-function _buildHumanSummary({ rootEntity, workflowType, canReachRequestedGoal, reasoningSummary }) {
+function _buildHumanSummary({ rootEntity, rootLabel, workflowType, canReachRequestedGoal }) {
   const rootType = String(rootEntity?.type || "entity").replace(/_/g, " ");
-  const rootId = rootEntity?.id ?? "?";
-  const suffix = canReachRequestedGoal
-    ? "cleanup and requested update"
-    : "cleanup workflow (requested final update may remain blocked)";
-  return `Execute ${workflowType} for ${rootType} #${rootId}: ${suffix} (reason: ${reasoningSummary})`;
+  const target =
+    String(rootLabel || "").trim() ||
+    `${rootType.charAt(0).toUpperCase()}${rootType.slice(1)} #${rootEntity?.id ?? "?"}`;
+  if (String(workflowType || "") === "client_inactivation_cleanup") {
+    return canReachRequestedGoal
+      ? `Update ${target} after cleaning related records`
+      : `Clean related records for ${target} (final status may remain blocked)`;
+  }
+  return canReachRequestedGoal
+    ? `Apply related updates for ${target}`
+    : `Apply related cleanup for ${target} (final change may remain blocked)`;
 }
 
 function buildWorkflowProposal(input = {}, executionContext = {}) {
@@ -124,6 +130,7 @@ function buildWorkflowProposal(input = {}, executionContext = {}) {
       ? input.blockedTerminalStep
       : null;
   const reasoningSummary = _sanitizeReasoningSummary(input.reasoningSummary);
+  const rootLabel = String(input.rootLabel || "").trim() || null;
 
   if (!workflowType) {
     const err = new Error("workflowType is required");
@@ -159,15 +166,8 @@ function buildWorkflowProposal(input = {}, executionContext = {}) {
   };
 
   const proposalId = generateProposalId("EXECUTE_MUTATION_WORKFLOW", "v3");
+  // Keep chat proposal cards focused: expose only the root entity at proposal level.
   const affectedEntities = [{ type: rootType, id: rootId, operation: "workflow" }];
-  for (const step of steps) {
-    const params = step.params || {};
-    affectedEntities.push({
-      type: params.entityType,
-      id: params.entityId,
-      operation: "update",
-    });
-  }
 
   return createActionProposal({
     proposalId,
@@ -177,20 +177,22 @@ function buildWorkflowProposal(input = {}, executionContext = {}) {
       workflow: {
         workflowType,
         rootEntity: { type: rootType, id: rootId },
+        rootLabel,
         requestedGoal,
         facts,
         steps,
         canReachRequestedGoal,
         blockedTerminalStep,
+        reasoningSummary,
       },
     },
     reversible: false,
     requiresConfirmation: true,
     humanReadableSummary: _buildHumanSummary({
       rootEntity: { type: rootType, id: rootId },
+      rootLabel,
       workflowType,
       canReachRequestedGoal,
-      reasoningSummary,
     }),
     affectedEntities,
     status: ACTION_STATUS.PROPOSED,
@@ -204,4 +206,3 @@ function buildWorkflowProposal(input = {}, executionContext = {}) {
 module.exports = {
   buildWorkflowProposal,
 };
-

@@ -1145,6 +1145,25 @@ class ChatAgentService {
 
     const toolArgs = detectorResult?.proposalInput || {};
     const executionMode = this._resolveChatMutationExecutionMode({ requestContext, detectorResult });
+    const blockedExisting =
+      error?.domainRule?.existing && typeof error.domainRule.existing === "object"
+        ? { ...error.domainRule.existing }
+        : null;
+    const resolvedEntity = requestContext?.resolvedEntity || executionContext?.resolvedEntity || null;
+    const resolvedEntityMatchesTarget =
+      resolvedEntity &&
+      String(resolvedEntity.type || "").toLowerCase() === String(toolArgs.entityType || "").toLowerCase() &&
+      Number(resolvedEntity.id) > 0 &&
+      Number(resolvedEntity.id) === Number(toolArgs.entityId);
+    const resolverExisting =
+      blockedExisting ||
+      (resolvedEntityMatchesTarget
+        ? {
+            ...(String(toolArgs.entityType || "").toLowerCase() === "client"
+              ? { name: resolvedEntity.label || null }
+              : { title: resolvedEntity.label || null }),
+          }
+        : null);
     const resolverResult = resolveAdaptiveMutationRemediation({
       requestedMutation: {
         entityType: toolArgs.entityType,
@@ -1153,7 +1172,7 @@ class ChatAgentService {
         payload: toolArgs.payload || {},
       },
       executionMode,
-      existing: null,
+      existing: resolverExisting,
       allowFinancialAutoCleanup: false,
       mode: "proposal_preflight",
       evaluation: error?.domainRule?.evaluation || null,

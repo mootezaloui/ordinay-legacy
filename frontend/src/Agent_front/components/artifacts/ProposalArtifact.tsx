@@ -241,6 +241,35 @@ function proposalSummary(proposal: ActionProposal, context: DataContextLike) {
     };
   }
 
+  if (actionType === "EXECUTE_MUTATION_WORKFLOW") {
+    const workflow = params.workflow || {};
+    const root = workflow.rootEntity || {};
+    const rootType = String(root.type || params.entityType || "").toLowerCase();
+    const rootId = Number(root.id || params.entityId);
+    const targetLabel =
+      workflow.rootLabel ||
+      resolveEntityLabel(rootType, rootId, context) ||
+      labelForEntityType(rootType || "record");
+    const workflowType = String(workflow.workflowType || "").toLowerCase();
+    const canReachRequestedGoal = workflow.canReachRequestedGoal !== false;
+
+    let title = `Update ${targetLabel} and related records`;
+    if (workflowType === "client_inactivation_cleanup") {
+      title = canReachRequestedGoal
+        ? `Mark ${targetLabel} as inactive (with related cleanup)`
+        : `Clean related records for ${targetLabel} before inactivation`;
+    } else if (workflowType.includes("closure")) {
+      title = `Close ${targetLabel} with related cleanup`;
+    } else if (workflowType === "closed_parent_child_update") {
+      title = `Apply requested update to ${targetLabel}`;
+    }
+
+    return {
+      title,
+      kind: "Workflow",
+    };
+  }
+
   if (actionType === "DELETE_ENTITY") {
     const targetLabel =
       params.entityLabel ||
