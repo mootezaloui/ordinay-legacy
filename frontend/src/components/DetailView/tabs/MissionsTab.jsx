@@ -116,14 +116,19 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
     }
 
     // Process getOptions functions for dynamic dropdowns
-    return fields.map((field) => {
+    return fields.map((field, index) => {
+      const normalizedField = {
+        ...field,
+        // Ensure stable unique key/name for downstream mapped rendering in FormModal
+        name: field?.name || `mission-field-${index}`,
+      };
       if (field.getOptions && typeof field.getOptions === "function") {
         return {
-          ...field,
+          ...normalizedField,
           options: field.getOptions(formData),
         };
       }
-      return field;
+      return normalizedField;
     });
   }, [tabConfig.formFields, tabConfig.getFormFields, formData, data]);
 
@@ -140,7 +145,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
       if (!result.allowed) {
         setValidationResult(result);
         setBlockerModalOpen(true);
-        return;
+        throw new Error("Mission creation blocked by domain rules");
       }
 
       // Check if confirmation is required for relational changes (e.g., officer reassignment)
@@ -148,28 +153,54 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
         setValidationResult(result);
         setPendingFormData(submittedFormData);
         setConfirmImpactModalOpen(true);
-        return;
+        throw new Error("Mission change requires confirmation");
       }
     } else {
+      // In officer context, parent dossier/lawsuit IDs are derived from entityReference
+      // later in performMissionSave(). Validate against the effective payload now so
+      // closed/inactive parent blockers are shown before calling DataContext.addMission().
+      const validationPayload = (() => {
+        const { entityType, entityReference, ...rest } = submittedFormData || {};
+        const rel = {};
+
+        if (config?.entityType === "dossier") {
+          rel.dossierId = data.id;
+        } else if (config?.entityType === "lawsuit") {
+          rel.lawsuitId = data.id;
+        } else if (config?.entityType === "officer" && entityType && entityReference) {
+          if (entityType === "dossier") {
+            const dossier = contextData?.dossiers?.find((d) => d.lawsuitNumber === entityReference);
+            if (dossier) rel.dossierId = dossier.id;
+          } else if (entityType === "lawsuit") {
+            const lawsuit = contextData?.lawsuits?.find((c) => c.lawsuitNumber === entityReference);
+            if (lawsuit) rel.lawsuitId = lawsuit.id;
+          }
+        }
+
+        const payload = { ...rest, ...rel };
+        if (!payload.entityType) payload.entityType = entityType || config?.entityType;
+        return payload;
+      })();
+
       const result = canPerformAction('mission', null, 'add', {
-        newData: submittedFormData,
+        newData: validationPayload,
         entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions: allMissions, financialEntries }
       });
       if (!result.allowed) {
         setValidationResult(result);
         setBlockerModalOpen(true);
-        return;
+        throw new Error("Mission creation blocked by domain rules");
       }
       if (result.requiresConfirmation) {
         setValidationResult(result);
         setPendingFormData(submittedFormData);
         setConfirmImpactModalOpen(true);
-        return;
+        throw new Error("Mission creation requires confirmation");
       }
     }
 
     // Proceed with save
-    await performMissionSave(submittedFormData);
+    return await performMissionSave(submittedFormData);
   };
 
   const performMissionSave = async (submittedFormData) => {
@@ -243,7 +274,29 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
 
         // ✅ Call backend API to create mission
         const creation = await addMission(missionData);
+        if (!creation?.ok) {
+          if (creation?.result) {
+            if (creation.result.allowed === false) {
+              setValidationResult(creation.result);
+              setBlockerModalOpen(true);
+              throw new Error("Mission creation blocked by domain rules");
+            } else if (creation.result.message) {
+              showToast(creation.result.message, "error");
+              throw new Error(creation.result.message);
+            } else {
+              showToast(t("detail.missions.toast.error.add", { defaultValue: "Failed to create mission" }), "error");
+              throw new Error("Failed to create mission");
+            }
+          } else {
+            showToast(t("detail.missions.toast.error.add", { defaultValue: "Failed to create mission" }), "error");
+            throw new Error("Failed to create mission");
+          }
+        }
         const createdMission = creation?.created || creation;
+        if (!createdMission?.id) {
+          showToast(t("detail.missions.toast.error.add", { defaultValue: "Failed to create mission" }), "error");
+          throw new Error("Mission creation returned no created mission");
+        }
 
         // ✅ Create financial entries if they exist
         if (financialEntries && Array.isArray(financialEntries) && financialEntries.length > 0) {
@@ -405,14 +458,20 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
         if (detailRoute) {
           setTimeout(() => navigate(detailRoute), 100);
         }
+        return createdMission;
 
       }
 
       setIsAddModalOpen(false);
       setFormData({});
+      return true;
     } catch (error) {
       console.error("Error adding mission:", error);
-      showToast(t("detail.missions.toast.error.add"), "error");
+      // Error toasts are already shown for validation/API create failures above.
+      if (!/Mission creation blocked by domain rules/.test(String(error?.message || ""))) {
+        showToast(t("detail.missions.toast.error.add"), "error");
+      }
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -874,6 +933,61 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
             entities={contextData}
           />
         )}
+
+        {/* Relational-Impact Confirmation Modal (must be in both return paths) */}
+        <ConfirmImpactModal
+          isOpen={confirmImpactModalOpen}
+          onClose={() => {
+            setConfirmImpactModalOpen(false);
+            setPendingFormData(null);
+          }}
+          onConfirm={async () => {
+            setConfirmImpactModalOpen(false);
+            if (pendingFormData?.deleteId) {
+              const missionId = pendingFormData.deleteId;
+              try {
+                await deleteMission(missionId);
+                const updatedMissions = missions.filter((m) => m.id !== missionId);
+                setMissions(updatedMissions);
+                if (onItemsChange) {
+                  onItemsChange(tabConfig.itemsKey, updatedMissions);
+                }
+                showToast(t("detail.missions.toast.success.delete"), "success");
+              } catch (error) {
+                console.error("❌ Error cascade deleting mission:", error);
+                showToast(t("detail.missions.toast.error.delete", { defaultValue: "Failed to delete mission" }), "error");
+              }
+            } else {
+              await performMissionSave(pendingFormData);
+            }
+            setPendingFormData(null);
+          }}
+          actionName="modify mission attachments"
+          impactSummary={validationResult?.impactSummary || []}
+          entityName={missions.find(m => m.id === editingMissionId)?.missionNumber || ""}
+        />
+        <BlockerModal
+          isOpen={blockerModalOpen}
+          onClose={() => setBlockerModalOpen(false)}
+          actionName="Action mission"
+          blockers={validationResult?.blockers || []}
+          warnings={validationResult?.warnings || []}
+          entityType="mission"
+          action={editingMissionId ? "edit" : "add"}
+          context={{
+            entities: {
+              clients,
+              dossiers,
+              lawsuits,
+              tasks,
+              sessions,
+              officers,
+              missions: allMissions,
+              financialEntries,
+            },
+          }}
+          entityName={validationResult?.entityData?.missionNumber || validationResult?.entityData?.title || ""}
+        />
       </>
     );
   }
@@ -1233,6 +1347,20 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
         actionName="Action mission"
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
+        entityType="mission"
+        action={editingMissionId ? "edit" : "add"}
+        context={{
+          entities: {
+            clients,
+            dossiers,
+            lawsuits,
+            tasks,
+            sessions,
+            officers,
+            missions: allMissions,
+            financialEntries,
+          },
+        }}
         entityName={validationResult?.entityData?.missionNumber || validationResult?.entityData?.title || ""}
       />
     </>

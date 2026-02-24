@@ -7,6 +7,7 @@ import { useTutorialSafe } from "../../../contexts/TutorialContext";
 import { getStatusColor } from "../config/statusColors";
 import ContentSection from "../../layout/ContentSection";
 import FormModal from "../../FormModal/FormModal";
+import BlockerModal from "../../ui/BlockerModal";
 import { logEntityCreation, logHistoryEvent, EVENT_TYPES } from "../../../services/historyService";
 import { useSettings } from "../../../contexts/SettingsContext";
 import { useTranslation } from "react-i18next";
@@ -66,6 +67,8 @@ export default function AggregatedRelatedTab({
   const [localItems, setLocalItems] = useState(items);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [blockerModalOpen, setBlockerModalOpen] = useState(false);
+  const [validationResult, setValidationResult] = useState(null);
 
   // Prefill context so FormModal (and notifications) know parent relationships even if fields are hidden
   const prefillContext = (() => {
@@ -335,8 +338,13 @@ export default function AggregatedRelatedTab({
             const creation = await addSession({ ...normalizedFormData, ...relationshipFields });
             if (!creation.ok) {
               console.error("Session creation failed:", creation.result);
-              const message = creation.result?.message || t("detail.related.errors.createSession");
-              showToast(message, "error");
+              if (creation.result?.allowed === false) {
+                setValidationResult(creation.result);
+                setBlockerModalOpen(true);
+              } else {
+                const message = creation.result?.message || t("detail.related.errors.createSession");
+                showToast(message, "error");
+              }
               return;
             }
             const created = creation.created || creation;
@@ -350,8 +358,13 @@ export default function AggregatedRelatedTab({
             const creation = await addTask({ ...normalizedFormData, ...relationshipFields });
             if (!creation.ok) {
               console.error("Task creation failed:", creation.result);
-              const message = creation.result?.message || t("detail.related.errors.createTask");
-              showToast(message, "error");
+              if (creation.result?.allowed === false) {
+                setValidationResult(creation.result);
+                setBlockerModalOpen(true);
+              } else {
+                const message = creation.result?.message || t("detail.related.errors.createTask");
+                showToast(message, "error");
+              }
               return;
             }
             const created = creation.created || creation;
@@ -365,7 +378,23 @@ export default function AggregatedRelatedTab({
             const creation = await addMission({ ...normalizedFormData, ...relationshipFields });
             if (!creation.ok) {
               console.error("Mission creation failed:", creation.result);
-              showToast(t("detail.related.toast.error.createMission"), "error");
+              if (creation.result?.allowed === false) {
+                setValidationResult(creation.result);
+                setBlockerModalOpen(true);
+              } else {
+                const blockerMessage =
+                  Array.isArray(creation.result?.blockers)
+                    ? creation.result.blockers
+                        .map((b) => (typeof b === "string" ? b : b?.reason || ""))
+                        .filter(Boolean)
+                        .join(" | ")
+                    : null;
+                const message =
+                  blockerMessage ||
+                  creation.result?.message ||
+                  t("detail.related.toast.error.createMission");
+                showToast(message, "error");
+              }
               return;
             }
             const created = creation.created || creation;
@@ -811,6 +840,18 @@ export default function AggregatedRelatedTab({
           entities={contextData}
         />
       )}
+
+      <BlockerModal
+        isOpen={blockerModalOpen}
+        onClose={() => {
+          setBlockerModalOpen(false);
+          setValidationResult(null);
+        }}
+        blockers={validationResult?.blockers || []}
+        warnings={validationResult?.warnings || []}
+        entityName={tabConfig.entityName || t("detail.related.fallback.entity")}
+        impactSummary={validationResult?.impactSummary || []}
+      />
     </>
   );
 }

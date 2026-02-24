@@ -53,7 +53,7 @@ export default function BlockerModal({
 }) {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { updateTask, updateSession, updateFinancialEntry, updateLawsuit, updateDossier } = useData();
+  const { updateTask, updateSession, updateFinancialEntry, updateLawsuit, updateDossier, updateMission } = useData();
   const [enrichedBlockers, setEnrichedBlockers] = useState([]);
   const [resolvedBlockers, setResolvedBlockers] = useState(new Set());
   const [isResolving, setIsResolving] = useState(false);
@@ -99,11 +99,12 @@ export default function BlockerModal({
           const enriched = enrichBlockers(blockers, entityType, entityId, action, context);
           setEnrichedBlockers(enriched);
         } else {
-          // Convert plain strings to basic blocker objects
+          // Convert plain strings to basic blocker objects.
+          // Do not add empty `actions` here; the resolved-state heuristic uses
+          // missing `items`/`actions` metadata to distinguish generic blockers.
           const plainBlockers = blockers.map(b => ({
             type: 'other',
-            reason: b,
-            actions: []
+            reason: b
           }));
           setEnrichedBlockers(plainBlockers);
         }
@@ -183,6 +184,15 @@ export default function BlockerModal({
             } catch (error) {
               console.error('Error updating session:', error);
               showToast(t("detail.blocker.toast.error.hearingComplete"), 'error');
+            }
+          } else if (targetEntityType === 'mission') {
+            try {
+              await updateMission(targetEntityId, { status: 'completed' }, true);
+              success = true;
+              message = t("detail.blocker.toast.success.missionComplete", { defaultValue: "Mission marked as completed" });
+            } catch (error) {
+              console.error('Error updating mission:', error);
+              showToast(t("detail.blocker.toast.error.missionComplete", { defaultValue: "Failed to complete mission" }), 'error');
             }
           }
           break;
@@ -299,9 +309,17 @@ export default function BlockerModal({
   const hasWarnings = warnings && warnings.length > 0;
   const hasEnrichedBlockers = enrichedBlockers && enrichedBlockers.length > 0;
 
-  const isBlockerResolved = (blocker, idx) =>
-    resolvedBlockers.has(idx) ||
-    ((blocker.items?.length || 0) === 0 && (!blocker.actions || blocker.actions.length === 0));
+  const isBlockerResolved = (blocker, idx) => {
+    if (resolvedBlockers.has(idx)) return true;
+
+    // Only auto-resolve enriched blockers that explicitly track `items`.
+    // Plain string blockers converted to generic objects should remain visible.
+    if (Array.isArray(blocker.items)) {
+      return blocker.items.length === 0 && (!blocker.actions || blocker.actions.length === 0);
+    }
+
+    return false;
+  };
 
   const activeBlockers = enrichedBlockers.filter(
     (blocker, idx) => !isBlockerResolved(blocker, idx)

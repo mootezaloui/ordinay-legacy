@@ -113,7 +113,10 @@ function parseBlocker(blocker, entityType, entityId, action, data) {
   }
 
   // Pattern 4: Active missions
-  if (blocker.includes("mission") && blocker.includes("in progress")) {
+  if (
+    (blocker.includes("mission") && blocker.includes("in progress")) ||
+    blocker.includes("active bailiff mission")
+  ) {
     return parseMissionBlocker(blocker, entityType, entityId, data);
   }
 
@@ -436,19 +439,18 @@ function parseMissionBlocker(blocker, entityType, entityId, data) {
       {
         label: t("detail.blocker.enrichment.actions.viewMission"),
         type: "navigate",
-        route: `/officers/${mission.officerId}`,
-        tab: "missions",
+        route: "/missions",
         entityId: mission.id,
         icon: "fas fa-external-link-alt",
       },
       {
         label: t("detail.blocker.enrichment.actions.completeMission"),
-        type: "navigate",
-        route: `/officers/${mission.officerId}`,
-        tab: "missions",
+        type: "inline-action",
+        action: "complete",
+        entityType: "mission",
         entityId: mission.id,
         icon: "fas fa-check",
-        description: t("detail.blocker.enrichment.actions.markComplete"),
+        safe: true,
       },
     ],
   }));
@@ -1281,7 +1283,7 @@ export function getEntityRoute(entityType) {
     session: "/sessions",
     client: "/clients",
     officer: "/officers",
-    mission: "/officers", // missions are under officers
+    mission: "/missions",
     financialEntry: "/accounting",
   };
 

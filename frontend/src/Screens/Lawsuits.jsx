@@ -348,6 +348,19 @@ export default function Lawsuits() {
   };
 
   const handleStatusChange = (id, newStatus) => {
+    const lawsuitItem = lawsuits.find((c) => c.id === id);
+    const result = canPerformAction("lawsuit", id, "edit", {
+      data: lawsuitItem,
+      newData: { ...lawsuitItem, status: newStatus },
+      entities: { clients, dossiers, lawsuits, sessions, tasks, missions, officers, financialEntries },
+    });
+
+    if (!result.allowed) {
+      setValidationResult(result);
+      setBlockerModalOpen(true);
+      return;
+    }
+
     updateLawsuit(id, { status: newStatus });
     showToast(t("toasts.statusUpdated", { status: getStatusLabel(newStatus) }), "info", {
       title: t("toasts.statusTitle"),

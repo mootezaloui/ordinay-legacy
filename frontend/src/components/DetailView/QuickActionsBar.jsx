@@ -163,7 +163,13 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
         // Simulate API delay
         await new Promise(resolve => setTimeout(resolve, 300));
 
-        onChange(newValue);
+        try {
+            await onChange(newValue);
+        } catch {
+            // onChange (handleQuickAction) rejected — blocker or save error already handled upstream
+            setIsSaving(false);
+            return;
+        }
         setIsSaving(false);
         setShowSuccess(true);
 

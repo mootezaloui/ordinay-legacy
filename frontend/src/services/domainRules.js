@@ -71,6 +71,8 @@ const isClosedLike = (value) =>
   ["closed", "archive", "archived", "ferme", "cloture", "clôturé", "completed"].includes(norm(value));
 const isInactiveLike = (value) =>
   ["inactive", "in_active", "inactive client", "former_client", "disabled", "suspended"].includes(norm(value));
+const isTerminalMissionLike = (value) =>
+  ["completed", "cancelled", "closed", "terminee", "terminée"].includes(norm(value));
 
 const findClientById = (id) => mockClients.find((c) => String(c.id) === String(id));
 const findDossierById = (id) =>
@@ -783,6 +785,7 @@ const VALIDATORS = {
     add: validateMissionAdd, // NEW: Prevent creating missions under closed dossiers
     edit: validateMissionEdit,
     delete: validateMissionDelete,
+    changeStatus: validateMissionStatusChange,
   },
   financialEntry: {
     add: validateFinancialEntryAdd,
@@ -1323,13 +1326,24 @@ function validateLawsuitClose(lawsuitId, context = {}) {
 
   // Rule 3: Check for active missions
   const allMissions = getAllMissions();
-  const lawsuitMissions = allMissions.filter(
-    (mission) =>
-      mission.entityType === "lawsuit" &&
-      mission.entityReference === lawsuitData.lawsuitNumber &&
-      mission.status !== "Completed" &&
-      mission.status !== "Cancelled"
-  );
+  const lawsuitMissions = allMissions.filter((mission) => {
+    const missionEntityType = mission.entityType || mission.entity_type;
+    const missionEntityId = mission.entityId ?? mission.entity_id ?? mission.lawsuitId ?? mission.lawsuit_id;
+    const missionLawsuitId = mission.lawsuitId ?? mission.lawsuit_id ?? null;
+    const missionRef = mission.entityReference || mission.entity_reference || null;
+
+    const linkedById =
+      (missionEntityType === "lawsuit" && String(missionEntityId) === String(lawsuitId)) ||
+      (missionLawsuitId != null && String(missionLawsuitId) === String(lawsuitId));
+
+    const linkedByLegacyRef =
+      missionEntityType === "lawsuit" &&
+      missionRef &&
+      lawsuitData?.lawsuitNumber &&
+      String(missionRef) === String(lawsuitData.lawsuitNumber);
+
+    return (linkedById || linkedByLegacyRef) && !isTerminalMissionLike(mission.status);
+  });
 
   if (lawsuitMissions.length > 0) {
     blockers.push(
@@ -2140,12 +2154,13 @@ function validateSessionDelete(sessionId, context = {}) {
 function validateMissionAdd(missionId, context = {}) {
   const blockers = [];
   const warnings = [];
+  const source = context?.formData || context?.newData || context?.data || {};
 
   // Get parent info from context
-  const entityType = context?.formData?.entityType || context?.data?.entityType;
-  const dossierId = context?.formData?.dossierId || context?.data?.dossierId;
-  const lawsuitId = context?.formData?.lawsuitId || context?.data?.lawsuitId;
-  const officerId = context?.formData?.officerId || context?.data?.officerId;
+  const entityType = source.entityType;
+  const dossierId = source.dossierId ?? source.dossier_id;
+  const lawsuitId = source.lawsuitId ?? source.lawsuit_id;
+  const officerId = source.officerId ?? source.officer_id;
 
   pushRelationshipMismatchBlockers(blockers, { dossierId, lawsuitId });
   blockers.splice(0, blockers.length, ...removeNotFoundSelectionBlockers(blockers));
@@ -2169,11 +2184,8 @@ function validateMissionAdd(missionId, context = {}) {
   if (entityType === "dossier" && dossierId) {
     const dossier = mockDossiersExtended[dossierId];
     if (!dossier) {
-      return {
-        allowed: false,
-        blockers: ["Parent Dossier not found"],
-        warnings: [],
-      };
+      warnings.push("Parent Dossier not resolved (check after saving).");
+      return { allowed: blockers.length === 0, blockers, warnings };
     }
 
     if (dossier.status === "Closed") {
@@ -2186,11 +2198,8 @@ function validateMissionAdd(missionId, context = {}) {
   } else if (entityType === "lawsuit" && lawsuitId) {
     const lawsuitData = mockLawsuitsExtended[lawsuitId];
     if (!lawsuitData) {
-      return {
-        allowed: false,
-        blockers: ["Parent lawsuit not found"],
-        warnings: [],
-      };
+      warnings.push("Parent lawsuit not resolved (check after saving).");
+      return { allowed: blockers.length === 0, blockers, warnings };
     }
 
     if (lawsuitData.status === "Closed") {
@@ -2284,6 +2293,14 @@ function validateMissionEdit(missionId, context = {}) {
 
   const allowed = blockers.length === 0;
   return { allowed, blockers, warnings };
+}
+
+/**
+ * Validate changing a Mission's status
+ * Same rules as edit — cannot change status if parent is closed.
+ */
+function validateMissionStatusChange(missionId, context = {}) {
+  return validateMissionEdit(missionId, context);
 }
 
 /**

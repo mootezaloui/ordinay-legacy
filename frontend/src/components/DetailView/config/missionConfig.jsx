@@ -356,8 +356,8 @@ export const createMissionConfig = (t) => ({
 
                         <div className="space-y-3">
                             {data.officerId && (
-                                <a
-                                    href={`/officers/${data.officerId}`}
+                                <Link
+                                    to={`/officers/${data.officerId}`}
                                     className="flex items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-lg border-2 border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 transition-all group"
                                 >
                                     <div className="flex items-center gap-4">
@@ -373,12 +373,12 @@ export const createMissionConfig = (t) => ({
                                         </div>
                                     </div>
                                     <i className="fas fa-arrow-right text-amber-600 dark:text-amber-400 group-hover:translate-x-1 transition-transform"></i>
-                                </a>
+                                </Link>
                             )}
 
                             {data.entityType === 'dossier' && data.entityId && (
-                                <a
-                                    href={`/dossiers/${data.entityId}`}
+                                <Link
+                                    to={`/dossiers/${data.entityId}`}
                                     className="flex items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-lg border-2 border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 transition-all group"
                                 >
                                     <div className="flex items-center gap-4">
@@ -391,12 +391,12 @@ export const createMissionConfig = (t) => ({
                                         </div>
                                     </div>
                                     <i className="fas fa-arrow-right text-blue-600 dark:text-blue-400 group-hover:translate-x-1 transition-transform"></i>
-                                </a>
+                                </Link>
                             )}
 
                             {data.entityType === 'lawsuit' && data.entityId && (
-                                <a
-                                    href={`/lawsuits/${data.entityId}`}
+                                <Link
+                                    to={`/lawsuits/${data.entityId}`}
                                     className="flex items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-lg border-2 border-red-200 dark:border-red-800 hover:border-red-400 dark:hover:border-red-600 transition-all group"
                                 >
                                     <div className="flex items-center gap-4">
@@ -409,7 +409,7 @@ export const createMissionConfig = (t) => ({
                                         </div>
                                     </div>
                                     <i className="fas fa-arrow-right text-red-600 dark:text-red-400 group-hover:translate-x-1 transition-transform"></i>
-                                </a>
+                                </Link>
                             )}
 
                             {!data.officerId && !data.entityId && (

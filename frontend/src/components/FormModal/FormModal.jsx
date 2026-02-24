@@ -226,7 +226,7 @@ export default function FormModal({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     // Step 1: Field validation (required fields, custom validators)
@@ -341,22 +341,27 @@ export default function FormModal({
     }
 
     // Step 3: Proceed with submission
-    handleSuccessfulSubmission(formData);
+    await handleSuccessfulSubmission(formData);
   };
 
   // Handle confirmed relational-impact changes
   const handleConfirmImpact = () => {
     setConfirmImpactModalOpen(false);
-    handleSuccessfulSubmission(pendingFormData);
+    void handleSuccessfulSubmission(pendingFormData);
     setPendingFormData(null);
   };
 
   /**
    * 📧 Handle successful form submission + client notification check
    */
-  const handleSuccessfulSubmission = (submittedFormData) => {
-    // First, call the parent's onSubmit
-    onSubmit(submittedFormData);
+  const handleSuccessfulSubmission = async (submittedFormData) => {
+    // First, call the parent's onSubmit and wait for async validation/save flows.
+    // If it throws (e.g. blocked by domain rules), stop here and keep the modal open.
+    try {
+      await onSubmit(submittedFormData);
+    } catch (error) {
+      return;
+    }
 
     // Then check if client notification should be prompted
     // Only for EDIT mode (entityId exists) or CREATE mode for specific entities
