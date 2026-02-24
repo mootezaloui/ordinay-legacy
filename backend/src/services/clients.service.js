@@ -157,7 +157,303 @@ function remove(id) {
   if (!client) return false;
 
   return withTx(db, () => {
+    const deleteIn = (tableName, column, ids) => {
+      if (!ids || ids.length === 0) return 0;
+      const params = {};
+      const placeholders = ids.map((value, index) => {
+        const key = `id${index}`;
+        params[key] = value;
+        return `@${key}`;
+      });
+      const stmt = db.prepare(
+        `DELETE FROM ${tableName} WHERE ${column} IN (${placeholders.join(", ")})`,
+      );
+      return stmt.run(params).changes;
+    };
+
+    const deleteNotesByEntity = (entityType, ids) => {
+      if (!ids || ids.length === 0) return 0;
+      const params = { entity_type: entityType };
+      const placeholders = ids.map((value, index) => {
+        const key = `id${index}`;
+        params[key] = value;
+        return `@${key}`;
+      });
+      const stmt = db.prepare(
+        `DELETE FROM notes WHERE entity_type = @entity_type AND entity_id IN (${placeholders.join(", ")})`,
+      );
+      return stmt.run(params).changes;
+    };
+
+    const deleteNotificationsByEntity = (entityType, ids) => {
+      if (!ids || ids.length === 0) return 0;
+      const params = { entity_type: entityType };
+      const placeholders = ids.map((value, index) => {
+        const key = `id${index}`;
+        params[key] = value;
+        return `@${key}`;
+      });
+      const stmt = db.prepare(
+        `DELETE FROM notifications WHERE entity_type = @entity_type AND entity_id IN (${placeholders.join(", ")})`,
+      );
+      return stmt.run(params).changes;
+    };
+
+    const dossierIds = db
+      .prepare(`SELECT id FROM dossiers WHERE client_id = ?`)
+      .all(id)
+      .map((row) => row.id);
+
+    const lawsuitIds = dossierIds.length
+      ? db
+          .prepare(
+            `SELECT id FROM lawsuits WHERE dossier_id IN (${dossierIds.map(() => "?").join(", ")})`,
+          )
+          .all(...dossierIds)
+          .map((row) => row.id)
+      : [];
+
+    const missionIds =
+      dossierIds.length || lawsuitIds.length
+        ? db
+            .prepare(
+              `SELECT id FROM missions WHERE ${
+                [
+                  dossierIds.length ? `dossier_id IN (${dossierIds.map(() => "?").join(", ")})` : null,
+                  lawsuitIds.length ? `lawsuit_id IN (${lawsuitIds.map(() => "?").join(", ")})` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" OR ")
+              }`,
+            )
+            .all(...dossierIds, ...lawsuitIds)
+            .map((row) => row.id)
+        : [];
+
+    const taskIds =
+      dossierIds.length || lawsuitIds.length
+        ? db
+            .prepare(
+              `SELECT id FROM tasks WHERE ${
+                [
+                  dossierIds.length ? `dossier_id IN (${dossierIds.map(() => "?").join(", ")})` : null,
+                  lawsuitIds.length ? `lawsuit_id IN (${lawsuitIds.map(() => "?").join(", ")})` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" OR ")
+              }`,
+            )
+            .all(...dossierIds, ...lawsuitIds)
+            .map((row) => row.id)
+        : [];
+
+    const sessionIds =
+      dossierIds.length || lawsuitIds.length
+        ? db
+            .prepare(
+              `SELECT id FROM sessions WHERE ${
+                [
+                  dossierIds.length ? `dossier_id IN (${dossierIds.map(() => "?").join(", ")})` : null,
+                  lawsuitIds.length ? `lawsuit_id IN (${lawsuitIds.map(() => "?").join(", ")})` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" OR ")
+              }`,
+            )
+            .all(...dossierIds, ...lawsuitIds)
+            .map((row) => row.id)
+        : [];
+
+    const financialEntryIds = db
+      .prepare(
+        `SELECT id FROM financial_entries WHERE client_id = ?${
+          dossierIds.length ? ` OR dossier_id IN (${dossierIds.map(() => "?").join(", ")})` : ""
+        }${
+          lawsuitIds.length ? ` OR lawsuit_id IN (${lawsuitIds.map(() => "?").join(", ")})` : ""
+        }${
+          missionIds.length ? ` OR mission_id IN (${missionIds.map(() => "?").join(", ")})` : ""
+        }${
+          taskIds.length ? ` OR task_id IN (${taskIds.map(() => "?").join(", ")})` : ""
+        }`,
+      )
+      .all(id, ...dossierIds, ...lawsuitIds, ...missionIds, ...taskIds)
+      .map((row) => row.id);
+
+    const documentIds = db
+      .prepare(
+        `SELECT id FROM documents WHERE client_id = ?${
+          dossierIds.length ? ` OR dossier_id IN (${dossierIds.map(() => "?").join(", ")})` : ""
+        }${
+          lawsuitIds.length ? ` OR lawsuit_id IN (${lawsuitIds.map(() => "?").join(", ")})` : ""
+        }${
+          missionIds.length ? ` OR mission_id IN (${missionIds.map(() => "?").join(", ")})` : ""
+        }${
+          taskIds.length ? ` OR task_id IN (${taskIds.map(() => "?").join(", ")})` : ""
+        }${
+          sessionIds.length ? ` OR session_id IN (${sessionIds.map(() => "?").join(", ")})` : ""
+        }${
+          financialEntryIds.length
+            ? ` OR financial_entry_id IN (${financialEntryIds.map(() => "?").join(", ")})`
+            : ""
+        }`,
+      )
+      .all(
+        id,
+        ...dossierIds,
+        ...lawsuitIds,
+        ...missionIds,
+        ...taskIds,
+        ...sessionIds,
+        ...financialEntryIds,
+      )
+      .map((row) => row.id);
+
+    // Delete deepest dependencies first
+    deleteIn("documents", "id", documentIds);
+    deleteIn("financial_entries", "id", financialEntryIds);
+
+    // Remove soft references
+    deleteNotificationsByEntity("document", documentIds);
+    deleteNotificationsByEntity("financial_entry", financialEntryIds);
+    deleteNotificationsByEntity("mission", missionIds);
+    deleteNotificationsByEntity("task", taskIds);
+    deleteNotificationsByEntity("session", sessionIds);
+    deleteNotificationsByEntity("lawsuit", lawsuitIds);
+    deleteNotificationsByEntity("dossier", dossierIds);
+    deleteNotificationsByEntity("client", [id]);
+
+    deleteNotesByEntity("document", documentIds);
+    deleteNotesByEntity("financial_entry", financialEntryIds);
+    deleteNotesByEntity("mission", missionIds);
+    deleteNotesByEntity("task", taskIds);
+    deleteNotesByEntity("session", sessionIds);
+    deleteNotesByEntity("lawsuit", lawsuitIds);
+    deleteNotesByEntity("dossier", dossierIds);
     notesService.deleteNotesForEntity("client", id);
+
+    // Delete children
+    deleteIn("missions", "id", missionIds);
+    deleteIn("tasks", "id", taskIds);
+    deleteIn("sessions", "id", sessionIds);
+    deleteIn("lawsuits", "id", lawsuitIds);
+    deleteIn("dossiers", "id", dossierIds);
+
+    // FK safety sweep: remove any remaining descendants still linked to this client
+    // (protects against stale frontend cascade state or partially inconsistent rows)
+    db.prepare(
+      `DELETE FROM documents
+       WHERE client_id = @id
+          OR dossier_id IN (SELECT id FROM dossiers WHERE client_id = @id)
+          OR lawsuit_id IN (
+            SELECT l.id FROM lawsuits l
+            JOIN dossiers d ON d.id = l.dossier_id
+            WHERE d.client_id = @id
+          )
+          OR mission_id IN (
+            SELECT m.id FROM missions m
+            LEFT JOIN dossiers d ON d.id = m.dossier_id
+            LEFT JOIN lawsuits l ON l.id = m.lawsuit_id
+            LEFT JOIN dossiers dl ON dl.id = l.dossier_id
+            WHERE d.client_id = @id OR dl.client_id = @id
+          )
+          OR task_id IN (
+            SELECT t.id FROM tasks t
+            LEFT JOIN dossiers d ON d.id = t.dossier_id
+            LEFT JOIN lawsuits l ON l.id = t.lawsuit_id
+            LEFT JOIN dossiers dl ON dl.id = l.dossier_id
+            WHERE d.client_id = @id OR dl.client_id = @id
+          )
+          OR session_id IN (
+            SELECT s.id FROM sessions s
+            LEFT JOIN dossiers d ON d.id = s.dossier_id
+            LEFT JOIN lawsuits l ON l.id = s.lawsuit_id
+            LEFT JOIN dossiers dl ON dl.id = l.dossier_id
+            WHERE d.client_id = @id OR dl.client_id = @id
+          )
+          OR financial_entry_id IN (
+            SELECT fe.id FROM financial_entries fe
+            LEFT JOIN dossiers d ON d.id = fe.dossier_id
+            LEFT JOIN lawsuits l ON l.id = fe.lawsuit_id
+            LEFT JOIN dossiers dl ON dl.id = l.dossier_id
+            LEFT JOIN missions m ON m.id = fe.mission_id
+            LEFT JOIN dossiers md ON md.id = m.dossier_id
+            LEFT JOIN lawsuits ml ON ml.id = m.lawsuit_id
+            LEFT JOIN dossiers mdl ON mdl.id = ml.dossier_id
+            LEFT JOIN tasks t ON t.id = fe.task_id
+            LEFT JOIN dossiers td ON td.id = t.dossier_id
+            LEFT JOIN lawsuits tl ON tl.id = t.lawsuit_id
+            LEFT JOIN dossiers tdl ON tdl.id = tl.dossier_id
+            WHERE fe.client_id = @id
+               OR d.client_id = @id
+               OR dl.client_id = @id
+               OR md.client_id = @id
+               OR mdl.client_id = @id
+               OR td.client_id = @id
+               OR tdl.client_id = @id
+          )`,
+    ).run({ id });
+
+    db.prepare(
+      `DELETE FROM financial_entries
+       WHERE client_id = @id
+          OR dossier_id IN (SELECT id FROM dossiers WHERE client_id = @id)
+          OR lawsuit_id IN (
+            SELECT l.id FROM lawsuits l
+            JOIN dossiers d ON d.id = l.dossier_id
+            WHERE d.client_id = @id
+          )
+          OR mission_id IN (
+            SELECT m.id FROM missions m
+            LEFT JOIN dossiers d ON d.id = m.dossier_id
+            LEFT JOIN lawsuits l ON l.id = m.lawsuit_id
+            LEFT JOIN dossiers dl ON dl.id = l.dossier_id
+            WHERE d.client_id = @id OR dl.client_id = @id
+          )
+          OR task_id IN (
+            SELECT t.id FROM tasks t
+            LEFT JOIN dossiers d ON d.id = t.dossier_id
+            LEFT JOIN lawsuits l ON l.id = t.lawsuit_id
+            LEFT JOIN dossiers dl ON dl.id = l.dossier_id
+            WHERE d.client_id = @id OR dl.client_id = @id
+          )`,
+    ).run({ id });
+
+    db.prepare(
+      `DELETE FROM missions
+       WHERE dossier_id IN (SELECT id FROM dossiers WHERE client_id = @id)
+          OR lawsuit_id IN (
+            SELECT l.id FROM lawsuits l
+            JOIN dossiers d ON d.id = l.dossier_id
+            WHERE d.client_id = @id
+          )`,
+    ).run({ id });
+
+    db.prepare(
+      `DELETE FROM tasks
+       WHERE dossier_id IN (SELECT id FROM dossiers WHERE client_id = @id)
+          OR lawsuit_id IN (
+            SELECT l.id FROM lawsuits l
+            JOIN dossiers d ON d.id = l.dossier_id
+            WHERE d.client_id = @id
+          )`,
+    ).run({ id });
+
+    db.prepare(
+      `DELETE FROM sessions
+       WHERE dossier_id IN (SELECT id FROM dossiers WHERE client_id = @id)
+          OR lawsuit_id IN (
+            SELECT l.id FROM lawsuits l
+            JOIN dossiers d ON d.id = l.dossier_id
+            WHERE d.client_id = @id
+          )`,
+    ).run({ id });
+
+    db.prepare(
+      `DELETE FROM lawsuits
+       WHERE dossier_id IN (SELECT id FROM dossiers WHERE client_id = @id)`,
+    ).run({ id });
+
+    db.prepare(`DELETE FROM dossiers WHERE client_id = @id`).run({ id });
 
     const stmt = db.prepare(`DELETE FROM ${table} WHERE id = @id`);
     const result = stmt.run({ id });

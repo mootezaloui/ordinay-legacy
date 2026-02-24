@@ -1,5 +1,6 @@
 const service = require('../services/sessions.service');
 const { parseId } = require('./_utils');
+const { enforceDomainMutation } = require("./_domainMutation");
 
 async function list(req, res, next) {
   try {
@@ -24,6 +25,7 @@ async function get(req, res, next) {
 async function create(req, res, next) {
   try {
     console.log('[sessions.controller] Received payload:', JSON.stringify(req.body, null, 2));
+    enforceDomainMutation({ entityType: "session", operation: "create", payload: req.body, service });
     const session = service.create(req.body);
     res.status(201).json(session);
   } catch (error) {
@@ -35,6 +37,7 @@ async function create(req, res, next) {
 async function update(req, res, next) {
   try {
     const id = parseId(req.params.id);
+    enforceDomainMutation({ entityType: "session", operation: "update", entityId: id, payload: req.body, service });
     const session = service.update(id, req.body);
     if (!session) return res.status(404).json({ message: 'Session not found' });
     res.json(session);

@@ -223,6 +223,104 @@ async function testEdgeCases() {
   assert.strictEqual(rootOnly.metrics.totalTasks, 0);
 }
 
+async function testNoFalseOverdueFromOpenedOrUploadedDates() {
+  const fixture = buildFixture();
+
+  fixture.dossiers = [
+    {
+      id: 100,
+      client_id: 1,
+      title: "No deadline dossier",
+      status: "open",
+      priority: "medium",
+      next_deadline: null,
+      opened_at: daysFromNow(-10),
+      created_at: daysFromNow(-10),
+      updated_at: daysFromNow(-1),
+    },
+  ];
+
+  fixture.lawsuits = [
+    {
+      id: 200,
+      dossier_id: 100,
+      title: "No hearing lawsuit",
+      status: "in_progress",
+      priority: "medium",
+      next_hearing: null,
+      created_at: daysFromNow(-8),
+      updated_at: daysFromNow(-1),
+      opened_at: daysFromNow(-8),
+    },
+  ];
+
+  fixture.tasks = [];
+  fixture.missions = [];
+  fixture.sessions = [];
+  fixture.documents = [
+    {
+      id: 300,
+      title: "Client doc",
+      client_id: 1,
+      dossier_id: null,
+      lawsuit_id: null,
+      mission_id: null,
+      task_id: null,
+      session_id: null,
+      uploaded_at: daysFromNow(-5),
+      updated_at: daysFromNow(-1),
+    },
+    {
+      id: 301,
+      title: "Dossier doc",
+      client_id: null,
+      dossier_id: 100,
+      lawsuit_id: null,
+      mission_id: null,
+      task_id: null,
+      session_id: null,
+      uploaded_at: daysFromNow(-4),
+      updated_at: daysFromNow(-1),
+    },
+    {
+      id: 302,
+      title: "Lawsuit doc",
+      client_id: null,
+      dossier_id: null,
+      lawsuit_id: 200,
+      mission_id: null,
+      task_id: null,
+      session_id: null,
+      uploaded_at: daysFromNow(-3),
+      updated_at: daysFromNow(-1),
+    },
+  ];
+
+  applyFixture(fixture);
+
+  const graph = await getEntityGraphTool.handler({
+    entityType: "client",
+    entityId: 1,
+    depth: 2,
+    direction: "down",
+  });
+
+  assert.strictEqual(graph.metrics.totalDossiers, 1);
+  assert.strictEqual(graph.metrics.totalLawsuits, 1);
+  assert.strictEqual(graph.metrics.totalDocuments, 3);
+  assert.strictEqual(
+    graph.metrics.overdueDeadlines,
+    0,
+    "Opened/uploaded timestamps must not be counted as overdue deadlines",
+  );
+  assert.strictEqual(graph.children.dossiers[0].flags.isOverdue, false);
+  assert.strictEqual(graph.children.lawsuits[0].flags.isOverdue, false);
+  assert.ok(
+    graph.children.documents.every((doc) => doc.flags.isOverdue === false),
+    "Documents must never be flagged overdue",
+  );
+}
+
 async function run() {
   const backup = backupServiceMethods();
   try {
@@ -234,6 +332,7 @@ async function run() {
     await testAccessFilterAndContextFiltering();
     await testDepthOneVsDepthTwo();
     await testEdgeCases();
+    await testNoFalseOverdueFromOpenedOrUploadedDates();
     console.log("getEntityGraph.tool.test.js: all tests passed");
   } finally {
     restoreServiceMethods(backup);

@@ -1,5 +1,6 @@
 const service = require('../services/officers.service');
 const { parseId } = require('./_utils');
+const { enforceDomainMutation } = require("./_domainMutation");
 
 async function list(req, res, next) {
   try {
@@ -24,6 +25,7 @@ async function get(req, res, next) {
 async function create(req, res, next) {
   try {
     console.log('[officers.controller] Received payload:', JSON.stringify(req.body, null, 2));
+    enforceDomainMutation({ entityType: "officer", operation: "create", payload: req.body, service });
     const officer = service.create(req.body);
     res.status(201).json(officer);
   } catch (error) {
@@ -35,6 +37,7 @@ async function create(req, res, next) {
 async function update(req, res, next) {
   try {
     const id = parseId(req.params.id);
+    enforceDomainMutation({ entityType: "officer", operation: "update", entityId: id, payload: req.body, service });
     const officer = service.update(id, req.body);
     if (!officer) return res.status(404).json({ message: 'Officer not found' });
     res.json(officer);

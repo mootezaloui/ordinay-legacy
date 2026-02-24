@@ -66,6 +66,81 @@ const t = (key, options = {}) => {
   return i18nInstance.t(key, { ns: "domain", ...options });
 };
 
+const norm = (value) => String(value || "").trim().toLowerCase();
+const isClosedLike = (value) =>
+  ["closed", "archive", "archived", "ferme", "cloture", "clôturé", "completed"].includes(norm(value));
+const isInactiveLike = (value) =>
+  ["inactive", "in_active", "inactive client", "former_client", "disabled", "suspended"].includes(norm(value));
+
+const findClientById = (id) => mockClients.find((c) => String(c.id) === String(id));
+const findDossierById = (id) =>
+  mockDossiersExtended[id] || mockDossiers.find((d) => String(d.id) === String(id));
+const findLawsuitById = (id) =>
+  mockLawsuitsExtended[id] || mockLawsuits.find((l) => String(l.id) === String(id));
+const findOfficerById = (id) =>
+  mockOfficersExtended[id] || mockOfficers.find((o) => String(o.id) === String(id));
+
+function getAncestorClientForRefs({ clientId = null, dossierId = null, lawsuitId = null }) {
+  const lawsuit = lawsuitId ? findLawsuitById(lawsuitId) : null;
+  const dossier = dossierId ? findDossierById(dossierId) : lawsuit?.dossierId ? findDossierById(lawsuit.dossierId) : null;
+  const client = clientId ? findClientById(clientId) : dossier?.clientId ? findClientById(dossier.clientId) : null;
+  return { client, dossier, lawsuit };
+}
+
+function buildAncestorMutationBlockers({ childLabel, operation = "modify", clientId = null, dossierId = null, lawsuitId = null }) {
+  const blockers = [];
+  const { client, dossier, lawsuit } = getAncestorClientForRefs({ clientId, dossierId, lawsuitId });
+
+  if (dossier && isClosedLike(dossier.status)) {
+    blockers.push(
+      `Cannot ${operation} this ${childLabel} because parent Dossier "${dossier.lawsuitNumber || dossier.reference || dossier.title}" is ${String(dossier.status).toLowerCase()}.`
+    );
+  }
+  if (lawsuit && isClosedLike(lawsuit.status)) {
+    blockers.push(
+      `Cannot ${operation} this ${childLabel} because parent Lawsuit "${lawsuit.lawsuitNumber || lawsuit.reference || lawsuit.title}" is ${String(lawsuit.status).toLowerCase()}.`
+    );
+  }
+  if (client && isInactiveLike(client.status)) {
+    blockers.push(
+      `Cannot ${operation} this ${childLabel} because linked Client "${client.name || client.id}" is inactive.`
+    );
+  }
+
+  return blockers;
+}
+
+function pushRelationshipMismatchBlockers(blockers, { clientId = null, dossierId = null, lawsuitId = null }) {
+  const client = clientId ? findClientById(clientId) : null;
+  const dossier = dossierId ? findDossierById(dossierId) : null;
+  const lawsuit = lawsuitId ? findLawsuitById(lawsuitId) : null;
+  const hasClientSnapshot = Array.isArray(mockClients) && mockClients.length > 0;
+  const hasDossierSnapshot = Array.isArray(mockDossiers) && mockDossiers.length > 0;
+  const hasLawsuitSnapshot = Array.isArray(mockLawsuits) && mockLawsuits.length > 0;
+
+  if (clientId && !client && hasClientSnapshot) blockers.push("Selected client was not found.");
+  if (dossierId && !dossier && hasDossierSnapshot) blockers.push("Selected dossier was not found.");
+  if (lawsuitId && !lawsuit && hasLawsuitSnapshot) blockers.push("Selected lawsuit was not found.");
+
+  if (client && dossier && String(dossier.clientId) !== String(client.id)) {
+    blockers.push("Selected dossier does not belong to the selected client.");
+  }
+  if (lawsuit && dossier && String(lawsuit.dossierId) !== String(dossier.id)) {
+    blockers.push("Selected lawsuit does not belong to the selected dossier.");
+  }
+}
+
+function removeNotFoundSelectionBlockers(blockers = []) {
+  return blockers.filter(
+    (msg) =>
+      ![
+        "Selected client was not found.",
+        "Selected dossier was not found.",
+        "Selected lawsuit was not found.",
+      ].includes(msg),
+  );
+}
+
 // Build in-memory snapshots from the live entities supplied in context.entities
 const loadContextData = (context = {}) => {
   const entities = context.entities || {};
@@ -1070,12 +1145,26 @@ function validateDossierDelete(dossierId, context = {}) {
 function validateDossierStatusChange(dossierId, context = {}) {
   const { newValue } = context;
 
-  if (newValue === "Closed") {
-    return validateDossierClose(dossierId, context);
+  const dossier = findDossierById(dossierId) || context?.data;
+  const blockers = [];
+  if (dossier) {
+    blockers.push(
+      ...buildAncestorMutationBlockers({
+        childLabel: "dossier",
+        operation: "change status of",
+        clientId: dossier.clientId,
+      })
+    );
   }
 
-  // For other status changes, allow by default
-  return { allowed: true, blockers: [], warnings: [] };
+  if (newValue === "Closed") {
+    const closeValidation = validateDossierClose(dossierId, context);
+    closeValidation.blockers = [...(closeValidation.blockers || []), ...blockers];
+    closeValidation.allowed = (closeValidation.blockers || []).length === 0;
+    return closeValidation;
+  }
+
+  return { allowed: blockers.length === 0, blockers, warnings: [] };
 }
 
 // ========================================
@@ -1125,6 +1214,15 @@ function validateLawsuitAdd(lawsuitId, context = {}) {
   }
 
   // Check if parent dossier is closed
+  pushRelationshipMismatchBlockers(blockers, { dossierId });
+  blockers.push(
+    ...buildAncestorMutationBlockers({
+      childLabel: "lawsuit",
+      operation: "create",
+      dossierId,
+    })
+  );
+
   if (dossier.status === "Closed") {
     blockers.push(
       `Cannot create a lawsuit under a ${dossier.status.toLowerCase()} Dossier`,
@@ -1342,12 +1440,27 @@ function validateLawsuitDelete(lawsuitId, context = {}) {
 
 function validateLawsuitStatusChange(lawsuitId, context = {}) {
   const { newValue } = context;
-
-  if (newValue === "Closed") {
-    return validateLawsuitClose(lawsuitId, context);
+  const lawsuitData = findLawsuitById(lawsuitId) || context?.data;
+  const blockers = [];
+  if (lawsuitData) {
+    pushRelationshipMismatchBlockers(blockers, { dossierId: lawsuitData.dossierId });
+    blockers.push(
+      ...buildAncestorMutationBlockers({
+        childLabel: "lawsuit",
+        operation: "change status of",
+        dossierId: lawsuitData.dossierId,
+      })
+    );
   }
 
-  return { allowed: true, blockers: [], warnings: [] };
+  if (newValue === "Closed") {
+    const closeValidation = validateLawsuitClose(lawsuitId, context);
+    closeValidation.blockers = [...(closeValidation.blockers || []), ...blockers];
+    closeValidation.allowed = (closeValidation.blockers || []).length === 0;
+    return closeValidation;
+  }
+
+  return { allowed: blockers.length === 0, blockers, warnings: [] };
 }
 
 // ========================================
@@ -1726,6 +1839,15 @@ function validateTaskAdd(taskId, context = {}) {
 
   // Check parent based on type
   if (parentType === "dossier" && dossierId) {
+    pushRelationshipMismatchBlockers(blockers, { dossierId });
+    blockers.splice(0, blockers.length, ...removeNotFoundSelectionBlockers(blockers));
+    blockers.push(
+      ...buildAncestorMutationBlockers({
+        childLabel: "task",
+        operation: "create",
+        dossierId,
+      })
+    );
     const dossier =
       dossiers.find((d) => d.id === parseInt(dossierId)) ||
       mockDossiersExtended[dossierId];
@@ -1741,6 +1863,15 @@ function validateTaskAdd(taskId, context = {}) {
       );
     }
   } else if (parentType === "lawsuit" && lawsuitId) {
+    pushRelationshipMismatchBlockers(blockers, { lawsuitId });
+    blockers.splice(0, blockers.length, ...removeNotFoundSelectionBlockers(blockers));
+    blockers.push(
+      ...buildAncestorMutationBlockers({
+        childLabel: "task",
+        operation: "create",
+        lawsuitId,
+      })
+    );
     const lawsuitData =
       lawsuits.find((c) => c.id === parseInt(lawsuitId)) || mockLawsuitsExtended[lawsuitId];
     if (!lawsuitData) {
@@ -1776,6 +1907,19 @@ function validateTaskEdit(taskId, context = {}) {
   if (!task) {
     return { allowed: false, blockers: ["Task not found"], warnings: [] };
   }
+
+  pushRelationshipMismatchBlockers(blockers, {
+    dossierId: task.dossierId,
+    lawsuitId: task.lawsuitId,
+  });
+  blockers.push(
+    ...buildAncestorMutationBlockers({
+      childLabel: "task",
+      operation: "modify",
+      dossierId: task.dossierId,
+      lawsuitId: task.lawsuitId,
+    })
+  );
 
   // Check parent entity status
   if (task.parentType === "dossier" && task.dossierId) {
@@ -1848,6 +1992,15 @@ function validateSessionAdd(sessionId, context = {}) {
 
   // Check based on link type
   if (linkType === "dossier" && dossierId) {
+    pushRelationshipMismatchBlockers(blockers, { dossierId });
+    blockers.splice(0, blockers.length, ...removeNotFoundSelectionBlockers(blockers));
+    blockers.push(
+      ...buildAncestorMutationBlockers({
+        childLabel: "hearing/session",
+        operation: "create",
+        dossierId,
+      })
+    );
     const dossier =
       dossiers.find((d) => d.id === parseInt(dossierId)) ||
       mockDossiersExtended[dossierId];
@@ -1864,6 +2017,15 @@ function validateSessionAdd(sessionId, context = {}) {
       );
     }
   } else if (linkType === "lawsuit" && lawsuitId) {
+    pushRelationshipMismatchBlockers(blockers, { lawsuitId });
+    blockers.splice(0, blockers.length, ...removeNotFoundSelectionBlockers(blockers));
+    blockers.push(
+      ...buildAncestorMutationBlockers({
+        childLabel: "hearing/session",
+        operation: "create",
+        lawsuitId,
+      })
+    );
     const lawsuitData =
       lawsuits.find((c) => c.id === parseInt(lawsuitId)) || mockLawsuitsExtended[lawsuitId];
     if (!lawsuitData) {
@@ -1900,9 +2062,39 @@ function validateSessionEdit(sessionId, context = {}) {
     return { allowed: false, blockers: ["Session not found"], warnings: [] };
   }
 
+  const sessionView = {
+    ...session,
+    ...(context.newData || {}),
+  };
+  const resolvedLawsuitId =
+    sessionView.lawsuitId ??
+    sessionView.lawsuit_id ??
+    session.lawsuitId ??
+    session.lawsuit_id ??
+    null;
+  const resolvedDossierId =
+    sessionView.dossierId ??
+    sessionView.dossier_id ??
+    session.dossierId ??
+    session.dossier_id ??
+    null;
+
+  pushRelationshipMismatchBlockers(blockers, {
+    dossierId: resolvedDossierId,
+    lawsuitId: resolvedLawsuitId,
+  });
+  blockers.push(
+    ...buildAncestorMutationBlockers({
+      childLabel: "hearing/session",
+      operation: "modify",
+      dossierId: resolvedDossierId,
+      lawsuitId: resolvedLawsuitId,
+    })
+  );
+
   // Check if linked to a Procès
-  if (session.lawsuitId) {
-    const lawsuitData = mockLawsuitsExtended[session.lawsuitId];
+  if (resolvedLawsuitId) {
+    const lawsuitData = mockLawsuitsExtended[resolvedLawsuitId];
     if (lawsuitData && lawsuitData.status === "Closed") {
       blockers.push(
         `This session belongs to lawsuit "${lawsuitData.lawsuitNumber}" which is closed.\n\nModifications are no longer allowed on closed lawsuits.`
@@ -1911,8 +2103,8 @@ function validateSessionEdit(sessionId, context = {}) {
   }
 
   // Check if linked directly to a Dossier
-  if (session.dossierId) {
-    const dossier = mockDossiersExtended[session.dossierId];
+  if (resolvedDossierId) {
+    const dossier = mockDossiersExtended[resolvedDossierId];
     if (dossier && dossier.status === "Closed") {
       blockers.push(
         `This session belongs to Dossier "${
@@ -1953,6 +2145,25 @@ function validateMissionAdd(missionId, context = {}) {
   const entityType = context?.formData?.entityType || context?.data?.entityType;
   const dossierId = context?.formData?.dossierId || context?.data?.dossierId;
   const lawsuitId = context?.formData?.lawsuitId || context?.data?.lawsuitId;
+  const officerId = context?.formData?.officerId || context?.data?.officerId;
+
+  pushRelationshipMismatchBlockers(blockers, { dossierId, lawsuitId });
+  blockers.splice(0, blockers.length, ...removeNotFoundSelectionBlockers(blockers));
+  blockers.push(
+    ...buildAncestorMutationBlockers({
+      childLabel: "mission",
+      operation: "create",
+      dossierId,
+      lawsuitId,
+    })
+  );
+  if (officerId) {
+    const officer = findOfficerById(officerId);
+    if (!officer) blockers.push("Selected bailiff/officer was not found.");
+    else if (isInactiveLike(officer.status)) {
+      blockers.push(`Cannot assign mission to inactive bailiff/officer "${officer.name || officer.id}".`);
+    }
+  }
 
   // Check based on entity type
   if (entityType === "dossier" && dossierId) {
@@ -2015,6 +2226,33 @@ function validateMissionEdit(missionId, context = {}) {
 
   if (!mission) {
     return { allowed: false, blockers: ["Mission not found"], warnings: [] };
+  }
+
+  const missionDossierId =
+    mission.dossierId || (mission.entityType === "dossier" ? mission.entityId : null);
+  const missionLawsuitId =
+    mission.lawsuitId || (mission.entityType === "lawsuit" ? mission.entityId : null);
+  pushRelationshipMismatchBlockers(blockers, {
+    dossierId: missionDossierId,
+    lawsuitId: missionLawsuitId,
+  });
+  blockers.push(
+    ...buildAncestorMutationBlockers({
+      childLabel: "mission",
+      operation: "modify",
+      dossierId: missionDossierId,
+      lawsuitId: missionLawsuitId,
+    })
+  );
+
+  const nextOfficerId = context?.newData?.officerId ?? mission.officerId;
+  if (nextOfficerId) {
+    const officer = findOfficerById(nextOfficerId);
+    if (!officer) {
+      blockers.push("Selected bailiff/officer was not found.");
+    } else if (isInactiveLike(officer.status)) {
+      blockers.push(`Cannot assign mission to inactive bailiff/officer "${officer.name || officer.id}".`);
+    }
   }
 
   // Check parent entity based on entityType
@@ -2155,6 +2393,22 @@ function validateFinancialEntryAdd(entryId, context = {}) {
     return { allowed: true, blockers: [], warnings: [] };
   }
 
+  pushRelationshipMismatchBlockers(blockers, {
+    clientId: data.clientId,
+    dossierId: data.dossierId,
+    lawsuitId: data.lawsuitId,
+  });
+  blockers.splice(0, blockers.length, ...removeNotFoundSelectionBlockers(blockers));
+  blockers.push(
+    ...buildAncestorMutationBlockers({
+      childLabel: "financial entry",
+      operation: "create",
+      clientId: data.clientId,
+      dossierId: data.dossierId,
+      lawsuitId: data.lawsuitId,
+    })
+  );
+
   // Check if linked to a closed Dossier
   if (data.dossierId) {
     const dossier = mockDossiersExtended[data.dossierId];
@@ -2213,6 +2467,21 @@ function validateFinancialEntryEdit(entryId, context = {}) {
       warnings: [],
     };
   }
+
+  pushRelationshipMismatchBlockers(blockers, {
+    clientId: entry.clientId,
+    dossierId: entry.dossierId,
+    lawsuitId: entry.lawsuitId,
+  });
+  blockers.push(
+    ...buildAncestorMutationBlockers({
+      childLabel: "financial entry",
+      operation: "modify",
+      clientId: entry.clientId,
+      dossierId: entry.dossierId,
+      lawsuitId: entry.lawsuitId,
+    })
+  );
 
   // Rule 1: Paid entries are editable but require explicit confirmation
   if (entry.status === "Payée" || entry.status === "paid") {
@@ -2314,6 +2583,17 @@ function validateFinancialEntryStatusChange(entryId, context = {}) {
 
   const { newValue } = context;
 
+  const hierarchyBlockers = buildAncestorMutationBlockers({
+    childLabel: "financial entry",
+    operation: "change status of",
+    clientId: entry.clientId,
+    dossierId: entry.dossierId,
+    lawsuitId: entry.lawsuitId,
+  });
+  if (hierarchyBlockers.length > 0) {
+    blockers.push(...hierarchyBlockers);
+  }
+
   // If trying to change FROM paid status, require confirmation but allow
   if (entry.status === "Payée" || entry.status === "paid") {
     if (newValue !== "Payée" && newValue !== "paid") {
@@ -2347,9 +2627,25 @@ function validateFinancialEntryStatusChange(entryId, context = {}) {
 function validateOfficerEdit(officerId, context = {}) {
   const blockers = [];
   const warnings = [];
-
-  // No specific business rules defined yet for officer editing
-  // Officers are generally editable unless specific constraints are identified
+  const officer = context.data || findOfficerById(officerId);
+  if (!officer) {
+    return { allowed: false, blockers: ["Officer not found"], warnings: [] };
+  }
+  const nextStatus = context?.newData?.status;
+  if (nextStatus && isInactiveLike(nextStatus)) {
+    const activeMissions = getAllMissions().filter(
+      (m) =>
+        String(m.officerId) === String(officerId) &&
+        !["completed", "cancelled", "closed"].includes(norm(m.status))
+    );
+    if (activeMissions.length > 0) {
+      blockers.push(
+        `Cannot set this bailiff/officer inactive while ${activeMissions.length} active mission${
+          activeMissions.length > 1 ? "s are" : " is"
+        } assigned.`
+      );
+    }
+  }
 
   const allowed = blockers.length === 0;
   return { allowed, blockers, warnings };

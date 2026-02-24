@@ -66,13 +66,15 @@ function isClosedByStatus(entityType, status) {
 
 function resolveUpcomingDate(type, row) {
   if (!row || typeof row !== "object") return null;
-  if (type === "dossier") return toIso(row.next_deadline || row.closed_at || row.opened_at);
-  if (type === "lawsuit") return toIso(row.next_hearing || row.judgment_date || row.opened_at);
-  if (type === "task") return toIso(row.due_date || row.completed_at);
-  if (type === "mission") return toIso(row.due_date || row.completion_date || row.assign_date);
+  // "nextUpcoming" is used for overdue/upcoming risk metrics, so it must only
+  // contain actionable future-oriented dates (not historical timestamps).
+  if (type === "dossier") return toIso(row.next_deadline);
+  if (type === "lawsuit") return toIso(row.next_hearing);
+  if (type === "task") return toIso(row.due_date);
+  if (type === "mission") return toIso(row.due_date);
   if (type === "session") return toIso(row.scheduled_at || row.session_date);
-  if (type === "document") return toIso(row.uploaded_at || row.updated_at || row.created_at);
-  if (type === "client") return toIso(row.join_date);
+  if (type === "document") return null;
+  if (type === "client") return null;
   return null;
 }
 

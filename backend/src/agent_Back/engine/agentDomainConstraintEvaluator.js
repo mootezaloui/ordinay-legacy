@@ -85,6 +85,249 @@ function _getEntityStatus(table, id) {
   );
 }
 
+function _getClientById(id) {
+  if (!id) return null;
+  return (
+    db
+      .prepare(`SELECT id, status, name FROM clients WHERE id = ? AND deleted_at IS NULL`)
+      .get(Number(id)) || null
+  );
+}
+
+function _getDossierById(id) {
+  if (!id) return null;
+  return (
+    db
+      .prepare(`SELECT id, client_id, status, title, reference FROM dossiers WHERE id = ? AND deleted_at IS NULL`)
+      .get(Number(id)) || null
+  );
+}
+
+function _getLawsuitById(id) {
+  if (!id) return null;
+  return (
+    db
+      .prepare(`SELECT id, dossier_id, status, title, reference, lawsuit_number FROM lawsuits WHERE id = ? AND deleted_at IS NULL`)
+      .get(Number(id)) || null
+  );
+}
+
+function _getOfficerById(id) {
+  if (!id) return null;
+  return (
+    db
+      .prepare(`SELECT id, status, name FROM officers WHERE id = ? AND deleted_at IS NULL`)
+      .get(Number(id)) || null
+  );
+}
+
+function _getTaskById(id) {
+  if (!id) return null;
+  return (
+    db
+      .prepare(`SELECT id, dossier_id, lawsuit_id, status, title FROM tasks WHERE id = ? AND deleted_at IS NULL`)
+      .get(Number(id)) || null
+  );
+}
+
+function _getMissionById(id) {
+  if (!id) return null;
+  return (
+    db
+      .prepare(`SELECT id, dossier_id, lawsuit_id, officer_id, status, title FROM missions WHERE id = ? AND deleted_at IS NULL`)
+      .get(Number(id)) || null
+  );
+}
+
+function _resolveClientStatusForChain({ clientId = null, dossierId = null, lawsuitId = null }) {
+  let resolvedDossier = dossierId ? _getDossierById(dossierId) : null;
+  let resolvedLawsuit = lawsuitId ? _getLawsuitById(lawsuitId) : null;
+
+  if (!resolvedDossier && resolvedLawsuit?.dossier_id) {
+    resolvedDossier = _getDossierById(resolvedLawsuit.dossier_id);
+  }
+
+  const finalClientId =
+    clientId != null ? Number(clientId) : resolvedDossier?.client_id != null ? Number(resolvedDossier.client_id) : null;
+  const client = finalClientId ? _getClientById(finalClientId) : null;
+
+  return { client, dossier: resolvedDossier, lawsuit: resolvedLawsuit };
+}
+
+function _mkEntityNotFoundBlocker(entityType, id) {
+  return _mkBlocker({
+    code: `${String(entityType || "entity").toUpperCase()}_NOT_FOUND`,
+    severity: "high",
+    facts: { entityType, id: Number(id) },
+    text: `The linked ${String(entityType || "entity").replace(/_/g, " ")} record was not found.`,
+  });
+}
+
+function _mkRelationshipBlocker(code, text, facts = {}) {
+  return _mkBlocker({
+    code,
+    severity: "high",
+    facts,
+    text,
+  });
+}
+
+function _evaluateInactiveClientAncestor({ clientId = null, dossierId = null, lawsuitId = null, childEntityType, operation }) {
+  const { client } = _resolveClientStatusForChain({ clientId, dossierId, lawsuitId });
+  if (!client || !_isClientInactiveStatus(client.status)) {
+    return [];
+  }
+  return [
+    _mkBlocker({
+      code: "ANCESTOR_CLIENT_INACTIVE",
+      facts: {
+        clientId: Number(client.id),
+        clientStatus: client.status,
+        childEntityType,
+        operation,
+      },
+      text: `The linked client is inactive, so I can’t ${operation === "create" ? "create" : "update"} this ${childEntityType.replace(/_/g, " ")}.`,
+    }),
+  ];
+}
+
+function _evaluateOfficerAvailabilityForMission({ payload, existing }) {
+  const officerId =
+    payload?.officer_id !== undefined ? payload.officer_id : existing?.officer_id;
+  if (!officerId) return [];
+  const officer = _getOfficerById(officerId);
+  if (!officer) return [_mkEntityNotFoundBlocker("officer", officerId)];
+  if (String(officer.status || "").toLowerCase() !== "active") {
+    return [
+      _mkBlocker({
+        code: "MISSION_OFFICER_INACTIVE",
+        facts: { officerId: Number(officer.id), officerStatus: officer.status },
+        text: "The selected bailiff/officer is inactive, so this mission cannot be assigned.",
+      }),
+    ];
+  }
+  return [];
+}
+
+function _evaluateRelationalIntegrity({ entityType, operation, payload, existing }) {
+  if (!["create", "update"].includes(operation)) return [];
+
+  const blockers = [];
+  const current = { ...(existing || {}), ...(payload || {}) };
+
+  if (entityType === "dossier") {
+    const clientId = current.client_id;
+    if (clientId != null) {
+      const client = _getClientById(clientId);
+      if (!client) blockers.push(_mkEntityNotFoundBlocker("client", clientId));
+    }
+    return blockers;
+  }
+
+  if (entityType === "lawsuit") {
+    const dossierId = current.dossier_id;
+    if (dossierId != null) {
+      const dossier = _getDossierById(dossierId);
+      if (!dossier) blockers.push(_mkEntityNotFoundBlocker("dossier", dossierId));
+    }
+    return blockers;
+  }
+
+  if (["task", "session", "mission"].includes(entityType)) {
+    const dossierId = current.dossier_id;
+    const lawsuitId = current.lawsuit_id;
+    if (dossierId != null) {
+      const dossier = _getDossierById(dossierId);
+      if (!dossier) blockers.push(_mkEntityNotFoundBlocker("dossier", dossierId));
+    }
+    if (lawsuitId != null) {
+      const lawsuit = _getLawsuitById(lawsuitId);
+      if (!lawsuit) blockers.push(_mkEntityNotFoundBlocker("lawsuit", lawsuitId));
+    }
+    if (entityType === "mission") {
+      blockers.push(..._evaluateOfficerAvailabilityForMission({ payload, existing }));
+    }
+    return blockers;
+  }
+
+  if (entityType === "financial_entry") {
+    const clientId = current.client_id;
+    const dossierId = current.dossier_id;
+    const lawsuitId = current.lawsuit_id;
+    const missionId = current.mission_id;
+    const taskId = current.task_id;
+
+    const client = clientId != null ? _getClientById(clientId) : null;
+    const dossier = dossierId != null ? _getDossierById(dossierId) : null;
+    const lawsuit = lawsuitId != null ? _getLawsuitById(lawsuitId) : null;
+    const mission = missionId != null ? _getMissionById(missionId) : null;
+    const task = taskId != null ? _getTaskById(taskId) : null;
+
+    if (clientId != null && !client) blockers.push(_mkEntityNotFoundBlocker("client", clientId));
+    if (dossierId != null && !dossier) blockers.push(_mkEntityNotFoundBlocker("dossier", dossierId));
+    if (lawsuitId != null && !lawsuit) blockers.push(_mkEntityNotFoundBlocker("lawsuit", lawsuitId));
+    if (missionId != null && !mission) blockers.push(_mkEntityNotFoundBlocker("mission", missionId));
+    if (taskId != null && !task) blockers.push(_mkEntityNotFoundBlocker("task", taskId));
+
+    if (client && dossier && Number(dossier.client_id) !== Number(client.id)) {
+      blockers.push(
+        _mkRelationshipBlocker(
+          "DOSSIER_CLIENT_MISMATCH",
+          "The selected dossier does not belong to the selected client.",
+          { clientId: Number(client.id), dossierId: Number(dossier.id), dossierClientId: Number(dossier.client_id) },
+        ),
+      );
+    }
+    if (lawsuit && dossier && Number(lawsuit.dossier_id) !== Number(dossier.id)) {
+      blockers.push(
+        _mkRelationshipBlocker(
+          "LAWSUIT_DOSSIER_MISMATCH",
+          "The selected lawsuit does not belong to the selected dossier.",
+          { lawsuitId: Number(lawsuit.id), lawsuitDossierId: Number(lawsuit.dossier_id), dossierId: Number(dossier.id) },
+        ),
+      );
+    }
+    if (mission && dossierId != null && mission.dossier_id != null && Number(mission.dossier_id) !== Number(dossierId)) {
+      blockers.push(_mkRelationshipBlocker("MISSION_DOSSIER_MISMATCH", "The selected mission does not belong to the selected dossier."));
+    }
+    if (mission && lawsuitId != null && mission.lawsuit_id != null && Number(mission.lawsuit_id) !== Number(lawsuitId)) {
+      blockers.push(_mkRelationshipBlocker("MISSION_LAWSUIT_MISMATCH", "The selected mission does not belong to the selected lawsuit."));
+    }
+    if (task && dossierId != null && task.dossier_id != null && Number(task.dossier_id) !== Number(dossierId)) {
+      blockers.push(_mkRelationshipBlocker("TASK_DOSSIER_MISMATCH", "The selected task does not belong to the selected dossier."));
+    }
+    if (task && lawsuitId != null && task.lawsuit_id != null && Number(task.lawsuit_id) !== Number(lawsuitId)) {
+      blockers.push(_mkRelationshipBlocker("TASK_LAWSUIT_MISMATCH", "The selected task does not belong to the selected lawsuit."));
+    }
+    return blockers;
+  }
+
+  if (entityType === "officer" && operation === "update" && payload && Object.prototype.hasOwnProperty.call(payload, "status")) {
+    const nextStatus = String(payload.status || "");
+    if (_isClientInactiveStatus(nextStatus) || ["inactive", "disabled", "suspended"].includes(_normalizeToken(nextStatus))) {
+      const officerId = Number(existing?.id);
+      if (officerId) {
+        const activeMissions = db
+          .prepare(`SELECT id, title, status FROM missions WHERE officer_id = ? AND deleted_at IS NULL`)
+          .all(officerId)
+          .filter((m) => !_isTerminalMissionStatus(m.status));
+        if (activeMissions.length > 0) {
+          blockers.push(
+            _mkBlocker({
+              code: "OFFICER_HAS_ACTIVE_MISSIONS",
+              facts: { officerId, count: activeMissions.length, items: activeMissions.slice(0, 10) },
+              text: "This bailiff/officer still has active missions.",
+            }),
+          );
+        }
+      }
+    }
+    return blockers;
+  }
+
+  return blockers;
+}
+
 function _queryClientDependencyFacts(clientId) {
   const numericClientId = Number(clientId);
   const dossiers = db
@@ -447,10 +690,19 @@ function _evaluateClosedParentRulesForChild({ entityType, operation, payload, ex
   if (!["create", "update"].includes(operation)) {
     return { allowed: true, blockers: [], warnings: [] };
   }
-  const dossierId =
+  let dossierId =
     payload?.dossier_id !== undefined ? payload.dossier_id : existing?.dossier_id;
-  const lawsuitId =
+  let lawsuitId =
     payload?.lawsuit_id !== undefined ? payload.lawsuit_id : existing?.lawsuit_id;
+
+  if (entityType === "financial_entry") {
+    const taskId = payload?.task_id !== undefined ? payload.task_id : existing?.task_id;
+    const missionId = payload?.mission_id !== undefined ? payload.mission_id : existing?.mission_id;
+    const task = !dossierId && !lawsuitId && taskId ? _getTaskById(taskId) : null;
+    const mission = !dossierId && !lawsuitId && missionId ? _getMissionById(missionId) : null;
+    if (!dossierId) dossierId = task?.dossier_id ?? mission?.dossier_id ?? dossierId;
+    if (!lawsuitId) lawsuitId = task?.lawsuit_id ?? mission?.lawsuit_id ?? lawsuitId;
+  }
 
   const blockers = [];
   if (dossierId) {
@@ -469,6 +721,15 @@ function _evaluateClosedParentRulesForChild({ entityType, operation, payload, ex
       operation,
     }).blockers);
   }
+  blockers.push(
+    ..._evaluateInactiveClientAncestor({
+      dossierId,
+      lawsuitId,
+      childEntityType: entityType,
+      operation,
+    }),
+  );
+  blockers.push(..._evaluateRelationalIntegrity({ entityType, operation, payload, existing }));
   return {
     allowed: blockers.length === 0,
     blockers,
@@ -490,6 +751,14 @@ function _evaluateLawsuitRules({ operation, entityId, payload, existing }) {
     childEntityType: "lawsuit",
     operation,
   }).blockers);
+  blockers.push(
+    ..._evaluateInactiveClientAncestor({
+      dossierId,
+      childEntityType: "lawsuit",
+      operation,
+    }),
+  );
+  blockers.push(..._evaluateRelationalIntegrity({ entityType: "lawsuit", operation, payload, existing }));
 
   if (
     operation === "update" &&
@@ -550,6 +819,14 @@ function _evaluateLawsuitRules({ operation, entityId, payload, existing }) {
 
 function _evaluateDossierRules({ operation, entityId, payload, existing }) {
   const blockers = [];
+  blockers.push(
+    ..._evaluateInactiveClientAncestor({
+      clientId: payload?.client_id !== undefined ? payload.client_id : existing?.client_id,
+      childEntityType: "dossier",
+      operation,
+    }),
+  );
+  blockers.push(..._evaluateRelationalIntegrity({ entityType: "dossier", operation, payload, existing }));
   if (
     operation === "update" &&
     payload &&
@@ -632,6 +909,23 @@ function _evaluateDossierRules({ operation, entityId, payload, existing }) {
   };
 }
 
+function _evaluateOfficerRules({ operation, payload, existing }) {
+  const blockers = _evaluateRelationalIntegrity({
+    entityType: "officer",
+    operation,
+    payload,
+    existing,
+  });
+  return {
+    allowed: blockers.length === 0,
+    blockers,
+    warnings: [],
+    requiresExtraConfirmation: false,
+    impactSummary: [],
+    remediation: { possible: blockers.length > 0, kind: "workflow", requiresClarification: false },
+  };
+}
+
 function evaluateMutationConstraints({
   entityType,
   operation,
@@ -671,6 +965,12 @@ function evaluateMutationConstraints({
     result = _evaluateLawsuitRules({
       operation: normalizedOperation,
       entityId,
+      payload,
+      existing,
+    });
+  } else if (normalizedEntityType === "officer") {
+    result = _evaluateOfficerRules({
+      operation: normalizedOperation,
       payload,
       existing,
     });

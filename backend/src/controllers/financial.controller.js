@@ -1,5 +1,6 @@
 const service = require("../services/financial.service");
 const { parseId } = require("./_utils");
+const { enforceDomainMutation } = require("./_domainMutation");
 
 async function list(req, res, next) {
   try {
@@ -28,6 +29,7 @@ async function create(req, res, next) {
       "[financial.controller] Received payload:",
       JSON.stringify(req.body, null, 2)
     );
+    enforceDomainMutation({ entityType: "financial_entry", operation: "create", payload: req.body, service });
     const entry = service.create(req.body);
     res.status(201).json(entry);
   } catch (error) {
@@ -39,6 +41,7 @@ async function create(req, res, next) {
 async function update(req, res, next) {
   try {
     const id = parseId(req.params.id);
+    enforceDomainMutation({ entityType: "financial_entry", operation: "update", entityId: id, payload: req.body, service });
     const entry = service.update(id, req.body);
     if (!entry)
       return res.status(404).json({ message: "Financial entry not found" });

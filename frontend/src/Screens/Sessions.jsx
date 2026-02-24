@@ -308,6 +308,19 @@ export default function Sessions() {
   };
 
   const handleStatusChange = (id, newStatus) => {
+    const session = sessions.find((s) => s.id === id);
+    const result = canPerformAction("session", id, "edit", {
+      data: session,
+      newData: { ...session, status: newStatus },
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries },
+    });
+
+    if (!result.allowed) {
+      setValidationResult(result);
+      setBlockerModalOpen(true);
+      return;
+    }
+
     updateSession(id, { status: newStatus });
     showToast(t("toasts.statusUpdated", { status: getStatusLabel(newStatus) }), "info", {
       title: t("toasts.statusTitle"),

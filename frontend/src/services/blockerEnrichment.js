@@ -23,6 +23,8 @@ const getData = (context = {}) => ({
   dossiers: context.dossiers || context.entities?.dossiers || [],
   lawsuits: context.lawsuits || context.entities?.lawsuits || [],
   missions: context.missions || context.entities?.missions || [],
+  clients: context.clients || context.entities?.clients || [],
+  officers: context.officers || context.entities?.officers || [],
   financialEntries:
     context.financialEntries || context.entities?.financialEntries || [],
 });
@@ -129,7 +131,11 @@ function parseBlocker(blocker, entityType, entityId, action, data) {
   }
 
   // Pattern 6: Parent is closed (edit restrictions)
-  if (blocker.includes("belongs to") && blocker.includes("closed")) {
+  if (
+    (blocker.includes("belongs to") && blocker.includes("closed")) ||
+    (blocker.includes("parent Dossier") && blocker.includes("closed")) ||
+    (blocker.includes("parent Lawsuit") && blocker.includes("closed"))
+  ) {
     return parseClosedParentBlocker(blocker, entityType, entityId, data);
   }
 
@@ -155,6 +161,34 @@ function parseBlocker(blocker, entityType, entityId, action, data) {
     blocker.includes("after")
   ) {
     return parseTemporalBlocker(blocker, entityType, entityId);
+  }
+
+  // Pattern 10: Inactive ancestor client / inactive client parent
+  if (
+    (normalizedBlocker.includes("linked client") && normalizedBlocker.includes("inactive")) ||
+    (normalizedBlocker.includes("inactive client") && normalizedBlocker.includes("cannot"))
+  ) {
+    return parseInactiveClientBlocker(blocker, entityType, entityId, data);
+  }
+
+  // Pattern 11: Relationship mismatch blockers
+  if (
+    normalizedBlocker.includes("does not belong to the selected client") ||
+    normalizedBlocker.includes("does not belong to the selected dossier") ||
+    normalizedBlocker.includes("selected dossier was not found") ||
+    normalizedBlocker.includes("selected lawsuit was not found") ||
+    normalizedBlocker.includes("selected client was not found")
+  ) {
+    return parseRelationshipMismatchBlocker(blocker, entityType, entityId, data);
+  }
+
+  // Pattern 12: Officer/bailiff availability blockers
+  if (
+    (normalizedBlocker.includes("bailiff/officer") && normalizedBlocker.includes("inactive")) ||
+    normalizedBlocker.includes("officer not found") ||
+    normalizedBlocker.includes("active mission")
+  ) {
+    return parseOfficerAvailabilityBlocker(blocker, entityType, entityId, data);
   }
 
   return null;
@@ -649,6 +683,13 @@ function parseClosedParentBlocker(blocker, entityType, entityId, data) {
   return {
     type: "closedParent",
     reason: blocker,
+    // Placeholder item prevents UI from treating blocker as auto-resolved
+    items: [
+      {
+        id: `closed-parent-${entityType}-${entityId}`,
+        message: blocker,
+      },
+    ],
     parentInfo,
     actions,
     helpText: t("detail.blocker.enrichment.helpText.closedParent"),
@@ -662,6 +703,8 @@ function parseCreateUnderClosedParentBlocker(blocker) {
   return {
     type: "closedParent",
     reason: blocker,
+    // Placeholder item prevents UI from treating blocker as auto-resolved
+    items: [{ id: "closed-parent-create", message: blocker }],
     actions: [
       {
         label: t("detail.blocker.enrichment.actions.chooseAnotherParent"),
@@ -710,6 +753,100 @@ function parseTemporalBlocker(blocker, entityType, entityId) {
     actions: [],
     warning: t("detail.blocker.enrichment.warnings.correctDates"),
     helpText: t("detail.blocker.enrichment.helpText.temporalConstraints"),
+  };
+}
+
+function parseInactiveClientBlocker(blocker, entityType, entityId, data) {
+  let client = null;
+  if (entityType === "client") {
+    client = (data.clients || []).find?.((c) => c.id == entityId) || null;
+  }
+  if (!client && entityType === "dossier") {
+    const dossier = data.dossiers.find((d) => d.id == entityId);
+    client = dossier ? (data.clients || []).find((c) => c.id == dossier.clientId) : null;
+  }
+  if (!client && (entityType === "lawsuit" || entityType === "task" || entityType === "session" || entityType === "mission")) {
+    const lawsuit =
+      entityType === "lawsuit"
+        ? data.lawsuits.find((l) => l.id == entityId)
+        : null;
+    const dossierId = lawsuit?.dossierId || null;
+    const dossier = dossierId ? data.dossiers.find((d) => d.id == dossierId) : null;
+    client = dossier ? (data.clients || []).find((c) => c.id == dossier.clientId) : null;
+  }
+
+  const actions = [];
+  if (client) {
+    actions.push({
+      label: t("detail.blocker.enrichment.actions.goTo", {
+        entityType: "Client",
+      }),
+      type: "navigate",
+      route: "/clients",
+      entityId: client.id,
+      icon: "fas fa-external-link-alt",
+    });
+  }
+
+  return {
+    type: "inactiveClient",
+    reason: blocker,
+    items: [{ id: `inactive-client-${entityType}-${entityId}`, message: blocker }],
+    actions,
+    helpText: "Reactivate the client or move the record to an active client before retrying.",
+  };
+}
+
+function parseRelationshipMismatchBlocker(blocker, entityType, entityId) {
+  return {
+    type: "relationshipMismatch",
+    reason: blocker,
+    items: [{ id: `relationship-mismatch-${entityType}-${entityId}`, message: blocker }],
+    actions: [],
+    helpText: "Check the selected parent-child links and make sure the records belong to each other.",
+  };
+}
+
+function parseOfficerAvailabilityBlocker(blocker, entityType, entityId, data) {
+  const actions = [];
+  if (entityType === "mission") {
+    actions.push({
+      label: t("detail.blocker.enrichment.actions.viewMission"),
+      type: "navigate",
+      route: "/missions",
+      entityId,
+      icon: "fas fa-external-link-alt",
+    });
+  } else if (entityType === "officer") {
+    actions.push({
+      label: t("detail.blocker.enrichment.actions.goTo", { entityType: "Bailiff" }),
+      type: "navigate",
+      route: "/officers",
+      entityId,
+      icon: "fas fa-external-link-alt",
+    });
+    const activeMissions = data.missions.filter(
+      (m) =>
+        m.officerId == entityId &&
+        !["completed", "cancelled", "closed"].includes(String(m.status || "").toLowerCase()),
+    );
+    for (const m of activeMissions.slice(0, 5)) {
+      actions.push({
+        label: `${t("detail.blocker.enrichment.actions.viewMission")} #${m.id}`,
+        type: "navigate",
+        route: "/missions",
+        entityId: m.id,
+        icon: "fas fa-briefcase",
+      });
+    }
+  }
+
+  return {
+    type: "officerAvailability",
+    reason: blocker,
+    items: [{ id: `officer-availability-${entityType}-${entityId}`, message: blocker }],
+    actions,
+    helpText: "Assign an active bailiff/officer or finish active missions before retrying.",
   };
 }
 

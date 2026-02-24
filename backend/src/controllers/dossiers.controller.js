@@ -1,5 +1,6 @@
 const service = require('../services/dossiers.service');
 const { parseId } = require('./_utils');
+const { enforceDomainMutation } = require("./_domainMutation");
 
 async function list(req, res, next) {
   try {
@@ -23,6 +24,7 @@ async function get(req, res, next) {
 
 async function create(req, res, next) {
   try {
+    enforceDomainMutation({ entityType: "dossier", operation: "create", payload: req.body, service });
     const dossier = service.create(req.body);
     res.status(201).json(dossier);
   } catch (error) {
@@ -33,6 +35,7 @@ async function create(req, res, next) {
 async function update(req, res, next) {
   try {
     const id = parseId(req.params.id);
+    enforceDomainMutation({ entityType: "dossier", operation: "update", entityId: id, payload: req.body, service });
     const dossier = service.update(id, req.body);
     if (!dossier) return res.status(404).json({ message: 'Dossier not found' });
     res.json(dossier);
