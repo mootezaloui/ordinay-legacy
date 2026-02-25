@@ -11,7 +11,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import { AgentMessage } from "../types/agentMessage";
+import type { AgentMessage, AgentMessageData } from "../types/agentMessage";
 import type {
   FollowUpSuggestion,
   ExplanationOutput,
@@ -32,6 +32,7 @@ import { RiskArtifact } from "./artifacts/RiskArtifact";
 import { DraftArtifact } from "./artifacts/DraftArtifact";
 import { ActionArtifact } from "./artifacts/ActionArtifact";
 import { ProposalArtifact } from "./artifacts/ProposalArtifact";
+import { SemanticConfirmationErrorBoundary } from "./artifacts/confirmation/SemanticConfirmationErrorBoundary";
 import { ChatArtifact } from "./artifacts/ChatArtifact";
 import { ClarificationArtifact } from "./artifacts/ClarificationArtifact";
 import { CollectionArtifact } from "./artifacts/CollectionArtifact";
@@ -1034,6 +1035,12 @@ function isChatbotActionBlockType(dataType?: string): boolean {
   );
 }
 
+function isProposalMessageData(
+  data: AgentMessageData | undefined,
+): data is AgentMessageData & { type: "proposal"; proposal: NonNullable<AgentMessageData["proposal"]> } {
+  return data?.type === "proposal" && Boolean(data.proposal);
+}
+
 function buildGenericContextRows(message: AgentMessage): Array<{ label: string; value: string }> {
   const rows: Array<{ label: string; value: string }> = [];
   const dataType = message.data?.type;
@@ -1140,7 +1147,8 @@ function MinimalChatbotTurn(props: {
   const { message } = props;
   const dataType = message.data?.type;
   const hasContent = Boolean(message.content && message.content.trim().length > 0);
-  const mutationStatus = message.chatbotTurn?.mutation ? (
+  const suppressStandaloneChatBubble = dataType === "proposal" && Boolean(message.data?.proposal);
+  const mutationStatus = !isProposalMessageData(message.data) && message.chatbotTurn?.mutation ? (
     <ChatbotMutationStatus mutation={message.chatbotTurn.mutation} />
   ) : null;
 
@@ -1175,7 +1183,7 @@ function MinimalChatbotTurn(props: {
 
   return (
     <div className="space-y-2">
-      {hasContent ? <ChatArtifact content={message.content} /> : null}
+      {hasContent && !suppressStandaloneChatBubble ? <ChatArtifact content={message.content} /> : null}
       {mutationStatus}
       {attachment}
     </div>
@@ -1451,75 +1459,77 @@ function ArtifactBody({
       />
     );
   }
-  if (dataType === "proposal" && message.data?.proposal) {
+  if (isProposalMessageData(message.data)) {
     return (
-      <ProposalArtifact
-        data={message.data.proposal}
-        onConfirm={async (proposalId, options) => {
-          const sessionId = message.data!.proposal!.sessionId;
-          const execResult = await confirmProposal(proposalId, sessionId, options);
-          if (activeSessionId && activeSessionMessages && updateSessionMessages) {
-            const safeMsg =
-              execResult.error?.safeMessage ||
-              execResult.error?.message ||
-              "Execution failed";
-            const nextMessages = activeSessionMessages.map((msg) => {
-              if (msg.id !== message.id) return msg;
-              if (msg.data?.type !== "proposal" || !msg.data?.proposal) return msg;
-              return {
-                ...msg,
-                data: {
-                  ...msg.data,
-                  proposal: {
-                    ...msg.data.proposal,
-                    proposals: (msg.data.proposal.proposals || []).map((p) =>
-                      p.proposalId !== proposalId
-                        ? p
-                        : {
-                            ...p,
-                            uiState:
-                              execResult.status === "success"
-                                ? { status: "confirmed", executionResult: execResult }
-                                : {
-                                    status: "failed",
-                                    error: safeMsg,
-                                    executionResult: execResult,
-                                  },
-                          },
-                    ),
+      <SemanticConfirmationErrorBoundary>
+        <ProposalArtifact
+          data={message.data.proposal}
+          onConfirm={async (proposalId, options) => {
+            const sessionId = message.data.proposal.sessionId;
+            const execResult = await confirmProposal(proposalId, sessionId, options);
+            if (activeSessionId && activeSessionMessages && updateSessionMessages) {
+              const safeMsg =
+                execResult.error?.safeMessage ||
+                execResult.error?.message ||
+                "Execution failed";
+              const nextMessages = activeSessionMessages.map((msg) => {
+                if (msg.id !== message.id) return msg;
+                if (msg.data?.type !== "proposal" || !msg.data?.proposal) return msg;
+                return {
+                  ...msg,
+                  data: {
+                    ...msg.data,
+                    proposal: {
+                      ...msg.data.proposal,
+                      proposals: (msg.data.proposal.proposals || []).map((p) =>
+                        p.proposalId !== proposalId
+                          ? p
+                          : {
+                              ...p,
+                              uiState:
+                                execResult.status === "success"
+                                  ? { status: "confirmed" as const, executionResult: execResult }
+                                  : {
+                                      status: "failed" as const,
+                                      error: safeMsg,
+                                      executionResult: execResult,
+                                    },
+                            },
+                      ),
+                    },
                   },
-                },
-              };
-            });
-            updateSessionMessages(activeSessionId, nextMessages);
-          }
-          return execResult;
-        }}
-        onCancel={(proposalId) => {
-          if (activeSessionId && activeSessionMessages && updateSessionMessages) {
-            const nextMessages = activeSessionMessages.map((msg) => {
-              if (msg.id !== message.id) return msg;
-              if (msg.data?.type !== "proposal" || !msg.data?.proposal) return msg;
-              return {
-                ...msg,
-                data: {
-                  ...msg.data,
-                  proposal: {
-                    ...msg.data.proposal,
-                    proposals: (msg.data.proposal.proposals || []).map((p) =>
-                      p.proposalId !== proposalId
-                        ? p
-                        : { ...p, uiState: { status: "cancelled" } },
-                    ),
+                };
+              });
+              updateSessionMessages(activeSessionId, nextMessages);
+            }
+            return execResult;
+          }}
+          onCancel={(proposalId) => {
+            if (activeSessionId && activeSessionMessages && updateSessionMessages) {
+              const nextMessages = activeSessionMessages.map((msg) => {
+                if (msg.id !== message.id) return msg;
+                if (msg.data?.type !== "proposal" || !msg.data?.proposal) return msg;
+                return {
+                  ...msg,
+                  data: {
+                    ...msg.data,
+                    proposal: {
+                      ...msg.data.proposal,
+                      proposals: (msg.data.proposal.proposals || []).map((p) =>
+                        p.proposalId !== proposalId
+                          ? p
+                          : { ...p, uiState: { status: "cancelled" as const } },
+                      ),
+                    },
                   },
-                },
-              };
-            });
-            updateSessionMessages(activeSessionId, nextMessages);
-          }
-          // Cancel is UI-only — proposal expires server-side after 5 minutes
-        }}
-      />
+                };
+              });
+              updateSessionMessages(activeSessionId, nextMessages);
+            }
+            // Cancel is UI-only — proposal expires server-side after 5 minutes
+          }}
+        />
+      </SemanticConfirmationErrorBoundary>
     );
   }
   if (dataType === "recovery" && message.data?.recovery) {

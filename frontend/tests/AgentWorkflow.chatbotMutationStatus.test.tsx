@@ -161,4 +161,55 @@ describe("AgentWorkflow chatbot mutation status", () => {
     expect((html.match(/data-testid=\"chat-bubble\"/g) || []).length).toBe(1);
     expect(html).not.toContain("data-testid=\"chatbot-mutation-status\"");
   });
+
+  it("keeps proposal confirmations in one assistant turn without a separate chat bubble", () => {
+    const html = renderWorkflow(
+      buildMessage({
+        content: "I can make that change. Please confirm.",
+        data: {
+          type: "proposal",
+          proposal: {
+            type: "proposal",
+            sessionId: "session-1",
+            proposals: [],
+          },
+        },
+      }),
+    );
+
+    expect((html.match(/data-testid=\"chat-bubble\"/g) || []).length).toBe(0);
+    expect(html).toContain("data-testid=\"proposal-artifact\"");
+  });
+
+  it("suppresses generic chatbot mutation lifecycle block for proposal turns", () => {
+    const chatbotTurn = chatbotTurnReducer(undefined, {
+      type: "mutation_execution",
+      action: {
+        kind: "mutation_execution",
+        entityType: "client",
+        entityId: 12,
+        operation: "update",
+        label: "Updating client status",
+      },
+    });
+
+    const html = renderWorkflow(
+      buildMessage({
+        content: "I can update the client status. Confirm?",
+        chatbotTurn,
+        data: {
+          type: "proposal",
+          proposal: {
+            type: "proposal",
+            sessionId: "session-1",
+            proposals: [],
+          },
+        },
+      }),
+    );
+
+    expect(html).toContain("data-testid=\"proposal-artifact\"");
+    expect(html).not.toContain("data-testid=\"chatbot-mutation-status\"");
+    expect(html).not.toContain("Updating client status");
+  });
 });

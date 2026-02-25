@@ -1,18 +1,15 @@
 import { useState } from "react";
-import {
-  AlertCircle,
-  CheckCircle2,
-  Clock,
-  Link2,
-  Trash2,
-  Unlink,
-  XCircle,
-  Zap,
-} from "lucide-react";
 import type { ActionProposal, ExecutionResult, ProposalOutput } from "../../../services/api/agent";
 import { useData } from "../../../contexts/DataContext";
-import { ChatbotMutationStatus } from "../chatbot/ChatbotMutationStatus";
-import type { ChatbotTurnMutation } from "../../types/agentMessage";
+import { DecisionConfirmationPanel } from "./confirmation/DecisionConfirmationPanel";
+import type { DecisionUiState } from "./confirmation/types";
+import { mapSemanticAction } from "./confirmation/semanticActionMapper";
+import type { SemanticActionViewModel } from "./confirmation/types";
+import { SemanticMappingError } from "./confirmation/semanticGuards";
+import {
+  proposalToSemanticInput,
+  type DataContextLike,
+} from "./confirmation/proposalToSemanticInput";
 
 interface ProposalArtifactProps {
   data: ProposalOutput;
@@ -20,41 +17,10 @@ interface ProposalArtifactProps {
   onCancel: (proposalId: string) => void;
 }
 
-type ProposalStatus = "pending" | "confirming" | "confirmed" | "cancelled" | "failed";
-
 interface ProposalState {
-  status: ProposalStatus;
+  status: Exclude<DecisionUiState, "expired">;
   error?: string;
   executionResult?: ExecutionResult;
-}
-
-function restoreProposalState(proposal: ActionProposal): ProposalState {
-  const persisted = proposal?.uiState;
-  const status = String(persisted?.status || "").toLowerCase();
-  if (status === "confirmed") {
-    return { status: "confirmed", executionResult: persisted?.executionResult };
-  }
-  if (status === "failed") {
-    return {
-      status: "failed",
-      error: persisted?.error,
-      executionResult: persisted?.executionResult,
-    };
-  }
-  if (status === "cancelled") {
-    return { status: "cancelled" };
-  }
-  return { status: "pending" };
-}
-
-interface DataContextLike {
-  clients?: Array<{ id: number; name?: string; reference?: string }>;
-  dossiers?: Array<{ id: number; lawsuitNumber?: string; title?: string; clientId?: number }>;
-  lawsuits?: Array<{ id: number; lawsuitNumber?: string; title?: string; dossierId?: number }>;
-  tasks?: Array<{ id: number; title?: string }>;
-  sessions?: Array<{ id: number; title?: string; type?: string }>;
-  missions?: Array<{ id: number; missionNumber?: string; title?: string }>;
-  financialEntries?: Array<{ id: number; title?: string; description?: string }>;
 }
 
 const AGENT_MUTATION_EXECUTED_EVENT = "ordinay:agent-mutation-executed";
@@ -114,10 +80,8 @@ function emitExecutedMutationFromExecutionResult(execResult?: ExecutionResult) {
       | undefined;
     if (!result || result.ok !== true) continue;
 
-    // Single-entity execution path.
     emitOnce(result);
 
-    // Workflow execution path: emit refresh events for every successful step entity mutation.
     if (Array.isArray(result.stepResults)) {
       for (const step of result.stepResults) {
         if (!step || step.ok !== true || !step.result || step.result.ok !== true) continue;
@@ -135,486 +99,215 @@ function emitExecutedMutationFromExecutionResult(execResult?: ExecutionResult) {
   }
 }
 
-function toTitleCase(value: string) {
-  return String(value || "")
-    .replace(/[_-]+/g, " ")
-    .toLowerCase()
-    .replace(/\b\w/g, (c) => c.toUpperCase())
-    .trim();
-}
-
-function labelForEntityType(entityType?: string) {
-  const normalized = String(entityType || "").toLowerCase();
-  if (!normalized) return "record";
-  if (normalized === "financial_entry") return "financial entry";
-  if (normalized === "personal_task") return "personal task";
-  return toTitleCase(normalized).toLowerCase();
-}
-
-function labelForAttachmentType(attachmentType?: string) {
-  const normalized = String(attachmentType || "").toLowerCase();
-  if (!normalized) return "attachment";
-  if (normalized === "generated_document") return "generated document";
-  if (normalized === "doc_draft") return "draft document";
-  if (normalized === "file_ref") return "file";
-  return toTitleCase(normalized).toLowerCase();
-}
-
-function resolveEntityLabel(
-  entityType: string | undefined,
-  entityId: number | undefined,
-  context: DataContextLike,
-) {
-  const type = String(entityType || "").toLowerCase();
-  const id = Number(entityId);
-  if (!Number.isFinite(id)) return null;
-
-  if (type === "client") {
-    const item = context.clients?.find((x) => Number(x.id) === id);
-    return item ? item.name || item.reference || `Client #${id}` : `Client #${id}`;
+function restoreProposalState(proposal: ActionProposal): ProposalState {
+  const persisted = proposal?.uiState;
+  const status = String(persisted?.status || "").toLowerCase();
+  if (status === "confirmed") {
+    return { status: "applied", executionResult: persisted?.executionResult };
   }
-  if (type === "dossier") {
-    const item = context.dossiers?.find((x) => Number(x.id) === id);
-    if (!item) return `Dossier #${id}`;
-    return item.title || item.lawsuitNumber || `Dossier #${id}`;
-  }
-  if (type === "lawsuit") {
-    const item = context.lawsuits?.find((x) => Number(x.id) === id);
-    if (!item) return `Lawsuit #${id}`;
-    return item.title || item.lawsuitNumber || `Lawsuit #${id}`;
-  }
-  if (type === "task") {
-    const item = context.tasks?.find((x) => Number(x.id) === id);
-    return item ? item.title || `Task #${id}` : `Task #${id}`;
-  }
-  if (type === "session") {
-    const item = context.sessions?.find((x) => Number(x.id) === id);
-    return item ? item.title || item.type || `Session #${id}` : `Session #${id}`;
-  }
-  if (type === "mission") {
-    const item = context.missions?.find((x) => Number(x.id) === id);
-    return item ? item.title || item.missionNumber || `Mission #${id}` : `Mission #${id}`;
-  }
-  if (type === "financial_entry") {
-    const item = context.financialEntries?.find((x) => Number(x.id) === id);
-    return item ? item.title || item.description || `Entry #${id}` : `Entry #${id}`;
-  }
-  return `${toTitleCase(type)} #${id}`;
-}
-
-function proposalSummary(proposal: ActionProposal, context: DataContextLike) {
-  const actionType = String(proposal.actionType || proposal.action || "").toUpperCase();
-  const params = proposal.params || {};
-
-  if (actionType === "ATTACH_TO_ENTITY") {
-    const targetType = params.target?.type || params.targetType;
-    const targetId = Number(params.target?.id || params.targetId);
-    const targetLabel =
-      resolveEntityLabel(targetType, targetId, context) ||
-      params.targetLabel ||
-      params.targetReference ||
-      params.targetTitle ||
-      `${toTitleCase(String(targetType || "record"))} #${targetId}`;
-    return {
-      title: `Attach ${labelForAttachmentType(params.attachmentType)} to ${targetLabel}`,
-      kind: "Attach",
-    };
-  }
-
-  if (actionType === "CREATE_ENTITY") {
-    return {
-      title: `Create ${labelForEntityType(params.entityType)}`,
-      kind: "Create",
-    };
-  }
-
-  if (actionType === "UPDATE_ENTITY") {
-    const targetLabel =
-      params.entityLabel ||
-      params.reference ||
-      params.title ||
-      resolveEntityLabel(params.entityType, Number(params.entityId), context) ||
-      labelForEntityType(params.entityType);
-    return {
-      title: `Update ${targetLabel}`,
-      kind: "Update",
-    };
-  }
-
-  if (actionType === "EXECUTE_MUTATION_WORKFLOW") {
-    const workflow = params.workflow || {};
-    const root = workflow.rootEntity || {};
-    const rootType = String(root.type || params.entityType || "").toLowerCase();
-    const rootId = Number(root.id || params.entityId);
-    const targetLabel =
-      workflow.rootLabel ||
-      resolveEntityLabel(rootType, rootId, context) ||
-      labelForEntityType(rootType || "record");
-    const workflowType = String(workflow.workflowType || "").toLowerCase();
-    const canReachRequestedGoal = workflow.canReachRequestedGoal !== false;
-
-    let title = `Update ${targetLabel} and related records`;
-    if (workflowType === "client_inactivation_cleanup") {
-      title = canReachRequestedGoal
-        ? `Mark ${targetLabel} as inactive (with related cleanup)`
-        : `Clean related records for ${targetLabel} before inactivation`;
-    } else if (workflowType.includes("closure")) {
-      title = `Close ${targetLabel} with related cleanup`;
-    } else if (workflowType === "closed_parent_child_update") {
-      title = `Apply requested update to ${targetLabel}`;
+  if (status === "failed") {
+    if (persisted?.executionResult?.status === "snapshot_mismatch") {
+      return {
+        status: "stale",
+        error: persisted?.error,
+        executionResult: persisted?.executionResult,
+      };
     }
-
     return {
-      title,
-      kind: "Workflow",
+      status: "failed",
+      error: persisted?.error,
+      executionResult: persisted?.executionResult,
     };
   }
+  if (status === "cancelled") {
+    return { status: "declined" };
+  }
+  return { status: "awaiting_decision" };
+}
 
-  if (actionType === "DELETE_ENTITY") {
-    const targetLabel =
-      params.entityLabel ||
-      params.reference ||
-      params.title ||
-      resolveEntityLabel(params.entityType, Number(params.entityId), context) ||
-      labelForEntityType(params.entityType);
+function hasExpired(proposal: ActionProposal): boolean {
+  const expiresAt = proposal.confirmation?.expiresAt;
+  if (!expiresAt) return false;
+  const time = new Date(expiresAt).getTime();
+  if (!Number.isFinite(time)) return false;
+  return time < Date.now();
+}
+
+function getEffectiveUiState(state: ProposalState, proposal: ActionProposal): DecisionUiState {
+  if (state.status === "awaiting_decision" && hasExpired(proposal)) {
+    return "expired";
+  }
+  return state.status;
+}
+
+function toProposalState(execResult: ExecutionResult, fallbackMessage?: string): ProposalState {
+  if (execResult.status === "success") {
+    return { status: "applied", executionResult: execResult };
+  }
+  if (execResult.status === "snapshot_mismatch") {
     return {
-      title: `Delete ${targetLabel}`,
-      kind: "Delete",
+      status: "stale",
+      executionResult: execResult,
+      error: execResult.error?.safeMessage || execResult.error?.message || fallbackMessage,
     };
   }
-
-  if (actionType === "LINK_ENTITIES") {
-    const sourceLabel =
-      params.sourceLabel ||
-      params.sourceReference ||
-      params.sourceTitle ||
-      resolveEntityLabel(params.sourceType, Number(params.sourceId), context) ||
-      labelForEntityType(params.sourceType);
-    const targetLabel =
-      params.targetLabel ||
-      params.targetReference ||
-      params.targetTitle ||
-      resolveEntityLabel(params.targetType, Number(params.targetId), context) ||
-      labelForEntityType(params.targetType);
-    const isRemove = params.mode === "remove";
-    return {
-      title: `${isRemove ? "Unlink" : "Link"} ${sourceLabel} ${isRemove ? "from" : "to"} ${targetLabel}`,
-      kind: isRemove ? "Unlink" : "Link",
-    };
-  }
-
   return {
-    title:
-      proposal.humanReadableSummary ||
-      proposal.description ||
-      toTitleCase(String(actionType || "Pending action")),
-    kind: toTitleCase(String(actionType || "Action")),
+    status: "failed",
+    executionResult: execResult,
+    error: execResult.error?.safeMessage || execResult.error?.message || fallbackMessage,
   };
 }
 
-function extractMutationStatusFromProposal(
-  proposal: ActionProposal,
-  summaryTitle: string,
-  state: ProposalState,
-): ChatbotTurnMutation | null {
-  if (!["confirming", "confirmed", "failed"].includes(state.status)) return null;
-
-  const actionType = String(proposal.actionType || proposal.action || "").toUpperCase();
-  const params = proposal.params || {};
-
-  let operation: ChatbotTurnMutation["operation"];
-  if (actionType === "CREATE_ENTITY") operation = "create";
-  if (actionType === "UPDATE_ENTITY") operation = "update";
-  if (actionType === "DELETE_ENTITY") operation = "delete";
-
-  let entityType =
-    typeof params.entityType === "string" && params.entityType.trim()
-      ? String(params.entityType).trim().toLowerCase()
-      : undefined;
-  let entityId: number | undefined = Number(params.entityId);
-  if (!Number.isFinite(entityId) || entityId <= 0) entityId = undefined;
-
-  if (state.executionResult?.status === "success") {
-    const firstResult = state.executionResult.executedActions?.[0]?.result as
-      | { entityType?: unknown; entityId?: unknown; operation?: unknown }
-      | undefined;
-    if (!entityType && typeof firstResult?.entityType === "string" && firstResult.entityType.trim()) {
-      entityType = firstResult.entityType.trim().toLowerCase();
-    }
-    const resultEntityId = Number(firstResult?.entityId);
-    if (!entityId && Number.isFinite(resultEntityId) && resultEntityId > 0) {
-      entityId = resultEntityId;
-    }
-    const resultOperation = String(firstResult?.operation || "").trim().toLowerCase();
-    if (!operation && (resultOperation === "create" || resultOperation === "update" || resultOperation === "delete")) {
-      operation = resultOperation;
-    }
-  }
-
-  return {
-    state:
-      state.status === "confirming"
-        ? "pending"
-        : state.status === "confirmed"
-          ? "success"
-          : "error",
-    label: state.status === "failed" ? (state.error || summaryTitle) : summaryTitle,
-    entityType,
-    entityId,
-    operation,
-  };
+function canRetry(state: ProposalState): boolean {
+  if (state.status !== "failed") return false;
+  if (state.executionResult?.error?.requiresReproposal) return false;
+  return true;
 }
 
-function renderChangeDiff(changes: Record<string, { from: unknown; to: unknown }> | undefined) {
-  if (!changes || Object.keys(changes).length === 0) return null;
-  return (
-    <div className="mt-3 rounded-lg border border-black/[0.06] bg-white/70 p-3 dark:border-white/[0.08] dark:bg-slate-900/40">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">
-        Field Changes
-      </p>
-      <div className="space-y-2">
-        {Object.entries(changes).map(([field, diff]) => (
-          <div key={field} className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="font-medium text-slate-700 dark:text-slate-200">{toTitleCase(field)}</span>
-            <span className="rounded bg-red-100 px-1.5 py-0.5 text-red-700 dark:bg-red-900/30 dark:text-red-300">
-              {JSON.stringify(diff.from)}
-            </span>
-            <span className="text-slate-400 dark:text-slate-500">to</span>
-            <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-              {JSON.stringify(diff.to)}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+function getCompletedAtLabel(state: ProposalState): string | undefined {
+  const executedAt = state.executionResult?.audit?.executedAt;
+  if (!executedAt) return undefined;
+  return `Applied ${new Date(executedAt).toLocaleString()}`;
 }
 
-export function ProposalArtifact({ data, onConfirm, onCancel }: ProposalArtifactProps) {
+export function ProposalArtifact({
+  data,
+  onConfirm,
+  onCancel,
+}: ProposalArtifactProps) {
   const contextData = useData() as DataContextLike;
   const [proposalStates, setProposalStates] = useState<Record<string, ProposalState>>(() => {
     const initial: Record<string, ProposalState> = {};
-    data.proposals.forEach((proposal) => {
+    for (const proposal of data.proposals) {
       initial[proposal.proposalId] = restoreProposalState(proposal);
-    });
+    }
     return initial;
   });
 
-  const handleConfirm = async (proposalId: string) => {
+  const updateState = (proposalId: string, next: ProposalState) => {
     setProposalStates((prev) => ({
       ...prev,
-      [proposalId]: { status: "confirming" },
+      [proposalId]: next,
     }));
+  };
+
+  const handleConfirm = async (proposalId: string) => {
+    const proposal = data.proposals.find((p) => p.proposalId === proposalId);
+    if (!proposal) return;
+
+    if (hasExpired(proposal)) {
+      updateState(proposalId, { status: "awaiting_decision" });
+      return;
+    }
+
+    updateState(proposalId, { status: "submitting" });
 
     try {
-      const proposal = data.proposals.find((p) => p.proposalId === proposalId);
       const execResult = await onConfirm(proposalId, {
-        ackRisk: proposal?.confirmation?.extraRiskAck === true,
+        ackRisk: proposal.confirmation?.extraRiskAck === true,
       });
       if (execResult.status === "success") {
         emitExecutedMutationFromExecutionResult(execResult);
-        setProposalStates((prev) => ({
-          ...prev,
-          [proposalId]: { status: "confirmed", executionResult: execResult },
-        }));
-      } else {
-        const safeMsg = execResult.error?.safeMessage || execResult.error?.message || "Execution failed";
-        setProposalStates((prev) => ({
-          ...prev,
-          [proposalId]: { status: "failed", error: safeMsg, executionResult: execResult },
-        }));
       }
+      updateState(
+        proposalId,
+        toProposalState(execResult, "I could not apply that change. Please try again."),
+      );
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      setProposalStates((prev) => ({
-        ...prev,
-        [proposalId]: { status: "failed", error: errorMessage },
-      }));
+      updateState(proposalId, {
+        status: "failed",
+        error: errorMessage,
+      });
     }
   };
 
-  const handleCancel = (proposalId: string) => {
-    setProposalStates((prev) => ({
-      ...prev,
-      [proposalId]: { status: "cancelled" },
-    }));
+  const handleDecline = (proposalId: string) => {
+    updateState(proposalId, { status: "declined" });
     onCancel(proposalId);
   };
 
+  const semanticModels = assertProposalHasRenderableSemanticModels(data.proposals, contextData);
+
   return (
-    <div className="artifact-build agent-artifact-card is-proposal">
-      <div className="artifact-build-header agent-artifact-header agent-artifact-header-proposal flex items-center justify-between px-5 py-4">
-        <div className="flex items-center gap-3">
-          <div className="agent-icon-container agent-icon-container-violet shrink-0 flex items-center justify-center w-10 h-10 rounded-lg">
-            <Zap className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-              Action Proposal
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {data.proposals.length} {data.proposals.length === 1 ? "action" : "actions"} awaiting confirmation
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="space-y-3">
+      {data.proposals.map((proposal, idx) => {
+        const state = proposalStates[proposal.proposalId] || { status: "awaiting_decision" };
+        const uiState = getEffectiveUiState(state, proposal);
+        const semantic = semanticModels[idx];
+        const completedAtLabel = getCompletedAtLabel(state);
+        const errorMessage =
+          uiState === "stale"
+            ? undefined
+            : state.error ||
+              state.executionResult?.error?.safeMessage ||
+              state.executionResult?.error?.message;
 
-      <div className="artifact-build-body px-5 py-4 space-y-4">
-        {data.proposals.map((proposal) => {
-          const state = proposalStates[proposal.proposalId];
-          const isPending = state.status === "pending";
-          const isConfirmed = state.status === "confirmed";
-          const isCancelled = state.status === "cancelled";
-          const isFailed = state.status === "failed";
-          const summary = proposalSummary(proposal, contextData);
-          const mutationStatus = extractMutationStatusFromProposal(
-            proposal,
-            summary.title,
-            state,
-          );
-          const completedAtLabel = state.executionResult?.audit?.executedAt
-            ? `Completed ${new Date(state.executionResult.audit.executedAt).toLocaleString()}`
-            : undefined;
-          const changes =
-            proposal.actionType === "UPDATE_ENTITY"
-              ? (proposal.params?.changes as Record<string, { from: unknown; to: unknown }> | undefined)
-              : undefined;
-
-          return (
-            <div
-              key={proposal.proposalId}
-              className={`rounded-xl border p-4 transition-all ${
-                isConfirmed
-                  ? "border-emerald-300 bg-emerald-50/80 dark:border-emerald-800 dark:bg-emerald-950/20"
-                  : isCancelled
-                  ? "border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/30 opacity-70"
-                  : isFailed
-                  ? "border-red-300 bg-red-50/80 dark:border-red-800 dark:bg-red-950/20"
-                  : "border-violet-200 bg-violet-50/40 dark:border-violet-800 dark:bg-violet-950/20"
-              }`}
-            >
-              <div className="flex flex-wrap items-center gap-2 mb-2">
-                <span className="inline-flex items-center rounded-md border border-black/[0.08] bg-white px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:border-white/[0.1] dark:bg-slate-800/70 dark:text-slate-300">
-                  {summary.kind}
-                </span>
-                {proposal.snapshot?.timestamp && (
-                  <span className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-                    <Clock className="w-3 h-3" />
-                    {new Date(proposal.snapshot.timestamp).toLocaleString()}
-                  </span>
-                )}
-              </div>
-
-              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{summary.title}</p>
-
-              {proposal.confirmation?.extraRiskAck === true && (
-                <div className="mt-2 rounded-lg border border-amber-200/70 bg-amber-50/70 p-2.5 dark:border-amber-800/60 dark:bg-amber-950/20">
-                  <div className="flex items-start gap-2 text-xs text-amber-800 dark:text-amber-300">
-                    <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                    <div className="space-y-1">
-                      <div>This action needs an explicit risk confirmation.</div>
-                      {proposal.confirmation.impactSummary?.slice(0, 3).map((line, idx) => (
-                        <div key={idx} className="text-amber-700/90 dark:text-amber-200/90">
-                          • {line}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {proposal.actionType === "ATTACH_TO_ENTITY" &&
-                proposal.params?.attachmentType === "doc_draft" &&
-                proposal.params?.payload?.title && (
-                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
-                    Draft: {String(proposal.params.payload.title)}
-                  </p>
-                )}
-
-              {proposal.actionType === "LINK_ENTITIES" && (
-                <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 inline-flex items-center gap-1.5">
-                  {proposal.params?.mode === "remove" ? <Unlink className="w-3 h-3" /> : <Link2 className="w-3 h-3" />}
-                  {proposal.params?.linkField ? `Relationship: ${proposal.params.linkField}` : "Relationship update"}
-                </div>
-              )}
-
-              {proposal.actionType === "DELETE_ENTITY" && (
-                <div className="mt-2 inline-flex items-center gap-1.5 text-xs text-red-700 dark:text-red-400">
-                  <Trash2 className="w-3 h-3" />
-                  This will remove the record (soft delete).
-                </div>
-              )}
-
-              {renderChangeDiff(changes)}
-
-              {proposal.affectedEntities && proposal.affectedEntities.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {proposal.affectedEntities.map((entity, idx) => {
-                    const resolved =
-                      resolveEntityLabel(entity.type, Number(entity.id), contextData) ||
-                      entity.reference ||
-                      entity.type;
-                    return (
-                      <span
-                        key={idx}
-                        className="inline-flex items-center gap-1 rounded-md bg-violet-100 px-2 py-1 text-xs font-medium text-violet-800 dark:bg-violet-900/30 dark:text-violet-300"
-                      >
-                        {resolved}
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-
-              {mutationStatus && (
-                <div className="mt-3">
-                  <ChatbotMutationStatus
-                    mutation={mutationStatus}
-                    variant="embedded"
-                    timestampLabel={isConfirmed ? completedAtLabel : undefined}
-                    showLoggedBadge={isConfirmed}
-                  />
-                </div>
-              )}
-
-              {isCancelled && (
-                <div className="mt-3 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                  <XCircle className="w-4 h-4" />
-                  <span>Cancelled</span>
-                </div>
-              )}
-
-              {isFailed && state.executionResult?.error?.requiresReproposal && (
-                <div className="mt-3 rounded-lg border border-red-200/70 bg-red-50/70 p-3 dark:border-red-800/60 dark:bg-red-950/20">
-                  <div className="text-xs text-red-600 dark:text-red-400">
-                    Please retry to generate a new proposal.
-                  </div>
-                </div>
-              )}
-
-              {isPending && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button
-                    onClick={() => handleConfirm(proposal.proposalId)}
-                    className="agent-action-btn min-w-[108px] justify-center agent-action-btn-primary"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Confirm
-                  </button>
-
-                  <button
-                    onClick={() => handleCancel(proposal.proposalId)}
-                    className="agent-action-btn agent-action-btn-secondary"
-                  >
-                    <XCircle className="w-4 h-4" />
-                    Cancel
-                  </button>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+        return (
+          <DecisionConfirmationPanel
+            key={proposal.proposalId}
+            viewModel={semantic}
+            uiState={uiState}
+            errorMessage={errorMessage}
+            completedAtLabel={completedAtLabel}
+            expiresAt={proposal.confirmation?.expiresAt}
+            canRetry={canRetry(state)}
+            requiresRefresh={uiState === "stale"}
+            onConfirm={() => void handleConfirm(proposal.proposalId)}
+            onRetry={() => void handleConfirm(proposal.proposalId)}
+            onDecline={() => handleDecline(proposal.proposalId)}
+          />
+        );
+      })}
     </div>
   );
+}
+
+function assertProposalHasRenderableSemanticModels(
+  proposals: ActionProposal[],
+  contextData: DataContextLike,
+): SemanticActionViewModel[] {
+  if (!Array.isArray(proposals) || proposals.length === 0) {
+    throw new SemanticMappingError("No confirmation actions available to render.");
+  }
+
+  return proposals.map((proposal) => {
+    try {
+      return mapSemanticAction(proposalToSemanticInput(proposal, contextData));
+    } catch (error) {
+      const actionType = String(proposal.actionType || proposal.action || "").toUpperCase();
+      const params = proposal.params || {};
+      const semanticInput =
+        error instanceof SemanticMappingError ? proposalToSemanticInput(proposal, contextData) : undefined;
+      console.error("[SemanticConfirmation] Failed to build semantic confirmation view model", {
+        proposalId: proposal.proposalId,
+        actionType,
+        entityType: String(params.entityType || params.targetType || params.sourceType || params.target?.type || ""),
+        paramsKeys: Object.keys(params),
+        changesKeys:
+          params.changes && typeof params.changes === "object"
+            ? Object.keys(params.changes as Record<string, unknown>)
+            : [],
+        payloadKeys:
+          params.payload && typeof params.payload === "object" && !Array.isArray(params.payload)
+            ? Object.keys(params.payload as Record<string, unknown>)
+            : [],
+        semanticDebug: semanticInput
+          ? {
+              actionKind: semanticInput.context.actionKind,
+              hasSubjectLabel: Boolean(semanticInput.context.subjectLabel),
+              changeKeys: Object.keys(semanticInput.changes || {}),
+              pendingFieldNames: semanticInput.context.pendingFieldNames || [],
+            }
+          : undefined,
+        error,
+      });
+      throw error instanceof SemanticMappingError
+        ? error
+        : new SemanticMappingError("Failed to prepare semantic confirmation.", {
+            proposalId: proposal.proposalId,
+            actionType,
+          });
+    }
+  });
 }
