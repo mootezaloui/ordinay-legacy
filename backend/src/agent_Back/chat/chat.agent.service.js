@@ -64,9 +64,14 @@ const BLOCKED_MUTATION_ERROR_CODES = new Set([
   "EXECUTION_NOT_PERMITTED",
   "DOMAIN_RULE_BLOCKED",
 ]);
-const CHAT_MUTATION_DEBUG_ENABLED = ["1", "true", "yes", "on"].includes(
-  String(process.env.AGENT_CHAT_MUTATION_DEBUG || "").toLowerCase(),
-);
+function isTruthyEnv(value) {
+  return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+}
+
+const CHAT_MUTATION_DEBUG_ENABLED =
+  isTruthyEnv(process.env.AGENT_CHAT_MUTATION_DEBUG) ||
+  isTruthyEnv(process.env.AGENT_MUTATION_DEBUG) ||
+  process.env.NODE_ENV !== "production";
 const CHAT_ADAPTIVE_DOMAIN_CONSTRAINTS_ENABLED = ["1", "true", "yes", "on"].includes(
   String(process.env.AGENT_ADAPTIVE_DOMAIN_CONSTRAINTS ?? "1").toLowerCase(),
 );
@@ -1604,6 +1609,7 @@ class ChatAgentService {
 
   _describeMutationTarget(detectorResult = null) {
     const entityType = String(detectorResult?.proposalInput?.entityType || "").toLowerCase();
+    const operation = String(detectorResult?.proposalInput?.operation || "update").toLowerCase();
     const metadata = detectorResult?.metadata || {};
     const field = String(metadata.field || "").toLowerCase();
     const payload = detectorResult?.proposalInput?.payload || {};
@@ -1624,6 +1630,20 @@ class ChatAgentService {
     }
     const prettyEntity = entityType ? entityType.replace(/_/g, " ") : "record";
     const prettyField = field ? field.replace(/_/g, " ") : "record";
+    if (operation === "create") {
+      return {
+        objectLabel: `new ${prettyEntity}`,
+        proposalLabel: `create a new ${prettyEntity}`,
+        completedLabel: `created a new ${prettyEntity}`,
+      };
+    }
+    if (operation === "delete") {
+      return {
+        objectLabel: `the ${prettyEntity}`,
+        proposalLabel: `delete the ${prettyEntity}`,
+        completedLabel: `deleted the ${prettyEntity}`,
+      };
+    }
     return {
       objectLabel: `the ${prettyEntity}`,
       proposalLabel: `update the ${prettyEntity} ${prettyField}`,
@@ -1638,6 +1658,8 @@ class ChatAgentService {
     executionMode = "confirm",
   }) {
     const labels = this._describeMutationTarget(detectorResult);
+    const operation = String(detectorResult?.proposalInput?.operation || "update").toLowerCase();
+    const genericBlocked = String(failure?.safeMessage || "").trim() === "I can’t apply that change right now.";
     if (status === "EXECUTED") {
       return `Done. I ${labels.completedLabel}.`;
     }
@@ -1645,6 +1667,9 @@ class ChatAgentService {
       return `I can ${labels.proposalLabel}. Confirm?`;
     }
     if (status === "BLOCKED") {
+      if (genericBlocked && operation === "create") {
+        return `I couldn’t prepare ${labels.objectLabel} yet because I still need more context. Please provide the parent reference (for example the client or dossier).`;
+      }
       return String(failure?.safeMessage || "I can’t apply that change right now.");
     }
     if (status === "FAILED") {
@@ -1709,7 +1734,26 @@ class ChatAgentService {
     policy,
     executionContext,
   }) {
-    const toolArgs = detectorResult.proposalInput;
+    this._debugChatMutation("create_mutation_proposal:start", {
+      operation: detectorResult?.proposalInput?.operation || null,
+      entityType: detectorResult?.proposalInput?.entityType || null,
+      entityId: detectorResult?.proposalInput?.entityId || null,
+      parent: detectorResult?.proposalInput?.parent || null,
+      payloadKeys: Object.keys(detectorResult?.proposalInput?.payload || {}),
+      confidence: detectorResult?.scores?.finalConfidence ?? null,
+    });
+    const toolArgs = await this._enrichCreateMutationProposalInputWithContext({
+      detectorResult,
+      policy,
+      executionContext,
+    });
+    this._debugChatMutation("create_mutation_proposal:tool_args_enriched", {
+      operation: toolArgs?.operation || null,
+      entityType: toolArgs?.entityType || null,
+      entityId: toolArgs?.entityId || null,
+      parent: toolArgs?.parent || null,
+      payloadKeys: Object.keys(toolArgs?.payload || {}),
+    });
     const stage3ExecutionContext = {
       ...executionContext,
       posture: "WORK",
@@ -1724,6 +1768,13 @@ class ChatAgentService {
       policy,
       stage3ExecutionContext,
     );
+    this._debugChatMutation("create_mutation_proposal:tool_result", {
+      proposalId: v2Result?.result?.proposalId || null,
+      status: v2Result?.result?.status || null,
+      actionType: v2Result?.result?.actionType || null,
+      requiresConfirmation: v2Result?.result?.requiresConfirmation ?? null,
+      error: v2Result?.error || null,
+    });
     const proposal = v2Result?.result;
     if (!proposal?.proposalId || proposal.requiresConfirmation !== true) {
       const err = new Error("Failed to create mutation proposal.");
@@ -1731,6 +1782,109 @@ class ChatAgentService {
       throw err;
     }
     return { proposal, toolArgs, stage3ExecutionContext };
+  }
+
+  async _enrichCreateMutationProposalInputWithContext({
+    detectorResult,
+    policy,
+    executionContext,
+  }) {
+    const toolArgs = detectorResult?.proposalInput
+      ? JSON.parse(JSON.stringify(detectorResult.proposalInput))
+      : {};
+    const operation = String(toolArgs?.operation || "").toLowerCase();
+    if (operation !== "create") return toolArgs;
+
+    const entityType = String(toolArgs?.entityType || "").toLowerCase();
+    const parent = toolArgs?.parent && typeof toolArgs.parent === "object" ? toolArgs.parent : null;
+    this._debugChatMutation("create_context_enrichment:input", {
+      entityType,
+      parent,
+      payloadKeys: Object.keys(toolArgs?.payload || {}),
+    });
+    if (!parent) return toolArgs;
+
+    if (entityType === "lawsuit" && String(parent.entityType || "").toLowerCase() === "client") {
+      const clientId = Number(parent.entityId);
+      if (!Number.isInteger(clientId) || clientId <= 0) return toolArgs;
+
+      const dossierExec = await this._executeToolByName({
+        toolName: "listDossiersForClient",
+        args: { clientId, limit: 25 },
+        policy,
+        executionContext,
+      });
+      this._debugChatMutation("create_context_enrichment:list_dossiers_for_client", {
+        clientId,
+        ok: Boolean(dossierExec?.ok),
+        error: dossierExec?.error || null,
+        count: Number(dossierExec?.result?.count) || 0,
+      });
+      if (!dossierExec?.ok) return toolArgs;
+      const dossiers = Array.isArray(dossierExec?.result?.dossiers) ? dossierExec.result.dossiers : [];
+      const active = dossiers.filter((d) => String(d?.status || "").toLowerCase() !== "closed");
+      const candidates = active.length > 0 ? active : dossiers;
+      this._debugChatMutation("create_context_enrichment:dossier_candidates", {
+        clientId,
+        dossiers: dossiers.slice(0, 5).map((d) => ({
+          id: Number(d?.id) || null,
+          reference: d?.reference || d?.code || null,
+          title: d?.title || null,
+          status: d?.status || null,
+        })),
+        activeCount: active.length,
+        candidateCount: candidates.length,
+      });
+      if (candidates.length === 1 && Number.isInteger(Number(candidates[0]?.id))) {
+        const dossierId = Number(candidates[0].id);
+        toolArgs.parent = {
+          entityType: "dossier",
+          entityId: dossierId,
+          source: "context_inferred_from_client",
+        };
+        if (!toolArgs.payload || typeof toolArgs.payload !== "object") toolArgs.payload = {};
+        if (!toolArgs.payload.dossier_id) toolArgs.payload.dossier_id = dossierId;
+        this._debugChatMutation("create_context_enrichment:resolved_parent", {
+          childEntityType: entityType,
+          originalParent: parent,
+          resolvedParent: toolArgs.parent,
+          dossierId,
+        });
+        return toolArgs;
+      }
+
+      const err = new Error(
+        candidates.length === 0
+          ? "No dossier found for this client. Please choose the dossier before creating the lawsuit."
+          : "Multiple dossiers found for this client. Please specify which dossier should contain the new lawsuit.",
+      );
+      err.code = candidates.length === 0 ? "PARENT_CONTEXT_DOSSIER_NOT_FOUND" : "PARENT_CONTEXT_DOSSIER_AMBIGUOUS";
+      this._debugChatMutation("create_context_enrichment:failed", {
+        code: err.code,
+        message: err.message,
+        clientId,
+        candidateCount: candidates.length,
+      });
+      throw err;
+    }
+
+    // Dossier creation starts from a client parent; ensure the service-required FK is present.
+    if (entityType === "dossier" && String(parent.entityType || "").toLowerCase() === "client") {
+      const clientId = Number(parent.entityId);
+      if (Number.isInteger(clientId) && clientId > 0) {
+        if (!toolArgs.payload || typeof toolArgs.payload !== "object") toolArgs.payload = {};
+        if (!toolArgs.payload.client_id) toolArgs.payload.client_id = clientId;
+        this._debugChatMutation("create_context_enrichment:resolved_parent", {
+          childEntityType: entityType,
+          originalParent: parent,
+          resolvedParent: parent,
+          clientId,
+        });
+      }
+      return toolArgs;
+    }
+
+    return toolArgs;
   }
 
   async _tryAutoExecuteStoredProposal({ proposal, executionContext }) {
@@ -1844,7 +1998,7 @@ class ChatAgentService {
           status: normalizedFailure.outcome,
           entityType: toolArgs?.entityType || null,
           entityId: toolArgs?.entityId || null,
-          operation: "update",
+          operation: toolArgs?.operation || detectorResult?.proposalInput?.operation || "update",
           field: detectorResult?.metadata?.field || null,
           value: toolArgs?.payload?.[detectorResult?.metadata?.field] ?? null,
           reasonCode: normalizedFailure.code,
@@ -2305,6 +2459,16 @@ class ChatAgentService {
       });
     }
     const effectiveMutationIntent = normalizedMutationIntent || mutationIntent;
+    this._debugChatMutation("detector_result", {
+      intentType: effectiveMutationIntent?.intentType || null,
+      routeDecision: effectiveMutationIntent?.routeDecision || null,
+      operation: effectiveMutationIntent?.operation || effectiveMutationIntent?.proposalInput?.operation || null,
+      entityType: effectiveMutationIntent?.entityType || effectiveMutationIntent?.proposalInput?.entityType || null,
+      entityId: effectiveMutationIntent?.entityId || effectiveMutationIntent?.proposalInput?.entityId || null,
+      reasonCode: effectiveMutationIntent?.reasonCode || null,
+      question: effectiveMutationIntent?.question || null,
+      proposalInput: effectiveMutationIntent?.stage3Decision?.proposalInput || effectiveMutationIntent?.proposalInput || null,
+    });
 
     if (!effectiveMutationIntent) {
       const noIntentDecision = decideMutationMode({

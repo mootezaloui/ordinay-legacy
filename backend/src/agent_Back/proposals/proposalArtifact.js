@@ -1,8 +1,9 @@
 "use strict";
 
-const PROPOSAL_DEBUG_ENABLED = ["1", "true", "yes", "on"].includes(
-  String(process.env.AGENT_CHAT_MUTATION_DEBUG || "").toLowerCase(),
-);
+const PROPOSAL_DEBUG_ENABLED =
+  ["1", "true", "yes", "on"].includes(String(process.env.AGENT_CHAT_MUTATION_DEBUG || "").toLowerCase()) ||
+  ["1", "true", "yes", "on"].includes(String(process.env.AGENT_MUTATION_DEBUG || "").toLowerCase()) ||
+  process.env.NODE_ENV !== "production";
 
 function toProposalArtifact(proposal, sessionId) {
   const artifact = {

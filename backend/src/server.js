@@ -31,10 +31,21 @@ function envFlag(name, defaultValue = false) {
   };
 }
 
+function envFlagAny(names = [], defaultValue = false) {
+  for (const name of names) {
+    const flag = envFlag(name, false);
+    if (flag.raw != null && flag.raw !== "") return { ...flag, source: name };
+  }
+  return { raw: null, effective: Boolean(defaultValue), source: null };
+}
+
 const activeLlmModel = process.env.LLM_MODEL || "gpt-oss:120b-cloud";
 console.log(`[LLM] Active model: ${activeLlmModel}`);
 {
-  const debugFlag = envFlag("AGENT_CHAT_MUTATION_DEBUG", false);
+  const debugFlag = envFlagAny(
+    ["AGENT_CHAT_MUTATION_DEBUG", "AGENT_MUTATION_DEBUG"],
+    process.env.NODE_ENV !== "production",
+  );
   const adaptiveFlag = envFlag("AGENT_ADAPTIVE_DOMAIN_CONSTRAINTS", true);
   const intentDetectionFlag = envFlag("AGENT_MUTATION_INTENT_DETECTION", true);
   console.log(

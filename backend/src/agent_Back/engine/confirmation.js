@@ -2,11 +2,12 @@
 
 const crypto = require("crypto");
 const { ACTION_STATUS } = require("../contracts/actionProposal.contract");
-const EXPLICIT_MUTATION_ACTIONS = new Set(["CREATE_ENTITY", "UPDATE_ENTITY", "EXECUTE_MUTATION_WORKFLOW"]);
-const STAGE3_STRONG_INTENT_MUTATION_ACTIONS = new Set(["UPDATE_ENTITY", "EXECUTE_MUTATION_WORKFLOW"]);
-const CONFIRM_DEBUG_ENABLED = ["1", "true", "yes", "on"].includes(
-  String(process.env.AGENT_CHAT_MUTATION_DEBUG || "").toLowerCase(),
-);
+const EXPLICIT_MUTATION_ACTIONS = new Set(["CREATE_ENTITY", "UPDATE_ENTITY", "DELETE_ENTITY", "EXECUTE_MUTATION_WORKFLOW"]);
+const STAGE3_STRONG_INTENT_MUTATION_ACTIONS = new Set(["CREATE_ENTITY", "UPDATE_ENTITY", "DELETE_ENTITY", "EXECUTE_MUTATION_WORKFLOW"]);
+const CONFIRM_DEBUG_ENABLED =
+  ["1", "true", "yes", "on"].includes(String(process.env.AGENT_CHAT_MUTATION_DEBUG || "").toLowerCase()) ||
+  ["1", "true", "yes", "on"].includes(String(process.env.AGENT_MUTATION_DEBUG || "").toLowerCase()) ||
+  process.env.NODE_ENV !== "production";
 const ADAPTIVE_CONSTRAINTS_ENABLED = ["1", "true", "yes", "on"].includes(
   String(process.env.AGENT_ADAPTIVE_DOMAIN_CONSTRAINTS ?? "1").toLowerCase(),
 );

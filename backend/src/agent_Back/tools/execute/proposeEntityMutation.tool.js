@@ -19,7 +19,7 @@ const inputSchema = {
     },
     operation: {
       type: "string",
-      enum: ["create", "update"],
+      enum: ["create", "update", "delete"],
     },
     payload: {
       type: "object",
@@ -30,6 +30,16 @@ const inputSchema = {
       minLength: 1,
       maxLength: 280,
     },
+    parent: {
+      type: "object",
+      additionalProperties: false,
+      required: ["entityType", "entityId"],
+      properties: {
+        entityType: { type: "string", minLength: 1 },
+        entityId: { type: "integer", minimum: 1 },
+        source: { type: "string" },
+      },
+    },
   },
 };
 
@@ -37,7 +47,7 @@ async function handler(input, executionContext = {}) {
   const allowExplicit = executionContext.explicitMutationCommand === true;
   const allowStrongIntent =
     executionContext.strongMutationIntent === true &&
-    String(input?.operation || "").toLowerCase() === "update";
+    ["create", "update", "delete"].includes(String(input?.operation || "").toLowerCase());
 
   if (!allowExplicit && !allowStrongIntent) {
     const err = new Error("Mutation proposals are only allowed via explicit /mutate command");
@@ -53,7 +63,7 @@ module.exports = {
   name: "propose_entity_mutation",
   category: TOOL_CATEGORIES.PLAN,
   description:
-    "Create a proposal (not execution) for a create/update entity mutation. Only callable via explicit /mutate command.",
+    "Create a proposal (not execution) for a create/update/delete entity mutation. Callable via explicit /mutate or strong chat mutation intent.",
   inputSchema,
   outputSchema: actionProposalSchema,
   reversibility: true,

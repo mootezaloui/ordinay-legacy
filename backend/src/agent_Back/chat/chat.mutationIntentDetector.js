@@ -37,6 +37,16 @@ const ALLOWED_ENTITY_TYPES = new Set([
 ]);
 
 const BLOCKED_CONVERSATIONAL_ENTITY_TYPES = new Set(["note"]);
+const CREATE_PARENT_REQUIRED_ENTITY_TYPES = new Set([
+  "dossier",
+  "lawsuit",
+  "task",
+  "mission",
+  "session",
+  "financial_entry",
+  "document",
+  "note",
+]);
 
 const ENTITY_ALIASES = Object.freeze({
   hearing: "session",
@@ -47,8 +57,8 @@ const ENTITY_ALIASES = Object.freeze({
   clients: "client",
   dossier: "dossier",
   dossiers: "dossier",
-  case: "lawsuit",
-  cases: "lawsuit",
+  case: "dossier",
+  cases: "dossier",
   lawsuit: "lawsuit",
   lawsuits: "lawsuit",
   task: "task",
@@ -179,7 +189,7 @@ function getConfig() {
       "AGENT_MUTATION_INTENT_ENTITY_THRESHOLD",
       DEFAULT_ENTITY_THRESHOLD,
     ),
-    allowCreate: flagEnabled("AGENT_MUTATION_INTENT_ALLOW_CREATE", false),
+    allowCreate: flagEnabled("AGENT_MUTATION_INTENT_ALLOW_CREATE", true),
     allowHighRisk: flagEnabled("AGENT_MUTATION_INTENT_ALLOW_HIGH_RISK", false),
     requireRiskAck: flagEnabled("AGENT_MUTATION_INTENT_REQUIRE_RISK_ACK", true),
     logComponentScores: flagEnabled("AGENT_MUTATION_INTENT_LOG_COMPONENT_SCORES", true),
@@ -263,6 +273,17 @@ function detectClientInactiveIntentPhrase(message) {
   );
 }
 
+function detectNarrativeLawsuitCreateSignal(message) {
+  const text = lower(message);
+  if (!text || !/\bdivorce\b/.test(text)) return false;
+  return (
+    /\bmy\s+client\b/.test(text) ||
+    /\bclient\b/.test(text) ||
+    /\bfor\s+[a-z]/.test(text) ||
+    /\b(is\s+(?:going\s+to\s+have|having)|will\s+have|has)\b/.test(text)
+  );
+}
+
 function extractEntityMention(message) {
   const text = String(message || "");
   const entityRegex =
@@ -304,6 +325,10 @@ function buildEntityAliasPattern(entityType) {
 function trimMutationTailFromQuery(value) {
   let text = cleanEntityNameQuery(value);
   if (!text) return null;
+  text = text.replace(
+    /\b(is\s+(?:going\s+to\s+have|having|about\s+to\s+have)|will\s+have|has)\b[\s\S]*$/i,
+    "",
+  );
   text = text.replace(
     /\b(status|state|priority|due date|deadline|scheduled at|session date|hearing date|date|time|location|place|outcome|result|assigned to|assignee|phone|email|address|reference|amount)\b[\s\S]*$/i,
     "",
@@ -380,9 +405,21 @@ function prefilterMutationIntent(message) {
       operationConfidence: 0.9,
     };
   }
+  if (detectNarrativeLawsuitCreateSignal(text)) {
+    return {
+      pass: true,
+      reason: "narrative_lawsuit_create_signal",
+      intentVerbClarity: 0.62,
+      operationConfidence: 0.68,
+    };
+  }
+  const hasCreateVerb =
+    /\b(create|add)\b/i.test(text) ||
+    /\bopen\s+(?:a\s+)?new\b/i.test(text) ||
+    /\bnew\s+(case|lawsuit|task|session|mission|dossier)\b/i.test(text);
   const hasVerb = /\b(update|change|set|move|reschedule|mark)\b/i.test(text);
   const hasToPattern = /\b(to|as)\b/i.test(text);
-  if (!hasVerb && !hasToPattern) {
+  if (!hasVerb && !hasToPattern && !hasCreateVerb) {
     return {
       pass: false,
       reason: "no_mutation_verb",
@@ -393,8 +430,8 @@ function prefilterMutationIntent(message) {
   return {
     pass: true,
     reason: "candidate",
-    intentVerbClarity: hasVerb ? 0.96 : 0.75,
-    operationConfidence: hasVerb ? 0.95 : 0.7,
+    intentVerbClarity: hasVerb ? 0.96 : hasCreateVerb ? 0.9 : 0.75,
+    operationConfidence: hasVerb ? 0.95 : hasCreateVerb ? 0.9 : 0.7,
   };
 }
 
@@ -439,11 +476,69 @@ function parseOperation(message, extractedOperation = null) {
   if (op === "update" || op === "create" || op === "delete") return op;
   const text = lower(message);
   if (detectClientInactiveIntentPhrase(text)) return "update";
+  if (detectNarrativeLawsuitCreateSignal(text)) return "create";
   if (/\b(delete|remove)\b/.test(text)) return "delete";
   if (/\b(close|reopen)\b/.test(text)) return "update";
+  if (/\bopen\s+(?:a\s+)?new\b/.test(text)) return "create";
   if (/\b(update|change|set|move|reschedule|mark)\b/.test(text)) return "update";
   if (/\b(create|add|new)\b/.test(text)) return "create";
   return "unknown";
+}
+
+function extractReferenceToken(text) {
+  const m = String(text || "").match(/\b(?:PRO|DOS|MIS)-\d{4}-\d+\b/i);
+  return m ? String(m[0]).toUpperCase() : null;
+}
+
+function extractCreateParentHint({ message, entityType }) {
+  const text = String(message || "");
+  const ref = extractReferenceToken(text);
+  if (ref) {
+    if (/^PRO-/i.test(ref)) return { entityType: "lawsuit", reference: ref, source: "reference" };
+    if (/^DOS-/i.test(ref)) return { entityType: "dossier", reference: ref, source: "reference" };
+    if (/^MIS-/i.test(ref)) return { entityType: "mission", reference: ref, source: "reference" };
+  }
+  const clientNarrative = text.match(/\bmy\s+client\s+(.+?)(?:\s+is\b|\s+has\b|\s+will\b|\s+going\b|,|\.|$)/i);
+  if (clientNarrative?.[1]) {
+    return { entityType: "client", name: cleanEntityNameQuery(clientNarrative[1]), source: "name" };
+  }
+  const forName = text.match(/\bfor\s+([A-Za-z][\p{L}\p{N}' -]{1,80})(?:\s+(?:can|please|so|who|with|on|its|it's)\b|[,.?!]|$)/iu);
+  if (forName?.[1] && entityType !== "client") {
+    return { entityType: "client", name: cleanEntityNameQuery(forName[1]), source: "name" };
+  }
+  return null;
+}
+
+function buildCreatePayloadFromMessage({ message, entityType }) {
+  const text = String(message || "");
+  if (entityType === "lawsuit") {
+    return { title: /\bdivorce\b/i.test(text) ? "Divorce case" : "New case", status: "open", case_type: /\bdivorce\b/i.test(text) ? "divorce" : undefined };
+  }
+  if (entityType === "dossier") return { title: "New dossier", status: "open" };
+  if (entityType === "task") return { title: "New task", status: "pending" };
+  if (entityType === "session") return { title: "New session", status: "scheduled" };
+  if (entityType === "mission") return { title: "New mission", status: "planned" };
+  if (entityType === "document") return { title: "New document" };
+  return { title: "New item" };
+}
+
+function inferCreateTargetEntityType(message, fallback = "") {
+  const text = String(message || "");
+  if (detectNarrativeLawsuitCreateSignal(text)) return "dossier";
+  const patterns = [
+    { regex: /\b(?:create|open)\s+(?:a\s+)?new\s+lawsuit\b/i, type: "lawsuit" },
+    { regex: /\bnew\s+lawsuit\b/i, type: "lawsuit" },
+    { regex: /\b(?:create|open)\s+(?:a\s+)?new\s+case\b/i, type: "dossier" },
+    { regex: /\bnew\s+case\b/i, type: "dossier" },
+    { regex: /\badd\s+(?:a\s+)?task\b/i, type: "task" },
+    { regex: /\bcreate\s+(?:a\s+)?task\b/i, type: "task" },
+    { regex: /\bcreate\s+(?:a\s+)?dossier\b/i, type: "dossier" },
+    { regex: /\bopen\s+(?:a\s+)?new\s+dossier\b/i, type: "dossier" },
+  ];
+  for (const p of patterns) {
+    if (p.regex.test(text)) return p.type;
+  }
+  return normalizeEntityType(fallback || "");
 }
 
 function inferFieldFromText({ entityType, text, allowedFields, adapterFieldAliases = {} }) {
@@ -795,6 +890,15 @@ function mergePendingClarification({ pending, message, activeEntity }) {
   const candidate = { ...(pending.candidate || {}) };
   const missing = new Set(Array.isArray(pending.missing) ? pending.missing : []);
   const text = normalizeText(message);
+  const kind = String(pending.kind || "");
+
+  if (kind === "create_parent") {
+    if (missing.has("parent") && text) {
+      candidate.parentReplyText = text;
+      missing.delete("parent");
+    }
+    return { candidate, missing: Array.from(missing) };
+  }
 
   if (missing.has("entityId")) {
     const idMatch = text.match(/\b(\d+)\b/);
@@ -836,8 +940,7 @@ async function validateAndBuildCandidate({
 
   const operation = parseOperation(message, extracted.operation);
   scores.operationConfidence =
-    operation === "update" ? 0.98 : operation === "create" ? 0.75 : 0.3;
-  if (operation !== "update") hardGateFailures.push("operation_not_update");
+    operation === "update" ? 0.98 : operation === "create" ? 0.95 : operation === "delete" ? 0.9 : 0.3;
 
   let entityType = normalizeEntityType(extracted.entityType || activeEntity?.type || "");
   if (!entityType || !ALLOWED_ENTITY_TYPES.has(entityType)) {
@@ -870,7 +973,7 @@ async function validateAndBuildCandidate({
     entityId = Number(activeEntity.id);
     entityResolutionConfidence = 0.95;
     entityResolutionSource = "active_entity";
-  } else if (entityType && typeof entityNameResolver === "function") {
+  } else if (operation !== "create" && entityType && typeof entityNameResolver === "function") {
     const query = extractEntityNameQuery({ message, entityType });
     if (query) {
       try {
@@ -900,13 +1003,164 @@ async function validateAndBuildCandidate({
     }
   }
   scores.entityResolutionConfidence = entityResolutionConfidence;
-  if (entityResolutionLookup?.kind === "many") {
+  if (operation !== "create" && entityResolutionLookup?.kind === "many") {
     hardGateFailures.push("entity_resolution_multiple_matches");
-  } else if (entityResolutionLookup?.kind === "none") {
+  } else if (operation !== "create" && entityResolutionLookup?.kind === "none") {
     hardGateFailures.push("entity_resolution_name_not_found");
   }
-  if (!entityId || entityResolutionConfidence < config.entityThreshold) {
+  if (operation !== "create" && (!entityId || entityResolutionConfidence < config.entityThreshold)) {
     hardGateFailures.push("entity_resolution_uncertain");
+  }
+
+  if (operation === "create") {
+    if (!config.allowCreate) {
+      hardGateFailures.push("create_blocked_by_flag");
+    }
+
+    let createEntityType = inferCreateTargetEntityType(message, entityType);
+    if (!createEntityType || !ALLOWED_ENTITY_TYPES.has(createEntityType)) {
+      const mention = extractEntityMention(message);
+      createEntityType = normalizeEntityType(mention?.entityType || "");
+    }
+    if (!createEntityType || !ALLOWED_ENTITY_TYPES.has(createEntityType)) {
+      hardGateFailures.push("entity_type_missing_or_unsupported");
+    }
+
+    const parentHint =
+      extracted.parent && typeof extracted.parent === "object"
+        ? extracted.parent
+        : extracted.parentReplyText
+          ? (
+              extractCreateParentHint({ message: extracted.parentReplyText, entityType: createEntityType }) ||
+              {
+                entityType:
+                  createEntityType === "dossier"
+                    ? "client"
+                    : createEntityType === "lawsuit"
+                      ? "client"
+                      : "dossier",
+                name: cleanEntityNameQuery(extracted.parentReplyText),
+                source: "name",
+              }
+            )
+          : extractCreateParentHint({ message, entityType: createEntityType });
+    let parent = null;
+    if (parentHint) {
+      if (parentHint.entityId && Number.isInteger(Number(parentHint.entityId)) && Number(parentHint.entityId) > 0) {
+        parent = { entityType: parentHint.entityType, entityId: Number(parentHint.entityId), source: "id" };
+      } else if ((parentHint.reference || parentHint.name) && typeof entityNameResolver === "function") {
+        try {
+          const lookup = await entityNameResolver({
+            entityType: parentHint.entityType,
+            query: parentHint.reference || parentHint.name,
+            message,
+          });
+          if (lookup?.kind === "one" && Number.isInteger(Number(lookup.id)) && Number(lookup.id) > 0) {
+            parent = {
+              entityType: parentHint.entityType,
+              entityId: Number(lookup.id),
+              source: parentHint.reference ? "reference" : "name",
+            };
+          } else if (lookup?.kind === "many") {
+            hardGateFailures.push("parent_resolution_multiple_matches");
+          } else if (lookup?.kind === "none") {
+            hardGateFailures.push("parent_resolution_not_found");
+          }
+        } catch (_) {
+          hardGateFailures.push("parent_resolution_failed");
+        }
+      } else {
+        parent = { ...parentHint };
+      }
+    }
+    if (CREATE_PARENT_REQUIRED_ENTITY_TYPES.has(createEntityType) && !parent) {
+      hardGateFailures.push("create_parent_required_missing");
+    }
+
+    const createPayload = buildCreatePayloadFromMessage({ message, entityType: createEntityType });
+    let createAllowedFields = [];
+    try {
+      createAllowedFields = getAllowedFields(createEntityType, "create") || [];
+    } catch (_) {
+      createAllowedFields = [];
+    }
+    const sanitizedPayload = Object.fromEntries(
+      Object.entries(createPayload || {}).filter(([field, value]) => {
+        if (value === undefined) return false;
+        if (Array.isArray(createAllowedFields) && createAllowedFields.length > 0) {
+          return createAllowedFields.includes(field);
+        }
+        return true;
+      }),
+    );
+
+    scores.entityResolutionConfidence = parent ? 0.95 : 0.75;
+    scores.fieldParseConfidence = 0.8;
+    scores.valueParseConfidence = 0.8;
+    scores.contextCoherenceConfidence = parent ? 0.9 : 0.7;
+    const scoreBreakdown = buildScoreBreakdown({
+      scores,
+      hardGateFailures,
+      threshold: config.threshold,
+      entityThreshold: config.entityThreshold,
+    });
+
+    return {
+      candidate: {
+        entityType: createEntityType,
+        entityId: "new",
+        operation: "create",
+        field: null,
+        newValue: null,
+        newValueRaw: null,
+        displayValue: null,
+        payload: sanitizedPayload,
+        parent: parent || null,
+        entityResolutionSource: null,
+        entityResolutionLookup: null,
+        reasoningSummary:
+          normalizeText(extracted.reasoningSummary) ||
+          `User requested creating a ${createEntityType}.`,
+        intentSentence: normalizeText(extracted.intentSentence) || null,
+        risk: "low",
+        riskReason: null,
+        requiresExtraConfirmation: false,
+      },
+      scores: scoreBreakdown,
+    };
+  }
+
+  if (operation === "delete") {
+    if (detectBatchPattern(message)) hardGateFailures.push("batch_update_blocked");
+    if (detectQuestionOrHypothetical(message)) hardGateFailures.push("question_or_hypothetical");
+    const scoreBreakdown = buildScoreBreakdown({
+      scores,
+      hardGateFailures,
+      threshold: config.threshold,
+      entityThreshold: config.entityThreshold,
+    });
+    return {
+      candidate: {
+        entityType,
+        entityId,
+        operation: "delete",
+        field: null,
+        newValue: null,
+        newValueRaw: null,
+        displayValue: null,
+        payload: null,
+        entityResolutionSource,
+        entityResolutionLookup,
+        reasoningSummary:
+          normalizeText(extracted.reasoningSummary) ||
+          `User requested deleting ${entityType} ${entityId}.`,
+        intentSentence: normalizeText(extracted.intentSentence) || null,
+        risk: "high",
+        riskReason: "destructive_delete",
+        requiresExtraConfirmation: config.requireRiskAck,
+      },
+      scores: scoreBreakdown,
+    };
   }
 
   let allowedFields = [];
@@ -1057,6 +1311,49 @@ function buildClarificationFromFailures({ failures, candidate, scores, config })
       { pendingClarification: null },
     );
   }
+  if (failureSet.has("parent_resolution_multiple_matches")) {
+    return buildClarification(
+      "I found multiple matching parent records. Which one should I use for the new record?",
+      "parent_resolution_multiple_matches",
+      scores,
+      candidate,
+      { pendingClarification: { kind: "create_parent", candidate, missing: ["parent"], createdAt: new Date().toISOString() } },
+    );
+  }
+  if (failureSet.has("parent_resolution_not_found")) {
+    return buildClarification(
+      "I couldn’t find the parent record in the app. Please confirm the client/dossier reference before I prepare the new case.",
+      "parent_resolution_not_found",
+      scores,
+      candidate,
+      { pendingClarification: null },
+    );
+  }
+  if (failureSet.has("create_blocked_by_flag")) {
+    return buildClarification(
+      "Create requests are currently disabled in this chat path. I can still help prepare the required details.",
+      "create_not_enabled",
+      scores,
+      candidate,
+      { pendingClarification: null },
+    );
+  }
+  if (failureSet.has("create_parent_required_missing")) {
+    const prettyEntity = String(candidate?.entityType || "record").replace(/_/g, " ");
+    const parentPrompt =
+      candidate?.entityType === "dossier"
+        ? "Please provide the client name or reference."
+        : candidate?.entityType === "lawsuit"
+          ? "Please provide the client or dossier reference."
+          : "Please provide the parent record reference.";
+    return buildClarification(
+      `I can prepare a new ${prettyEntity}, but I need the parent context first. ${parentPrompt}`,
+      "create_parent_required_missing",
+      scores,
+      candidate,
+      { pendingClarification: { kind: "create_parent", candidate, missing: ["parent"], createdAt: new Date().toISOString() } },
+    );
+  }
   if (failureSet.has("operation_not_update")) {
     return buildClarification(
       "I can only prepare single-field updates automatically in chat right now. For this request, I can help you prepare a confirmation-ready change.",
@@ -1106,6 +1403,22 @@ function buildClarificationFromFailures({ failures, candidate, scores, config })
     );
   }
   if (failureSet.has("entity_resolution_uncertain")) {
+    if (String(candidate?.operation || "") === "create") {
+      return buildClarification(
+        "I need the parent context to prepare the new record safely. Please provide the client or parent reference.",
+        "create_entity_resolution_ambiguous",
+        scores,
+        candidate,
+        {
+          pendingClarification: {
+            kind: "create_parent",
+            candidate,
+            missing: ["parent"],
+            createdAt: new Date().toISOString(),
+          },
+        },
+      );
+    }
     return buildClarification(
       "Which specific entity do you want to update? Please provide the entity type and ID (for example: hearing 42).",
       "entity_resolution_ambiguous",
@@ -1169,6 +1482,15 @@ function buildClarificationFromFailures({ failures, candidate, scores, config })
     return buildNoIntent("question_or_hypothetical", scores);
   }
   if (scores.finalConfidence < config.threshold) {
+    if (String(candidate?.operation || "") === "create") {
+      return buildClarification(
+        "I need one more detail before I can prepare the new record safely. Please confirm the parent context (for example the client or dossier).",
+        "create_confidence_below_threshold",
+        scores,
+        candidate,
+        { pendingClarification: { kind: "create_parent", candidate, missing: ["parent"], createdAt: new Date().toISOString() } },
+      );
+    }
     return buildClarification(
       "I am not confident enough to prepare a mutation proposal yet. Please specify the exact entity, field, and new value.",
       "confidence_below_threshold",
@@ -1264,10 +1586,11 @@ async function detectStrongMutationIntent({
       message: text,
       activeEntity,
     });
+    const resumedOperation = String(resumed?.candidate?.operation || "update").toLowerCase();
     extracted = {
       hasMutationIntent: true,
       intentStrength: "strong",
-      operation: "update",
+      operation: resumedOperation,
       entityType: resumed?.candidate?.entityType,
       entityReference: resumed?.candidate?.entityId
         ? { kind: "id", value: String(resumed.candidate.entityId) }
@@ -1275,6 +1598,12 @@ async function detectStrongMutationIntent({
       field: resumed?.candidate?.field || null,
       resumeFieldText: resumed?.candidate?.resumeFieldText || null,
       newValueRaw: resumed?.candidate?.newValueRaw || null,
+      parent:
+        resumedOperation === "create" && resumed?.candidate?.parent
+          ? resumed.candidate.parent
+          : null,
+      parentReplyText:
+        resumedOperation === "create" ? resumed?.candidate?.parentReplyText || text : null,
       reasoningSummary: "User replied to mutation clarification.",
       intentSentence: null,
       ambiguityFlags: [],
@@ -1316,8 +1645,9 @@ async function detectStrongMutationIntent({
       proposalInput: {
         entityType: candidate.entityType,
         entityId: String(candidate.entityId),
-        operation: "update",
+        operation: candidate.operation || "update",
         payload: candidate.payload,
+        ...(candidate.parent ? { parent: candidate.parent } : {}),
         reasoningSummary: candidate.reasoningSummary,
       },
       intentSentence: candidate.intentSentence,
