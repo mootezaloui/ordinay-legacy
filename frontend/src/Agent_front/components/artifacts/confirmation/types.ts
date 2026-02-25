@@ -1,5 +1,36 @@
 export type SemanticToneVariant = "neutral" | "sensitive" | "caution" | "destructive";
 
+export interface ConfirmationPreviewChange {
+  entityType: string;
+  entityId?: number | null;
+  entityLabel?: string | null;
+  field: string;
+  from?: unknown;
+  to?: unknown;
+}
+
+export interface ConfirmationPreviewCascadeGroup {
+  entityType: string;
+  totalCount: number;
+  changedFields?: string[];
+  examples?: ConfirmationPreviewChange[];
+}
+
+export interface ConfirmationPreview {
+  version: "v1" | string;
+  scope: "single_entity" | "workflow" | string;
+  root?: {
+    type?: string;
+    id?: number | null;
+    label?: string;
+    operation?: string;
+  };
+  primaryChanges?: ConfirmationPreviewChange[];
+  cascadeSummary?: ConfirmationPreviewCascadeGroup[];
+  effects?: string[];
+  reversibility?: "reversible" | "not_reversible" | "unknown" | string;
+}
+
 export interface SemanticActionMappingInput {
   entityType: string;
   detectedIntent: string;
@@ -15,6 +46,8 @@ export interface SemanticActionMappingInput {
     pendingFieldNames?: string[];
     actionKind?: string;
     requiresRiskAck?: boolean;
+    proposalSummary?: string;
+    confirmationPreview?: ConfirmationPreview;
   };
 }
 

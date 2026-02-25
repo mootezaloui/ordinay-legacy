@@ -28,17 +28,7 @@ describe("SemanticConfirmationErrorBoundary", () => {
             data={{
               type: "proposal",
               sessionId: "s1",
-              proposals: [
-                {
-                  proposalId: "p-bad",
-                  status: "pending",
-                  action: "update",
-                  description: "Update client details",
-                  requiresConfirmation: true,
-                  actionType: "UPDATE_ENTITY",
-                  params: {},
-                },
-              ],
+              proposals: [],
             }}
             onConfirm={async () => ({
               type: "execution_result",

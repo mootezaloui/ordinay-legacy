@@ -1,4 +1,4 @@
-import type { ActionProposal } from "../../../../services/api/agent";
+import type { ActionProposal, ConfirmationPreview } from "../../../../services/api/agent";
 import type { SemanticActionMappingInput } from "./types";
 
 export interface DataContextLike {
@@ -131,16 +131,180 @@ function buildReasonHint(proposal: ActionProposal): string | undefined {
   return undefined;
 }
 
+function normalizeWorkflowRequestedGoalChanges(
+  workflow: Record<string, unknown> | undefined,
+): Record<string, { from: unknown; to: unknown }> | undefined {
+  if (!workflow || typeof workflow !== "object") return undefined;
+  const requestedGoal =
+    workflow.requestedGoal && typeof workflow.requestedGoal === "object"
+      ? (workflow.requestedGoal as Record<string, unknown>)
+      : undefined;
+  if (!requestedGoal) return undefined;
+  const operation = String(requestedGoal.operation || "").toLowerCase();
+  if (operation !== "update") return undefined;
+  const changes =
+    requestedGoal.changes && typeof requestedGoal.changes === "object" && !Array.isArray(requestedGoal.changes)
+      ? (requestedGoal.changes as Record<string, unknown>)
+      : undefined;
+  if (!changes) return undefined;
+  return normalizeChangesObject(changes);
+}
+
+function buildWorkflowStepImpactHints(
+  workflow: Record<string, unknown> | undefined,
+  context: DataContextLike,
+): string[] {
+  if (!workflow || typeof workflow !== "object") return [];
+  const steps = Array.isArray((workflow as Record<string, unknown>).steps)
+    ? ((workflow as Record<string, unknown>).steps as Array<Record<string, unknown>>)
+    : [];
+  const rootEntity =
+    workflow.rootEntity && typeof workflow.rootEntity === "object"
+      ? (workflow.rootEntity as Record<string, unknown>)
+      : undefined;
+  const rootType = String(rootEntity?.type || "").toLowerCase();
+  const rootId = Number(rootEntity?.id);
+
+  const hints: string[] = [];
+  for (const step of steps) {
+    const actionType = String(step?.actionType || step?.action || step?.type || "").toUpperCase();
+    if (actionType !== "UPDATE_ENTITY") continue;
+    const params =
+      step.params && typeof step.params === "object" && !Array.isArray(step.params)
+        ? (step.params as Record<string, unknown>)
+        : step.payload && typeof step.payload === "object" && !Array.isArray(step.payload)
+          ? (step.payload as Record<string, unknown>)
+          : {};
+    const entityType = String(params.entityType || "").toLowerCase();
+    const entityId = Number(params.entityId);
+    if (entityType && rootType && entityType === rootType && Number.isFinite(entityId) && entityId === rootId) {
+      continue;
+    }
+
+    const changes =
+      params.changes && typeof params.changes === "object" && !Array.isArray(params.changes)
+        ? (params.changes as Record<string, unknown>)
+        : {};
+    const changeKeys = Object.keys(changes);
+    if (changeKeys.length === 0) continue;
+
+    const targetLabel =
+      resolveEntityLabel(entityType, Number.isFinite(entityId) ? entityId : undefined, context) ||
+      labelForEntityType(entityType) ||
+      "related information";
+
+    const fieldSummaries = changeKeys.slice(0, 2).map((field) => {
+      const raw = (changes as Record<string, unknown>)[field];
+      const nextValue =
+        raw && typeof raw === "object" && !Array.isArray(raw) && "to" in (raw as Record<string, unknown>)
+          ? (raw as Record<string, unknown>).to
+          : raw;
+      return `${toTitleCase(field)} -> ${toTitleCase(String(nextValue ?? "updated"))}`;
+    });
+    const extraCount = changeKeys.length > 2 ? ` (+${changeKeys.length - 2} more)` : "";
+    hints.push(`${targetLabel}: ${fieldSummaries.join(", ")}${extraCount}`);
+  }
+
+  const reasoningSummary = String((workflow as Record<string, unknown>).reasoningSummary || "").trim();
+  if (reasoningSummary) hints.push(reasoningSummary);
+
+  return hints;
+}
+
+function normalizeChangesObject(
+  changes: Record<string, unknown> | undefined,
+): Record<string, { from: unknown; to: unknown }> | undefined {
+  if (!changes || typeof changes !== "object" || Array.isArray(changes)) return undefined;
+  const normalized: Record<string, { from: unknown; to: unknown }> = {};
+  for (const [key, value] of Object.entries(changes)) {
+    if (!key) continue;
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const record = value as Record<string, unknown>;
+      if ("to" in record || "from" in record) {
+        normalized[key] = { from: record.from, to: record.to };
+        continue;
+      }
+    }
+    normalized[key] = { from: undefined, to: value };
+  }
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+function normalizePreviewPrimaryChanges(
+  preview: ConfirmationPreview | undefined,
+  entityType: string,
+  entityId: number | undefined,
+): Record<string, { from: unknown; to: unknown }> | undefined {
+  const items = Array.isArray(preview?.primaryChanges) ? preview.primaryChanges : [];
+  if (items.length === 0) return undefined;
+  const normalized: Record<string, { from: unknown; to: unknown }> = {};
+  for (const item of items) {
+    const field = String(item?.field || "").trim();
+    if (!field) continue;
+    const itemType = String(item?.entityType || "").toLowerCase();
+    const itemId = Number(item?.entityId);
+    const sameType = !itemType || itemType === entityType;
+    const sameId = !Number.isFinite(itemId) || (Number.isFinite(entityId) && itemId === entityId);
+    if (!sameType || !sameId) continue;
+    normalized[field] = { from: item?.from, to: item?.to };
+  }
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+function extractWorkflowRootStepChanges(
+  workflow: Record<string, unknown> | undefined,
+): Record<string, { from: unknown; to: unknown }> | undefined {
+  if (!workflow || typeof workflow !== "object") return undefined;
+  const rootEntity =
+    workflow.rootEntity && typeof workflow.rootEntity === "object"
+      ? (workflow.rootEntity as Record<string, unknown>)
+      : undefined;
+  const rootType = String(rootEntity?.type || "").toLowerCase();
+  const rootId = Number(rootEntity?.id);
+  const steps = Array.isArray(workflow.steps) ? (workflow.steps as Array<Record<string, unknown>>) : [];
+  if (!rootType || !Number.isFinite(rootId) || steps.length === 0) return undefined;
+
+  // Prefer the last root UPDATE_ENTITY step because workflow cleanups usually end by applying the requested root change.
+  for (let i = steps.length - 1; i >= 0; i -= 1) {
+    const step = steps[i];
+    const actionType = String(step?.actionType || step?.action || step?.type || "").toUpperCase();
+    if (actionType !== "UPDATE_ENTITY") continue;
+    const params =
+      step.params && typeof step.params === "object" && !Array.isArray(step.params)
+        ? (step.params as Record<string, unknown>)
+        : undefined;
+    if (!params) continue;
+    const entityType = String(params.entityType || "").toLowerCase();
+    const entityId = Number(params.entityId);
+    if (entityType !== rootType || !Number.isFinite(entityId) || entityId !== rootId) continue;
+    const changes =
+      params.changes && typeof params.changes === "object" && !Array.isArray(params.changes)
+        ? (params.changes as Record<string, unknown>)
+        : undefined;
+    const normalized = normalizeChangesObject(changes);
+    if (normalized && Object.keys(normalized).length > 0) return normalized;
+  }
+
+  return undefined;
+}
+
 export function proposalToSemanticInput(
   proposal: ActionProposal,
   context: DataContextLike,
 ): SemanticActionMappingInput {
   const params = proposal.params || {};
+  const confirmationPreview = proposal.confirmation?.preview;
   const actionType = String(proposal.actionType || proposal.action || "").toUpperCase();
+  const workflow =
+    params.workflow && typeof params.workflow === "object" && !Array.isArray(params.workflow)
+      ? (params.workflow as Record<string, unknown>)
+      : undefined;
   const primaryAffected = proposal.affectedEntities?.[0];
   const entityType =
     String(
       params.entityType ||
+        (workflow?.rootEntity as Record<string, unknown> | undefined)?.type ||
+        confirmationPreview?.root?.type ||
         params.targetType ||
         params.sourceType ||
         params.target?.type ||
@@ -150,6 +314,8 @@ export function proposalToSemanticInput(
 
   const entityId = Number(
     params.entityId ||
+      (workflow?.rootEntity as Record<string, unknown> | undefined)?.id ||
+      confirmationPreview?.root?.id ||
       params.targetId ||
       params.sourceId ||
       params.target?.id ||
@@ -174,17 +340,35 @@ export function proposalToSemanticInput(
     params.sourceLabel ||
     params.targetTitle ||
     params.sourceTitle ||
+    confirmationPreview?.root?.label ||
     resolveEntityLabel(entityType, Number.isFinite(entityId) ? entityId : undefined, context) ||
     affectedItems[0]?.label ||
     undefined;
 
-  const impactHints = (proposal.confirmation?.impactSummary || [])
-    .map((line) => String(line || "").trim())
-    .filter(Boolean);
+  const impactHints =
+    confirmationPreview && String(confirmationPreview.scope || "").toLowerCase() === "workflow"
+      ? []
+      : (proposal.confirmation?.impactSummary || [])
+          .map((line) => String(line || "").trim())
+          .filter(Boolean);
+  const workflowImpactHints = confirmationPreview ? [] : buildWorkflowStepImpactHints(workflow, context);
 
   const changes =
     actionType === "UPDATE_ENTITY"
-      ? (params.changes as Record<string, { from: unknown; to: unknown }> | undefined)
+      ? ((params.changes as Record<string, { from: unknown; to: unknown }> | undefined) ||
+          normalizePreviewPrimaryChanges(
+            confirmationPreview,
+            entityType,
+            Number.isFinite(entityId) ? entityId : undefined,
+          ))
+      : actionType === "EXECUTE_MUTATION_WORKFLOW"
+        ? normalizePreviewPrimaryChanges(
+            confirmationPreview,
+            entityType,
+            Number.isFinite(entityId) ? entityId : undefined,
+          ) ||
+          normalizeWorkflowRequestedGoalChanges(workflow) ||
+          extractWorkflowRootStepChanges(workflow)
       : undefined;
   const pendingFieldNames =
     actionType === "UPDATE_ENTITY" &&
@@ -204,10 +388,15 @@ export function proposalToSemanticInput(
       reversible: typeof proposal.reversible === "boolean" ? proposal.reversible : null,
       riskLevel: inferRiskLevel(proposal),
       reasonHint: buildReasonHint(proposal),
-      impactHints,
+      impactHints: [...impactHints, ...workflowImpactHints],
       pendingFieldNames,
       actionKind: deriveActionKind(proposal),
       requiresRiskAck: proposal.confirmation?.extraRiskAck === true,
+      confirmationPreview: confirmationPreview,
+      proposalSummary:
+        String(proposal.humanReadableSummary || "").trim() ||
+        String(proposal.description || "").trim() ||
+        undefined,
     },
   };
 }

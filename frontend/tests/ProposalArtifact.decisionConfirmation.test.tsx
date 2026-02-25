@@ -62,6 +62,9 @@ describe("ProposalArtifact semantic-only confirmation enforcement", () => {
 
     const normalized = normalizeHtml(html);
     expect(normalized).toContain("Mark Mootez Aloui as Deceased");
+    expect(normalized).toContain("What this affects");
+    expect(normalized).not.toContain("Consequences");
+    expect(normalized).not.toContain("Warnings");
     expect(normalized).not.toContain("Update item");
     expect(normalized).not.toContain("Save changes");
     expect(normalized).toMatchSnapshot();
@@ -96,6 +99,8 @@ describe("ProposalArtifact semantic-only confirmation enforcement", () => {
 
     const normalized = normalizeHtml(html);
     expect(normalized).toContain("Send court filing draft to client");
+    expect(normalized).not.toContain("Consequences");
+    expect(normalized).not.toContain("Warnings");
     expect(normalized).not.toContain("Edit details");
     expect(normalized).toMatchSnapshot();
   });
@@ -125,10 +130,101 @@ describe("ProposalArtifact semantic-only confirmation enforcement", () => {
     });
 
     const normalized = normalizeHtml(html);
-    expect(normalized).toContain("Delete Financial Entry Permanently");
+    expect(normalized).toContain("Confirm: Delete Financial Entry");
+    expect(normalized).toContain("What this affects");
+    expect(normalized).toContain("Planned change");
     expect(normalized).not.toContain("Update item");
     expect(normalized).not.toContain("record");
     expect(normalized).not.toContain("Apply Changes");
+    expect(normalized).toMatchSnapshot();
+  });
+
+  it("snapshot: workflow cascade confirmation shows root diff and related examples from preview", () => {
+    const html = renderProposal({
+      type: "proposal",
+      sessionId: "s1",
+      proposals: [
+        {
+          proposalId: "p-workflow",
+          status: "pending",
+          action: "update",
+          description: "Update client after cleanup",
+          requiresConfirmation: true,
+          actionType: "EXECUTE_MUTATION_WORKFLOW",
+          reversible: false,
+          humanReadableSummary: "Update Mootez Aloui after cleaning related records",
+          params: {
+            entityType: "client",
+            entityId: 12,
+          },
+          confirmation: {
+            impactSummary: [],
+            preview: {
+              version: "v1",
+              scope: "workflow",
+              root: { type: "client", id: 12, label: "Mootez Aloui", operation: "update" },
+              primaryChanges: [
+                {
+                  entityType: "client",
+                  entityId: 12,
+                  entityLabel: "Mootez Aloui",
+                  field: "status",
+                  from: "active",
+                  to: "inactive",
+                },
+              ],
+              cascadeSummary: [
+                {
+                  entityType: "task",
+                  totalCount: 2,
+                  changedFields: ["status", "priority"],
+                  examples: [
+                    {
+                      entityType: "task",
+                      entityId: 4,
+                      entityLabel: "Send court filing draft to client",
+                      field: "status",
+                      from: "todo",
+                      to: "cancelled",
+                    },
+                  ],
+                },
+                {
+                  entityType: "lawsuit",
+                  totalCount: 1,
+                  changedFields: ["status"],
+                  examples: [
+                    {
+                      entityType: "lawsuit",
+                      entityId: 10,
+                      entityLabel: "Lawsuit Title",
+                      field: "status",
+                      from: "in_progress",
+                      to: "on_hold",
+                    },
+                  ],
+                },
+              ],
+              effects: [
+                "Related records must be aligned before the client can be inactivated safely.",
+              ],
+              reversibility: "not_reversible",
+            },
+          },
+        },
+      ],
+    });
+
+    const normalized = normalizeHtml(html);
+    expect(normalized).toContain("Confirm Status Update for Mootez Aloui");
+    expect(normalized).toContain("Status");
+    expect(normalized).toContain("Active");
+    expect(normalized).toContain("Inactive");
+    expect(normalized).toContain("Send court filing draft to client");
+    expect(normalized).toContain("Cancelled");
+    expect(normalized).toContain("2 tasks will also be updated");
+    expect(normalized).toContain("1 lawsuit will also be updated");
+    expect(normalized).not.toContain("Planned change: Update Mootez Aloui after cleaning related records.");
     expect(normalized).toMatchSnapshot();
   });
 

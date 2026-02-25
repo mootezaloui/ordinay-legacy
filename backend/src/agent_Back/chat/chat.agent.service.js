@@ -10,6 +10,12 @@ const {
   getMutationIntentDetectorConfig,
 } = require("./chat.mutationIntentDetector");
 const {
+  decideMutationMode,
+  isConfirmationResumeMessage,
+  normalizeMutationSemantics,
+  classifyCapabilitySupport,
+} = require("./mutationDecisionEngine");
+const {
   logMutationIntentProposalCreated,
   logMutationIntentActionAttempted,
   logMutationIntentActionOutcome,
@@ -18,6 +24,19 @@ const { resolveAdaptiveMutationRemediation } = require("../engine/agentMutationC
 const { detectDraftIntent, isSlashCommand, parseSlashCommand } = require("../intent.classifier");
 const { toProposalArtifact } = require("../proposals/proposalArtifact");
 const operatorsService = require("../../services/operators.service");
+const {
+  resolveClientQuery,
+  resolveDossierQuery,
+  resolveTaskQuery,
+  resolveSessionQuery,
+  resolveLawsuitQuery,
+  resolveMissionQuery,
+  resolveOfficerQuery,
+  resolvePersonalTaskQuery,
+  resolveFinancialEntryQuery,
+  resolveDocumentQuery,
+  normalizeText: normalizeEntityResolverText,
+} = require("../entity.resolver");
 
 const MAX_TOOL_ROUNDS = Math.max(
   1,
@@ -249,6 +268,48 @@ class ChatAgentService {
           : {},
     };
 
+    const conversationalMutationProposal =
+      await this._tryHandleStrongMutationIntentDetection({
+        userMessage,
+        effectiveUserMessage,
+        requestContext,
+        executionContext,
+        llmHistory,
+        policy,
+      });
+    if (conversationalMutationProposal) {
+      return conversationalMutationProposal;
+    }
+    const modeAfterMutation =
+      this._getOperationalMutationDetectionState(requestContext)?.mode || "informational";
+    if (modeAfterMutation === "execution") {
+      const finalMessage =
+        "Execution mode is active for this request. I should prepare a confirmation-ready change, not advisory instructions. Please restate the exact entity if needed.";
+      this._recordTranscript({
+        requestContext,
+        userMessage: effectiveUserMessage,
+        finalMessage,
+        posture: "WORK",
+        toolExecutions: [],
+      });
+      return {
+        message: finalMessage,
+        agentVersion: policy.version,
+        posture: "WORK",
+        toolExecutions: [],
+        stepCommentaries: [],
+        rounds: 0,
+        ambiguityArtifact: null,
+        resolutionMeta: null,
+        availableTools: [],
+        suppressIntentFraming: true,
+        suppressCommentary: false,
+      };
+    }
+    this._setConversationMode(requestContext, "informational");
+    requestContext._conversationMode =
+      this._getOperationalMutationDetectionState(requestContext)?.mode || "informational";
+
     const allExposedTools = this._buildExposedTools(policy, executionContext);
     const exposedTools = this._selectToolsForMessage(
       effectiveUserMessage,
@@ -350,19 +411,6 @@ class ChatAgentService {
         timestamp: new Date().toISOString(),
       });
       return documentFallback;
-    }
-
-    const conversationalMutationProposal =
-      await this._tryHandleStrongMutationIntentDetection({
-        userMessage,
-        effectiveUserMessage,
-        requestContext,
-        executionContext,
-        llmHistory,
-        policy,
-      });
-    if (conversationalMutationProposal) {
-      return conversationalMutationProposal;
     }
 
     const messages = this._buildModelMessages({
@@ -523,6 +571,10 @@ class ChatAgentService {
       resolvedSelection,
       deterministicGrounding,
     });
+    finalMessage = this._enforceExecutionLockedNoAdvisoryFallback({
+      finalMessage,
+      requestContext,
+    });
 
     this._recordTranscript({
       requestContext,
@@ -637,6 +689,7 @@ class ChatAgentService {
               noPlaceholderPolicy: true,
             }
           : null,
+      conversationMode: requestContext?._conversationMode || "informational",
     };
 
     const messages = [
@@ -660,6 +713,15 @@ class ChatAgentService {
           "Ask a follow-up question only when required data is missing and you cannot proceed.",
           "When structured/tool data is available, give a short human answer, not a JSON dump or field-by-field dump.",
           "Never expose internal numeric IDs in user-facing text unless the user explicitly asks for an identifier.",
+          ...(String(requestContext?._conversationMode || "").toLowerCase() === "execution"
+            ? [
+                "Execution mode is active for this conversation turn.",
+                "When execution mode is active, you are an execution-capable agent.",
+                "Do not provide advisory workflow instructions instead of executing.",
+                "Do not claim lack of permissions.",
+                "If a mutation can be prepared, propose confirmation.",
+              ]
+            : []),
           `Operational context (not user-facing): ${JSON.stringify(systemInstruction)}`,
         ].join("\n"),
       },
@@ -991,6 +1053,16 @@ class ChatAgentService {
       return null;
     }
     return operationalStore.update(userId, conversationId, updates);
+  }
+
+  _setConversationMode(requestContext = {}, mode = "informational", extra = {}) {
+    const normalized = ["execution", "informational", "clarification"].includes(String(mode))
+      ? String(mode)
+      : "informational";
+    return this._updateOperationalMutationDetectionState(requestContext, {
+      mode: normalized,
+      ...extra,
+    });
   }
 
   _buildMutationDetectorLogger() {
@@ -2149,6 +2221,8 @@ class ChatAgentService {
   }) {
     const detectorConfig = getMutationIntentDetectorConfig();
     if (!detectorConfig.enabled) return null;
+    const semantic = normalizeMutationSemantics(effectiveUserMessage);
+    const detectorInputMessage = semantic?.canonicalMessage || effectiveUserMessage;
 
     const state = this._getOperationalMutationDetectionState(requestContext) || {};
     const nowMs = Date.now();
@@ -2172,21 +2246,149 @@ class ChatAgentService {
       return null;
     }
 
+    const candidateMutation = state.candidateMutation || null;
+    if (
+      candidateMutation &&
+      candidateMutation.detectorResult &&
+      !pendingProposalActive &&
+      isConfirmationResumeMessage(effectiveUserMessage)
+    ) {
+      this._setConversationMode(requestContext, "execution");
+      return this._executeDetectedMutationFlow({
+        detectorResult: candidateMutation.detectorResult,
+        requestContext,
+        executionContext,
+        policy,
+        userMessage,
+      });
+    }
+
     const mutationIntent = await detectMutationIntent(effectiveUserMessage, {
+      // semantic-normalized message lets detector stay simple while route stays deterministic
       llmHistory,
       executionContext,
       pendingClarification: state.pendingMutationClarification || null,
       llmExtractor: this.mutationIntentExtractor,
+      entityNameResolver: ({ entityType, query, message }) =>
+        this._resolveMutationEntityByName({
+          entityType,
+          query,
+          message,
+          policy,
+          executionContext,
+        }),
       logger: this._buildMutationDetectorLogger(),
       sourceRoute: "/agent/chat",
     });
 
-    if (!mutationIntent) {
+    let normalizedMutationIntent = mutationIntent;
+    if (
+      detectorInputMessage &&
+      detectorInputMessage !== effectiveUserMessage &&
+      (!mutationIntent || !mutationIntent.entityId || mutationIntent.routeDecision === "clarify")
+    ) {
+      normalizedMutationIntent = await detectMutationIntent(detectorInputMessage, {
+        llmHistory,
+        executionContext,
+        pendingClarification: state.pendingMutationClarification || null,
+        llmExtractor: this.mutationIntentExtractor,
+        entityNameResolver: ({ entityType, query, message }) =>
+          this._resolveMutationEntityByName({
+            entityType,
+            query,
+            message,
+            policy,
+            executionContext,
+          }),
+        logger: this._buildMutationDetectorLogger(),
+        sourceRoute: "/agent/chat",
+      });
+    }
+    const effectiveMutationIntent = normalizedMutationIntent || mutationIntent;
+
+    if (!effectiveMutationIntent) {
+      const noIntentDecision = decideMutationMode({
+        message: effectiveUserMessage,
+        mutationIntent: null,
+        candidateMutation,
+        semantic,
+      });
+      this._setConversationMode(requestContext, noIntentDecision.mode);
+      if (noIntentDecision.decision === "CLARIFY_ENTITY") {
+        const finalMessage = "Which record do you want me to update? I can prepare a confirmation once I identify it.";
+        this._recordTranscript({
+          requestContext,
+          userMessage,
+          finalMessage,
+          posture: "WORK",
+          toolExecutions: [],
+        });
+        return {
+          message: finalMessage,
+          agentVersion: policy.version,
+          posture: "WORK",
+          toolExecutions: [],
+          stepCommentaries: [],
+          rounds: 0,
+          ambiguityArtifact: null,
+          resolutionMeta: null,
+          availableTools: [],
+          suppressIntentFraming: true,
+          suppressCommentary: false,
+        };
+      }
       return null;
     }
 
-    if (mutationIntent.routeDecision === "clarify") {
-      const detectorResult = mutationIntent.stage3Decision || null;
+    const modeDecision = decideMutationMode({
+      message: effectiveUserMessage,
+      mutationIntent: effectiveMutationIntent,
+      candidateMutation,
+      semantic,
+    });
+    this._setConversationMode(requestContext, modeDecision.mode);
+    const capabilityDecision = classifyCapabilitySupport({
+      semantic,
+      mutationIntent: effectiveMutationIntent,
+    });
+
+    if (effectiveMutationIntent.routeDecision === "clarify") {
+      const detectorResult = effectiveMutationIntent.stage3Decision || null;
+      if (
+        semantic?.strongMutationIntent === true &&
+        capabilityDecision.support === "single_field" &&
+        String(effectiveMutationIntent?.reasonCode || "").toLowerCase() === "operation_not_supported"
+      ) {
+        const finalMessage =
+          "I recognized a mutation request, but I need one more detail to prepare the right confirmation-ready change. Please confirm the target record and exact status change.";
+        this._setConversationMode(requestContext, "clarification", {
+          candidateMutation: {
+            semantic,
+            mutationIntent: effectiveMutationIntent,
+            createdAt: new Date().toISOString(),
+          },
+        });
+        this._recordTranscript({
+          requestContext,
+          userMessage,
+          finalMessage,
+          posture: "WORK",
+          toolExecutions: [],
+        });
+        return {
+          message: finalMessage,
+          agentVersion: policy.version,
+          posture: "WORK",
+          toolExecutions: [],
+          stepCommentaries: [],
+          rounds: 0,
+          ambiguityArtifact: null,
+          resolutionMeta: null,
+          availableTools: [],
+          suppressIntentFraming: true,
+          suppressCommentary: false,
+        };
+      }
       this._updateOperationalMutationDetectionState(requestContext, {
         pendingMutationClarification:
           detectorResult?.clearPendingClarification === true
@@ -2196,9 +2398,18 @@ class ChatAgentService {
               : state.pendingMutationClarification || null,
         suppressMutationDetectionUntilResolved:
           detectorResult?.pendingClarification ? true : false,
+        candidateMutation:
+          modeDecision.decision === "CLARIFY_ENTITY" && effectiveMutationIntent.entityId
+            ? {
+                detectorResult: effectiveMutationIntent.stage3Decision || null,
+                mutationIntent: effectiveMutationIntent,
+                semantic,
+                createdAt: new Date().toISOString(),
+              }
+            : state.candidateMutation || null,
       });
 
-      const finalMessage = String(mutationIntent.question || detectorResult?.question || "").trim() ||
+      const finalMessage = String(effectiveMutationIntent.question || detectorResult?.question || "").trim() ||
         "I need one more detail to prepare a safe mutation proposal.";
       this._recordTranscript({
         requestContext,
@@ -2222,9 +2433,20 @@ class ChatAgentService {
       };
     }
 
-    if (mutationIntent.routeDecision === "blocked") {
+    if (effectiveMutationIntent.routeDecision === "blocked") {
+      this._updateOperationalMutationDetectionState(requestContext, {
+        candidateMutation:
+          modeDecision.decision === "FORCE_MUTATION_PROPOSAL" && effectiveMutationIntent.entityId
+            ? {
+                detectorResult: effectiveMutationIntent.stage3Decision || null,
+                mutationIntent: effectiveMutationIntent,
+                semantic,
+                createdAt: new Date().toISOString(),
+              }
+            : state.candidateMutation || null,
+      });
       const finalMessage = String(
-        mutationIntent.safeMessage || "I can’t apply that change right now.",
+        effectiveMutationIntent.safeMessage || "I can’t apply that change right now.",
       );
       this._recordTranscript({
         requestContext,
@@ -2247,24 +2469,33 @@ class ChatAgentService {
         suppressCommentary: false,
         mutationOutcome: this._buildMutationOutcomeEnvelope({
           status: "BLOCKED",
-          entityType: mutationIntent.entityType || null,
-          entityId: mutationIntent.entityId || null,
-          operation: mutationIntent.operation || "unknown",
-          field: mutationIntent.field || null,
-          value: mutationIntent.value ?? null,
-          reasonCode: mutationIntent.reasonCode || "MUTATION_INTENT_BLOCKED",
+          entityType: effectiveMutationIntent.entityType || null,
+          entityId: effectiveMutationIntent.entityId || null,
+          operation: effectiveMutationIntent.operation || "unknown",
+          field: effectiveMutationIntent.field || null,
+          value: effectiveMutationIntent.value ?? null,
+          reasonCode: effectiveMutationIntent.reasonCode || "MUTATION_INTENT_BLOCKED",
           safeMessage: finalMessage,
         }),
       };
     }
 
-    if (mutationIntent.routeDecision !== "orchestrate") return null;
+    if (effectiveMutationIntent.routeDecision !== "orchestrate") return null;
 
-    const detectorResult = mutationIntent.stage3Decision || null;
+    const detectorResult = effectiveMutationIntent.stage3Decision || null;
     if (!detectorResult || detectorResult.decision !== "propose") return null;
     if (detectorResult.shadowMode === true) {
       return null;
     }
+    this._updateOperationalMutationDetectionState(requestContext, {
+      mode: "execution",
+      candidateMutation: {
+        detectorResult,
+        mutationIntent: effectiveMutationIntent,
+        semantic,
+        createdAt: new Date().toISOString(),
+      },
+    });
     return this._executeDetectedMutationFlow({
       detectorResult,
       requestContext,
@@ -3093,6 +3324,170 @@ class ChatAgentService {
     const text = String(message || "").trim();
     if (!text) return false;
     return ENTITY_FOCUS_PATTERN.test(text) || ENTITY_NAMED_PATTERN.test(text);
+  }
+
+  _enforceExecutionLockedNoAdvisoryFallback({
+    finalMessage,
+    requestContext,
+  } = {}) {
+    const mode = String(
+      requestContext?._conversationMode ||
+        this._getOperationalMutationDetectionState(requestContext)?.mode ||
+        "informational",
+    ).toLowerCase();
+    if (mode !== "execution") return String(finalMessage || "");
+    const text = String(finalMessage || "").trim();
+    if (!text) {
+      return "I can prepare a confirmation-ready change for this request.";
+    }
+    const forbidden = [
+      /i don['’]t have permission/i,
+      /je ne peux pas modifier directement/i,
+      /cannot modify records directly/i,
+      /you need to update manually/i,
+      /update manually/i,
+      /open the record and change/i,
+    ];
+    if (!forbidden.some((p) => p.test(text))) return text;
+    return "I can prepare a confirmation-ready change for this request. Please confirm the exact entity if there are multiple matches.";
+  }
+
+  async _resolveMutationEntityByName({
+    entityType,
+    query,
+    policy,
+    executionContext,
+  } = {}) {
+    const normalizedType = String(entityType || "").toLowerCase();
+    const normalizedQuery = String(query || "").trim();
+    if (!normalizedType || !normalizedQuery) return { kind: "none" };
+
+    const configByType = {
+      client: {
+        toolName: "listClients",
+        resultKey: "clients",
+        resolver: resolveClientQuery,
+        label: (row) => String(row?.name || row?.company || `Client #${row?.id || "?"}`),
+      },
+      dossier: {
+        toolName: "listDossiers",
+        resultKey: "dossiers",
+        resolver: resolveDossierQuery,
+        label: (row) =>
+          String(row?.title || row?.reference || row?.code || `Dossier #${row?.id || "?"}`),
+      },
+      lawsuit: {
+        toolName: "listLawsuits",
+        resultKey: "lawsuits",
+        resolver: resolveLawsuitQuery,
+        label: (row) =>
+          String(row?.title || row?.reference || row?.lawsuit_number || `Lawsuit #${row?.id || "?"}`),
+      },
+      task: {
+        toolName: "listTasks",
+        resultKey: "tasks",
+        resolver: resolveTaskQuery,
+        label: (row) => String(row?.title || `Task #${row?.id || "?"}`),
+      },
+      personal_task: {
+        toolName: "listPersonalTasks",
+        resultKey: "personalTasks",
+        resolver: resolvePersonalTaskQuery,
+        label: (row) => String(row?.title || `Personal task #${row?.id || "?"}`),
+      },
+      mission: {
+        toolName: "listMissions",
+        resultKey: "missions",
+        resolver: resolveMissionQuery,
+        label: (row) => String(row?.title || row?.reference || `Mission #${row?.id || "?"}`),
+      },
+      officer: {
+        toolName: "listOfficers",
+        resultKey: "officers",
+        resolver: resolveOfficerQuery,
+        label: (row) => String(row?.name || row?.agency || `Officer #${row?.id || "?"}`),
+      },
+      session: {
+        toolName: "listSessions",
+        resultKey: "sessions",
+        resolver: resolveSessionQuery,
+        label: (row) => String(row?.title || row?.session_type || `Session #${row?.id || "?"}`),
+      },
+      financial_entry: {
+        toolName: "listFinancialEntries",
+        resultKey: "financialEntries",
+        resolver: resolveFinancialEntryQuery,
+        label: (row) =>
+          String(row?.title || row?.reference || row?.entry_type || `Financial entry #${row?.id || "?"}`),
+      },
+      document: {
+        toolName: "listDocuments",
+        resultKey: "documents",
+        resolver: resolveDocumentQuery,
+        label: (row) =>
+          String(row?.title || row?.original_filename || `Document #${row?.id || "?"}`),
+      },
+    };
+
+    const config = configByType[normalizedType];
+    if (!config) return { kind: "none" };
+
+    const execution = await this._executeToolByName({
+      toolName: config.toolName,
+      args: { query: normalizedQuery, limit: 25 },
+      policy,
+      executionContext,
+    });
+    if (!execution?.ok) return { kind: "none" };
+
+    const rows = Array.isArray(execution.result?.[config.resultKey]) ? execution.result[config.resultKey] : [];
+    const resolution = config.resolver(normalizedQuery, rows);
+    if (resolution.kind === "one") {
+      const matched = resolution.entity || rows.find((row) => Number(row?.id) === Number(resolution.id)) || null;
+      return {
+        kind: "one",
+        id: Number(resolution.id),
+        entityType: normalizedType,
+        matchKind: this._resolveNameMatchKind(normalizedQuery, matched, normalizedType),
+        entity: matched,
+      };
+    }
+    if (resolution.kind === "many") {
+      return {
+        kind: "many",
+        entityType: normalizedType,
+        total: resolution.total,
+        overflow: resolution.overflow === true,
+        candidates: (resolution.candidates || []).map((row) => ({
+          id: Number(row?.id),
+          entityType: normalizedType,
+          label: config.label(row),
+        })),
+      };
+    }
+    return { kind: "none", entityType: normalizedType };
+  }
+
+  _resolveNameMatchKind(query, entity, entityType) {
+    const normalizedQuery = normalizeEntityResolverText(query);
+    if (!normalizedQuery || !entity) return "fuzzy";
+    const exactFieldMap = {
+      client: [entity?.name, entity?.company],
+      dossier: [entity?.title, entity?.reference, entity?.code],
+      lawsuit: [entity?.title, entity?.reference, entity?.lawsuit_number],
+      task: [entity?.title],
+      personal_task: [entity?.title],
+      mission: [entity?.title, entity?.reference],
+      officer: [entity?.name, entity?.agency, entity?.registration_number],
+      session: [entity?.title, entity?.session_type],
+      financial_entry: [entity?.title, entity?.reference, entity?.entry_type],
+      document: [entity?.title, entity?.original_filename],
+    };
+    const candidates = exactFieldMap[String(entityType || "").toLowerCase()] || [];
+    const isExact = candidates.some(
+      (value) => normalizeEntityResolverText(value) === normalizedQuery,
+    );
+    return isExact ? "exact" : "fuzzy";
   }
 
   _extractClientNameQuery(message) {

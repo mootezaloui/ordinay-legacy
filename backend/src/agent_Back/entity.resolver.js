@@ -93,6 +93,38 @@ function finalizeMatches(matches) {
   };
 }
 
+function resolveByFieldSets(queryText, items = [], { exact = [], fuzzy = [] } = {}) {
+  if (!queryText) return { kind: "none" };
+  const normalized = normalizeText(queryText);
+  const ref = normalizeReference(queryText);
+  const numericId = parseNumericId(queryText);
+
+  const exactMatches = (items || []).filter((item) => {
+    if (!item) return false;
+    if (numericId !== null && Number(item.id) === numericId) return true;
+    for (const selector of exact) {
+      if (typeof selector !== "function") continue;
+      const values = selector(item, { normalized, ref, queryText }) || [];
+      if (Array.isArray(values) ? values.some(Boolean) : Boolean(values)) return true;
+    }
+    return false;
+  });
+  if (exactMatches.length > 0) return finalizeMatches(exactMatches);
+
+  if (!normalized && !ref && numericId === null) return { kind: "none" };
+
+  const fuzzyMatches = (items || []).filter((item) => {
+    if (!item) return false;
+    for (const selector of fuzzy) {
+      if (typeof selector !== "function") continue;
+      const values = selector(item, { normalized, ref, queryText }) || [];
+      if (Array.isArray(values) ? values.some(Boolean) : Boolean(values)) return true;
+    }
+    return false;
+  });
+  return finalizeMatches(fuzzyMatches);
+}
+
 function resolveClientQuery(queryText, clients = []) {
   if (!queryText) return { kind: "none" };
   const normalized = normalizeText(queryText);
@@ -249,10 +281,109 @@ function resolveSessionQuery(queryText, sessions = []) {
   return finalizeMatches(fuzzyMatches);
 }
 
+function resolveLawsuitQuery(queryText, lawsuits = []) {
+  return resolveByFieldSets(queryText, lawsuits, {
+    exact: [
+      (lawsuit, { ref }) => ref && normalizeReference(lawsuit.reference) === ref,
+      (lawsuit, { ref }) => ref && normalizeReference(lawsuit.lawsuit_number) === ref,
+      (lawsuit, { normalized }) => normalized && normalizeText(lawsuit.title) === normalized,
+    ],
+    fuzzy: [
+      (lawsuit, { ref }) => ref && normalizeReference(lawsuit.reference).includes(ref),
+      (lawsuit, { ref }) => ref && normalizeReference(lawsuit.lawsuit_number).includes(ref),
+      (lawsuit, { normalized }) => normalized && normalizeText(lawsuit.title).includes(normalized),
+    ],
+  });
+}
+
+function resolveMissionQuery(queryText, missions = []) {
+  return resolveByFieldSets(queryText, missions, {
+    exact: [
+      (mission, { ref }) => ref && normalizeReference(mission.reference) === ref,
+      (mission, { normalized }) => normalized && normalizeText(mission.title) === normalized,
+    ],
+    fuzzy: [
+      (mission, { ref }) => ref && normalizeReference(mission.reference).includes(ref),
+      (mission, { normalized }) => normalized && normalizeText(mission.title).includes(normalized),
+    ],
+  });
+}
+
+function resolveOfficerQuery(queryText, officers = []) {
+  return resolveByFieldSets(queryText, officers, {
+    exact: [
+      (officer, { normalized }) => normalized && normalizeText(officer.name) === normalized,
+      (officer, { normalized }) => normalized && normalizeText(officer.agency) === normalized,
+      (officer, { normalized }) =>
+        normalized && normalizeText(officer.registration_number) === normalized,
+      (officer, { normalized }) => normalized && normalizeText(officer.location) === normalized,
+      (officer, { normalized }) => normalized && normalizeText(officer.email) === normalized,
+      (officer, { normalized }) => normalized && normalizeText(officer.phone) === normalized,
+      (officer, { normalized }) =>
+        normalized && normalizeText(officer.alternate_phone) === normalized,
+    ],
+    fuzzy: [
+      (officer, { normalized }) => normalized && normalizeText(officer.name).includes(normalized),
+      (officer, { normalized }) => normalized && normalizeText(officer.agency).includes(normalized),
+      (officer, { normalized }) =>
+        normalized && normalizeText(officer.registration_number).includes(normalized),
+      (officer, { normalized }) => normalized && normalizeText(officer.location).includes(normalized),
+      (officer, { normalized }) => normalized && normalizeText(officer.email).includes(normalized),
+      (officer, { normalized }) => normalized && normalizeText(officer.phone).includes(normalized),
+      (officer, { normalized }) =>
+        normalized && normalizeText(officer.alternate_phone).includes(normalized),
+    ],
+  });
+}
+
+function resolvePersonalTaskQuery(queryText, tasks = []) {
+  return resolveByFieldSets(queryText, tasks, {
+    exact: [(task, { normalized }) => normalized && normalizeText(task.title) === normalized],
+    fuzzy: [(task, { normalized }) => normalized && normalizeText(task.title).includes(normalized)],
+  });
+}
+
+function resolveFinancialEntryQuery(queryText, entries = []) {
+  return resolveByFieldSets(queryText, entries, {
+    exact: [
+      (entry, { ref }) => ref && normalizeReference(entry.reference) === ref,
+      (entry, { normalized }) => normalized && normalizeText(entry.title) === normalized,
+      (entry, { normalized }) => normalized && normalizeText(entry.entry_type) === normalized,
+    ],
+    fuzzy: [
+      (entry, { ref }) => ref && normalizeReference(entry.reference).includes(ref),
+      (entry, { normalized }) => normalized && normalizeText(entry.title).includes(normalized),
+      (entry, { normalized }) => normalized && normalizeText(entry.entry_type).includes(normalized),
+    ],
+  });
+}
+
+function resolveDocumentQuery(queryText, documents = []) {
+  return resolveByFieldSets(queryText, documents, {
+    exact: [
+      (doc, { normalized }) => normalized && normalizeText(doc.title) === normalized,
+      (doc, { normalized }) => normalized && normalizeText(doc.original_filename) === normalized,
+      (doc, { normalized }) => normalized && normalizeText(doc.notes) === normalized,
+    ],
+    fuzzy: [
+      (doc, { normalized }) => normalized && normalizeText(doc.title).includes(normalized),
+      (doc, { normalized }) =>
+        normalized && normalizeText(doc.original_filename).includes(normalized),
+      (doc, { normalized }) => normalized && normalizeText(doc.notes).includes(normalized),
+    ],
+  });
+}
+
 module.exports = {
   resolveClientQuery,
   resolveDossierQuery,
   resolveTaskQuery,
   resolveSessionQuery,
+  resolveLawsuitQuery,
+  resolveMissionQuery,
+  resolveOfficerQuery,
+  resolvePersonalTaskQuery,
+  resolveFinancialEntryQuery,
+  resolveDocumentQuery,
   normalizeText,
 };

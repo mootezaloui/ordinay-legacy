@@ -53,6 +53,82 @@ const serviceMap = Object.freeze({
   note: notesService,
 });
 
+function toTitleCase(value) {
+  return String(value || "")
+    .replace(/[_-]+/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function readFieldCaseInsensitive(record, field) {
+  if (!record || typeof record !== "object" || !field) return undefined;
+  if (Object.prototype.hasOwnProperty.call(record, field)) return record[field];
+  const match = Object.keys(record).find((k) => String(k).toLowerCase() === String(field).toLowerCase());
+  return match ? record[match] : undefined;
+}
+
+function entityPreviewLabel(entityType, entityId, entity) {
+  const type = String(entityType || "").toLowerCase();
+  const fallback = `${toTitleCase(type || "item")} #${entityId ?? "?"}`;
+  if (!entity || typeof entity !== "object") return fallback;
+  if (type === "client") return String(entity.name || entity.reference || fallback);
+  if (type === "task") return String(entity.title || fallback);
+  if (type === "session") return String(entity.title || entity.type || fallback);
+  if (type === "lawsuit") return String(entity.title || entity.lawsuitNumber || fallback);
+  if (type === "dossier") return String(entity.title || entity.lawsuitNumber || fallback);
+  if (type === "mission") return String(entity.title || entity.missionNumber || fallback);
+  if (type === "financial_entry") return String(entity.title || entity.description || fallback);
+  return String(entity.title || entity.name || entity.reference || fallback);
+}
+
+function normalizePreviewScalar(value) {
+  if (value === undefined || value === null) return null;
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return value;
+  return String(value);
+}
+
+function buildSingleEntityConfirmationPreview({
+  operation,
+  entityType,
+  entityId,
+  existing,
+  payload,
+  reversible,
+}) {
+  const label = entityPreviewLabel(entityType, entityId, existing);
+  const primaryChanges = Object.entries(payload || {}).map(([field, raw]) => {
+    let fromValue = readFieldCaseInsensitive(existing, field);
+    let toValue = raw;
+    if (raw && typeof raw === "object" && !Array.isArray(raw) && ("to" in raw || "from" in raw)) {
+      fromValue = raw.from ?? fromValue;
+      toValue = raw.to;
+    }
+    return {
+      entityType,
+      entityId: entityId ?? null,
+      entityLabel: label,
+      field,
+      from: normalizePreviewScalar(fromValue),
+      to: normalizePreviewScalar(toValue),
+    };
+  });
+
+  return {
+    version: "v1",
+    scope: "single_entity",
+    root: {
+      type: entityType,
+      id: entityId ?? null,
+      label,
+      operation: String(operation || "update"),
+    },
+    primaryChanges,
+    cascadeSummary: [],
+    effects: [],
+    reversibility: reversible === false ? "not_reversible" : reversible === true ? "reversible" : "unknown",
+  };
+}
+
 function normalizeEntityType(value) {
   const raw = String(value || "").trim();
   if (!raw) return "";
@@ -210,6 +286,7 @@ function buildProposal(input = {}, executionContext = {}) {
   let affectedId;
   let reversible = false;
   let domainGuardConfirmation = null;
+  let existingEntity = null;
 
   if (operation === "create") {
     if (String(input.entityId || "").trim() !== CREATE_SENTINEL) {
@@ -268,6 +345,7 @@ function buildProposal(input = {}, executionContext = {}) {
       throw err;
     }
     const existing = service.get(numericId);
+    existingEntity = existing || null;
     if (!existing) {
       const err = new Error(`${entityType} ${numericId} not found`);
       err.code = "ENTITY_NOT_FOUND";
@@ -314,6 +392,21 @@ function buildProposal(input = {}, executionContext = {}) {
 
   const actionType = operation === "create" ? "CREATE_ENTITY" : "UPDATE_ENTITY";
   const proposalId = generateProposalId(actionType, "v3");
+  const baseConfirmationPreview =
+    operation === "update"
+      ? buildSingleEntityConfirmationPreview({
+          operation,
+          entityType,
+          entityId: affectedId,
+          existing: existingEntity,
+          payload,
+          reversible,
+        })
+      : null;
+  const confirmation = {
+    ...(domainGuardConfirmation || {}),
+    ...(baseConfirmationPreview ? { preview: baseConfirmationPreview } : {}),
+  };
 
   return createActionProposal({
     proposalId,
@@ -334,7 +427,7 @@ function buildProposal(input = {}, executionContext = {}) {
     version: "v3",
     posture: "WORK",
     snapshot,
-    confirmation: domainGuardConfirmation,
+    confirmation: Object.keys(confirmation).length > 0 ? confirmation : null,
     sessionId: executionContext.sessionId || null,
   });
 }

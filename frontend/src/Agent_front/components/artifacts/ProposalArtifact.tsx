@@ -23,7 +23,24 @@ interface ProposalState {
   executionResult?: ExecutionResult;
 }
 
+interface SemanticRenderItem {
+  viewModel: SemanticActionViewModel;
+  debugPayload?: Record<string, unknown>;
+}
+
 const AGENT_MUTATION_EXECUTED_EVENT = "ordinay:agent-mutation-executed";
+const SEMANTIC_CONFIRMATION_PANEL_DEBUG_STORAGE_KEY = "ordinay:debug:semantic-confirmation-panel";
+
+function isSemanticConfirmationPanelDebugEnabled(): boolean {
+  if (typeof window === "undefined") return false;
+  if (!(typeof import.meta !== "undefined" && import.meta.env?.DEV)) return false;
+  try {
+    const value = window.localStorage?.getItem(SEMANTIC_CONFIRMATION_PANEL_DEBUG_STORAGE_KEY);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  } catch {
+    return false;
+  }
+}
 
 function emitExecutedMutationEvent(detail: {
   entityType: string;
@@ -227,14 +244,15 @@ export function ProposalArtifact({
     onCancel(proposalId);
   };
 
-  const semanticModels = assertProposalHasRenderableSemanticModels(data.proposals, contextData);
+  const renderItems = buildProposalRenderItems(data.proposals, contextData, isSemanticConfirmationPanelDebugEnabled());
 
   return (
     <div className="space-y-3">
       {data.proposals.map((proposal, idx) => {
         const state = proposalStates[proposal.proposalId] || { status: "awaiting_decision" };
         const uiState = getEffectiveUiState(state, proposal);
-        const semantic = semanticModels[idx];
+        const renderItem = renderItems[idx];
+        const semantic = renderItem.viewModel;
         const completedAtLabel = getCompletedAtLabel(state);
         const errorMessage =
           uiState === "stale"
@@ -253,6 +271,7 @@ export function ProposalArtifact({
             expiresAt={proposal.confirmation?.expiresAt}
             canRetry={canRetry(state)}
             requiresRefresh={uiState === "stale"}
+            debugPayload={renderItem.debugPayload}
             onConfirm={() => void handleConfirm(proposal.proposalId)}
             onRetry={() => void handleConfirm(proposal.proposalId)}
             onDecline={() => handleDecline(proposal.proposalId)}
@@ -263,22 +282,72 @@ export function ProposalArtifact({
   );
 }
 
-function assertProposalHasRenderableSemanticModels(
+function buildProposalRenderItems(
   proposals: ActionProposal[],
   contextData: DataContextLike,
-): SemanticActionViewModel[] {
+  includeDebugPayload: boolean,
+): SemanticRenderItem[] {
   if (!Array.isArray(proposals) || proposals.length === 0) {
     throw new SemanticMappingError("No confirmation actions available to render.");
   }
 
   return proposals.map((proposal) => {
     try {
-      return mapSemanticAction(proposalToSemanticInput(proposal, contextData));
+      const semanticInput = proposalToSemanticInput(proposal, contextData);
+      const viewModel = mapSemanticAction(semanticInput);
+      if (typeof import.meta !== "undefined" && import.meta.env?.DEV && proposal.requiresConfirmation) {
+        console.warn("[CONFIRM_DEBUG][frontend][semanticConfirmation]", {
+          proposalId: proposal.proposalId,
+          actionType: proposal.actionType || proposal.action,
+          humanReadableSummary: proposal.humanReadableSummary,
+          description: proposal.description,
+          reversible: proposal.reversible,
+          confirmation: proposal.confirmation,
+          affectedEntities: proposal.affectedEntities,
+          workflow: proposal.params?.workflow,
+          params: proposal.params,
+          semanticInput,
+          viewModel,
+        });
+        console.warn("[CONFIRM_DEBUG][frontend][semanticConfirmation][parsed]", {
+          proposalId: proposal.proposalId,
+          actionType: proposal.actionType || proposal.action,
+          workflowRequestedGoal: proposal.params?.workflow?.requestedGoal,
+          workflowStepCount: Array.isArray(proposal.params?.workflow?.steps) ? proposal.params?.workflow?.steps.length : 0,
+          workflowFirstStep: Array.isArray(proposal.params?.workflow?.steps) ? proposal.params?.workflow?.steps[0] : undefined,
+          semanticInputChanges: semanticInput.changes,
+          semanticInputChangeKeys: Object.keys(semanticInput.changes || {}),
+          semanticInputImpactHints: semanticInput.context.impactHints,
+          semanticInputPendingFieldNames: semanticInput.context.pendingFieldNames,
+        });
+      }
+      return {
+        viewModel,
+        debugPayload: includeDebugPayload
+          ? {
+              proposalId: proposal.proposalId,
+              actionType: proposal.actionType || proposal.action,
+              humanReadableSummary: proposal.humanReadableSummary,
+              description: proposal.description,
+              params: proposal.params,
+              workflow: proposal.params?.workflow,
+              confirmation: proposal.confirmation,
+              affectedEntities: proposal.affectedEntities,
+              semanticInput,
+              viewModel,
+            }
+          : undefined,
+      };
     } catch (error) {
       const actionType = String(proposal.actionType || proposal.action || "").toUpperCase();
       const params = proposal.params || {};
       const semanticInput =
         error instanceof SemanticMappingError ? proposalToSemanticInput(proposal, contextData) : undefined;
+      const confirmationPreview = proposal.confirmation?.preview;
+      const previewRoot =
+        confirmationPreview && typeof confirmationPreview === "object"
+          ? (confirmationPreview as { root?: unknown }).root
+          : undefined;
       console.error("[SemanticConfirmation] Failed to build semantic confirmation view model", {
         proposalId: proposal.proposalId,
         actionType,
@@ -294,12 +363,46 @@ function assertProposalHasRenderableSemanticModels(
             : [],
         semanticDebug: semanticInput
           ? {
+              detectedIntent: semanticInput.detectedIntent,
+              entityType: semanticInput.entityType,
               actionKind: semanticInput.context.actionKind,
               hasSubjectLabel: Boolean(semanticInput.context.subjectLabel),
+              subjectLabel: semanticInput.context.subjectLabel,
               changeKeys: Object.keys(semanticInput.changes || {}),
               pendingFieldNames: semanticInput.context.pendingFieldNames || [],
+              impactHints: semanticInput.context.impactHints || [],
+              hasConfirmationPreview: Boolean(semanticInput.context.confirmationPreview),
+              confirmationPreviewRoot: semanticInput.context.confirmationPreview?.root,
+              confirmationPreviewPrimaryChangeCount: semanticInput.context.confirmationPreview?.primaryChanges?.length || 0,
+              confirmationPreviewCascadeGroupCount: semanticInput.context.confirmationPreview?.cascadeSummary?.length || 0,
             }
           : undefined,
+        confirmationDebug: {
+          confirmationKeys:
+            proposal.confirmation && typeof proposal.confirmation === "object"
+              ? Object.keys(proposal.confirmation)
+              : [],
+          hasPreview: Boolean(confirmationPreview),
+          previewRoot,
+          previewKeys:
+            confirmationPreview && typeof confirmationPreview === "object"
+              ? Object.keys(confirmationPreview as Record<string, unknown>)
+              : [],
+          previewPrimaryChangeCount:
+            Array.isArray((confirmationPreview as { primaryChanges?: unknown[] } | undefined)?.primaryChanges)
+              ? (confirmationPreview as { primaryChanges: unknown[] }).primaryChanges.length
+              : 0,
+          previewCascadeGroupCount:
+            Array.isArray((confirmationPreview as { cascadeSummary?: unknown[] } | undefined)?.cascadeSummary)
+              ? (confirmationPreview as { cascadeSummary: unknown[] }).cascadeSummary.length
+              : 0,
+          previewEffects:
+            Array.isArray((confirmationPreview as { effects?: unknown[] } | undefined)?.effects)
+              ? (confirmationPreview as { effects: unknown[] }).effects
+              : [],
+        },
+        semanticMappingErrorMeta:
+          error instanceof SemanticMappingError ? (error as SemanticMappingError & { meta?: unknown }).meta : undefined,
         error,
       });
       throw error instanceof SemanticMappingError

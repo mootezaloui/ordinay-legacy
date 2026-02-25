@@ -88,29 +88,35 @@ function formatFieldValue(value: unknown, field?: string): string {
 }
 
 function containsSensitiveContext(input: SemanticActionMappingInput): boolean {
-  const utterance = `${input.context.userUtterance || ""} ${input.context.reasonHint || ""}`.toLowerCase();
+  const hintText = `${input.context.reasonHint || ""}`.toLowerCase();
+  if (SENSITIVE_KEYWORDS.some((keyword) => hintText.includes(keyword))) return true;
+  const impactText = (input.context.impactHints || []).join(" ").toLowerCase();
+  if (SENSITIVE_KEYWORDS.some((keyword) => impactText.includes(keyword))) return true;
+  const utterance = `${input.context.userUtterance || ""}`.toLowerCase();
   if (SENSITIVE_KEYWORDS.some((keyword) => utterance.includes(keyword))) return true;
   const statusTo = String(input.changes?.status?.to || "").toLowerCase();
   return SENSITIVE_KEYWORDS.some((keyword) => statusTo.includes(keyword));
 }
 
 function containsBereavementContext(input: SemanticActionMappingInput): boolean {
-  const utterance = `${input.context.userUtterance || ""} ${input.context.reasonHint || ""}`.toLowerCase();
+  const hintText = `${input.context.reasonHint || ""}`.toLowerCase();
+  if (BEREAVEMENT_KEYWORDS.some((keyword) => hintText.includes(keyword))) return true;
+  const impactText = (input.context.impactHints || []).join(" ").toLowerCase();
+  if (BEREAVEMENT_KEYWORDS.some((keyword) => impactText.includes(keyword))) return true;
+  const utterance = `${input.context.userUtterance || ""}`.toLowerCase();
   if (BEREAVEMENT_KEYWORDS.some((keyword) => utterance.includes(keyword))) return true;
   const statusTo = String(input.changes?.status?.to || "").toLowerCase();
   return BEREAVEMENT_KEYWORDS.some((keyword) => statusTo.includes(keyword));
 }
 
 function classifyTone(input: SemanticActionMappingInput): SemanticToneVariant {
-  const actionKind = String(input.context.actionKind || "").toLowerCase();
-  if (actionKind === "delete" || input.context.reversible === false) return "destructive";
+  if (input.context.reversible === false) return "destructive";
   if (containsSensitiveContext(input)) return "sensitive";
   if (
     input.context.requiresRiskAck ||
     input.context.riskLevel === "high" ||
     input.context.riskLevel === "medium" ||
-    (input.context.affectedItems?.length || 0) > 0 ||
-    actionKind === "workflow"
+    (input.context.affectedItems?.length || 0) > 0
   ) {
     return "caution";
   }
@@ -144,7 +150,118 @@ function buildChangeImpact(input: SemanticActionMappingInput): SemanticImpactIte
   return items;
 }
 
+function buildPreviewPrimaryAndCascadeChangeImpact(input: SemanticActionMappingInput): SemanticImpactItem[] {
+  const preview = input.context.confirmationPreview;
+  if (!preview || preview.scope !== "workflow") return [];
+
+  const items: SemanticImpactItem[] = [];
+  const rootType = String(preview.root?.type || "").toLowerCase();
+  const rootId = Number(preview.root?.id);
+
+  const primaryChanges = Array.isArray(preview.primaryChanges) ? preview.primaryChanges : [];
+  for (const change of primaryChanges) {
+    const field = String(change?.field || "").trim();
+    if (!field) continue;
+    const changeType = String(change?.entityType || "").toLowerCase();
+      const changeId = Number(change?.entityId);
+      const isRoot = (!rootType || changeType === rootType) && (!Number.isFinite(rootId) || changeId === rootId);
+      if (!isRoot) continue;
+      const hasBefore = !(change?.from === null || change?.from === undefined || change?.from === "");
+      const hasAfter = !(change?.to === null || change?.to === undefined || change?.to === "");
+      items.push({
+        kind: "change",
+        title: humanFieldLabel(field),
+        before: hasBefore ? formatFieldValue(change?.from, field) : undefined,
+        after: hasAfter ? formatFieldValue(change?.to, field) : undefined,
+        detail: hasBefore
+          ? `${humanFieldLabel(field)} will change from ${formatFieldValue(change?.from, field)} to ${formatFieldValue(change?.to, field)}.`
+          : `${humanFieldLabel(field)} will be set to ${formatFieldValue(change?.to, field)}.`,
+      });
+    }
+
+  const cascadeSummary = Array.isArray(preview.cascadeSummary) ? preview.cascadeSummary : [];
+  for (const group of cascadeSummary) {
+    const examples = Array.isArray(group?.examples) ? group.examples : [];
+    for (const example of examples) {
+      const field = String(example?.field || "").trim();
+      if (!field) continue;
+      const entityLabel = String(example?.entityLabel || "").trim() || `${toTitleCase(String(example?.entityType || "item"))} #${String(example?.entityId || "?")}`;
+      const hasBefore = !(example?.from === null || example?.from === undefined || example?.from === "");
+      const hasAfter = !(example?.to === null || example?.to === undefined || example?.to === "");
+      items.push({
+        kind: "change",
+        title: `${entityLabel} (${humanFieldLabel(field)})`,
+        before: hasBefore ? formatFieldValue(example?.from, field) : undefined,
+        after: hasAfter ? formatFieldValue(example?.to, field) : undefined,
+        detail: hasBefore
+          ? `${entityLabel} ${humanFieldLabel(field).toLowerCase()} will change.`
+          : `${entityLabel} ${humanFieldLabel(field).toLowerCase()} will be updated.`,
+      });
+    }
+  }
+
+  return items;
+}
+
+function punctuateSentence(value: string): string {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  return /[.!?]$/.test(text) ? text : `${text}.`;
+}
+
+function lowerFirst(value: string): string {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  return text.charAt(0).toLowerCase() + text.slice(1);
+}
+
+function actionVerb(actionKind?: string): string {
+  const kind = String(actionKind || "").toLowerCase();
+  if (kind === "delete") return "delete";
+  if (kind === "create") return "create";
+  if (kind === "attach") return "attach";
+  if (kind === "link") return "change the link for";
+  if (kind === "workflow") return "carry out the requested updates for";
+  return "apply this change for";
+}
+
+function fallbackActionSummary(input: SemanticActionMappingInput, targetPhrase: string): string {
+  const kind = String(input.context.actionKind || "").toLowerCase();
+  if (kind === "delete") return `Permanently delete ${targetPhrase}`;
+  if (kind === "create") return `Create ${targetPhrase}`;
+  if (kind === "attach") return `Attach the document to ${targetPhrase}`;
+  if (kind === "link") return `Update the link for ${targetPhrase}`;
+  if (kind === "workflow") return `Apply the requested updates for ${targetPhrase}`;
+  return `Apply the requested change for ${targetPhrase}`;
+}
+
+function normalizeProposalSummary(input: SemanticActionMappingInput): string | undefined {
+  const summary = String(input.context.proposalSummary || "").trim();
+  return summary || undefined;
+}
+
+function buildFallbackPlannedChangeImpact(input: SemanticActionMappingInput): SemanticImpactItem[] {
+  const hasExplicitChanges = Object.keys(input.changes || {}).length > 0;
+  const pendingFields = (input.context.pendingFieldNames || []).filter(Boolean);
+  if (hasExplicitChanges || pendingFields.length > 0) return [];
+
+  const targetPhrase = hasKnownTarget(input) ? subjectLabelOrSemanticFallback(input, "fallback") : "the selected information";
+  const summary = normalizeProposalSummary(input) || fallbackActionSummary(input, targetPhrase);
+  if (!summary) return [];
+
+  // When no structured diff is available, surface the backend proposal summary inside "What changes".
+  return [
+    {
+      kind: "change",
+      title: "Planned change",
+      detail: punctuateSentence(summary),
+    },
+  ];
+}
+
 function buildAffectedImpact(input: SemanticActionMappingInput): SemanticImpactItem[] {
+  const preview = input.context.confirmationPreview;
+  if (Array.isArray(preview?.cascadeSummary) && preview.cascadeSummary.length > 0) return [];
   const affected = input.context.affectedItems || [];
   const subjectLabel = String(input.context.subjectLabel || "").trim().toLowerCase();
   const labels = affected
@@ -164,7 +281,6 @@ function buildAffectedImpact(input: SemanticActionMappingInput): SemanticImpactI
 }
 
 function buildHintImpact(input: SemanticActionMappingInput): SemanticImpactItem[] {
-  const actionKind = String(input.context.actionKind || "").toLowerCase();
   const hints = (input.context.impactHints || [])
     .map((h) => String(h || "").trim())
     .filter(Boolean);
@@ -180,15 +296,10 @@ function buildHintImpact(input: SemanticActionMappingInput): SemanticImpactItem[
       items.push({ kind: "consequence", detail: "Related totals will be recalculated." });
       continue;
     }
-    if (lower.includes("active") && (lower.includes("client") || lower.includes("follow-up"))) {
-      items.push({
-        kind: "consequence",
-        detail: "This person will no longer appear in active-client views and routine follow-up suggestions.",
-      });
-    }
+    items.push({ kind: "consequence", detail: hint });
   }
 
-  if (actionKind === "delete") {
+  if (input.context.reversible === false) {
     items.push({ kind: "warning", detail: "This is a permanent change and cannot be undone." });
   }
   if (
@@ -217,14 +328,66 @@ function buildReversibilityImpact(input: SemanticActionMappingInput): SemanticIm
     return { kind: "reversibility", detail: "Not reversible." };
   }
   if (input.context.reversible === true) {
-    const actionKind = String(input.context.actionKind || "").toLowerCase();
-    if (actionKind === "delete") return { kind: "reversibility", detail: "Not reversible." };
-    if (input.entityType === "task" && String(input.changes?.status?.to || "").toLowerCase().includes("completed")) {
-      return { kind: "reversibility", detail: "You can reopen the task later." };
-    }
     return { kind: "reversibility", detail: "This can be changed later if entered in error." };
   }
   return { kind: "reversibility", detail: "If needed, this can be changed later." };
+}
+
+function buildPreviewCascadeSummaryImpact(input: SemanticActionMappingInput): SemanticImpactItem[] {
+  const preview = input.context.confirmationPreview;
+  const cascadeSummary = Array.isArray(preview?.cascadeSummary) ? preview.cascadeSummary : [];
+  if (cascadeSummary.length === 0) return [];
+
+  const items: SemanticImpactItem[] = [];
+  for (const group of cascadeSummary.slice(0, 6)) {
+    const entityType = toTitleCase(String(group?.entityType || "item"));
+    const totalCount = Number(group?.totalCount);
+    const changedFields = (Array.isArray(group?.changedFields) ? group.changedFields : [])
+      .map((field) => humanFieldLabel(String(field || "")))
+      .filter(Boolean);
+    const fieldText =
+      changedFields.length > 0
+        ? ` Fields updated: ${changedFields.slice(0, 3).join(", ")}${changedFields.length > 3 ? ` (+${changedFields.length - 3} more)` : ""}.`
+        : "";
+    const examplesCount = Array.isArray(group?.examples) ? group.examples.length : 0;
+    const examplesText = examplesCount > 0 ? ` Showing ${examplesCount} example${examplesCount > 1 ? "s" : ""} above.` : "";
+    items.push({
+      kind: "consequence",
+      detail: `${Number.isFinite(totalCount) ? totalCount : "Multiple"} ${entityType.toLowerCase()}${Number(totalCount) === 1 ? "" : "s"} will also be updated.${fieldText}${examplesText}`,
+    });
+  }
+  return items;
+}
+
+function buildPreviewEffectsImpact(input: SemanticActionMappingInput): SemanticImpactItem[] {
+  const preview = input.context.confirmationPreview;
+  const effects = (Array.isArray(preview?.effects) ? preview.effects : []).map((v) => String(v || "").trim()).filter(Boolean);
+  return effects
+    .map((detail) => normalizePreviewEffectCopy(detail))
+    .filter(Boolean)
+    .map((detail) => ({ kind: "consequence", detail }));
+}
+
+function normalizePreviewEffectCopy(detail: string): string {
+  let next = String(detail || "").trim();
+  if (!next) return "";
+
+  // Rewrite backend reasoning phrasing into user-facing confirmation copy.
+  next = next.replace(/^user requested\b[^;:.-]*[;:,-]\s*/i, "");
+  next = next.replace(/\bworkflow\b/gi, "steps");
+  next = next.replace(/\boperation\b/gi, "change");
+  next = next.replace(/\bentity\b/gi, "information");
+  next = next.replace(/\brequired before final status update\b/gi, "needed before the final status change");
+  next = next.replace(/\brequired before\b/gi, "needed before");
+
+  // Keep a strong, natural fallback if the line becomes too terse after normalization.
+  if (!next || next.length < 12) {
+    return "Related records will be updated first so the final change can be applied safely.";
+  }
+
+  // Ensure sentence case starts cleanly after stripping prefixes.
+  next = next.charAt(0).toUpperCase() + next.slice(1);
+  return punctuateSentence(next);
 }
 
 function requireSubjectLabel(input: SemanticActionMappingInput, actionKind: string): string {
@@ -274,226 +437,272 @@ function buildNarrative(
   input: SemanticActionMappingInput,
   toneVariant: SemanticToneVariant,
 ): Omit<SemanticActionViewModel, "impact" | "toneVariant" | "sections"> {
-  const actionKind = String(input.context.actionKind || "").toLowerCase();
+  const entityType = String(input.entityType || "").toLowerCase().trim();
   const statusTo = String(input.changes?.status?.to || "").trim();
   const statusFrom = String(input.changes?.status?.from || "").trim();
   const changeKeys = Object.keys(input.changes || {});
   const pendingFieldNames = (input.context.pendingFieldNames || []).filter(Boolean);
+  const semanticFields = changeKeys.length > 0 ? changeKeys : pendingFieldNames;
+  const hasStatusChange = Boolean(input.changes?.status);
+  const relationField = semanticFields.find((field) => RELATION_FIELD_KEYS.has(field));
+  const singleField = semanticFields.length === 1 ? humanFieldLabel(semanticFields[0]) : null;
+  const targetPhrase = hasKnownTarget(input) ? subjectLabelOrSemanticFallback(input, "confirm") : "the selected information";
+  const actionKind = String(input.context.actionKind || "").toLowerCase();
+  const rawProposalSummary = normalizeProposalSummary(input);
+  const proposalSummary =
+    !hasStatusChange && semanticFields.length === 0 && (isExplicitFallbackActionKind(actionKind) || input.context.reversible === false)
+      ? rawProposalSummary
+      : undefined;
+  const hasAnySemanticTarget = Boolean(
+    String(input.context.subjectLabel || "").trim() ||
+      (entityType && entityType !== "unknown_target"),
+  );
+  const isBereavement = containsBereavementContext(input) && (entityType === "client" || hasAnySemanticTarget);
+  const semanticStatusLabel = isBereavement ? "Deceased" : "Updated";
+  const toLabel = statusTo ? toTitleCase(statusTo) : semanticStatusLabel;
+  const fromLabel = statusFrom ? toTitleCase(statusFrom) : "Current";
+  const isPermanent = input.context.reversible === false;
+  const statusSemanticChange = hasStatusChange || isBereavement;
+  const fallbackSummary = fallbackActionSummary(input, targetPhrase);
 
-  if (actionKind === "delete") {
-    const subject = subjectLabelOrSemanticFallback(input, actionKind);
-    const isFinancial = input.entityType === "financial_entry";
-    return {
-      assistantMessage: isFinancial
-        ? "I can delete that financial entry, but this is a permanent change."
-        : `I can delete ${subject}, but this is a permanent change.`,
-      headline: isFinancial ? "Delete Financial Entry Permanently" : `Delete ${subject} Permanently`,
-      description: isFinancial
-        ? "This removes the selected financial entry and updates totals that include it."
-        : `This removes ${subject} and updates any places where it appears.`,
-      confirmLabel: isFinancial ? "Delete Entry Permanently" : "Delete Permanently",
-      cancelLabel: isFinancial ? "Keep Entry" : `Keep ${requireEntityLabel(input, actionKind)}`,
-    };
-  }
-
-  if (actionKind === "update" && input.changes?.status) {
-    const subject = subjectLabelOrSemanticFallback(input, actionKind);
-    const toLower = statusTo.toLowerCase();
-    const fromLabel = statusFrom ? toTitleCase(statusFrom) : "Current";
-    const toLabel = statusTo ? toTitleCase(statusTo) : "Updated";
-
-    if (toLower === "deceased" || toLower === "dead") {
-      return {
-        assistantMessage: `I'm sorry. I can mark ${subject} as deceased so future follow-ups treat this correctly. Please confirm before I apply that change.`,
-        headline: `Mark ${subject} as Deceased`,
-        description: "You said this person has passed away. This updates the status so the assistant no longer treats them as an active client.",
-        confirmLabel: "Mark as Deceased",
-        cancelLabel: "Keep Current Status",
-      };
-    }
-
-    if (input.entityType === "task" && (toLower === "completed" || toLower === "done")) {
-      return {
-        assistantMessage: `I can mark "${subject}" as completed.`,
-        headline: `Mark "${subject}" as Completed`,
-        description: "This closes the task and reflects that the work is finished.",
-        confirmLabel: "Mark Task Complete",
-        cancelLabel: "Leave as Open",
-      };
-    }
-
-    const confirmLabel = statusTo ? `Set to ${toTitleCase(statusTo)}` : "Confirm Status Change";
-    return {
-      assistantMessage:
-        toneVariant === "sensitive"
-          ? `I can confirm the status change for ${subject}.`
-          : `I can change the status for ${subject} from ${fromLabel} to ${toLabel}.`,
-      headline: `Set Status for ${subject}`,
-      description: `This updates the status from ${fromLabel} to ${toLabel}.`,
-      confirmLabel,
-      cancelLabel: "Keep Current Status",
-    };
-  }
-
-  if (actionKind === "update" && changeKeys.length > 0) {
-    const subject = subjectLabelOrSemanticFallback(input, actionKind);
-    const reassignKey = changeKeys.find((key) =>
-      ["clientId", "dossierId", "lawsuitId", "officerId"].includes(key),
-    );
-
-    if (reassignKey) {
-      const relationLabel = reassignmentLabel(reassignKey);
-      return {
-        assistantMessage: `I can change the ${relationLabel} for ${subject}. Please confirm before I continue.`,
-        headline: `Reassign ${relationLabel} for ${subject}`,
-        description: `This will change the ${relationLabel} linked to ${subject}.`,
-        confirmLabel: "Confirm Reassignment",
-        cancelLabel: "Keep Current Assignment",
-      };
-    }
-
-    const singleField = changeKeys.length === 1 ? humanFieldLabel(changeKeys[0]) : null;
-    const isSingleTitleLikeField = singleField && ["Title", "Description", "Amount", "Due date", "Priority", "Type"].includes(singleField);
-    return {
-      assistantMessage: isSingleTitleLikeField
-        ? `I can revise the ${singleField.toLowerCase()} for ${subject}.`
-        : `I can revise the requested information for ${subject}.`,
-      headline: singleField
-        ? `Revise ${singleField} for ${subject}`
-        : `Revise Information for ${subject}`,
-      description: singleField
-        ? `This will change the ${singleField.toLowerCase()} for ${subject}.`
-        : `This will change the selected information for ${subject}.`,
-      confirmLabel: singleField ? `Confirm ${singleField} Change` : "Confirm Changes",
-      cancelLabel: "Keep Current Information",
-    };
-  }
-
-  if (actionKind === "update" && pendingFieldNames.length > 0) {
-    const subject = subjectLabelOrSemanticFallback(input, actionKind);
-    const reassignKey = pendingFieldNames.find((key) => RELATION_FIELD_KEYS.has(key));
-    if (reassignKey) {
-      const relationLabel = reassignmentLabel(reassignKey);
-      return {
-        assistantMessage: `I can change the ${relationLabel} for ${subject}. Please confirm before I continue.`,
-        headline: `Reassign ${relationLabel} for ${subject}`,
-        description: `This will change the ${relationLabel} linked to ${subject}.`,
-        confirmLabel: "Confirm Reassignment",
-        cancelLabel: "Keep Current Assignment",
-      };
-    }
-
-    const singleField = pendingFieldNames.length === 1 ? humanFieldLabel(pendingFieldNames[0]) : null;
-    return {
-      assistantMessage: singleField
-        ? `I can revise the ${singleField.toLowerCase()} for ${subject}.`
-        : `I can revise the requested information for ${subject}.`,
-      headline: singleField
-        ? `Revise ${singleField} for ${subject}`
-        : `Revise Information for ${subject}`,
-      description: singleField
-        ? `This will update the ${singleField.toLowerCase()} for ${subject}.`
-        : `This will update the selected information for ${subject}.`,
-      confirmLabel: singleField ? `Confirm ${singleField} Change` : "Confirm Changes",
-      cancelLabel: "Keep Current Information",
-    };
-  }
-
-  if (actionKind === "update") {
-    const subjectLabel = String(input.context.subjectLabel || "").trim();
-    const entityType = String(input.entityType || "").toLowerCase().trim();
-    const hasSemanticTarget = Boolean(subjectLabel) || Boolean(entityType && entityType !== "unknown_target");
-
-    if (containsBereavementContext(input) && (entityType === "client" || subjectLabel)) {
-      const subject = hasSemanticTarget
-        ? subjectLabelOrSemanticFallback(input, actionKind)
-        : "this client";
-      return {
-        assistantMessage: `I'm sorry. I can mark ${subject} as deceased so future follow-ups treat this correctly. Please confirm before I apply that change.`,
-        headline: `Mark ${subject} as Deceased`,
-        description:
-          "You said this person has passed away. This updates the status so the assistant no longer treats them as an active client.",
-        confirmLabel: "Mark as Deceased",
-        cancelLabel: "Keep Current Status",
-      };
-    }
-
-    if (!hasSemanticTarget) {
-      return {
-        assistantMessage: "I can revise the selected information.",
-        headline: "Revise Selected Information",
-        description: "This will revise the selected information.",
-        confirmLabel: "Confirm Changes",
-        cancelLabel: "Keep Current Information",
-      };
-    }
-
-    const subject = subjectLabelOrSemanticFallback(input, actionKind);
-    return {
-      assistantMessage: `I can revise the selected information for ${subject}.`,
-      headline: `Revise Information for ${subject}`,
-      description: `This will revise the selected information for ${subject}.`,
-      confirmLabel: "Confirm Changes",
-      cancelLabel: "Keep Current Information",
-    };
-  }
-
-  if (actionKind === "workflow") {
-    const subject = subjectLabelOrSemanticFallback(input, actionKind);
-    return {
-      assistantMessage: `I can carry out the requested follow-up steps for ${subject}, including related cleanup.`,
-      headline: `Complete Related Cleanup for ${subject}`,
-      description: "This will carry out the requested cleanup and linked follow-up steps together.",
-      confirmLabel: "Continue with Cleanup",
-      cancelLabel: "Keep Everything As-Is",
-    };
-  }
-
-  if (actionKind === "link") {
-    const subject = subjectLabelOrSemanticFallback(input, actionKind);
-    return {
-      assistantMessage: `I can change the connection for ${subject}.`,
-      headline: `Relink ${subject}`,
-      description: "This changes how the selected entries are linked.",
-      confirmLabel: "Confirm Connection Change",
-      cancelLabel: "Keep Current Link",
-    };
-  }
-
-  if (actionKind === "attach") {
-    const subject = subjectLabelOrSemanticFallback(input, actionKind);
-    return {
-      assistantMessage: `I can attach this document to ${subject}.`,
-      headline: `Attach Document to ${subject}`,
-      description: "This links the attachment so it appears in the right place.",
-      confirmLabel: "Attach Document",
-      cancelLabel: "Do Not Attach",
-    };
-  }
-
-  if (actionKind === "create") {
-    const entity = requireEntityLabel(input, actionKind);
-    return {
-      assistantMessage: `I can create a new ${entity.toLowerCase()} from this request.`,
-      headline: `Create ${entity}`,
-      description: `This will add a new ${entity.toLowerCase()} using the information shown below.`,
-      confirmLabel: `Create ${entity}`,
-      cancelLabel: "Do Not Create",
-    };
-  }
-
-  throw new SemanticMappingError("Unsupported confirmation scenario for semantic mapping.", {
-    actionKind,
-    detectedIntent: input.detectedIntent,
-    entityType: input.entityType,
+  const headline = buildHeadline({
+    targetPhrase,
+    hasStatusChange: statusSemanticChange,
+    toLabel,
+    relationField,
+    singleField,
+    isPermanent,
+    isBereavement,
+    hasAnySemanticTarget,
+    proposalSummary,
+    fallbackSummary,
   });
+
+  const assistantMessage = buildAssistantMessage({
+    toneVariant,
+    targetPhrase,
+    hasStatusChange: statusSemanticChange,
+    toLabel,
+    relationField,
+    singleField,
+    isPermanent,
+    isBereavement,
+    hasAnySemanticTarget,
+    proposalSummary,
+    fallbackSummary,
+    actionKind,
+  });
+
+  const description = buildDescription({
+    toneVariant,
+    targetPhrase,
+    hasStatusChange: statusSemanticChange,
+    fromLabel,
+    toLabel,
+    relationField,
+    singleField,
+    semanticFieldCount: semanticFields.length,
+    isPermanent,
+    isBereavement,
+    proposalSummary,
+    fallbackSummary,
+  });
+
+  const confirmLabel = buildConfirmLabel({
+    hasStatusChange: statusSemanticChange,
+    toLabel,
+    singleField,
+    relationField,
+    isBereavement,
+    isPermanent,
+  });
+
+  const cancelLabel = buildCancelLabel({
+    hasStatusChange: statusSemanticChange,
+    relationField,
+    hasFieldChanges: semanticFields.length > 0,
+    isPermanent,
+  });
+
+  return {
+    assistantMessage,
+    headline,
+    description,
+    confirmLabel,
+    cancelLabel,
+  };
+}
+
+function isExplicitFallbackActionKind(actionKind: string): boolean {
+  return actionKind === "delete" || actionKind === "create" || actionKind === "link" || actionKind === "attach" || actionKind === "workflow";
+}
+
+function hasKnownTarget(input: SemanticActionMappingInput): boolean {
+  const subjectLabel = String(input.context.subjectLabel || "").trim();
+  if (subjectLabel) return true;
+  const entityType = String(input.entityType || "").trim().toLowerCase();
+  return Boolean(entityType && entityType !== "unknown_target");
+}
+
+function buildHeadline(args: {
+  targetPhrase: string;
+  hasStatusChange: boolean;
+  toLabel: string;
+  relationField?: string;
+  singleField: string | null;
+  isPermanent: boolean;
+  isBereavement: boolean;
+  hasAnySemanticTarget: boolean;
+  proposalSummary?: string;
+  fallbackSummary: string;
+}): string {
+  const { targetPhrase, hasStatusChange, toLabel, relationField, singleField, isPermanent, isBereavement, hasAnySemanticTarget, proposalSummary, fallbackSummary } = args;
+
+  if (hasStatusChange && isBereavement) return `Mark ${targetPhrase} as ${toLabel}`;
+  if (hasStatusChange) return `Confirm Status Update for ${targetPhrase}`;
+  if (relationField) return `Confirm ${toTitleCase(reassignmentLabel(relationField))} Change for ${targetPhrase}`;
+  if (singleField) return `Confirm ${singleField} Change for ${targetPhrase}`;
+  if (proposalSummary) return `Confirm: ${toTitleCase(proposalSummary)}`;
+  if (isPermanent) return `Confirm: ${toTitleCase(fallbackSummary)}`;
+  if (isPermanent && hasAnySemanticTarget) return `Confirm Permanent Change for ${targetPhrase}`;
+  if (hasAnySemanticTarget) return `Confirm Changes for ${targetPhrase}`;
+  return "Confirm Requested Changes";
+}
+
+function buildAssistantMessage(args: {
+  toneVariant: SemanticToneVariant;
+  targetPhrase: string;
+  hasStatusChange: boolean;
+  toLabel: string;
+  relationField?: string;
+  singleField: string | null;
+  isPermanent: boolean;
+  isBereavement: boolean;
+  hasAnySemanticTarget: boolean;
+  proposalSummary?: string;
+  fallbackSummary: string;
+  actionKind: string;
+}): string {
+  const { toneVariant, targetPhrase, hasStatusChange, toLabel, relationField, singleField, isPermanent, isBereavement, hasAnySemanticTarget, proposalSummary, fallbackSummary, actionKind } = args;
+  const targetRef = hasAnySemanticTarget ? targetPhrase : "the selected information";
+
+  if (toneVariant === "sensitive" && isBereavement && hasStatusChange) {
+    return `I'm sorry. I can mark ${targetRef} as ${toLabel.toLowerCase()} so future follow-ups reflect this correctly. Please confirm before I apply that change.`;
+  }
+
+  if (toneVariant === "sensitive") {
+    return `I'm sorry. I can apply this change for ${targetRef}. Please confirm before I continue.`;
+  }
+
+  if (hasStatusChange) {
+    return isPermanent
+      ? `I can update the status for ${targetRef}, and this change is permanent. Please confirm before I apply it.`
+      : `I can update the status for ${targetRef}. Please confirm before I apply that change.`;
+  }
+
+  if (relationField) {
+    return `I can update the ${reassignmentLabel(relationField)} for ${targetRef}. Please confirm before I apply that change.`;
+  }
+
+  if (singleField) {
+    return `I can update the ${singleField.toLowerCase()} for ${targetRef}. Please confirm before I apply that change.`;
+  }
+
+  if (proposalSummary) {
+    return `I can ${lowerFirst(proposalSummary)}. Please confirm before I apply that change.`;
+  }
+
+  if (isPermanent) {
+    const verb = actionVerb(actionKind);
+    if (verb.endsWith(" for")) {
+      return `I can ${verb} ${targetRef}, but it is permanent. Please confirm before I continue.`;
+    }
+    return `I can ${lowerFirst(fallbackSummary)}, but it is permanent. Please confirm before I continue.`;
+  }
+
+  return `I can apply this change for ${targetRef}. Please confirm before I continue.`;
+}
+
+function buildDescription(args: {
+  toneVariant: SemanticToneVariant;
+  targetPhrase: string;
+  hasStatusChange: boolean;
+  fromLabel: string;
+  toLabel: string;
+  relationField?: string;
+  singleField: string | null;
+  semanticFieldCount: number;
+  isPermanent: boolean;
+  isBereavement: boolean;
+  proposalSummary?: string;
+  fallbackSummary: string;
+}): string {
+  const { toneVariant, targetPhrase, hasStatusChange, fromLabel, toLabel, relationField, singleField, semanticFieldCount, isPermanent, isBereavement, proposalSummary, fallbackSummary } = args;
+
+  if (hasStatusChange && isBereavement && toneVariant === "sensitive") {
+    return "You said this person has passed away. This updates the status so the assistant no longer treats them as an active client.";
+  }
+  if (hasStatusChange) {
+    return `This updates the status for ${targetPhrase} from ${fromLabel} to ${toLabel}.`;
+  }
+  if (relationField) {
+    return `This updates the linked ${reassignmentLabel(relationField)} for ${targetPhrase}.`;
+  }
+  if (singleField) {
+    return `This updates the ${singleField.toLowerCase()} for ${targetPhrase}.`;
+  }
+  if (semanticFieldCount > 1) {
+    return `This updates the selected information for ${targetPhrase}.`;
+  }
+  if (proposalSummary) {
+    return `This will ${lowerFirst(punctuateSentence(proposalSummary)).replace(/\.$/, "")}.`;
+  }
+  if (isPermanent) {
+    return `This will ${lowerFirst(punctuateSentence(fallbackSummary)).replace(/\.$/, "")}.`;
+  }
+  return `This applies the requested change for ${targetPhrase}.`;
+}
+
+function buildConfirmLabel(args: {
+  hasStatusChange: boolean;
+  toLabel: string;
+  singleField: string | null;
+  relationField?: string;
+  isBereavement: boolean;
+  isPermanent: boolean;
+}): string {
+  const { hasStatusChange, toLabel, singleField, relationField, isBereavement, isPermanent } = args;
+  if (hasStatusChange && isBereavement) return `Mark as ${toLabel}`;
+  if (hasStatusChange) return `Set Status to ${toLabel}`;
+  if (relationField) return "Confirm Assignment Change";
+  if (singleField) return `Confirm ${singleField} Change`;
+  if (isPermanent) return "Apply Permanent Change";
+  return "Confirm Changes";
+}
+
+function buildCancelLabel(args: {
+  hasStatusChange: boolean;
+  relationField?: string;
+  hasFieldChanges: boolean;
+  isPermanent: boolean;
+}): string {
+  const { hasStatusChange, relationField, hasFieldChanges, isPermanent } = args;
+  if (hasStatusChange) return "Keep Current Status";
+  if (relationField) return "Keep Current Assignment";
+  if (hasFieldChanges) return "Keep Current Information";
+  if (isPermanent) return "Keep As Is";
+  return "Keep Current Information";
 }
 
 export function mapSemanticAction(input: SemanticActionMappingInput): SemanticActionViewModel {
   const toneVariant = classifyTone(input);
   const narrative = buildNarrative(input, toneVariant);
   const impact = dedupeImpact([
+    ...buildPreviewPrimaryAndCascadeChangeImpact(input),
     ...buildChangeImpact(input),
+    ...buildFallbackPlannedChangeImpact(input),
+    ...buildPreviewCascadeSummaryImpact(input),
+    ...buildPreviewEffectsImpact(input),
     ...buildHintImpact(input),
     ...buildAffectedImpact(input),
     buildReversibilityImpact(input),
@@ -505,14 +714,23 @@ export function mapSemanticAction(input: SemanticActionMappingInput): SemanticAc
     toneVariant,
     sections: {
       changesLabel: "What changes",
-      consequencesLabel: "Consequences",
-      warningsLabel: "Warnings",
+      consequencesLabel: "What this affects",
+      warningsLabel: "What this affects",
       reversibilityLabel: "Can this be undone?",
     },
   });
 
   const validation = validateConfirmationViewModelCopy(viewModel);
   if (!validation.valid) {
+    if (typeof import.meta !== "undefined" && import.meta.env?.DEV) {
+      console.error("[CONFIRM_DEBUG][frontend][semanticValidationFailed]", {
+        offendingText: validation.offendingText,
+        detectedIntent: input.detectedIntent,
+        entityType: input.entityType,
+        input,
+        viewModelBeforeThrow: viewModel,
+      });
+    }
     throw new SemanticMappingError("Semantic confirmation copy failed validation.", {
       offendingText: validation.offendingText,
       detectedIntent: input.detectedIntent,

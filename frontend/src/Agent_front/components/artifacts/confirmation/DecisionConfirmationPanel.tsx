@@ -20,6 +20,7 @@ interface DecisionConfirmationPanelProps {
   expiresAt?: string;
   canRetry?: boolean;
   requiresRefresh?: boolean;
+  debugPayload?: unknown;
 }
 
 function cx(...values: Array<string | false | null | undefined>): string {
@@ -76,6 +77,13 @@ function getToneClasses(tone: SemanticActionViewModel["toneVariant"]) {
   };
 }
 
+function getToneLabel(tone: SemanticActionViewModel["toneVariant"]): string | null {
+  if (tone === "neutral") return null;
+  if (tone === "sensitive") return "Sensitive Tone";
+  if (tone === "caution") return "Caution Tone";
+  return "Destructive Tone";
+}
+
 function SectionTitle({ children }: { children: string }) {
   return (
     <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -86,25 +94,45 @@ function SectionTitle({ children }: { children: string }) {
 
 function ChangeRows({ items, title }: { items: SemanticImpactItem[]; title: string }) {
   if (items.length === 0) return null;
+  const diffRows = items.filter((item) => item.before || item.after);
+  const descriptiveRows = items.filter((item) => !item.before && !item.after);
   return (
     <div className="space-y-2.5">
       <SectionTitle>{title}</SectionTitle>
-      <div className="space-y-2">
-        {items.map((item, idx) => (
-          <div key={`${item.title || "change"}-${idx}`} className="grid grid-cols-[minmax(96px,auto)_1fr] gap-x-3 gap-y-1 text-xs">
-            <div className="font-medium text-slate-700 dark:text-slate-200">{item.title || "Change"}</div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                {item.before || "Current"}
-              </span>
-              <span className="text-slate-400 dark:text-slate-500">{"->"}</span>
-              <span className="rounded bg-slate-900 px-1.5 py-0.5 text-white dark:bg-slate-100 dark:text-slate-900">
-                {item.after || "Updated"}
+      {diffRows.length > 0 ? (
+        <div className="space-y-2">
+          {diffRows.map((item, idx) => (
+            <div key={`${item.title || "change"}-${idx}`} className="grid grid-cols-[minmax(96px,auto)_1fr] gap-x-3 gap-y-1 text-xs">
+              <div className="font-medium text-slate-700 dark:text-slate-200">{item.title || "Change"}</div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                  {item.before || "Current"}
+                </span>
+                <span className="text-slate-400 dark:text-slate-500">{"->"}</span>
+                <span className="rounded bg-slate-900 px-1.5 py-0.5 text-white dark:bg-slate-100 dark:text-slate-900">
+                  {item.after || "Updated"}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {descriptiveRows.length > 0 ? (
+        <div className="space-y-1.5">
+          {descriptiveRows.map((item, idx) => (
+            <div
+              key={`${item.title || "planned"}-detail-${idx}`}
+              className="flex items-start gap-2 rounded-md border border-slate-200/70 bg-white/80 px-2.5 py-2 text-xs text-slate-700 dark:border-slate-700/60 dark:bg-slate-900/25 dark:text-slate-200"
+            >
+              <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400 dark:bg-slate-500" />
+              <span>
+                {item.title ? <span className="font-medium">{item.title}: </span> : null}
+                {item.detail}
               </span>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -228,12 +256,17 @@ export function DecisionConfirmationPanel({
   expiresAt,
   canRetry = true,
   requiresRefresh = false,
+  debugPayload,
 }: DecisionConfirmationPanelProps) {
   const tone = getToneClasses(viewModel.toneVariant);
   const changeItems = viewModel.impact.filter((item) => item.kind === "change");
   const warningItems = viewModel.impact.filter((item) => item.kind === "warning");
   const reversibilityItems = viewModel.impact.filter((item) => item.kind === "reversibility");
   const consequenceItems = viewModel.impact.filter((item) => item.kind === "consequence");
+  // Render a single downstream-effects section for all non-diff impacts to keep execute confirmations consistent.
+  const effectItems = [...consequenceItems, ...warningItems];
+  const hasEffectWarnings = warningItems.length > 0;
+  const toneLabel = getToneLabel(viewModel.toneVariant);
   const showDescription = Boolean(
     viewModel.description && !shouldSuppressDescription(viewModel.assistantMessage, viewModel.description),
   );
@@ -257,6 +290,11 @@ export function DecisionConfirmationPanel({
         <div className={cx("h-1", tone.accent)} />
         <div className="px-4 py-3.5 space-y-3">
           <div className="space-y-1">
+            {toneLabel ? (
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                {toneLabel}
+              </div>
+            ) : null}
             <h3 className="text-sm font-semibold leading-5 text-slate-900 dark:text-slate-100">
               {viewModel.headline}
             </h3>
@@ -267,8 +305,12 @@ export function DecisionConfirmationPanel({
 
           <div className={cx("rounded-lg border p-3 space-y-3", tone.subtle)}>
             <ChangeRows items={changeItems} title={viewModel.sections.changesLabel} />
-            <ImpactRows title={viewModel.sections.consequencesLabel} items={consequenceItems} tone={viewModel.toneVariant} />
-            <ImpactRows title={viewModel.sections.warningsLabel} items={warningItems} emphasizeWarning tone={viewModel.toneVariant} />
+            <ImpactRows
+              title={viewModel.sections.consequencesLabel}
+              items={effectItems}
+              emphasizeWarning={hasEffectWarnings}
+              tone={viewModel.toneVariant}
+            />
             <ImpactRows title={viewModel.sections.reversibilityLabel} items={reversibilityItems} tone={viewModel.toneVariant} />
           </div>
 
@@ -328,6 +370,17 @@ export function DecisionConfirmationPanel({
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
               Available until {new Date(expiresAt).toLocaleTimeString()}.
             </div>
+          ) : null}
+
+          {typeof import.meta !== "undefined" && import.meta.env?.DEV && debugPayload ? (
+            <details className="rounded-lg border border-dashed border-slate-300/80 bg-white/60 px-3 py-2 dark:border-slate-700/60 dark:bg-slate-900/20">
+              <summary className="cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-200">
+                Debug Payload (temporary)
+              </summary>
+              <pre className="mt-2 max-h-64 overflow-auto rounded bg-slate-950 p-2 text-[11px] leading-relaxed text-slate-100">
+                {JSON.stringify(debugPayload, null, 2)}
+              </pre>
+            </details>
           ) : null}
         </div>
       </div>

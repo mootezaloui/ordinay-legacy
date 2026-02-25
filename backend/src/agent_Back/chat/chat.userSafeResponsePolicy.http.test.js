@@ -79,6 +79,42 @@ test("chat user-safe response policy strips internal mutation mechanics from /ag
               version: "v3",
               posture: "WORK",
               snapshot: { scope: "client", scopeId: 1, hash: "sha256:test" },
+              confirmation: {
+                preview: {
+                  version: "v1",
+                  scope: "workflow",
+                  root: { type: "client", id: 1, label: "Client #1", operation: "update" },
+                  primaryChanges: [
+                    {
+                      entityType: "client",
+                      entityId: 1,
+                      entityLabel: "Client #1",
+                      field: "status",
+                      from: "active",
+                      to: "inactive",
+                    },
+                  ],
+                  cascadeSummary: [
+                    {
+                      entityType: "task",
+                      totalCount: 1,
+                      changedFields: ["status"],
+                      examples: [
+                        {
+                          entityType: "task",
+                          entityId: 4,
+                          entityLabel: "Task #4",
+                          field: "status",
+                          from: "todo",
+                          to: "cancelled via /mutate payload",
+                        },
+                      ],
+                    },
+                  ],
+                  effects: ["Uses /mutate endpoint payload cleanup"],
+                  reversibility: "not_reversible",
+                },
+              },
               params: { entityType: "client", entityId: 1, changes: { status: "inActive" } },
             },
           ],
@@ -112,9 +148,17 @@ test("chat user-safe response policy strips internal mutation mechanics from /ag
     assert.ok(proposal, "expected proposal artifact");
     assert.equal("params" in proposal, false);
     assert.equal("snapshot" in proposal, false);
+    assert.equal(typeof proposal.confirmation?.preview, "object");
+    assert.equal("primaryChanges" in proposal.confirmation.preview, true);
+    assert.equal(String(proposal.confirmation.preview.effects?.[0] || "").includes("/mutate"), false);
+    assert.equal(
+      String(
+        proposal.confirmation.preview.cascadeSummary?.[0]?.examples?.[0]?.to || "",
+      ).includes("/mutate"),
+      false,
+    );
     assertNoForbiddenLeak(proposal.humanReadableSummary || "");
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
 });
-

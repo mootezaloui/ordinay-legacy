@@ -227,7 +227,16 @@ function detectBatchPattern(message) {
 function detectDeleteOrCloseIntentPhrase(message) {
   const text = normalizeText(message);
   if (!text) return false;
-  return /\b(delete|remove)\b/i.test(text) || /\bclose\s+(this|it|that)\b/i.test(text);
+  return (
+    /\b(delete|remove)\b/i.test(text) ||
+    /\bclose\s+(this|it|that)\b/i.test(text) ||
+    /\bclose\s+(?:the\s+)?(?:client|dossier|lawsuit|case|task|personal\s+task|mission|officer|bailiff|session|hearing|financial\s+entry|document)\b/i.test(
+      text,
+    ) ||
+    /\breopen\s+(?:the\s+)?(?:client|dossier|lawsuit|case|task|personal\s+task|mission|officer|bailiff|session|hearing|financial\s+entry|document)\b/i.test(
+      text,
+    )
+  );
 }
 
 function detectQuestionOrHypothetical(message) {
@@ -246,7 +255,11 @@ function detectClientInactiveIntentPhrase(message) {
     /\b(not\s+my\s+client\s+anymore)\b/.test(text) ||
     /\b(is\s+not\s+my\s+client\s+anymore)\b/.test(text) ||
     /\b(isn['’]t\s+my\s+client\s+anymore)\b/.test(text) ||
-    /\b(no\s+longer\s+my\s+client)\b/.test(text)
+    /\b(no\s+longer\s+my\s+client)\b/.test(text) ||
+    (/\bclient\b/.test(text) &&
+      (/\b(is\s+not\s+mine\s+anymore)\b/.test(text) ||
+        /\b(isn['’]t\s+mine\s+anymore)\b/.test(text) ||
+        /\b(no\s+longer\s+mine)\b/.test(text)))
   );
 }
 
@@ -261,6 +274,81 @@ function extractEntityMention(message) {
     ENTITY_ALIASES[rawLabel] || ENTITY_ALIASES[rawLabel.replace(/s$/, "")] || null;
   const entityId = match[2] ? Number(match[2]) : null;
   return entityType ? { entityType, entityId, rawLabel } : null;
+}
+
+function escapeRegex(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function cleanEntityNameQuery(value) {
+  if (value === null || value === undefined) return null;
+  let cleaned = String(value).trim();
+  cleaned = cleaned.replace(/^[\s"'“”‘’`]+|[\s"'“”‘’`]+$/g, "");
+  cleaned = cleaned.replace(/^[#:\-]+/, "");
+  cleaned = cleaned.replace(/[?!.;,:\s]+$/g, "");
+  cleaned = cleaned.replace(/\s+/g, " ").trim();
+  return cleaned || null;
+}
+
+function buildEntityAliasPattern(entityType) {
+  if (!entityType) return null;
+  const aliases = Object.entries(ENTITY_ALIASES)
+    .filter(([, normalized]) => normalized === entityType)
+    .map(([alias]) => alias)
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+  if (!aliases.length) return null;
+  return aliases.map((alias) => escapeRegex(alias).replace(/\s+/g, "\\s+")).join("|");
+}
+
+function trimMutationTailFromQuery(value) {
+  let text = cleanEntityNameQuery(value);
+  if (!text) return null;
+  text = text.replace(
+    /\b(status|state|priority|due date|deadline|scheduled at|session date|hearing date|date|time|location|place|outcome|result|assigned to|assignee|phone|email|address|reference|amount)\b[\s\S]*$/i,
+    "",
+  );
+  text = text.replace(/\s+/g, " ").trim();
+  return cleanEntityNameQuery(text);
+}
+
+function extractEntityNameQuery({ message, entityType }) {
+  const source = String(message || "");
+  if (!source || !entityType) return null;
+
+  if (entityType === "client" && detectClientInactiveIntentPhrase(source)) {
+    const match = source.match(
+      /^(.+?)\s+(?:is\s+not\s+my\s+client\s+anymore|isn['’]t\s+my\s+client\s+anymore|not\s+my\s+client\s+anymore|no\s+longer\s+my\s+client)\b/i,
+    );
+    const extracted = cleanEntityNameQuery(match?.[1] || "");
+    if (extracted) return extracted;
+    const altMatch = source.match(
+      /^(?:client\s+)?(.+?)\s+(?:is\s+not\s+mine\s+anymore|isn['’]t\s+mine\s+anymore|no\s+longer\s+mine)\b/i,
+    );
+    const altExtracted = cleanEntityNameQuery(altMatch?.[1] || "");
+    if (altExtracted) return altExtracted;
+  }
+
+  const aliasPattern = buildEntityAliasPattern(entityType);
+  if (aliasPattern) {
+    const typeFirst = new RegExp(`\\b(?:${aliasPattern})\\b\\s*[:#-]?\\s*(.+)$`, "iu");
+    const typeFirstMatch = source.match(typeFirst);
+    if (typeFirstMatch) {
+      const query = trimMutationTailFromQuery(typeFirstMatch[1]);
+      if (query) return query;
+    }
+
+    const destructive = new RegExp(
+      `\\b(?:close|delete|remove|open|reopen|archive|cancel)\\b\\s+(?:the\\s+)?(?:${aliasPattern})\\b\\s*[:#-]?\\s*(.+)$`,
+      "iu",
+    );
+    const destructiveMatch = source.match(destructive);
+    const destructiveQuery = cleanEntityNameQuery(destructiveMatch?.[1] || "");
+    if (destructiveQuery) return destructiveQuery;
+  }
+
+  const quoted = source.match(/["“”'‘’]([^"“”'‘’]{2,})["“”'‘’]/u);
+  return cleanEntityNameQuery(quoted?.[1] || "");
 }
 
 function prefilterMutationIntent(message) {
@@ -352,6 +440,7 @@ function parseOperation(message, extractedOperation = null) {
   const text = lower(message);
   if (detectClientInactiveIntentPhrase(text)) return "update";
   if (/\b(delete|remove)\b/.test(text)) return "delete";
+  if (/\b(close|reopen)\b/.test(text)) return "update";
   if (/\b(update|change|set|move|reschedule|mark)\b/.test(text)) return "update";
   if (/\b(create|add|new)\b/.test(text)) return "create";
   return "unknown";
@@ -376,6 +465,13 @@ function inferFieldFromText({ entityType, text, allowedFields, adapterFieldAlias
     allowedFields.includes("scheduled_at")
   ) {
     return { field: "scheduled_at", confidence: 0.95, inferred: true };
+  }
+
+  if (
+    /\b(close|reopen)\b/.test(normalizedText) &&
+    allowedFields.includes("status")
+  ) {
+    return { field: "status", confidence: 0.9, inferred: true };
   }
 
   if (
@@ -419,6 +515,12 @@ function extractRawValueFromText({ text, field }) {
 
   if (field === "status" && detectClientInactiveIntentPhrase(source)) {
     return "inactive";
+  }
+  if (field === "status" && /\bclose\b/i.test(source)) {
+    return "closed";
+  }
+  if (field === "status" && /\breopen\b/i.test(source)) {
+    return "open";
   }
 
   let match = source.match(/\b(?:to|as)\s+(.+?)\s*$/i);
@@ -714,7 +816,13 @@ function mergePendingClarification({ pending, message, activeEntity }) {
   return { candidate, missing: Array.from(missing) };
 }
 
-function validateAndBuildCandidate({ message, extracted, activeEntity, config }) {
+async function validateAndBuildCandidate({
+  message,
+  extracted,
+  activeEntity,
+  config,
+  entityNameResolver = null,
+}) {
   const hardGateFailures = [];
   const scores = {
     intentVerbClarity: 0.95,
@@ -742,13 +850,17 @@ function validateAndBuildCandidate({ message, extracted, activeEntity, config })
 
   let entityId = null;
   let entityResolutionConfidence = 0.1;
+  let entityResolutionSource = null;
+  let entityResolutionLookup = null;
   const ref = extracted.entityReference || {};
   if (ref.kind === "id" && Number.isInteger(Number(ref.value)) && Number(ref.value) > 0) {
     entityId = Number(ref.value);
     entityResolutionConfidence = 1;
+    entityResolutionSource = "explicit_id";
   } else if (Number.isInteger(Number(extracted.entityId)) && Number(extracted.entityId) > 0) {
     entityId = Number(extracted.entityId);
     entityResolutionConfidence = 1;
+    entityResolutionSource = "explicit_id";
   } else if (
     activeEntity &&
     activeEntity.type === entityType &&
@@ -757,8 +869,42 @@ function validateAndBuildCandidate({ message, extracted, activeEntity, config })
   ) {
     entityId = Number(activeEntity.id);
     entityResolutionConfidence = 0.95;
+    entityResolutionSource = "active_entity";
+  } else if (entityType && typeof entityNameResolver === "function") {
+    const query = extractEntityNameQuery({ message, entityType });
+    if (query) {
+      try {
+        const lookup = await entityNameResolver({ entityType, query, message });
+        if (lookup && typeof lookup === "object") {
+          entityResolutionLookup = {
+            kind: String(lookup.kind || "none"),
+            query,
+            candidates: Array.isArray(lookup.candidates) ? lookup.candidates : [],
+            total: Number.isFinite(Number(lookup.total)) ? Number(lookup.total) : undefined,
+            overflow: lookup.overflow === true,
+            matchKind: lookup.matchKind || null,
+          };
+          if (
+            lookup.kind === "one" &&
+            Number.isInteger(Number(lookup.id)) &&
+            Number(lookup.id) > 0
+          ) {
+            entityId = Number(lookup.id);
+            entityResolutionConfidence = lookup.matchKind === "exact" ? 0.99 : 0.9;
+            entityResolutionSource = lookup.matchKind === "exact" ? "name_exact" : "name_fuzzy";
+          }
+        }
+      } catch (_) {
+        entityResolutionLookup = { kind: "error", query, candidates: [] };
+      }
+    }
   }
   scores.entityResolutionConfidence = entityResolutionConfidence;
+  if (entityResolutionLookup?.kind === "many") {
+    hardGateFailures.push("entity_resolution_multiple_matches");
+  } else if (entityResolutionLookup?.kind === "none") {
+    hardGateFailures.push("entity_resolution_name_not_found");
+  }
   if (!entityId || entityResolutionConfidence < config.entityThreshold) {
     hardGateFailures.push("entity_resolution_uncertain");
   }
@@ -858,6 +1004,8 @@ function validateAndBuildCandidate({ message, extracted, activeEntity, config })
       newValueRaw: rawValue || null,
       displayValue: parsedValue.ok ? parsedValue.displayValue : null,
       payload,
+      entityResolutionSource,
+      entityResolutionLookup,
       reasoningSummary:
         normalizeText(extracted.reasoningSummary) ||
         `User requested updating ${entityType} ${entityId}.`,
@@ -913,6 +1061,45 @@ function buildClarificationFromFailures({ failures, candidate, scores, config })
     return buildClarification(
       "I can only prepare single-field updates automatically in chat right now. For this request, I can help you prepare a confirmation-ready change.",
       "operation_not_supported",
+      scores,
+      candidate,
+      { pendingClarification: null },
+    );
+  }
+  if (failureSet.has("entity_resolution_multiple_matches")) {
+    const lookup = candidate?.entityResolutionLookup || null;
+    const candidates = Array.isArray(lookup?.candidates) ? lookup.candidates : [];
+    const labels = candidates
+      .map((item) => cleanEntityNameQuery(item?.label || item?.name || ""))
+      .filter(Boolean)
+      .slice(0, 3);
+    const prompt =
+      labels.length >= 2
+        ? `Did you mean ${labels.slice(0, 2).join(" or ")}${labels.length > 2 ? " (or another match)?" : "?"}`
+        : "I found multiple matching records. Which one did you mean?";
+    return buildClarification(
+      prompt,
+      "entity_resolution_multiple_matches",
+      scores,
+      candidate,
+      {
+        pendingClarification: {
+          candidate,
+          missing: ["entityId"],
+          createdAt: new Date().toISOString(),
+          candidates: candidates.slice(0, 10),
+        },
+      },
+    );
+  }
+  if (failureSet.has("entity_resolution_name_not_found")) {
+    const query = cleanEntityNameQuery(candidate?.entityResolutionLookup?.query || "");
+    const entityLabel = String(candidate?.entityType || "record").replace(/_/g, " ");
+    return buildClarification(
+      query
+        ? `I couldn't find a ${entityLabel} matching "${query}". Please confirm the name or provide a more specific reference.`
+        : "I couldn't find the record you referenced. Please confirm the name or provide a more specific reference.",
+      "entity_resolution_name_not_found",
       scores,
       candidate,
       { pendingClarification: null },
@@ -1005,6 +1192,7 @@ async function detectStrongMutationIntent({
   executionContext = {},
   pendingClarification = null,
   llmExtractor = null,
+  entityNameResolver = null,
   logger = null,
   sourceRoute = "/agent/chat",
 } = {}) {
@@ -1110,11 +1298,12 @@ async function detectStrongMutationIntent({
         : heuristic;
   }
 
-  const { candidate, scores } = validateAndBuildCandidate({
+  const { candidate, scores } = await validateAndBuildCandidate({
     message: text,
     extracted,
     activeEntity,
     config,
+    entityNameResolver,
   });
 
   const failures = scores.hardGateFailures || [];
@@ -1191,6 +1380,7 @@ async function detectMutationIntent(message, resolvedContext = {}) {
     executionContext = {},
     pendingClarification = null,
     llmExtractor = null,
+    entityNameResolver = null,
     logger = null,
     sourceRoute = "/agent/chat",
   } = resolvedContext && typeof resolvedContext === "object" ? resolvedContext : {};
@@ -1235,6 +1425,7 @@ async function detectMutationIntent(message, resolvedContext = {}) {
     executionContext,
     pendingClarification,
     llmExtractor,
+    entityNameResolver,
     logger,
     sourceRoute,
   });
@@ -1295,6 +1486,8 @@ module.exports = {
   _internal: {
     prefilterMutationIntent,
     extractEntityMention,
+    extractEntityNameQuery,
+    cleanEntityNameQuery,
     inferFieldFromText,
     parseValueForField,
     parseTemporalValue,

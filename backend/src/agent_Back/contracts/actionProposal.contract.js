@@ -68,6 +68,26 @@ const ACTION_STATUS = Object.freeze({
   FAILED: 'FAILED',
 });
 
+function validateJsonLike(value, path = "value") {
+  if (value === null || value === undefined) return;
+  const t = typeof value;
+  if (t === "string" || t === "number" || t === "boolean") return;
+  if (Array.isArray(value)) {
+    value.forEach((item, idx) => validateJsonLike(item, `${path}[${idx}]`));
+    return;
+  }
+  if (t === "object") {
+    for (const [key, item] of Object.entries(value)) {
+      if (typeof key !== "string") {
+        throw new Error(`${path} contains non-string key`);
+      }
+      validateJsonLike(item, `${path}.${key}`);
+    }
+    return;
+  }
+  throw new Error(`${path} must be JSON-serializable`);
+}
+
 /**
  * Validate action status
  * @param {string} status - Action status
@@ -202,6 +222,7 @@ function createActionProposal({
   if (snapshot) proposal.snapshot = Object.freeze(snapshot);
   if (userMessageDraft) proposal.userMessageDraft = userMessageDraft;
   if (confirmation) proposal.confirmation = Object.freeze(confirmation);
+  if (confirmation?.preview) validateJsonLike(confirmation.preview, "confirmation.preview");
   if (sessionId) proposal.sessionId = sessionId;
 
   return Object.freeze(proposal);

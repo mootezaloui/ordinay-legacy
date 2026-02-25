@@ -40,6 +40,25 @@ function sanitizeSummaryText(text) {
   return cleaned;
 }
 
+function sanitizeStructuredValue(value) {
+  if (value === null || value === undefined) return value ?? null;
+  if (typeof value === "string") return sanitizeSummaryText(value);
+  if (typeof value === "number" || typeof value === "boolean") return value;
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeStructuredValue(item)).filter((item) => item !== "");
+  }
+  if (typeof value === "object") {
+    const out = {};
+    for (const [key, item] of Object.entries(value)) {
+      const sanitized = sanitizeStructuredValue(item);
+      if (sanitized === undefined) continue;
+      out[key] = sanitized;
+    }
+    return out;
+  }
+  return sanitizeSummaryText(String(value));
+}
+
 function buildFallbackMessage(mutationOutcome = null) {
   const status = String(mutationOutcome?.status || "").toUpperCase();
   if (status === "EXECUTED") {
@@ -92,6 +111,9 @@ function redactProposalArtifact(output) {
             ? proposal.confirmation.impactSummary.map((w) => sanitizeSummaryText(w)).filter(Boolean)
             : undefined,
         };
+        if (proposal.confirmation.preview && typeof proposal.confirmation.preview === "object") {
+          safe.confirmation.preview = sanitizeStructuredValue(proposal.confirmation.preview);
+        }
       }
       if (proposal?.actionType && findForbiddenMatches(proposal.actionType).length === 0) {
         safe.actionType = proposal.actionType;
@@ -153,5 +175,6 @@ module.exports = {
     findForbiddenMatches,
     redactProposalArtifact,
     buildFallbackMessage,
+    sanitizeStructuredValue,
   },
 };

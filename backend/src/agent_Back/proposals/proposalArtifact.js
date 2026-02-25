@@ -42,6 +42,22 @@ function toProposalArtifact(proposal, sessionId) {
     } catch (_) {}
   }
 
+  try {
+    const first = artifact.proposals?.[0] || {};
+    if (first?.requiresConfirmation) {
+      console.warn("[CONFIRM_DEBUG][backend][proposalArtifact]", {
+        proposalId: first.proposalId || null,
+        actionType: first.actionType || null,
+        humanReadableSummary: first.humanReadableSummary || null,
+        reversible: first.reversible,
+        confirmation: first.confirmation || null,
+        affectedEntities: first.affectedEntities || [],
+        workflow: first.params?.workflow || null,
+        params: first.params || null,
+      });
+    }
+  } catch (_) {}
+
   return artifact;
 }
 

@@ -111,3 +111,158 @@ test("detectStrongMutationIntent uses adapter valueParsers metadata for non-suff
       assert.deepEqual(result.proposalInput.payload, { next_hearing: "2026-03-12" });
     },
   ));
+
+test("detectStrongMutationIntent resolves direct client mutation by name and proposes status update", async () =>
+  withEnv(
+    {
+      AGENT_MUTATION_INTENT_DETECTION: "1",
+      AGENT_MUTATION_INTENT_SHADOW_MODE: "0",
+      AGENT_MUTATION_INTENT_LLM_EXTRACTOR: "0",
+    },
+    async () => {
+      const result = await detectStrongMutationIntent({
+        message: "Mootez Aloui is not my client anymore",
+        executionContext: {},
+        llmHistory: {},
+        entityNameResolver: async ({ entityType, query }) => {
+          assert.equal(entityType, "client");
+          assert.equal(query, "Mootez Aloui");
+          return { kind: "one", id: 101, matchKind: "exact" };
+        },
+      });
+
+      assert.equal(result.decision, "propose");
+      assert.equal(result.proposalInput.entityType, "client");
+      assert.equal(result.proposalInput.entityId, "101");
+      assert.equal(String(result.proposalInput.payload.status).toLowerCase(), "inactive");
+    },
+  ));
+
+test("detectStrongMutationIntent resolves direct client mutation by name with case variation", async () =>
+  withEnv(
+    {
+      AGENT_MUTATION_INTENT_DETECTION: "1",
+      AGENT_MUTATION_INTENT_SHADOW_MODE: "0",
+      AGENT_MUTATION_INTENT_LLM_EXTRACTOR: "0",
+    },
+    async () => {
+      let capturedQuery = null;
+      const result = await detectStrongMutationIntent({
+        message: "mootez aloui is not my client anymore.",
+        executionContext: {},
+        llmHistory: {},
+        entityNameResolver: async ({ entityType, query }) => {
+          capturedQuery = query;
+          return { kind: "one", id: 102, matchKind: "exact" };
+        },
+      });
+
+      assert.equal(result.decision, "propose");
+      assert.equal(result.proposalInput.entityType, "client");
+      assert.equal(result.proposalInput.entityId, "102");
+      assert.equal(String(result.proposalInput.payload.status).toLowerCase(), "inactive");
+      assert.equal(capturedQuery, "mootez aloui");
+    },
+  ));
+
+test("detectStrongMutationIntent resolves direct name mutation without prior context", async () =>
+  withEnv(
+    {
+      AGENT_MUTATION_INTENT_DETECTION: "1",
+      AGENT_MUTATION_INTENT_LLM_EXTRACTOR: "0",
+    },
+    async () => {
+      const result = await detectStrongMutationIntent({
+        message: "Mootez Aloui is not my client anymore",
+        executionContext: {},
+        llmHistory: {},
+        entityNameResolver: async () => ({ kind: "one", id: 103, matchKind: "exact" }),
+      });
+
+      assert.equal(result.decision, "propose");
+      assert.equal(result.proposalInput.entityId, "103");
+      assert.equal(result.scores.components.entityResolutionConfidence >= 0.9, true);
+    },
+  ));
+
+test("detectStrongMutationIntent asks disambiguation when multiple name matches exist", async () =>
+  withEnv(
+    {
+      AGENT_MUTATION_INTENT_DETECTION: "1",
+      AGENT_MUTATION_INTENT_LLM_EXTRACTOR: "0",
+    },
+    async () => {
+      const result = await detectStrongMutationIntent({
+        message: "Mootez Aloui is not my client anymore",
+        executionContext: {},
+        llmHistory: {},
+        entityNameResolver: async () => ({
+          kind: "many",
+          candidates: [
+            { id: 1, label: "Mootez Aloui" },
+            { id: 2, label: "Mootez Aloui (Company)" },
+          ],
+          total: 2,
+          overflow: false,
+        }),
+      });
+
+      assert.equal(result.decision, "clarify");
+      assert.equal(result.reason, "entity_resolution_multiple_matches");
+      assert.match(String(result.question), /Did you mean/i);
+      assert.match(String(result.question), /Mootez Aloui/);
+      assert.equal(
+        String(result.question).includes("entity type and ID"),
+        false,
+        "must not ask for type+ID when name lookup is possible",
+      );
+    },
+  ));
+
+test("detectStrongMutationIntent asks not-found clarification when named entity is missing", async () =>
+  withEnv(
+    {
+      AGENT_MUTATION_INTENT_DETECTION: "1",
+      AGENT_MUTATION_INTENT_LLM_EXTRACTOR: "0",
+    },
+    async () => {
+      const result = await detectStrongMutationIntent({
+        message: "Mootez Aloui is not my client anymore",
+        executionContext: {},
+        llmHistory: {},
+        entityNameResolver: async () => ({ kind: "none" }),
+      });
+
+      assert.equal(result.decision, "clarify");
+      assert.equal(result.reason, "entity_resolution_name_not_found");
+      assert.match(String(result.question), /couldn't find/i);
+      assert.equal(String(result.question).includes("entity type and ID"), false);
+    },
+  ));
+
+test("detectStrongMutationIntent resolves non-client entity by name (close dossier title)", async () =>
+  withEnv(
+    {
+      AGENT_MUTATION_INTENT_DETECTION: "1",
+      AGENT_MUTATION_INTENT_SHADOW_MODE: "0",
+      AGENT_MUTATION_INTENT_LLM_EXTRACTOR: "0",
+      AGENT_MUTATION_INTENT_ALLOW_HIGH_RISK: "1",
+    },
+    async () => {
+      const result = await detectStrongMutationIntent({
+        message: "Close Dossier Title*",
+        executionContext: {},
+        llmHistory: {},
+        entityNameResolver: async ({ entityType, query }) => {
+          assert.equal(entityType, "dossier");
+          assert.equal(query, "Title*");
+          return { kind: "one", id: 55, matchKind: "exact" };
+        },
+      });
+
+      assert.equal(result.decision, "propose");
+      assert.equal(result.proposalInput.entityType, "dossier");
+      assert.equal(result.proposalInput.entityId, "55");
+      assert.deepEqual(result.proposalInput.payload, { status: "closed" });
+    },
+  ));

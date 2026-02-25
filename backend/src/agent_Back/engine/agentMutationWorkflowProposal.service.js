@@ -33,6 +33,178 @@ const serviceMap = Object.freeze({
   note: notesService,
 });
 
+function _toTitleCase(value) {
+  return String(value || "")
+    .replace(/[_-]+/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function _formatEntityLabel(entityType, entityId) {
+  const typeLabel = _toTitleCase(String(entityType || "item")).trim() || "Item";
+  return `${typeLabel} #${entityId ?? "?"}`;
+}
+
+function _readFieldCaseInsensitive(record, field) {
+  if (!record || typeof record !== "object" || !field) return undefined;
+  if (Object.prototype.hasOwnProperty.call(record, field)) return record[field];
+  const lower = String(field).toLowerCase();
+  const key = Object.keys(record).find((k) => String(k).toLowerCase() === lower);
+  return key ? record[key] : undefined;
+}
+
+function _entityPreviewLabel(entityType, entityId, entity) {
+  const type = String(entityType || "").toLowerCase();
+  const item = entity && typeof entity === "object" ? entity : null;
+  if (!item) return _formatEntityLabel(type, entityId);
+
+  if (type === "client") return String(item.name || item.reference || _formatEntityLabel(type, entityId));
+  if (type === "task") return String(item.title || _formatEntityLabel(type, entityId));
+  if (type === "session") return String(item.title || item.type || _formatEntityLabel(type, entityId));
+  if (type === "lawsuit") return String(item.title || item.lawsuitNumber || _formatEntityLabel(type, entityId));
+  if (type === "dossier") return String(item.title || item.lawsuitNumber || _formatEntityLabel(type, entityId));
+  if (type === "mission") return String(item.title || item.missionNumber || _formatEntityLabel(type, entityId));
+  if (type === "financial_entry") {
+    return String(item.title || item.description || _formatEntityLabel(type, entityId));
+  }
+
+  return String(item.title || item.name || item.reference || _formatEntityLabel(type, entityId));
+}
+
+function _loadEntityForPreview(entityType, entityId) {
+  try {
+    const service = _getService(entityType);
+    if (typeof service?.get !== "function") return null;
+    return service.get(entityId) || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function _normalizePreviewValue(value) {
+  if (value === undefined) return null;
+  if (value === null) return null;
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return value;
+  return String(value);
+}
+
+function _buildConfirmationPreview({
+  rootType,
+  rootId,
+  rootLabel,
+  rootExisting,
+  requestedGoal,
+  steps,
+  reasoningSummary,
+  reversible,
+}) {
+  const rootEntityType = String(rootType || "").toLowerCase();
+  const rootEntityId = Number(rootId);
+  const rootEntityLabel =
+    String(rootLabel || "").trim() || _entityPreviewLabel(rootEntityType, rootEntityId, rootExisting);
+
+  const primaryChanges = [];
+  const requestedChanges =
+    requestedGoal && typeof requestedGoal === "object" && requestedGoal.changes && typeof requestedGoal.changes === "object"
+      ? requestedGoal.changes
+      : null;
+  if (requestedChanges && !Array.isArray(requestedChanges)) {
+    for (const [field, value] of Object.entries(requestedChanges)) {
+      if (!field) continue;
+      let fromValue = null;
+      let toValue = value;
+      if (value && typeof value === "object" && !Array.isArray(value) && ("to" in value || "from" in value)) {
+        fromValue = _normalizePreviewValue(value.from);
+        toValue = value.to;
+      }
+      if (fromValue === null && rootExisting) {
+        fromValue = _normalizePreviewValue(_readFieldCaseInsensitive(rootExisting, field));
+      }
+      primaryChanges.push({
+        entityType: rootEntityType,
+        entityId: rootEntityId,
+        entityLabel: rootEntityLabel,
+        field,
+        from: _normalizePreviewValue(fromValue),
+        to: _normalizePreviewValue(toValue),
+      });
+    }
+  }
+
+  const grouped = new Map();
+  for (const step of Array.isArray(steps) ? steps : []) {
+    if (String(step?.actionType || "") !== "UPDATE_ENTITY") continue;
+    const params = step?.params || {};
+    const entityType = String(params.entityType || "").toLowerCase();
+    const entityId = Number(params.entityId);
+    const changes = params.changes && typeof params.changes === "object" && !Array.isArray(params.changes) ? params.changes : {};
+    const changeKeys = Object.keys(changes);
+    if (!entityType || !Number.isInteger(entityId) || entityId <= 0 || changeKeys.length === 0) continue;
+    if (entityType === rootEntityType && entityId === rootEntityId) continue;
+
+    const stepExisting = _loadEntityForPreview(entityType, entityId);
+    const stepEntityLabel = _entityPreviewLabel(entityType, entityId, stepExisting);
+
+    if (!grouped.has(entityType)) {
+      grouped.set(entityType, {
+        entityType,
+        totalCount: 0,
+        changedFields: new Set(),
+        examples: [],
+      });
+    }
+    const bucket = grouped.get(entityType);
+    bucket.totalCount += 1;
+    for (const field of changeKeys) {
+      bucket.changedFields.add(field);
+      if (bucket.examples.length >= 3) continue;
+      const raw = changes[field];
+      let fromValue = null;
+      let toValue = raw;
+      if (raw && typeof raw === "object" && !Array.isArray(raw) && ("to" in raw || "from" in raw)) {
+        fromValue = raw.from;
+        toValue = raw.to;
+      }
+      if ((fromValue === null || fromValue === undefined) && stepExisting) {
+        fromValue = _readFieldCaseInsensitive(stepExisting, field);
+      }
+      bucket.examples.push({
+        entityType,
+        entityId,
+        entityLabel: stepEntityLabel,
+        field,
+        from: _normalizePreviewValue(fromValue),
+        to: _normalizePreviewValue(toValue),
+      });
+    }
+  }
+
+  const cascadeSummary = Array.from(grouped.values()).map((bucket) => ({
+    entityType: bucket.entityType,
+    totalCount: bucket.totalCount,
+    changedFields: Array.from(bucket.changedFields),
+    examples: bucket.examples,
+  }));
+
+  const effects = [];
+  if (reasoningSummary) effects.push(String(reasoningSummary));
+
+  return {
+    version: "v1",
+    scope: "workflow",
+    root: {
+      type: rootEntityType,
+      id: rootEntityId,
+      label: rootEntityLabel,
+      operation: String(requestedGoal?.operation || "update").toLowerCase() || "update",
+    },
+    primaryChanges,
+    cascadeSummary,
+    effects,
+    reversibility: reversible === false ? "not_reversible" : reversible === true ? "reversible" : "unknown",
+  };
+}
+
 function _getService(entityType) {
   const service = serviceMap[String(entityType || "").toLowerCase()];
   if (!service) {
@@ -188,6 +360,20 @@ function buildWorkflowProposal(input = {}, executionContext = {}) {
     },
     reversible: false,
     requiresConfirmation: true,
+    confirmation: {
+      mode: "explicit",
+      impactSummary: reasoningSummary ? [reasoningSummary] : [],
+      preview: _buildConfirmationPreview({
+        rootType,
+        rootId,
+        rootLabel,
+        rootExisting: existing,
+        requestedGoal,
+        steps,
+        reasoningSummary,
+        reversible: false,
+      }),
+    },
     humanReadableSummary: _buildHumanSummary({
       rootEntity: { type: rootType, id: rootId },
       rootLabel,
@@ -205,4 +391,7 @@ function buildWorkflowProposal(input = {}, executionContext = {}) {
 
 module.exports = {
   buildWorkflowProposal,
+  _internal: {
+    _buildConfirmationPreview,
+  },
 };

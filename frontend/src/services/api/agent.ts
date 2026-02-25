@@ -43,6 +43,37 @@ export interface DataAccessPermissions {
 
 export type WebSearchTrigger = 'explicit_language' | 'button' | 'user_confirmed';
 
+export interface ConfirmationPreviewChange {
+  entityType: string;
+  entityId?: number | null;
+  entityLabel?: string | null;
+  field: string;
+  from?: unknown;
+  to?: unknown;
+}
+
+export interface ConfirmationPreviewCascadeGroup {
+  entityType: string;
+  totalCount: number;
+  changedFields?: string[];
+  examples?: ConfirmationPreviewChange[];
+}
+
+export interface ConfirmationPreview {
+  version: 'v1' | string;
+  scope: 'single_entity' | 'workflow' | string;
+  root?: {
+    type?: string;
+    id?: number | null;
+    label?: string;
+    operation?: string;
+  };
+  primaryChanges?: ConfirmationPreviewChange[];
+  cascadeSummary?: ConfirmationPreviewCascadeGroup[];
+  effects?: string[];
+  reversibility?: 'reversible' | 'not_reversible' | 'unknown' | string;
+}
+
 export interface AgentRequestMetadata {
   webSearchEnabled?: boolean;
   webSearchTrigger?: WebSearchTrigger;
@@ -403,6 +434,7 @@ export interface ActionProposal {
     extraRiskAck?: boolean;
     warnings?: string[];
     impactSummary?: string[];
+    preview?: ConfirmationPreview;
   };
   sessionId?: string;
   actionType?: 'CREATE_ENTITY' | 'UPDATE_ENTITY' | 'DELETE_ENTITY' | 'LINK_ENTITIES' | 'ATTACH_TO_ENTITY' | string;
