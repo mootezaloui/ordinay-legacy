@@ -33,6 +33,7 @@ function createOperationalContext({
   sessionId,
   userId,
   activeEntity = null,
+  conversationScope = null,
   workMode = null,
   posture = null,
   pendingSelection = null,
@@ -40,6 +41,7 @@ function createOperationalContext({
   pendingMutationClarification = null,
   pendingMutationProposal = null,
   suppressMutationDetectionUntilResolved = null,
+  orchestratorState = null,
   lastSnapshot = null,
   lastIntent = null,
   lastEntityType = null,
@@ -50,6 +52,8 @@ function createOperationalContext({
     sessionId,
     userId,
     activeEntity: activeEntity ? Object.freeze({ ...activeEntity }) : null,
+    // conversationScope is managed by conversationScopeManager and mirrored to activeEntity for compatibility.
+    conversationScope: conversationScope ? Object.freeze({ ...conversationScope }) : null,
     workMode: workMode ? Object.freeze({ ...workMode }) : null,
     posture: posture || null,
     pendingSelection: pendingSelection ? Object.freeze({ ...pendingSelection }) : null,
@@ -64,6 +68,7 @@ function createOperationalContext({
       suppressMutationDetectionUntilResolved === undefined
         ? null
         : Boolean(suppressMutationDetectionUntilResolved),
+    orchestratorState: orchestratorState ? Object.freeze({ ...orchestratorState }) : null,
     lastSnapshot: lastSnapshot ? Object.freeze({ ...lastSnapshot }) : null,
     lastIntent: lastIntent || null,
     lastEntityType: lastEntityType || null,
@@ -118,6 +123,10 @@ class OperationalContextStore {
       sessionId,
       userId,
       activeEntity: updates.activeEntity !== undefined ? updates.activeEntity : existing?.activeEntity,
+      conversationScope:
+        updates.conversationScope !== undefined
+          ? updates.conversationScope
+          : existing?.conversationScope,
       workMode: updates.workMode !== undefined ? updates.workMode : existing?.workMode,
       posture: updates.posture !== undefined ? updates.posture : existing?.posture,
       pendingSelection: updates.pendingSelection !== undefined ? updates.pendingSelection : existing?.pendingSelection,
@@ -137,6 +146,10 @@ class OperationalContextStore {
         updates.suppressMutationDetectionUntilResolved !== undefined
           ? updates.suppressMutationDetectionUntilResolved
           : existing?.suppressMutationDetectionUntilResolved,
+      orchestratorState:
+        updates.orchestratorState !== undefined
+          ? updates.orchestratorState
+          : existing?.orchestratorState,
       lastSnapshot: updates.lastSnapshot !== undefined ? updates.lastSnapshot : existing?.lastSnapshot,
       lastIntent: updates.lastIntent !== undefined ? updates.lastIntent : existing?.lastIntent,
       lastEntityType: updates.lastEntityType !== undefined ? updates.lastEntityType : existing?.lastEntityType,

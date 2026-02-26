@@ -68,6 +68,53 @@ function getEnabledEntityTypes(dataAccess) {
 }
 
 function filterToolsForChat({ engine, policy, executionContext }) {
+  return filterToolsForState({
+    state: String(policy?.version || "").toLowerCase() === "v1" ? "RETRIEVE" : "PLAN_DRAFT",
+    engine,
+    policy,
+    executionContext,
+  });
+}
+
+function shouldExposeToolForState(tool, state, policy) {
+  const normalizedState = String(state || "RETRIEVE").toUpperCase();
+  const toolName = String(tool?.name || "");
+  const category = String(tool?.category || "");
+
+  if (toolName === "universalMutation" || category === TOOL_CATEGORIES.EXECUTE) {
+    return false;
+  }
+
+  const allowedByState = {
+    RETRIEVE: new Set([TOOL_CATEGORIES.READ, TOOL_CATEGORIES.ANALYSIS]),
+    PLAN_DRAFT: new Set([
+      TOOL_CATEGORIES.READ,
+      TOOL_CATEGORIES.ANALYSIS,
+      TOOL_CATEGORIES.PLAN,
+      TOOL_CATEGORIES.DRAFT,
+      TOOL_CATEGORIES.RESEARCH,
+    ]),
+    CLARIFY: new Set([TOOL_CATEGORIES.READ]),
+    EXECUTE: new Set(),
+    FINAL: new Set(),
+  };
+
+  const stateAllowedCategories =
+    allowedByState[normalizedState] || allowedByState.RETRIEVE;
+  if (!stateAllowedCategories.has(category)) return false;
+
+  // Plan tools that create mutation proposals are only available in PLAN_DRAFT on v3.
+  if (
+    (toolName === "propose_entity_mutation" || toolName === "propose_mutation_workflow") &&
+    !(normalizedState === "PLAN_DRAFT" && String(policy?.version || "").toLowerCase() === "v3")
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function filterToolsForState({ state = "RETRIEVE", engine, policy, executionContext }) {
   const allTools = engine.toolRegistry.list({ agentVersion: policy.version });
   const exposed = [];
   const enabledEntityTypes = getEnabledEntityTypes(executionContext.dataAccess);
@@ -76,19 +123,7 @@ function filterToolsForChat({ engine, policy, executionContext }) {
     if (!policy.allowedToolCategories.includes(tool.category)) {
       continue;
     }
-
-    // Never expose mutation proposal/execution tools in chatbot mode.
-    // Mutations must come from explicit slash commands (/mutate).
-    if (
-      tool.name === "universalMutation" ||
-      tool.name === "propose_entity_mutation" ||
-      tool.name === "propose_mutation_workflow"
-    ) {
-      continue;
-    }
-
-    // Do not expose execute-category tools in chatbot mode.
-    if (tool.category === TOOL_CATEGORIES.EXECUTE) {
+    if (!shouldExposeToolForState(tool, state, policy)) {
       continue;
     }
 
@@ -98,6 +133,7 @@ function filterToolsForChat({ engine, policy, executionContext }) {
       context: {
         ...executionContext,
         confirmed: true,
+        posture: executionContext?.posture || "WORK",
       },
       params: null,
     });
@@ -117,6 +153,7 @@ function filterToolsForChat({ engine, policy, executionContext }) {
 
 module.exports = {
   filterToolsForChat,
+  filterToolsForState,
   getEnabledEntityTypes,
   applyEntityScopeToSchema,
 };

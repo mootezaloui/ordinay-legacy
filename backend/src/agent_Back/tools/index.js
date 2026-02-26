@@ -9,6 +9,15 @@
 
 const { ToolRegistry } = require("./tool.registry");
 
+function envFlagEnabled(value, defaultValue = false) {
+  const raw = value == null ? String(defaultValue ? "1" : "0") : String(value);
+  return ["1", "true", "yes", "on"].includes(raw.toLowerCase());
+}
+
+// Legacy per-entity execute wrappers are compatibility-only. Keep disabled by default
+// so universal mutation action types remain the canonical mutation execution surface.
+const LEGACY_EXECUTE_TOOLS_ENABLED = envFlagEnabled(process.env.AGENT_ENABLE_LEGACY_EXECUTE_TOOLS, false);
+
 // READ tools
 const getClientTool = require("./read/getClient.tool");
 const listClientsTool = require("./read/listClients.tool");
@@ -61,21 +70,17 @@ const detectPrioritySignalsTool = require("./plan/detectPrioritySignals.tool");
 const analyzeEntityStateTool = require("./plan/analyzeEntityState.tool");
 const buildActionPlanTool = require("./plan/buildActionPlan.tool");
 const summarizeEntityProgressTool = require("./plan/summarizeEntityProgress.tool");
+const proposeEntityMutationTool = require("./plan/proposeEntityMutation.tool");
+const proposeMutationWorkflowTool = require("./plan/proposeMutationWorkflow.tool");
 
 // RESEARCH tools
 const compileDossierResearchTool = require("./research/compileDossierResearch.tool");
 
-// EXECUTE tools
-const proposeEntityMutationTool = require("./execute/proposeEntityMutation.tool");
-const proposeMutationWorkflowTool = require("./execute/proposeMutationWorkflow.tool");
+// EXECUTE tools (primary)
 const universalMutationTool = require("./execute/universalMutation.tool");
-const createTaskTool = require("./execute/createTask.tool");
-const updateTaskTool = require("./execute/updateTask.tool");
-const addNoteTool = require("./execute/addNote.tool");
-const createDocumentDraftTool = require("./execute/createDocumentDraft.tool");
-const updateDocumentMetadataTool = require("./execute/updateDocumentMetadata.tool");
-const scheduleReminderTool = require("./execute/scheduleReminder.tool");
-const prepareClientNotificationTool = require("./execute/prepareClientNotification.tool");
+// EXECUTE tools (stubs / placeholders)
+const scheduleReminderTool = require("./execute/stubs/scheduleReminder.tool");
+const prepareClientNotificationTool = require("./execute/stubs/prepareClientNotification.tool");
 
 /**
  * Initialize and populate the tool registry
@@ -143,13 +148,17 @@ function initializeToolRegistry() {
   // Register RESEARCH tools
   registry.register(compileDossierResearchTool);
 
-  // Register EXECUTE tools
+  // Register EXECUTE tools (primary)
   registry.register(universalMutationTool);
-  registry.register(createTaskTool);
-  registry.register(updateTaskTool);
-  registry.register(addNoteTool);
-  registry.register(createDocumentDraftTool);
-  registry.register(updateDocumentMetadataTool);
+  // Register EXECUTE tools (legacy compatibility) only when explicitly enabled.
+  if (LEGACY_EXECUTE_TOOLS_ENABLED) {
+    registry.register(require("./execute/legacy/createTask.tool"));
+    registry.register(require("./execute/legacy/updateTask.tool"));
+    registry.register(require("./execute/legacy/addNote.tool"));
+    registry.register(require("./execute/legacy/createDocumentDraft.tool"));
+    registry.register(require("./execute/legacy/updateDocumentMetadata.tool"));
+  }
+  // Register EXECUTE tools (stubs / placeholders)
   registry.register(scheduleReminderTool);
   registry.register(prepareClientNotificationTool);
 

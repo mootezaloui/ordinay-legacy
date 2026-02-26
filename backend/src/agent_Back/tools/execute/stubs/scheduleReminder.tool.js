@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * EXECUTE TOOL: prepareClientNotification (STUB)
+ * EXECUTE TOOL: scheduleReminder (STUB)
  *
  * CRITICAL: This is a STUB only.
  * - NO implementation logic
@@ -11,39 +11,34 @@
  * This tool MUST NOT be executed in v1 or v2.
  */
 
-const { TOOL_CATEGORIES } = require('../tool.registry');
+const { TOOL_CATEGORIES } = require('../../tool.registry');
 
 const inputSchema = {
   type: 'object',
   properties: {
-    clientId: {
+    entityType: {
+      type: 'string',
+      enum: ['dossier', 'lawsuit', 'session', 'task'],
+      description: 'Type of entity to set reminder for',
+    },
+    entityId: {
       type: 'integer',
       minimum: 1,
-      description: 'Client ID to send notification to',
+      description: 'ID of the entity',
     },
-    notificationType: {
+    reminderDate: {
       type: 'string',
-      enum: ['email', 'sms', 'both'],
-      description: 'Type of notification to send',
-    },
-    subject: {
-      type: 'string',
-      minLength: 1,
-      maxLength: 200,
-      description: 'Notification subject',
+      format: 'date-time',
+      description: 'Date and time for reminder in ISO 8601 format',
     },
     message: {
       type: 'string',
       minLength: 1,
-      description: 'Notification message',
-    },
-    urgent: {
-      type: 'boolean',
-      default: false,
-      description: 'Mark as urgent notification',
+      maxLength: 500,
+      description: 'Reminder message',
     },
   },
-  required: ['clientId', 'notificationType', 'subject', 'message'],
+  required: ['entityType', 'entityId', 'reminderDate', 'message'],
   additionalProperties: false,
 };
 
@@ -66,18 +61,18 @@ const outputSchema = {
  */
 async function handler() {
   throw new Error(
-    'EXECUTE tool prepareClientNotification is not implemented. This is a stub for v3 planning only.'
+    'EXECUTE tool scheduleReminder is not implemented. This is a stub for v3 planning only.'
   );
 }
 
 module.exports = {
-  name: 'prepareClientNotification',
+  name: 'scheduleReminder',
   category: TOOL_CATEGORIES.EXECUTE,
-  description: 'Prepare and queue a client notification (STUB - NOT IMPLEMENTED)',
+  description: 'Schedule a reminder for an entity (STUB - NOT IMPLEMENTED)',
   inputSchema,
   outputSchema,
-  reversibility: false, // Notifications cannot be unsent once sent
-  sideEffects: true, // Sends communication
+  reversibility: true, // Reminders can be cancelled
+  sideEffects: true, // Creates notification/reminder
   allowedAgentVersions: ['v3'], // ONLY v3
   confirmationRequired: true, // Requires explicit confirmation
   handler,

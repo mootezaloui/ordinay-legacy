@@ -11,12 +11,104 @@ const CONFIRM_DEBUG_ENABLED =
 const ADAPTIVE_CONSTRAINTS_ENABLED = ["1", "true", "yes", "on"].includes(
   String(process.env.AGENT_ADAPTIVE_DOMAIN_CONSTRAINTS ?? "1").toLowerCase(),
 );
+const LEGACY_CONFIRM_TOOL_FALLBACK_ENABLED = ["1", "true", "yes", "on"].includes(
+  String(
+    process.env.AGENT_CONFIRM_LEGACY_TOOL_FALLBACK ??
+      process.env.AGENT_ENABLE_LEGACY_EXECUTE_TOOLS ??
+      "0",
+  ).toLowerCase(),
+);
+const LEGACY_MUTATION_TOOL_ACTIONS = new Set([
+  "createTask",
+  "updateTask",
+  "addNote",
+  "createDocumentDraft",
+  "updateDocumentMetadata",
+]);
 
 function debugConfirm(event, payload = {}) {
   if (!CONFIRM_DEBUG_ENABLED) return;
   try {
     console.warn("[agent-confirm-debug]", event, payload);
   } catch (_) {}
+}
+
+function emitScopeEventAfterMutation({
+  engine,
+  proposal,
+  executionResult,
+  sessionId,
+  userId,
+}) {
+  const scopeManager = engine?.scopeManager;
+  if (!scopeManager || typeof scopeManager.applyEvent !== "function") return;
+  const requestContext = {
+    conversationId: sessionId || null,
+    sessionId: sessionId || null,
+    userId: userId || "default",
+  };
+  if (!requestContext.conversationId) return;
+
+  const actionType = String(proposal?.actionType || "").toUpperCase();
+  const result = executionResult?.executedActions?.[0]?.result || null;
+  if (!result || typeof result !== "object") return;
+
+  if (actionType === "CREATE_ENTITY" && result.entityType && Number(result.entityId) > 0) {
+    scopeManager.applyEvent(requestContext, {
+      type: "MUTATION_CONFIRMED_CREATE",
+      entityType: result.entityType,
+      entityId: result.entityId,
+      source: "mutation",
+      resolutionPath: "confirmed_mutation_result",
+    });
+    return;
+  }
+  if (actionType === "UPDATE_ENTITY" && result.entityType && Number(result.entityId) > 0) {
+    scopeManager.applyEvent(requestContext, {
+      type: "MUTATION_CONFIRMED_UPDATE",
+      entityType: result.entityType,
+      entityId: result.entityId,
+      source: "mutation",
+      resolutionPath: "confirmed_mutation_result",
+    });
+    return;
+  }
+  if (actionType === "DELETE_ENTITY") {
+    const params = proposal?.params || {};
+    scopeManager.applyEvent(requestContext, {
+      type: "MUTATION_CONFIRMED_DELETE",
+      entityType: params.entityType || result.entityType || null,
+      entityId: params.entityId || result.entityId || result.id || null,
+      source: "mutation",
+      resolutionPath: "confirmed_mutation_result",
+    });
+    return;
+  }
+  if (actionType === "ATTACH_TO_ENTITY") {
+    const target = proposal?.params?.target || null;
+    if (target?.type && Number(target?.id) > 0) {
+      scopeManager.applyEvent(requestContext, {
+        type: "MUTATION_CONFIRMED_ATTACH",
+        entityType: target.type,
+        entityId: target.id,
+        source: "mutation",
+        resolutionPath: "confirmed_mutation_result",
+      });
+    }
+    return;
+  }
+  if (actionType === "LINK_ENTITIES") {
+    const params = proposal?.params || {};
+    if (params.sourceType && Number(params.sourceId) > 0) {
+      scopeManager.applyEvent(requestContext, {
+        type: "MUTATION_CONFIRMED_LINK",
+        entityType: params.sourceType,
+        entityId: params.sourceId,
+        source: "mutation",
+        resolutionPath: "confirmed_mutation_result",
+      });
+    }
+  }
 }
 
 async function maybeExecuteAdaptiveWorkflowFallback({
@@ -254,27 +346,36 @@ async function confirmProposal({ proposalId, sessionId, userId, ackRisk = false 
     });
   }
 
-  // Validation: snapshot hash
-  const currentHash = await this._computeSnapshotHash(proposal.snapshot);
-  debugConfirm("confirm_snapshot_checked", {
-    proposalId,
-    expectedHash: proposal?.snapshot?.hash || null,
-    actualHash: currentHash || null,
-    matched: currentHash === proposal?.snapshot?.hash,
-  });
-  if (currentHash !== proposal.snapshot.hash) {
-    proposalStore.delete(proposalId);
-    return {
-      type: "execution_result",
+  // Validation: snapshot hash (only when proposal carries a snapshot)
+  let currentHash = null;
+  if (proposal?.snapshot) {
+    currentHash = await this._computeSnapshotHash(proposal.snapshot);
+    debugConfirm("confirm_snapshot_checked", {
       proposalId,
-      status: "snapshot_mismatch",
-      error: {
-        code: "SNAPSHOT_MISMATCH",
-        message: `Snapshot hash mismatch: expected ${proposal.snapshot.hash}, got ${currentHash}`,
-        safeMessage: "The data has changed since this proposal was created. Please try again.",
-        requiresReproposal: true,
-      },
-    };
+      expectedHash: proposal?.snapshot?.hash || null,
+      actualHash: currentHash || null,
+      matched: currentHash === proposal?.snapshot?.hash,
+    });
+    if (currentHash !== proposal.snapshot.hash) {
+      proposalStore.delete(proposalId);
+      return {
+        type: "execution_result",
+        proposalId,
+        status: "snapshot_mismatch",
+        error: {
+          code: "SNAPSHOT_MISMATCH",
+          message: `Snapshot hash mismatch: expected ${proposal.snapshot.hash}, got ${currentHash}`,
+          safeMessage: "The data has changed since this proposal was created. Please try again.",
+          requiresReproposal: true,
+        },
+      };
+    }
+  } else {
+    debugConfirm("confirm_snapshot_skipped", {
+      proposalId,
+      actionType: proposal?.actionType || null,
+      reason: "NO_SNAPSHOT",
+    });
   }
 
   // Validation: idempotency (already confirmed?)
@@ -320,6 +421,23 @@ async function confirmProposal({ proposalId, sessionId, userId, ackRisk = false 
         result = await universalOps.executeAttachToEntity(proposal.params, { userId, sessionId, source: "agent" });
         break;
       default:
+        if (
+          LEGACY_MUTATION_TOOL_ACTIONS.has(String(proposal.actionType || "")) &&
+          !LEGACY_CONFIRM_TOOL_FALLBACK_ENABLED
+        ) {
+          return {
+            type: "execution_result",
+            proposalId,
+            status: "failed",
+            error: {
+              code: "LEGACY_ACTION_TYPE_DISABLED",
+              message: `Legacy action type ${proposal.actionType} is disabled. Re-propose using universal mutation actions.`,
+              safeMessage:
+                "This action uses a deprecated execution path. Please generate a new proposal using the current mutation flow.",
+              requiresReproposal: true,
+            },
+          };
+        }
         // Fallback to tool registry for legacy tools (backward compatibility)
         const tool = this.toolRegistry.get(proposal.actionType);
         if (!tool) {
@@ -384,9 +502,9 @@ async function confirmProposal({ proposalId, sessionId, userId, ackRisk = false 
         sessionId,
         executedAt: new Date().toISOString(),
         snapshotValidation: {
-          expected: proposal.snapshot.hash,
+          expected: proposal?.snapshot?.hash || null,
           actual: currentHash,
-          matched: true,
+          matched: proposal?.snapshot ? true : null,
         },
         diff: {
           before: beforeSnapshot ? { hash: beforeSnapshot.hash } : null,
@@ -426,6 +544,14 @@ async function confirmProposal({ proposalId, sessionId, userId, ackRisk = false 
     });
 
     invalidateSnapshotsAfterMutation.call(this, {
+      proposal,
+      executionResult,
+      sessionId: sessionId || contextSnapshot?.sessionId || proposal?.sessionId || null,
+      userId: userId || contextSnapshot?.userId || null,
+    });
+
+    emitScopeEventAfterMutation({
+      engine: this,
       proposal,
       executionResult,
       sessionId: sessionId || contextSnapshot?.sessionId || proposal?.sessionId || null,
@@ -486,9 +612,9 @@ async function confirmProposal({ proposalId, sessionId, userId, ackRisk = false 
             sessionId,
             executedAt: new Date().toISOString(),
             snapshotValidation: {
-              expected: proposal.snapshot.hash,
+              expected: proposal?.snapshot?.hash || null,
               actual: currentHash,
-              matched: true,
+              matched: proposal?.snapshot ? true : null,
             },
             diff: {
               before: beforeSnapshot ? { hash: beforeSnapshot.hash } : null,
@@ -529,6 +655,14 @@ async function confirmProposal({ proposalId, sessionId, userId, ackRisk = false 
         });
 
         invalidateSnapshotsAfterMutation.call(this, {
+          proposal,
+          executionResult,
+          sessionId: sessionId || contextSnapshot?.sessionId || proposal?.sessionId || null,
+          userId: userId || contextSnapshot?.userId || null,
+        });
+
+        emitScopeEventAfterMutation({
+          engine: this,
           proposal,
           executionResult,
           sessionId: sessionId || contextSnapshot?.sessionId || proposal?.sessionId || null,
@@ -651,9 +785,19 @@ function clearPendingMutationProposal({ sessionId, userId }) {
   ) {
     return;
   }
+  const current = typeof operationalStore.get === "function"
+    ? operationalStore.get(userId || "default", sessionId)
+    : null;
+  const nextOrchestratorState =
+    current?.orchestratorState && typeof current.orchestratorState === "object"
+      ? { ...current.orchestratorState, pendingProposal: null }
+      : current?.orchestratorState;
   operationalStore.update(userId || "default", sessionId, {
     pendingMutationProposal: null,
     suppressMutationDetectionUntilResolved: false,
+    ...(nextOrchestratorState !== undefined
+      ? { orchestratorState: nextOrchestratorState }
+      : {}),
   });
 }
 
@@ -666,8 +810,20 @@ function clearPendingMutationProposal({ sessionId, userId }) {
 function storeProposal(proposal, contextSnapshot = {}) {
   const expiresAt = new Date(Date.now() + 300000); // 5 minutes
 
+  let storedProposal = proposal;
+  if (contextSnapshot?.scopeBinding) {
+    // Preserve scope-binding provenance in proposal confirmation metadata without changing UI copy.
+    storedProposal = {
+      ...proposal,
+      confirmation: {
+        ...(proposal?.confirmation || {}),
+        scopeBinding: contextSnapshot.scopeBinding,
+      },
+    };
+  }
+
   proposalStore.set(proposal.proposalId, {
-    proposal,
+    proposal: storedProposal,
     contextSnapshot,
     createdAt: new Date(),
     expiresAt,
@@ -681,6 +837,7 @@ function storeProposal(proposal, contextSnapshot = {}) {
     contextOrigin: contextSnapshot?.origin || null,
     contextRequiresExtraConfirmation: contextSnapshot?.requiresExtraConfirmation === true,
     contextRiskLevel: contextSnapshot?.riskLevel || null,
+    hasScopeBinding: Boolean(contextSnapshot?.scopeBinding),
     sessionId: contextSnapshot?.sessionId || proposal?.sessionId || null,
   });
 

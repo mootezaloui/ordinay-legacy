@@ -248,11 +248,75 @@ function buildUpdateSnapshot(entityType, entityId) {
 
 function buildHumanSummary({ operation, entityType, entityId, payload, reasoningSummary }) {
   if (operation === "create") {
-    return `Create ${entityType} (reason: ${reasoningSummary})`;
+    const title = typeof payload?.title === "string" && payload.title.trim() ? payload.title.trim() : null;
+    return title ? `Create ${entityType}: ${title}` : `Create ${entityType}`;
+  }
+  if (operation === "delete") {
+    return `Delete ${entityType} #${entityId}`;
   }
   const fieldList = Object.keys(payload || {}).join(", ");
   const fieldPart = fieldList ? ` fields [${fieldList}]` : " fields";
-  return `Update ${entityType} #${entityId}${fieldPart} (reason: ${reasoningSummary})`;
+  return `Update ${entityType} #${entityId}${fieldPart}`;
+}
+
+function buildCreateEntityConfirmationPreview({
+  entityType,
+  payload,
+  reversible,
+  plannerMeta = null,
+}) {
+  const label =
+    typeof payload?.title === "string" && payload.title.trim()
+      ? payload.title.trim()
+      : `${toTitleCase(entityType)} (new)`;
+  const primaryChanges = Object.entries(payload || {}).map(([field, raw]) => ({
+    entityType,
+    entityId: CREATE_SENTINEL,
+    entityLabel: label,
+    field,
+    from: null,
+    to: normalizePreviewScalar(raw),
+  }));
+  const preview = {
+    version: "v1",
+    scope: "single_entity",
+    root: {
+      type: entityType,
+      id: CREATE_SENTINEL,
+      label,
+      operation: "create",
+    },
+    primaryChanges,
+    cascadeSummary: [],
+    effects: [],
+    reversibility: reversible === false ? "not_reversible" : reversible === true ? "reversible" : "unknown",
+  };
+  if (plannerMeta && typeof plannerMeta === "object") {
+    preview.planner = {
+      semanticProfile: plannerMeta.semanticProfile || null,
+      suggestedChildren: Array.isArray(plannerMeta.suggestedChildren) ? plannerMeta.suggestedChildren : [],
+      riskFlags: Array.isArray(plannerMeta.riskFlags) ? plannerMeta.riskFlags : [],
+      legalSummary: typeof plannerMeta.legalSummary === "string" ? plannerMeta.legalSummary : null,
+      caseFocusPoints: Array.isArray(plannerMeta.caseFocusPoints) ? plannerMeta.caseFocusPoints : [],
+      suggestedNextSteps: Array.isArray(plannerMeta.suggestedNextSteps) ? plannerMeta.suggestedNextSteps : [],
+      riskSignals: Array.isArray(plannerMeta.riskSignals) ? plannerMeta.riskSignals : [],
+      confidence: Number.isFinite(Number(plannerMeta.confidence)) ? Number(plannerMeta.confidence) : null,
+      source: plannerMeta.source || null,
+    };
+    if (preview.planner.legalSummary || preview.planner.semanticProfile?.summary) {
+      preview.effects.push({
+        type: "planner_summary",
+        message: preview.planner.legalSummary || preview.planner.semanticProfile.summary,
+      });
+    }
+    if (Array.isArray(preview.planner.suggestedChildren) && preview.planner.suggestedChildren.length > 0) {
+      preview.effects.push({
+        type: "suggested_children",
+        count: preview.planner.suggestedChildren.length,
+      });
+    }
+  }
+  return preview;
 }
 
 function buildProposal(input = {}, executionContext = {}) {
@@ -392,6 +456,10 @@ function buildProposal(input = {}, executionContext = {}) {
 
   const actionType = operation === "create" ? "CREATE_ENTITY" : "UPDATE_ENTITY";
   const proposalId = generateProposalId(actionType, "v3");
+  const plannerMeta =
+    operation === "create" && executionContext?.creationPlannerMeta && typeof executionContext.creationPlannerMeta === "object"
+      ? executionContext.creationPlannerMeta
+      : null;
   const baseConfirmationPreview =
     operation === "update"
       ? buildSingleEntityConfirmationPreview({
@@ -402,7 +470,14 @@ function buildProposal(input = {}, executionContext = {}) {
           payload,
           reversible,
         })
-      : null;
+      : operation === "create"
+        ? buildCreateEntityConfirmationPreview({
+            entityType,
+            payload,
+            reversible,
+            plannerMeta,
+          })
+        : null;
   const confirmation = {
     ...(domainGuardConfirmation || {}),
     ...(baseConfirmationPreview ? { preview: baseConfirmationPreview } : {}),

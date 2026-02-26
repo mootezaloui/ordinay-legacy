@@ -11,6 +11,7 @@ import type {
   ChatContextSummaryOutput,
   ProposalOutput,
   DocumentGenerationPreviewOutput,
+  DocumentDraftOutput,
   WebSearchResultsOutput,
   WebDeepSearchResultsOutput,
   DocumentGenerationMissingFieldsOutput,
@@ -107,10 +108,11 @@ export interface AgentMessage {
 }
 
 export interface AgentMessageData {
-  type: "explanation" | "risks" | "draft" | "actions" | "clarification" | "collection" | "context_suggestion" | "proposal" | "document_generation_preview" | "document_generation_missing_fields" | "web_search_results" | "web_deep_search_results" | "chat_context_summary" | "recovery" | "error";
+  type: "explanation" | "risks" | "draft" | "document_draft" | "actions" | "clarification" | "collection" | "context_suggestion" | "proposal" | "document_generation_preview" | "document_generation_missing_fields" | "web_search_results" | "web_deep_search_results" | "chat_context_summary" | "recovery" | "error";
   explanation?: ExplanationOutput;
   risks?: RiskAnalysisOutput;
   draft?: DraftOutput;
+  documentDraft?: DocumentDraftOutput;
   actionProposals?: ActionProposal[];
   clarification?: ClarificationOutput;
   collection?: CollectionOutput;

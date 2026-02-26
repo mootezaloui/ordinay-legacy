@@ -151,6 +151,27 @@ class ToolRegistry {
   }
 
   /**
+   * List tools with selection metadata for tool ranking / retrieval.
+   * Each tool returns stable metadata used by ranking strategies.
+   *
+   * @param {Object} filters - Optional filters (category, agentVersion)
+   * @returns {Object[]} Array of selection metadata
+   */
+  listForSelection(filters = {}) {
+    const tools = this.list(filters);
+    return tools.map((tool) => ({
+      name: tool.name,
+      group: tool.group || tool.category,
+      description: String(tool.description || "").trim(),
+      examples: Array.isArray(tool.examples) ? tool.examples.slice(0, 3) : [],
+      entityTypes: Array.isArray(tool.entityTypes) && tool.entityTypes.length > 0
+        ? [...new Set(tool.entityTypes.map((v) => String(v).toLowerCase()))]
+        : this._inferEntityTypesFromSchema(tool.inputSchema),
+      category: tool.category,
+    }));
+  }
+
+  /**
    * Validate tool definition structure
    * @private
    */
@@ -233,6 +254,44 @@ class ToolRegistry {
     if (def.category === TOOL_CATEGORIES.EXTERNAL && def.sideEffects === false) {
       throw new Error('EXTERNAL tools must have side effects');
     }
+  }
+
+  _inferEntityTypesFromSchema(schema) {
+    const found = new Set();
+    const visit = (node) => {
+      if (!node || typeof node !== "object") return;
+      if (Array.isArray(node.enum)) {
+        const key = String(node.title || node.description || "").toLowerCase();
+        const looksLikeEntityField =
+          key.includes("entity") || key.includes("source") || key.includes("target");
+        if (looksLikeEntityField) {
+          node.enum.forEach((value) => {
+            const text = String(value || "").trim().toLowerCase();
+            if (text) found.add(text);
+          });
+        }
+      }
+      if (node.properties && typeof node.properties === "object") {
+        for (const [prop, child] of Object.entries(node.properties)) {
+          if (
+            ["entityType", "sourceType", "targetType", "type"].includes(prop) &&
+            Array.isArray(child?.enum)
+          ) {
+            child.enum.forEach((value) => {
+              const text = String(value || "").trim().toLowerCase();
+              if (text) found.add(text);
+            });
+          }
+          visit(child);
+        }
+      }
+      if (Array.isArray(node.anyOf)) node.anyOf.forEach(visit);
+      if (Array.isArray(node.oneOf)) node.oneOf.forEach(visit);
+      if (Array.isArray(node.allOf)) node.allOf.forEach(visit);
+      if (node.items) visit(node.items);
+    };
+    visit(schema);
+    return Array.from(found);
   }
 
   /**

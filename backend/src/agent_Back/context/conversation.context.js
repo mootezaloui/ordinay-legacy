@@ -516,6 +516,7 @@ class ConversationContextStore {
 
       // Operational context (persistent work state)
       activeEntity: operational?.activeEntity || null,
+      conversationScope: operational?.conversationScope || null,
       workMode: operational?.workMode || null,
       posture: operational?.posture || null,
       pendingSelection: operational?.pendingSelection || null,

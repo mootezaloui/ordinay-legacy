@@ -21,8 +21,8 @@
  * This tool MUST NOT be executed in v1 or v2.
  */
 
-const { TOOL_CATEGORIES } = require('../tool.registry');
-const documentsService = require('../../../services/documents.service');
+const { TOOL_CATEGORIES } = require('../../tool.registry');
+const documentsService = require('../../../../services/documents.service');
 
 const inputSchema = {
   type: 'object',

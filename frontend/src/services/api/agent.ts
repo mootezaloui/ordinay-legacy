@@ -627,6 +627,15 @@ export interface DocumentGenerationPreviewOutput {
   };
 }
 
+export interface DocumentDraftOutput {
+  type: 'document_draft';
+  title: string;
+  content: string;
+  metadata: Record<string, unknown>;
+  entityType?: string | null;
+  entityId?: number | null;
+}
+
 export interface WebSearchResultItem {
   id: string;
   title: string;
@@ -721,6 +730,7 @@ export type AgentOutput =
   | ExplanationOutput
   | RiskAnalysisOutput
   | DraftOutput
+  | DocumentDraftOutput
   | DocumentGenerationPreviewOutput
   | DocumentGenerationMissingFieldsOutput
   | ClarificationOutput

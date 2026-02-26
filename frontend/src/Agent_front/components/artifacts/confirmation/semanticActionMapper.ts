@@ -240,7 +240,19 @@ function normalizeProposalSummary(input: SemanticActionMappingInput): string | u
   return summary || undefined;
 }
 
+function getPlannerPreview(input: SemanticActionMappingInput) {
+  const planner = input.context.confirmationPreview?.planner;
+  return planner && typeof planner === "object" ? planner : null;
+}
+
+function hasLegalCreatePlannerPreview(input: SemanticActionMappingInput): boolean {
+  if (String(input.context.actionKind || "").toLowerCase() !== "create") return false;
+  const planner = getPlannerPreview(input) as { legalSummary?: unknown } | null;
+  return Boolean(typeof planner?.legalSummary === "string" && planner.legalSummary.trim());
+}
+
 function buildFallbackPlannedChangeImpact(input: SemanticActionMappingInput): SemanticImpactItem[] {
+  if (hasLegalCreatePlannerPreview(input)) return [];
   const hasExplicitChanges = Object.keys(input.changes || {}).length > 0;
   const pendingFields = (input.context.pendingFieldNames || []).filter(Boolean);
   if (hasExplicitChanges || pendingFields.length > 0) return [];
@@ -361,11 +373,124 @@ function buildPreviewCascadeSummaryImpact(input: SemanticActionMappingInput): Se
 
 function buildPreviewEffectsImpact(input: SemanticActionMappingInput): SemanticImpactItem[] {
   const preview = input.context.confirmationPreview;
-  const effects = (Array.isArray(preview?.effects) ? preview.effects : []).map((v) => String(v || "").trim()).filter(Boolean);
+  const effects = (Array.isArray(preview?.effects) ? preview.effects : [])
+    .map(formatPreviewEffectValue)
+    .filter(Boolean);
   return effects
     .map((detail) => normalizePreviewEffectCopy(detail))
     .filter(Boolean)
     .map((detail) => ({ kind: "consequence", detail }));
+}
+
+function buildPlannerPreviewImpact(input: SemanticActionMappingInput): SemanticImpactItem[] {
+  const planner = input.context.confirmationPreview?.planner;
+  const profile = planner?.semanticProfile;
+  const legalSummary = typeof planner?.legalSummary === "string" ? planner.legalSummary.trim() : "";
+  const caseFocusPoints = Array.isArray(planner?.caseFocusPoints)
+    ? planner.caseFocusPoints.map((v) => String(v || "").trim()).filter(Boolean)
+    : [];
+  const suggestedNextSteps = Array.isArray(planner?.suggestedNextSteps)
+    ? planner.suggestedNextSteps.map((v) => String(v || "").trim()).filter(Boolean)
+    : [];
+  const isCreate = String(input.context.actionKind || "").toLowerCase() === "create";
+  if (isCreate && (legalSummary || caseFocusPoints.length > 0 || suggestedNextSteps.length > 0)) {
+    const createItems: SemanticImpactItem[] = [];
+    for (const point of caseFocusPoints.slice(0, 6)) {
+      createItems.push({ kind: "consequence", detail: punctuateSentence(point) });
+    }
+    for (const step of suggestedNextSteps.slice(0, 5)) {
+      createItems.push({ kind: "warning", detail: punctuateSentence(step) });
+    }
+    const plannerConfidence = Number(planner?.confidence);
+    if (Number.isFinite(plannerConfidence)) {
+      createItems.push({
+        kind: "consequence",
+        title: "Planning confidence",
+        detail: punctuateSentence(`${Math.round(plannerConfidence * 100)}%`),
+      });
+    }
+    return createItems;
+  }
+
+  if (!profile || typeof profile !== "object") return [];
+
+  const items: SemanticImpactItem[] = [];
+
+  const assumptions = Array.isArray(profile.assumptions)
+    ? profile.assumptions.map((v) => String(v || "").trim()).filter(Boolean)
+    : [];
+  for (const assumption of assumptions.slice(0, 4)) {
+    items.push({
+      kind: "consequence",
+      title: "Assumption used",
+      detail: punctuateSentence(assumption),
+    });
+  }
+
+  const missingOptional = Array.isArray(profile.missingOptional)
+    ? profile.missingOptional.map((v) => humanFieldLabel(String(v || ""))).filter(Boolean)
+    : [];
+  if (missingOptional.length > 0) {
+    items.push({
+      kind: "consequence",
+      title: "Optional details to refine later",
+      detail: punctuateSentence(
+        `You can add later: ${missingOptional.slice(0, 5).join(", ")}${
+          missingOptional.length > 5 ? ` (+${missingOptional.length - 5} more)` : ""
+        }`,
+      ),
+    });
+  }
+
+  const missingCritical = Array.isArray(profile.missingCritical)
+    ? profile.missingCritical.map((v) => humanFieldLabel(String(v || ""))).filter(Boolean)
+    : [];
+  if (missingCritical.length > 0) {
+    items.push({
+      kind: "warning",
+      title: "Still needed before creation",
+      detail: punctuateSentence(
+        `${missingCritical.slice(0, 4).join(", ")} must be confirmed before this can be created`,
+      ),
+    });
+  }
+
+  const plannerConfidence = Number(planner?.confidence);
+  if (Number.isFinite(plannerConfidence)) {
+    const pct = Math.round(plannerConfidence * 100);
+    const source = String(planner?.source || "").trim();
+    items.push({
+      kind: "consequence",
+      title: "Planning confidence",
+      detail: punctuateSentence(
+        source ? `${pct}% (${source.replace(/_/g, " ")})` : `${pct}%`,
+      ),
+    });
+  }
+
+  return items;
+}
+
+function formatPreviewEffectValue(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return String(value || "").trim();
+  }
+  const rec = value as { type?: unknown; message?: unknown; count?: unknown };
+  const type = String(rec.type || "").trim().toLowerCase();
+  const message = typeof rec.message === "string" ? rec.message.trim() : "";
+  if (message) return message;
+  if (type === "suggested_children") {
+    const count = Number(rec.count);
+    if (Number.isFinite(count) && count > 0) {
+      return `${count} suggested follow-up item${count === 1 ? "" : "s"} can be prepared after creation.`;
+    }
+    return "Suggested follow-up items are available after creation.";
+  }
+  if (type === "planner_summary") {
+    return "";
+  }
+  return "";
 }
 
 function normalizePreviewEffectCopy(detail: string): string {
@@ -464,6 +589,36 @@ function buildNarrative(
   const isPermanent = input.context.reversible === false;
   const statusSemanticChange = hasStatusChange || isBereavement;
   const fallbackSummary = fallbackActionSummary(input, targetPhrase);
+  const planner = getPlannerPreview(input) as
+    | {
+        legalSummary?: unknown;
+        semanticProfile?: { category?: unknown; subtype?: unknown } | null;
+      }
+    | null;
+  const plannerLegalSummary =
+    typeof planner?.legalSummary === "string" ? planner.legalSummary.trim() : "";
+  const plannerCategory =
+    typeof planner?.semanticProfile?.category === "string"
+      ? planner.semanticProfile.category.trim()
+      : "";
+  const plannerSubtype =
+    typeof planner?.semanticProfile?.subtype === "string"
+      ? planner.semanticProfile.subtype.trim()
+      : "";
+
+  if (actionKind === "create" && plannerLegalSummary) {
+    const headlineLabel = proposalSummary || `Create ${entityType.replace(/_/g, " ")}`;
+    const categoryLabel = [plannerCategory, plannerSubtype].filter(Boolean).join(" - ");
+    return {
+      assistantMessage: `${punctuateSentence(plannerLegalSummary)} Please confirm and I will prepare this ${entityType.replace(/_/g, " ")} now.`,
+      headline: `Confirm: ${toTitleCase(headlineLabel)}`,
+      description: categoryLabel
+        ? `Initial setup prepared for ${categoryLabel.toLowerCase()}.`
+        : `Initial setup prepared for this ${entityType.replace(/_/g, " ")}.`,
+      confirmLabel: "Confirm Create",
+      cancelLabel: "Keep Current Information",
+    };
+  }
 
   const headline = buildHeadline({
     targetPhrase,
@@ -703,6 +858,7 @@ export function mapSemanticAction(input: SemanticActionMappingInput): SemanticAc
     ...buildFallbackPlannedChangeImpact(input),
     ...buildPreviewCascadeSummaryImpact(input),
     ...buildPreviewEffectsImpact(input),
+    ...buildPlannerPreviewImpact(input),
     ...buildHintImpact(input),
     ...buildAffectedImpact(input),
     buildReversibilityImpact(input),
@@ -713,9 +869,9 @@ export function mapSemanticAction(input: SemanticActionMappingInput): SemanticAc
     impact,
     toneVariant,
     sections: {
-      changesLabel: "What changes",
-      consequencesLabel: "What this affects",
-      warningsLabel: "What this affects",
+      changesLabel: hasLegalCreatePlannerPreview(input) ? "Initial setup" : "What changes",
+      consequencesLabel: hasLegalCreatePlannerPreview(input) ? "Case focus" : "What this affects",
+      warningsLabel: hasLegalCreatePlannerPreview(input) ? "Suggested next steps" : "What this affects",
       reversibilityLabel: "Can this be undone?",
     },
   });

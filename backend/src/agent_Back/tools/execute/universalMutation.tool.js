@@ -143,28 +143,254 @@ const NOTE_ENTITY_TYPES = Object.freeze([
   'mission', 'officer', 'financial_entry', 'document', 'personal_task',
 ]);
 
-const inputSchema = {
+const ENTITY_TYPE_ENUM = Object.freeze([
+  'client', 'dossier', 'lawsuit', 'task', 'session',
+  'mission', 'officer', 'financial_entry', 'document', 'personal_task',
+]);
+
+const STRICT_MUTATION_INPUT_SCHEMA = {
+  type: 'object',
+  properties: {
+    operations: {
+      type: 'array',
+      minItems: 1,
+      maxItems: 10,
+      items: {
+        type: 'object',
+        properties: {
+          op: {
+            type: 'string',
+            enum: Object.values(OPERATION_TYPES),
+          },
+          entityType: {
+            type: 'string',
+            enum: ENTITY_TYPE_ENUM,
+          },
+          payload: {
+            type: 'object',
+            additionalProperties: true,
+          },
+          reason: {
+            type: 'string',
+            minLength: 1,
+            maxLength: 500,
+          },
+        },
+        required: ['op', 'entityType', 'payload', 'reason'],
+        additionalProperties: false,
+      },
+    },
+    idempotencyKey: {
+      type: 'string',
+      minLength: 8,
+      maxLength: 200,
+    },
+    origin: {
+      type: 'string',
+      enum: ['chat', 'system'],
+    },
+    risk: {
+      type: 'string',
+      enum: ['low', 'medium', 'high'],
+    },
+  },
+  required: ['operations', 'idempotencyKey', 'origin', 'risk'],
+  additionalProperties: false,
+};
+
+const LEGACY_MUTATION_INPUT_SCHEMA = {
   type: 'object',
   properties: {
     operation: {
       type: 'string',
-      enum: ['CREATE_ENTITY', 'UPDATE_ENTITY', 'DELETE_ENTITY', 'LINK_ENTITIES', 'ATTACH_TO_ENTITY'],
-      description: 'Type of mutation operation',
+      enum: Object.values(OPERATION_TYPES),
     },
     params: {
       type: 'object',
-      description: 'Operation-specific parameters',
+      additionalProperties: true,
     },
   },
   required: ['operation', 'params'],
   additionalProperties: false,
 };
 
+const inputSchema = {
+  oneOf: [STRICT_MUTATION_INPUT_SCHEMA, LEGACY_MUTATION_INPUT_SCHEMA],
+};
+
 const outputSchema = {
   type: 'object',
   description: 'Action proposal for confirmation',
-  additionalProperties: true,
+  properties: {
+    proposalId: { type: 'string', minLength: 1 },
+    actionType: { type: 'string', minLength: 1 },
+    toolCategory: { type: 'string' },
+    params: { type: 'object' },
+    reversible: { type: 'boolean' },
+    requiresConfirmation: { const: true },
+    humanReadableSummary: { type: 'string' },
+    affectedEntities: { type: 'array' },
+    status: { type: 'string' },
+    proposedAt: { type: 'string' },
+    version: { type: 'string' },
+    posture: { type: 'string' },
+    blockedReason: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+    suggestedAlternative: { anyOf: [{ type: 'object' }, { type: 'null' }] },
+    userMessageDraft: { type: 'string' },
+    confirmation: { type: 'object' },
+    sessionId: { type: 'string' },
+    snapshot: {
+      anyOf: [
+        { type: 'null' },
+        {
+          type: 'object',
+          properties: {
+            scope: { type: 'string' },
+            scopeId: { anyOf: [{ type: 'integer' }, { type: 'string' }] },
+            hash: { type: 'string' },
+            timestamp: { type: 'string' },
+          },
+          required: ['scope', 'scopeId', 'hash', 'timestamp'],
+          additionalProperties: false,
+        },
+      ],
+    },
+  },
+  required: [
+    'proposalId',
+    'actionType',
+    'toolCategory',
+    'params',
+    'reversible',
+    'requiresConfirmation',
+    'humanReadableSummary',
+    'affectedEntities',
+    'status',
+    'proposedAt',
+  ],
+  additionalProperties: false,
 };
+
+function _hashIdempotencySeed(value) {
+  return crypto.createHash('sha256').update(String(value || '')).digest('hex').slice(0, 24);
+}
+
+function _recordLegacyNormalizationWarning(executionContext = {}, detail = {}) {
+  const event = {
+    type: 'universal_mutation_legacy_input_normalized',
+    timestamp: new Date().toISOString(),
+    ...detail,
+  };
+  if (executionContext?.ledger?.record) {
+    executionContext.ledger.record(event);
+    return;
+  }
+  try {
+    console.warn('[universalMutation] legacy input normalized', event);
+  } catch (_) {
+    // best-effort logging only
+  }
+}
+
+function _inferEntityTypeFromLegacyParams(params = {}) {
+  return String(
+    params?.entityType ||
+      params?.target?.type ||
+      params?.sourceType ||
+      params?.targetType ||
+      '',
+  ).trim().toLowerCase() || null;
+}
+
+function _normalizeSingleOperationPayload({ op, entityType, payload }) {
+  const normalizedPayload =
+    payload && typeof payload === 'object' && !Array.isArray(payload)
+      ? JSON.parse(JSON.stringify(payload))
+      : {};
+  const normalizedEntityType = String(entityType || '').trim().toLowerCase();
+
+  if (
+    normalizedEntityType &&
+    op !== OPERATION_TYPES.LINK_ENTITIES &&
+    op !== OPERATION_TYPES.ATTACH_TO_ENTITY &&
+    !normalizedPayload.entityType
+  ) {
+    normalizedPayload.entityType = normalizedEntityType;
+  }
+
+  return normalizedPayload;
+}
+
+function normalizeUniversalMutationInput(rawInput = {}, executionContext = {}) {
+  if (rawInput && Array.isArray(rawInput.operations)) {
+    return {
+      normalizedInput: {
+        operations: rawInput.operations.map((op) => ({
+          op: String(op.op || '').toUpperCase(),
+          entityType: String(op.entityType || '').toLowerCase(),
+          payload: _normalizeSingleOperationPayload({
+            op: String(op.op || '').toUpperCase(),
+            entityType: op.entityType,
+            payload: op.payload,
+          }),
+          reason: String(op.reason || '').trim(),
+        })),
+        idempotencyKey: String(rawInput.idempotencyKey || ''),
+        origin: String(rawInput.origin || '').toLowerCase(),
+        risk: String(rawInput.risk || '').toLowerCase(),
+      },
+      legacyNormalized: false,
+      warnings: [],
+    };
+  }
+
+  const operation = String(rawInput?.operation || '').toUpperCase();
+  const params = rawInput?.params && typeof rawInput.params === 'object' ? rawInput.params : {};
+  const entityType = _inferEntityTypeFromLegacyParams(params);
+  const reason =
+    typeof params.reason === 'string' && params.reason.trim()
+      ? params.reason.trim()
+      : '[legacy caller: no reason provided]';
+  const idempotencyKey = `legacy_${_hashIdempotencySeed(`${operation}:${JSON.stringify(params)}`)}`;
+
+  _recordLegacyNormalizationWarning(executionContext, {
+    operation,
+    entityType,
+    sourceRoute: executionContext?.sourceRoute || null,
+  });
+
+  return {
+    normalizedInput: {
+      operations: [
+        {
+          op: operation,
+          entityType: entityType || 'document',
+          payload: _normalizeSingleOperationPayload({ op: operation, entityType, payload: params }),
+          reason,
+        },
+      ],
+      idempotencyKey,
+      origin: 'system',
+      risk: 'medium',
+    },
+    legacyNormalized: true,
+    warnings: ['legacy_input_normalized'],
+  };
+}
+
+function _deriveEntityRefFromPayload(op) {
+  const payload = op?.payload && typeof op.payload === 'object' ? op.payload : {};
+  if (Number.isInteger(Number(payload.entityId)) && Number(payload.entityId) > 0) {
+    return { type: String(op.entityType || '').toLowerCase(), id: Number(payload.entityId) };
+  }
+  if (payload?.target && payload.target.type && Number.isInteger(Number(payload.target.id)) && Number(payload.target.id) > 0) {
+    return { type: String(payload.target.type).toLowerCase(), id: Number(payload.target.id) };
+  }
+  if (payload?.sourceType && Number.isInteger(Number(payload.sourceId)) && Number(payload.sourceId) > 0) {
+    return { type: String(payload.sourceType).toLowerCase(), id: Number(payload.sourceId) };
+  }
+  return null;
+}
 
 /**
  * Universal mutation handler
@@ -176,7 +402,7 @@ const outputSchema = {
  * @param {Object} executionContext - { userId, sessionId }
  * @returns {Promise<Object>} ActionProposal
  */
-async function handler(input, executionContext = {}) {
+async function buildSingleOperationProposal(input, executionContext = {}) {
   const { operation, params } = input;
 
   // Validate operation type
@@ -210,12 +436,7 @@ async function handler(input, executionContext = {}) {
       validatePayload(entityType, 'create', payload);
 
       // No snapshot needed for creation (entity doesn't exist yet)
-      snapshot = {
-        scope: entityType,
-        scopeId: null,
-        hash: 'sha256:null',
-        timestamp: new Date().toISOString(),
-      };
+      snapshot = null;
 
       actionSummary = `Create new ${entityType}: ${JSON.stringify(payload).substring(0, 100)}...`;
 
@@ -457,6 +678,139 @@ async function handler(input, executionContext = {}) {
   });
 
   return proposal;
+}
+
+function _buildBatchWorkflowProposal({ normalizedInput, executionContext = {} }) {
+  const operations = Array.isArray(normalizedInput?.operations) ? normalizedInput.operations : [];
+  if (operations.length < 2) {
+    throw new Error('Batch workflow proposal requires at least 2 operations');
+  }
+
+  const steps = operations.map((op, index) => ({
+    stepId: `step_${index + 1}`,
+    actionType: String(op.op || '').toUpperCase(),
+    params: _normalizeSingleOperationPayload({
+      op: String(op.op || '').toUpperCase(),
+      entityType: op.entityType,
+      payload: op.payload,
+    }),
+    risk: normalizedInput.risk || 'medium',
+    reason: String(op.reason || '').trim(),
+  }));
+
+  const rootRef = operations.map(_deriveEntityRefFromPayload).find(Boolean) || null;
+  const workflow = {
+    workflowType: 'UNIVERSAL_MUTATION_BATCH',
+    rootEntity: rootRef ? { type: rootRef.type, id: rootRef.id } : null,
+    steps,
+    requestedGoal: {
+      operation: String(operations[operations.length - 1]?.op || '').toLowerCase(),
+      entityType: String(operations[operations.length - 1]?.entityType || '').toLowerCase(),
+    },
+    canReachRequestedGoal: true,
+    facts: {
+      idempotencyKey: normalizedInput.idempotencyKey,
+      origin: normalizedInput.origin,
+      risk: normalizedInput.risk,
+    },
+  };
+
+  let snapshot = null;
+  if (rootRef?.type && Number.isInteger(Number(rootRef.id)) && Number(rootRef.id) > 0) {
+    snapshot = {
+      scope: rootRef.type,
+      scopeId: Number(rootRef.id),
+      hash: computeSnapshotHash(rootRef.type, Number(rootRef.id)),
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  const proposalId = generateProposalId('EXECUTE_MUTATION_WORKFLOW', 'v3');
+  const affectedEntities = operations.map((op) => {
+    const ref = _deriveEntityRefFromPayload(op);
+    return {
+      type: String(op.entityType || '').toLowerCase(),
+      id: ref?.id || null,
+      operation: String(op.op || '').toLowerCase(),
+    };
+  });
+
+  const summary = `Execute ${operations.length} mutation steps (${operations
+    .map((op) => String(op.op || '').toLowerCase())
+    .join(', ')})`;
+
+  return createActionProposal({
+    proposalId,
+    actionType: 'EXECUTE_MUTATION_WORKFLOW',
+    toolCategory: 'execute',
+    params: {
+      workflow,
+      idempotencyKey: normalizedInput.idempotencyKey,
+      origin: normalizedInput.origin,
+      risk: normalizedInput.risk,
+    },
+    reversible: false,
+    requiresConfirmation: true,
+    humanReadableSummary: summary,
+    affectedEntities,
+    status: ACTION_STATUS.PROPOSED,
+    version: 'v3',
+    posture: 'WORK',
+    snapshot,
+    sessionId: executionContext.sessionId || null,
+  });
+}
+
+/**
+ * Universal mutation handler
+ *
+ * Accepts strict `operations[]` input and temporarily normalizes legacy
+ * `{ operation, params }` callers during migration.
+ */
+async function handler(input, executionContext = {}) {
+  const { normalizedInput } = normalizeUniversalMutationInput(input, executionContext);
+  const operations = Array.isArray(normalizedInput?.operations) ? normalizedInput.operations : [];
+
+  if (!operations.length) {
+    const err = new Error('At least one mutation operation is required');
+    err.code = 'MUTATION_OPERATIONS_REQUIRED';
+    throw err;
+  }
+
+  for (const op of operations) {
+    if (!OPERATION_TYPES[String(op?.op || '').toUpperCase()]) {
+      const err = new Error(`Invalid operation type: ${op?.op || 'UNKNOWN'}`);
+      err.code = 'INVALID_MUTATION_OPERATION';
+      throw err;
+    }
+    if (typeof op.reason !== 'string' || !op.reason.trim()) {
+      const err = new Error('Each mutation operation requires a non-empty reason');
+      err.code = 'MUTATION_REASON_REQUIRED';
+      throw err;
+    }
+    if (!ENTITY_TABLE_BY_TYPE[String(op.entityType || '').toLowerCase()]) {
+      const err = new Error(`Unsupported entity type for mutation: ${op.entityType || 'UNKNOWN'}`);
+      err.code = 'UNSUPPORTED_MUTATION_ENTITY_TYPE';
+      throw err;
+    }
+  }
+
+  if (operations.length > 1) {
+    return _buildBatchWorkflowProposal({ normalizedInput, executionContext });
+  }
+
+  const single = operations[0];
+  return buildSingleOperationProposal(
+    {
+      operation: String(single.op || '').toUpperCase(),
+      params: _normalizeSingleOperationPayload({
+        op: String(single.op || '').toUpperCase(),
+        entityType: single.entityType,
+        payload: single.payload,
+      }),
+    },
+    executionContext,
+  );
 }
 
 module.exports = {

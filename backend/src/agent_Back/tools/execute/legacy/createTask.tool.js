@@ -20,8 +20,8 @@
  * This tool MUST NOT be executed in v1 or v2.
  */
 
-const { TOOL_CATEGORIES } = require('../tool.registry');
-const tasksService = require('../../../services/tasks.service');
+const { TOOL_CATEGORIES } = require('../../tool.registry');
+const tasksService = require('../../../../services/tasks.service');
 
 const inputSchema = {
   type: 'object',

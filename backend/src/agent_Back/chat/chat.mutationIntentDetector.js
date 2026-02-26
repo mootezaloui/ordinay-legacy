@@ -1,7 +1,9 @@
 "use strict";
 
 const { parseJsonResponse } = require("../llm/llm.validation");
-const { buildMutationIntentExtractionPrompt } = require("./chat.mutationIntentPrompt");
+const {
+  buildMutationIntentExtractionPrompt,
+} = require("./chat.mutationIntentPrompt");
 const {
   buildScoreBreakdown,
   DEFAULT_THRESHOLD,
@@ -192,8 +194,14 @@ function getConfig() {
     allowCreate: flagEnabled("AGENT_MUTATION_INTENT_ALLOW_CREATE", true),
     allowHighRisk: flagEnabled("AGENT_MUTATION_INTENT_ALLOW_HIGH_RISK", false),
     requireRiskAck: flagEnabled("AGENT_MUTATION_INTENT_REQUIRE_RISK_ACK", true),
-    logComponentScores: flagEnabled("AGENT_MUTATION_INTENT_LOG_COMPONENT_SCORES", true),
-    llmExtractionEnabled: flagEnabled("AGENT_MUTATION_INTENT_LLM_EXTRACTOR", true),
+    logComponentScores: flagEnabled(
+      "AGENT_MUTATION_INTENT_LOG_COMPONENT_SCORES",
+      true,
+    ),
+    llmExtractionEnabled: flagEnabled(
+      "AGENT_MUTATION_INTENT_LLM_EXTRACTOR",
+      true,
+    ),
     maxProposalsPerTurn: Math.max(
       1,
       Number.parseInt(
@@ -290,9 +298,13 @@ function extractEntityMention(message) {
     /\b(personal\s+tasks?|personal_task|financial\s+entries?|financial_entry|hearings?|sessions?|clients?|dossiers?|lawsuits?|cases?|tasks?|missions?|bailiffs?|officers?|documents?|notes?)\b(?:\s*#?\s*(\d+))?/iu;
   const match = text.match(entityRegex);
   if (!match) return null;
-  const rawLabel = String(match[1] || "").toLowerCase().replace(/\s+/g, " ");
+  const rawLabel = String(match[1] || "")
+    .toLowerCase()
+    .replace(/\s+/g, " ");
   const entityType =
-    ENTITY_ALIASES[rawLabel] || ENTITY_ALIASES[rawLabel.replace(/s$/, "")] || null;
+    ENTITY_ALIASES[rawLabel] ||
+    ENTITY_ALIASES[rawLabel.replace(/s$/, "")] ||
+    null;
   const entityId = match[2] ? Number(match[2]) : null;
   return entityType ? { entityType, entityId, rawLabel } : null;
 }
@@ -319,7 +331,9 @@ function buildEntityAliasPattern(entityType) {
     .filter(Boolean)
     .sort((a, b) => b.length - a.length);
   if (!aliases.length) return null;
-  return aliases.map((alias) => escapeRegex(alias).replace(/\s+/g, "\\s+")).join("|");
+  return aliases
+    .map((alias) => escapeRegex(alias).replace(/\s+/g, "\\s+"))
+    .join("|");
 }
 
 function trimMutationTailFromQuery(value) {
@@ -356,7 +370,10 @@ function extractEntityNameQuery({ message, entityType }) {
 
   const aliasPattern = buildEntityAliasPattern(entityType);
   if (aliasPattern) {
-    const typeFirst = new RegExp(`\\b(?:${aliasPattern})\\b\\s*[:#-]?\\s*(.+)$`, "iu");
+    const typeFirst = new RegExp(
+      `\\b(?:${aliasPattern})\\b\\s*[:#-]?\\s*(.+)$`,
+      "iu",
+    );
     const typeFirstMatch = source.match(typeFirst);
     if (typeFirstMatch) {
       const query = trimMutationTailFromQuery(typeFirstMatch[1]);
@@ -379,7 +396,12 @@ function extractEntityNameQuery({ message, entityType }) {
 function prefilterMutationIntent(message) {
   const text = normalizeText(message);
   if (!text) {
-    return { pass: false, reason: "empty", intentVerbClarity: 0, operationConfidence: 0 };
+    return {
+      pass: false,
+      reason: "empty",
+      intentVerbClarity: 0,
+      operationConfidence: 0,
+    };
   }
   if (detectQuestionOrHypothetical(text)) {
     return {
@@ -436,14 +458,18 @@ function prefilterMutationIntent(message) {
 }
 
 function getActiveEntity(executionContext = {}, llmHistory = {}) {
-  const active = executionContext.activeEntity || llmHistory.activeEntity || null;
+  const active =
+    executionContext.activeEntity || llmHistory.activeEntity || null;
   if (
     active &&
     typeof active === "object" &&
     Number.isInteger(Number(active.id)) &&
     Number(active.id) > 0
   ) {
-    return { type: normalizeProposalEntityType(active.type), id: Number(active.id) };
+    return {
+      type: normalizeProposalEntityType(active.type),
+      id: Number(active.id),
+    };
   }
 
   const scopeMap = [
@@ -480,7 +506,8 @@ function parseOperation(message, extractedOperation = null) {
   if (/\b(delete|remove)\b/.test(text)) return "delete";
   if (/\b(close|reopen)\b/.test(text)) return "update";
   if (/\bopen\s+(?:a\s+)?new\b/.test(text)) return "create";
-  if (/\b(update|change|set|move|reschedule|mark)\b/.test(text)) return "update";
+  if (/\b(update|change|set|move|reschedule|mark)\b/.test(text))
+    return "update";
   if (/\b(create|add|new)\b/.test(text)) return "create";
   return "unknown";
 }
@@ -494,32 +521,45 @@ function extractCreateParentHint({ message, entityType }) {
   const text = String(message || "");
   const ref = extractReferenceToken(text);
   if (ref) {
-    if (/^PRO-/i.test(ref)) return { entityType: "lawsuit", reference: ref, source: "reference" };
-    if (/^DOS-/i.test(ref)) return { entityType: "dossier", reference: ref, source: "reference" };
-    if (/^MIS-/i.test(ref)) return { entityType: "mission", reference: ref, source: "reference" };
+    if (/^PRO-/i.test(ref))
+      return { entityType: "lawsuit", reference: ref, source: "reference" };
+    if (/^DOS-/i.test(ref))
+      return { entityType: "dossier", reference: ref, source: "reference" };
+    if (/^MIS-/i.test(ref))
+      return { entityType: "mission", reference: ref, source: "reference" };
   }
-  const clientNarrative = text.match(/\bmy\s+client\s+(.+?)(?:\s+is\b|\s+has\b|\s+will\b|\s+going\b|,|\.|$)/i);
+  const clientNarrative = text.match(
+    /\bmy\s+client\s+(.+?)(?:\s+is\b|\s+has\b|\s+will\b|\s+going\b|\s+he(?:['’]s|\s+is)\b|\s+she(?:['’]s|\s+is)\b|\s+they(?:['’]ve|\s+have|['’]re|\s+are)\b|\s*[—–-]\s*|[,:;.]|$)/iu,
+  );
   if (clientNarrative?.[1]) {
-    return { entityType: "client", name: cleanEntityNameQuery(clientNarrative[1]), source: "name" };
+    const clientName = trimMutationTailFromQuery(clientNarrative[1]);
+    if (clientName) {
+      return {
+        entityType: "client",
+        name: clientName,
+        source: "name",
+      };
+    }
   }
-  const forName = text.match(/\bfor\s+([A-Za-z][\p{L}\p{N}' -]{1,80})(?:\s+(?:can|please|so|who|with|on|its|it's)\b|[,.?!]|$)/iu);
+  const forName = text.match(
+    /\bfor\s+([A-Za-z][\p{L}\p{N}' -]{1,80})(?:\s+(?:can|please|so|who|with|on|its|it's)\b|[,.?!]|$)/iu,
+  );
   if (forName?.[1] && entityType !== "client") {
-    return { entityType: "client", name: cleanEntityNameQuery(forName[1]), source: "name" };
+    return {
+      entityType: "client",
+      name: cleanEntityNameQuery(forName[1]),
+      source: "name",
+    };
   }
   return null;
 }
 
 function buildCreatePayloadFromMessage({ message, entityType }) {
-  const text = String(message || "");
-  if (entityType === "lawsuit") {
-    return { title: /\bdivorce\b/i.test(text) ? "Divorce case" : "New case", status: "open", case_type: /\bdivorce\b/i.test(text) ? "divorce" : undefined };
-  }
-  if (entityType === "dossier") return { title: "New dossier", status: "open" };
-  if (entityType === "task") return { title: "New task", status: "pending" };
-  if (entityType === "session") return { title: "New session", status: "scheduled" };
-  if (entityType === "mission") return { title: "New mission", status: "planned" };
-  if (entityType === "document") return { title: "New document" };
-  return { title: "New item" };
+  void message;
+  void entityType;
+  // Semantic create fields are authored by the creation planner (LLM + adapter validation).
+  // The detector only provides structural intent/entity/parent signals.
+  return {};
 }
 
 function inferCreateTargetEntityType(message, fallback = "") {
@@ -541,7 +581,12 @@ function inferCreateTargetEntityType(message, fallback = "") {
   return normalizeEntityType(fallback || "");
 }
 
-function inferFieldFromText({ entityType, text, allowedFields, adapterFieldAliases = {} }) {
+function inferFieldFromText({
+  entityType,
+  text,
+  allowedFields,
+  adapterFieldAliases = {},
+}) {
   const normalizedText = lower(text);
   if (!normalizedText) return { field: null, confidence: 0.2, inferred: false };
 
@@ -584,7 +629,7 @@ function inferFieldFromText({ entityType, text, allowedFields, adapterFieldAlias
     const aliases = new Set([
       field,
       field.replace(/_/g, " "),
-      ...(((adapterFieldAliases || {})[field]) || []),
+      ...((adapterFieldAliases || {})[field] || []),
       ...(COMMON_FIELD_ALIASES[field] || []),
       ...((ENTITY_FIELD_ALIASES[entityType] || {})[field] || []),
     ]);
@@ -593,7 +638,9 @@ function inferFieldFromText({ entityType, text, allowedFields, adapterFieldAlias
       if (!token) continue;
       if (normalizedText.includes(token)) {
         const confidence =
-          token === lower(field) || token === field.replace(/_/g, " ") ? 0.96 : 0.88;
+          token === lower(field) || token === field.replace(/_/g, " ")
+            ? 0.96
+            : 0.88;
         if (!best || confidence > best.confidence) {
           best = { field, confidence, inferred: token !== lower(field) };
         }
@@ -655,12 +702,22 @@ function parseTemporalValue(rawValue) {
   const today = new Date();
   const lowered = raw.toLowerCase();
   if (lowered === "today") {
-    return { ok: true, value: toIsoDate(today), displayValue: toIsoDate(today), confidence: 0.9 };
+    return {
+      ok: true,
+      value: toIsoDate(today),
+      displayValue: toIsoDate(today),
+      confidence: 0.9,
+    };
   }
   if (lowered === "tomorrow") {
     const d = new Date(today);
     d.setDate(d.getDate() + 1);
-    return { ok: true, value: toIsoDate(d), displayValue: toIsoDate(d), confidence: 0.88 };
+    return {
+      ok: true,
+      value: toIsoDate(d),
+      displayValue: toIsoDate(d),
+      confidence: 0.88,
+    };
   }
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
     return { ok: true, value: raw, displayValue: raw, confidence: 0.98 };
@@ -686,36 +743,64 @@ function parseValueWithParserHint(parserHint, raw) {
   }
   if (hint === "number" || hint === "float" || hint === "decimal") {
     const num = Number(String(raw).replace(/[,\s]/g, ""));
-    if (!Number.isFinite(num)) return { ok: false, error: "invalid_number", confidence: 0.2 };
-    return { ok: true, value: num, displayValue: String(num), confidence: 0.95 };
+    if (!Number.isFinite(num))
+      return { ok: false, error: "invalid_number", confidence: 0.2 };
+    return {
+      ok: true,
+      value: num,
+      displayValue: String(num),
+      confidence: 0.95,
+    };
   }
   if (hint === "integer" || hint === "id") {
     const num = Number(raw);
     if (!Number.isInteger(num) || num <= 0) {
       return { ok: false, error: "invalid_id_value", confidence: 0.15 };
     }
-    return { ok: true, value: num, displayValue: String(num), confidence: 0.95 };
+    return {
+      ok: true,
+      value: num,
+      displayValue: String(num),
+      confidence: 0.95,
+    };
   }
   if (hint === "enum_token") {
     const value = String(raw).toLowerCase().replace(/\s+/g, "_");
     return { ok: true, value, displayValue: value, confidence: 0.95 };
   }
   if (hint === "string") {
-    return { ok: true, value: String(raw), displayValue: String(raw), confidence: 0.88 };
+    return {
+      ok: true,
+      value: String(raw),
+      displayValue: String(raw),
+      confidence: 0.88,
+    };
   }
   return null;
 }
 
-function parseValueForField(field, rawValue, { fieldType = null, parserHint = null } = {}) {
+function parseValueForField(
+  field,
+  rawValue,
+  { fieldType = null, parserHint = null } = {},
+) {
   const raw = normalizeText(rawValue);
   if (!raw) return { ok: false, error: "missing_value", confidence: 0.1 };
-  const hinted = parseValueWithParserHint(parserHint, raw) || parseValueWithParserHint(fieldType, raw);
+  const hinted =
+    parseValueWithParserHint(parserHint, raw) ||
+    parseValueWithParserHint(fieldType, raw);
   if (hinted) return hinted;
   if (isTemporalField(field)) return parseTemporalValue(raw);
   if (/(^|_)(amount|duration|estimated_time)$/.test(field)) {
     const num = Number(String(raw).replace(/[,\s]/g, ""));
-    if (!Number.isFinite(num)) return { ok: false, error: "invalid_number", confidence: 0.2 };
-    return { ok: true, value: num, displayValue: String(num), confidence: 0.95 };
+    if (!Number.isFinite(num))
+      return { ok: false, error: "invalid_number", confidence: 0.2 };
+    return {
+      ok: true,
+      value: num,
+      displayValue: String(num),
+      confidence: 0.95,
+    };
   }
   if (field === "status" || field === "priority") {
     const value = raw.toLowerCase().replace(/\s+/g, "_");
@@ -726,7 +811,12 @@ function parseValueForField(field, rawValue, { fieldType = null, parserHint = nu
     if (!Number.isInteger(num) || num <= 0) {
       return { ok: false, error: "invalid_id_value", confidence: 0.15 };
     }
-    return { ok: true, value: num, displayValue: String(num), confidence: 0.95 };
+    return {
+      ok: true,
+      value: num,
+      displayValue: String(num),
+      confidence: 0.95,
+    };
   }
   return { ok: true, value: raw, displayValue: raw, confidence: 0.85 };
 }
@@ -736,7 +826,9 @@ function normalizeEntityFieldParsedValue({ entityType, field, parsed }) {
   const normalizedEntityType = String(entityType || "").toLowerCase();
   const normalizedField = String(field || "").toLowerCase();
   if (normalizedEntityType === "client" && normalizedField === "status") {
-    const token = String(parsed.value || "").toLowerCase().replace(/\s+/g, "_");
+    const token = String(parsed.value || "")
+      .toLowerCase()
+      .replace(/\s+/g, "_");
     if (
       ["inactive", "in_active", "not_active", "former_client"].includes(token)
     ) {
@@ -765,7 +857,8 @@ function sanitizeCandidateForLog(candidate = null) {
     entityId: candidate.entityId || null,
     operation: candidate.operation || null,
     field: candidate.field || null,
-    hasNewValue: candidate.newValue !== undefined && candidate.newValue !== null,
+    hasNewValue:
+      candidate.newValue !== undefined && candidate.newValue !== null,
     valuePreview:
       candidate.newValue === undefined || candidate.newValue === null
         ? null
@@ -775,7 +868,8 @@ function sanitizeCandidateForLog(candidate = null) {
 
 function assessRisk({ field, parsedValue }) {
   const normalizedField = String(field || "").toLowerCase();
-  if (HIGH_RISK_FIELDS.has(normalizedField)) return { risk: "high", reason: "sensitive_field" };
+  if (HIGH_RISK_FIELDS.has(normalizedField))
+    return { risk: "high", reason: "sensitive_field" };
   if (
     normalizedField === "status" &&
     TERMINAL_STATUS_VALUES.has(String(parsedValue || "").toLowerCase())
@@ -785,7 +879,13 @@ function assessRisk({ field, parsedValue }) {
   return { risk: "low", reason: null };
 }
 
-function buildClarification(question, reason, scores, candidate = null, extra = {}) {
+function buildClarification(
+  question,
+  reason,
+  scores,
+  candidate = null,
+  extra = {},
+) {
   return { decision: "clarify", reason, question, candidate, scores, ...extra };
 }
 
@@ -794,7 +894,8 @@ function buildNoIntent(reason, scores = null) {
 }
 
 function buildIntentSentence({ entityType, entityId, field, displayValue }) {
-  const label = entityType === "session" ? "hearing" : entityType.replace(/_/g, " ");
+  const label =
+    entityType === "session" ? "hearing" : entityType.replace(/_/g, " ");
   return `I detected a strong update request: set ${label} ${entityId} ${field.replace(/_/g, " ")} to ${displayValue}.`;
 }
 
@@ -822,7 +923,9 @@ async function tryLlmExtract({
 
 function buildHeuristicCandidate({ message, activeEntity }) {
   const entityMention = extractEntityMention(message);
-  const entityType = normalizeEntityType(entityMention?.entityType || activeEntity?.type || "");
+  const entityType = normalizeEntityType(
+    entityMention?.entityType || activeEntity?.type || "",
+  );
   const entityId =
     Number.isInteger(entityMention?.entityId) && entityMention.entityId > 0
       ? entityMention.entityId
@@ -843,7 +946,7 @@ function buildHeuristicCandidate({ message, activeEntity }) {
           : { kind: "unknown", value: null },
     field: null,
     newValueRaw: null,
-    reasoningSummary: "User requested an update in conversation.",
+    reasoningSummary: "User requested a mutation in conversation.",
     intentSentence: null,
     ambiguityFlags: [],
     modelConfidence: entityMention ? 0.78 : 0.6,
@@ -856,25 +959,33 @@ function normalizeLlmCandidate(llmCandidate, activeEntity) {
     hasMutationIntent: Boolean(llmCandidate.hasMutationIntent),
     intentStrength: String(llmCandidate.intentStrength || "weak").toLowerCase(),
     operation: parseOperation("", llmCandidate.operation),
-    entityType: normalizeEntityType(llmCandidate.entityType || activeEntity?.type || ""),
+    entityType: normalizeEntityType(
+      llmCandidate.entityType || activeEntity?.type || "",
+    ),
     entityReference:
-      llmCandidate.entityReference && typeof llmCandidate.entityReference === "object"
+      llmCandidate.entityReference &&
+      typeof llmCandidate.entityReference === "object"
         ? {
-            kind: String(llmCandidate.entityReference.kind || "unknown").toLowerCase(),
+            kind: String(
+              llmCandidate.entityReference.kind || "unknown",
+            ).toLowerCase(),
             value:
               llmCandidate.entityReference.value === undefined
                 ? null
                 : String(llmCandidate.entityReference.value),
           }
         : { kind: "unknown", value: null },
-    field: normalizeText(llmCandidate.field).replace(/\s+/g, "_").toLowerCase() || null,
+    field:
+      normalizeText(llmCandidate.field).replace(/\s+/g, "_").toLowerCase() ||
+      null,
     newValueRaw:
-      llmCandidate.newValueRaw === undefined || llmCandidate.newValueRaw === null
+      llmCandidate.newValueRaw === undefined ||
+      llmCandidate.newValueRaw === null
         ? null
         : String(llmCandidate.newValueRaw),
     reasoningSummary:
       normalizeText(llmCandidate.reasoningSummary) ||
-      "User requested an update in conversation.",
+      "User requested a mutation in conversation.",
     intentSentence: normalizeText(llmCandidate.intentSentence) || null,
     ambiguityFlags: Array.isArray(llmCandidate.ambiguityFlags)
       ? llmCandidate.ambiguityFlags.map((v) => String(v))
@@ -888,7 +999,9 @@ function normalizeLlmCandidate(llmCandidate, activeEntity) {
 function mergePendingClarification({ pending, message, activeEntity }) {
   if (!pending || typeof pending !== "object") return null;
   const candidate = { ...(pending.candidate || {}) };
-  const missing = new Set(Array.isArray(pending.missing) ? pending.missing : []);
+  const missing = new Set(
+    Array.isArray(pending.missing) ? pending.missing : [],
+  );
   const text = normalizeText(message);
   const kind = String(pending.kind || "");
 
@@ -940,9 +1053,17 @@ async function validateAndBuildCandidate({
 
   const operation = parseOperation(message, extracted.operation);
   scores.operationConfidence =
-    operation === "update" ? 0.98 : operation === "create" ? 0.95 : operation === "delete" ? 0.9 : 0.3;
+    operation === "update"
+      ? 0.98
+      : operation === "create"
+        ? 0.95
+        : operation === "delete"
+          ? 0.9
+          : 0.3;
 
-  let entityType = normalizeEntityType(extracted.entityType || activeEntity?.type || "");
+  let entityType = normalizeEntityType(
+    extracted.entityType || activeEntity?.type || "",
+  );
   if (!entityType || !ALLOWED_ENTITY_TYPES.has(entityType)) {
     scores.entityTypeConfidence = 0.2;
     hardGateFailures.push("entity_type_missing_or_unsupported");
@@ -956,11 +1077,18 @@ async function validateAndBuildCandidate({
   let entityResolutionSource = null;
   let entityResolutionLookup = null;
   const ref = extracted.entityReference || {};
-  if (ref.kind === "id" && Number.isInteger(Number(ref.value)) && Number(ref.value) > 0) {
+  if (
+    ref.kind === "id" &&
+    Number.isInteger(Number(ref.value)) &&
+    Number(ref.value) > 0
+  ) {
     entityId = Number(ref.value);
     entityResolutionConfidence = 1;
     entityResolutionSource = "explicit_id";
-  } else if (Number.isInteger(Number(extracted.entityId)) && Number(extracted.entityId) > 0) {
+  } else if (
+    Number.isInteger(Number(extracted.entityId)) &&
+    Number(extracted.entityId) > 0
+  ) {
     entityId = Number(extracted.entityId);
     entityResolutionConfidence = 1;
     entityResolutionSource = "explicit_id";
@@ -973,7 +1101,11 @@ async function validateAndBuildCandidate({
     entityId = Number(activeEntity.id);
     entityResolutionConfidence = 0.95;
     entityResolutionSource = "active_entity";
-  } else if (operation !== "create" && entityType && typeof entityNameResolver === "function") {
+  } else if (
+    operation !== "create" &&
+    entityType &&
+    typeof entityNameResolver === "function"
+  ) {
     const query = extractEntityNameQuery({ message, entityType });
     if (query) {
       try {
@@ -982,8 +1114,12 @@ async function validateAndBuildCandidate({
           entityResolutionLookup = {
             kind: String(lookup.kind || "none"),
             query,
-            candidates: Array.isArray(lookup.candidates) ? lookup.candidates : [],
-            total: Number.isFinite(Number(lookup.total)) ? Number(lookup.total) : undefined,
+            candidates: Array.isArray(lookup.candidates)
+              ? lookup.candidates
+              : [],
+            total: Number.isFinite(Number(lookup.total))
+              ? Number(lookup.total)
+              : undefined,
             overflow: lookup.overflow === true,
             matchKind: lookup.matchKind || null,
           };
@@ -993,8 +1129,10 @@ async function validateAndBuildCandidate({
             Number(lookup.id) > 0
           ) {
             entityId = Number(lookup.id);
-            entityResolutionConfidence = lookup.matchKind === "exact" ? 0.99 : 0.9;
-            entityResolutionSource = lookup.matchKind === "exact" ? "name_exact" : "name_fuzzy";
+            entityResolutionConfidence =
+              lookup.matchKind === "exact" ? 0.99 : 0.9;
+            entityResolutionSource =
+              lookup.matchKind === "exact" ? "name_exact" : "name_fuzzy";
           }
         }
       } catch (_) {
@@ -1005,10 +1143,16 @@ async function validateAndBuildCandidate({
   scores.entityResolutionConfidence = entityResolutionConfidence;
   if (operation !== "create" && entityResolutionLookup?.kind === "many") {
     hardGateFailures.push("entity_resolution_multiple_matches");
-  } else if (operation !== "create" && entityResolutionLookup?.kind === "none") {
+  } else if (
+    operation !== "create" &&
+    entityResolutionLookup?.kind === "none"
+  ) {
     hardGateFailures.push("entity_resolution_name_not_found");
   }
-  if (operation !== "create" && (!entityId || entityResolutionConfidence < config.entityThreshold)) {
+  if (
+    operation !== "create" &&
+    (!entityId || entityResolutionConfidence < config.entityThreshold)
+  ) {
     hardGateFailures.push("entity_resolution_uncertain");
   }
 
@@ -1030,32 +1174,47 @@ async function validateAndBuildCandidate({
       extracted.parent && typeof extracted.parent === "object"
         ? extracted.parent
         : extracted.parentReplyText
-          ? (
-              extractCreateParentHint({ message: extracted.parentReplyText, entityType: createEntityType }) ||
-              {
-                entityType:
-                  createEntityType === "dossier"
+          ? extractCreateParentHint({
+              message: extracted.parentReplyText,
+              entityType: createEntityType,
+            }) || {
+              entityType:
+                createEntityType === "dossier"
+                  ? "client"
+                  : createEntityType === "lawsuit"
                     ? "client"
-                    : createEntityType === "lawsuit"
-                      ? "client"
-                      : "dossier",
-                name: cleanEntityNameQuery(extracted.parentReplyText),
-                source: "name",
-              }
-            )
+                    : "dossier",
+              name: cleanEntityNameQuery(extracted.parentReplyText),
+              source: "name",
+            }
           : extractCreateParentHint({ message, entityType: createEntityType });
     let parent = null;
     if (parentHint) {
-      if (parentHint.entityId && Number.isInteger(Number(parentHint.entityId)) && Number(parentHint.entityId) > 0) {
-        parent = { entityType: parentHint.entityType, entityId: Number(parentHint.entityId), source: "id" };
-      } else if ((parentHint.reference || parentHint.name) && typeof entityNameResolver === "function") {
+      if (
+        parentHint.entityId &&
+        Number.isInteger(Number(parentHint.entityId)) &&
+        Number(parentHint.entityId) > 0
+      ) {
+        parent = {
+          entityType: parentHint.entityType,
+          entityId: Number(parentHint.entityId),
+          source: "id",
+        };
+      } else if (
+        (parentHint.reference || parentHint.name) &&
+        typeof entityNameResolver === "function"
+      ) {
         try {
           const lookup = await entityNameResolver({
             entityType: parentHint.entityType,
             query: parentHint.reference || parentHint.name,
             message,
           });
-          if (lookup?.kind === "one" && Number.isInteger(Number(lookup.id)) && Number(lookup.id) > 0) {
+          if (
+            lookup?.kind === "one" &&
+            Number.isInteger(Number(lookup.id)) &&
+            Number(lookup.id) > 0
+          ) {
             parent = {
               entityType: parentHint.entityType,
               entityId: Number(lookup.id),
@@ -1077,7 +1236,10 @@ async function validateAndBuildCandidate({
       hardGateFailures.push("create_parent_required_missing");
     }
 
-    const createPayload = buildCreatePayloadFromMessage({ message, entityType: createEntityType });
+    const createPayload = buildCreatePayloadFromMessage({
+      message,
+      entityType: createEntityType,
+    });
     let createAllowedFields = [];
     try {
       createAllowedFields = getAllowedFields(createEntityType, "create") || [];
@@ -1087,12 +1249,21 @@ async function validateAndBuildCandidate({
     const sanitizedPayload = Object.fromEntries(
       Object.entries(createPayload || {}).filter(([field, value]) => {
         if (value === undefined) return false;
-        if (Array.isArray(createAllowedFields) && createAllowedFields.length > 0) {
+        if (
+          Array.isArray(createAllowedFields) &&
+          createAllowedFields.length > 0
+        ) {
           return createAllowedFields.includes(field);
         }
         return true;
       }),
     );
+    const extractedReasoning = normalizeText(extracted.reasoningSummary);
+    const genericReasoning =
+      !extractedReasoning ||
+      /^User requested (?:an update|a mutation) in conversation\.?$/i.test(
+        extractedReasoning,
+      );
 
     scores.entityResolutionConfidence = parent ? 0.95 : 0.75;
     scores.fieldParseConfidence = 0.8;
@@ -1118,9 +1289,9 @@ async function validateAndBuildCandidate({
         parent: parent || null,
         entityResolutionSource: null,
         entityResolutionLookup: null,
-        reasoningSummary:
-          normalizeText(extracted.reasoningSummary) ||
-          `User requested creating a ${createEntityType}.`,
+        reasoningSummary: genericReasoning
+          ? `User requested creating a ${String(createEntityType).replace(/_/g, " ")} based on the chat context.`
+          : extractedReasoning,
         intentSentence: normalizeText(extracted.intentSentence) || null,
         risk: "low",
         riskReason: null,
@@ -1131,8 +1302,10 @@ async function validateAndBuildCandidate({
   }
 
   if (operation === "delete") {
-    if (detectBatchPattern(message)) hardGateFailures.push("batch_update_blocked");
-    if (detectQuestionOrHypothetical(message)) hardGateFailures.push("question_or_hypothetical");
+    if (detectBatchPattern(message))
+      hardGateFailures.push("batch_update_blocked");
+    if (detectQuestionOrHypothetical(message))
+      hardGateFailures.push("question_or_hypothetical");
     const scoreBreakdown = buildScoreBreakdown({
       scores,
       hardGateFailures,
@@ -1184,7 +1357,8 @@ async function validateAndBuildCandidate({
     hardGateFailures.push("allowed_fields_unavailable");
   }
 
-  let field = normalizeText(extracted.field).replace(/\s+/g, "_").toLowerCase() || null;
+  let field =
+    normalizeText(extracted.field).replace(/\s+/g, "_").toLowerCase() || null;
   let fieldConfidence = extracted.field ? 0.9 : 0.2;
   if (!field || !allowedFields.includes(field)) {
     const inferred = inferFieldFromText({
@@ -1201,7 +1375,8 @@ async function validateAndBuildCandidate({
     hardGateFailures.push("field_unresolved_or_disallowed");
   }
 
-  const rawValue = extracted.newValueRaw || extractRawValueFromText({ text: message, field });
+  const rawValue =
+    extracted.newValueRaw || extractRawValueFromText({ text: message, field });
   const parsedValueRaw = field
     ? parseValueForField(field, rawValue, {
         fieldType: adapterFieldTypes[field] || null,
@@ -1216,12 +1391,16 @@ async function validateAndBuildCandidate({
   scores.valueParseConfidence = parsedValue.confidence || 0.1;
   if (!parsedValue.ok) {
     hardGateFailures.push(
-      parsedValue.error === "ambiguous_date" ? "temporal_value_ambiguous" : "value_parse_failed",
+      parsedValue.error === "ambiguous_date"
+        ? "temporal_value_ambiguous"
+        : "value_parse_failed",
     );
   }
 
-  if (detectBatchPattern(message)) hardGateFailures.push("batch_update_blocked");
-  if (detectQuestionOrHypothetical(message)) hardGateFailures.push("question_or_hypothetical");
+  if (detectBatchPattern(message))
+    hardGateFailures.push("batch_update_blocked");
+  if (detectQuestionOrHypothetical(message))
+    hardGateFailures.push("question_or_hypothetical");
   if (entityResolutionConfidence < 1) scores.contextCoherenceConfidence = 0.9;
 
   let payload = null;
@@ -1276,13 +1455,20 @@ async function validateAndBuildCandidate({
       risk: riskAssessment.risk,
       riskReason: riskAssessment.reason,
       requiresExtraConfirmation:
-        riskAssessment.risk === "high" && config.allowHighRisk && config.requireRiskAck,
+        riskAssessment.risk === "high" &&
+        config.allowHighRisk &&
+        config.requireRiskAck,
     },
     scores: scoreBreakdown,
   };
 }
 
-function buildClarificationFromFailures({ failures, candidate, scores, config }) {
+function buildClarificationFromFailures({
+  failures,
+  candidate,
+  scores,
+  config,
+}) {
   const failureSet = new Set(failures);
   if (failureSet.has("entity_type_blocked_conversationally")) {
     return buildClarification(
@@ -1317,7 +1503,14 @@ function buildClarificationFromFailures({ failures, candidate, scores, config })
       "parent_resolution_multiple_matches",
       scores,
       candidate,
-      { pendingClarification: { kind: "create_parent", candidate, missing: ["parent"], createdAt: new Date().toISOString() } },
+      {
+        pendingClarification: {
+          kind: "create_parent",
+          candidate,
+          missing: ["parent"],
+          createdAt: new Date().toISOString(),
+        },
+      },
     );
   }
   if (failureSet.has("parent_resolution_not_found")) {
@@ -1339,7 +1532,10 @@ function buildClarificationFromFailures({ failures, candidate, scores, config })
     );
   }
   if (failureSet.has("create_parent_required_missing")) {
-    const prettyEntity = String(candidate?.entityType || "record").replace(/_/g, " ");
+    const prettyEntity = String(candidate?.entityType || "record").replace(
+      /_/g,
+      " ",
+    );
     const parentPrompt =
       candidate?.entityType === "dossier"
         ? "Please provide the client name or reference."
@@ -1351,7 +1547,14 @@ function buildClarificationFromFailures({ failures, candidate, scores, config })
       "create_parent_required_missing",
       scores,
       candidate,
-      { pendingClarification: { kind: "create_parent", candidate, missing: ["parent"], createdAt: new Date().toISOString() } },
+      {
+        pendingClarification: {
+          kind: "create_parent",
+          candidate,
+          missing: ["parent"],
+          createdAt: new Date().toISOString(),
+        },
+      },
     );
   }
   if (failureSet.has("operation_not_update")) {
@@ -1365,7 +1568,9 @@ function buildClarificationFromFailures({ failures, candidate, scores, config })
   }
   if (failureSet.has("entity_resolution_multiple_matches")) {
     const lookup = candidate?.entityResolutionLookup || null;
-    const candidates = Array.isArray(lookup?.candidates) ? lookup.candidates : [];
+    const candidates = Array.isArray(lookup?.candidates)
+      ? lookup.candidates
+      : [];
     const labels = candidates
       .map((item) => cleanEntityNameQuery(item?.label || item?.name || ""))
       .filter(Boolean)
@@ -1390,8 +1595,13 @@ function buildClarificationFromFailures({ failures, candidate, scores, config })
     );
   }
   if (failureSet.has("entity_resolution_name_not_found")) {
-    const query = cleanEntityNameQuery(candidate?.entityResolutionLookup?.query || "");
-    const entityLabel = String(candidate?.entityType || "record").replace(/_/g, " ");
+    const query = cleanEntityNameQuery(
+      candidate?.entityResolutionLookup?.query || "",
+    );
+    const entityLabel = String(candidate?.entityType || "record").replace(
+      /_/g,
+      " ",
+    );
     return buildClarification(
       query
         ? `I couldn't find a ${entityLabel} matching "${query}". Please confirm the name or provide a more specific reference.`
@@ -1488,7 +1698,14 @@ function buildClarificationFromFailures({ failures, candidate, scores, config })
         "create_confidence_below_threshold",
         scores,
         candidate,
-        { pendingClarification: { kind: "create_parent", candidate, missing: ["parent"], createdAt: new Date().toISOString() } },
+        {
+          pendingClarification: {
+            kind: "create_parent",
+            candidate,
+            missing: ["parent"],
+            createdAt: new Date().toISOString(),
+          },
+        },
       );
     }
     return buildClarification(
@@ -1540,7 +1757,8 @@ async function detectStrongMutationIntent({
     return {
       decision: "clarify",
       reason: "clarification_cancelled",
-      question: "Okay, I cancelled the pending mutation clarification. What would you like to do instead?",
+      question:
+        "Okay, I cancelled the pending mutation clarification. What would you like to do instead?",
       scores: buildScoreBreakdown({
         scores: {},
         hardGateFailures: ["clarification_cancelled"],
@@ -1586,7 +1804,9 @@ async function detectStrongMutationIntent({
       message: text,
       activeEntity,
     });
-    const resumedOperation = String(resumed?.candidate?.operation || "update").toLowerCase();
+    const resumedOperation = String(
+      resumed?.candidate?.operation || "update",
+    ).toLowerCase();
     extracted = {
       hasMutationIntent: true,
       intentStrength: "strong",
@@ -1603,7 +1823,9 @@ async function detectStrongMutationIntent({
           ? resumed.candidate.parent
           : null,
       parentReplyText:
-        resumedOperation === "create" ? resumed?.candidate?.parentReplyText || text : null,
+        resumedOperation === "create"
+          ? resumed?.candidate?.parentReplyText || text
+          : null,
       reasoningSummary: "User replied to mutation clarification.",
       intentSentence: null,
       ambiguityFlags: [],
@@ -1638,7 +1860,12 @@ async function detectStrongMutationIntent({
   const failures = scores.hardGateFailures || [];
   let decision;
   if (failures.length > 0 || scores.finalConfidence < config.threshold) {
-    decision = buildClarificationFromFailures({ failures, candidate, scores, config });
+    decision = buildClarificationFromFailures({
+      failures,
+      candidate,
+      scores,
+      config,
+    });
   } else {
     decision = {
       decision: "propose",
@@ -1672,7 +1899,8 @@ async function detectStrongMutationIntent({
     hardGateFailures: scores.hardGateFailures,
     candidate: sanitizeCandidateForLog(candidate),
     entityResolution:
-      candidate.entityId && scores.components.entityResolutionConfidence >= config.entityThreshold
+      candidate.entityId &&
+      scores.components.entityResolutionConfidence >= config.entityThreshold
         ? "resolved"
         : candidate.entityId
           ? "uncertain"
@@ -1713,7 +1941,9 @@ async function detectMutationIntent(message, resolvedContext = {}) {
     entityNameResolver = null,
     logger = null,
     sourceRoute = "/agent/chat",
-  } = resolvedContext && typeof resolvedContext === "object" ? resolvedContext : {};
+  } = resolvedContext && typeof resolvedContext === "object"
+    ? resolvedContext
+    : {};
 
   const text = normalizeText(message);
   if (!text) return null;
@@ -1775,8 +2005,9 @@ async function detectMutationIntent(message, resolvedContext = {}) {
       risk: stage3?.candidate?.risk || "low",
       source: "hybrid",
       reasonCode: stage3.reason || "clarify",
-      missing:
-        Array.isArray(stage3?.pendingClarification?.missing) ? stage3.pendingClarification.missing : [],
+      missing: Array.isArray(stage3?.pendingClarification?.missing)
+        ? stage3.pendingClarification.missing
+        : [],
       routeDecision: "clarify",
       question: stage3.question,
       stage3Decision: stage3,

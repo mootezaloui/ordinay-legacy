@@ -5,11 +5,13 @@ const Ajv = require("ajv");
 const addFormats = require("ajv-formats");
 const AgentEngine = require("./agent.engine");
 const { ChatAgentService } = require("./chat/chat.agent.service");
+const { ChatOrchestrator } = require("./orchestrator/chat.orchestrator");
 const {
   detectStrongMutationIntent,
   getMutationIntentDetectorConfig,
 } = require("./chat/chat.mutationIntentDetector");
 const { getAvailableCommands, detectReadIntent, READ_INTENTS } = require("./intent.classifier");
+const { detectDocumentGenerationIntent: detectSharedDocumentGenerationIntent } = require("./documentGeneration.intent");
 const db = require("../db/connection");
 const documentGenerationService = require("../services/documentGeneration/documentGeneration.service");
 const documentGenerationPreviewService = require("../services/documentGeneration/documentGenerationPreview.service");
@@ -24,6 +26,7 @@ const failureSchema = require("./schemas/failure.schema.json");
 const router = express.Router();
 const agentEngine = new AgentEngine();
 let chatAgentService = new ChatAgentService({ engine: agentEngine });
+let chatOrchestrator = new ChatOrchestrator({ engine: agentEngine });
 const streamAjv = new Ajv({
   allErrors: true,
   strict: true,
@@ -546,6 +549,7 @@ function isChatbotActionArtifact(output) {
   const type = String(output?.type || "").toLowerCase();
   return (
     type === "proposal" ||
+    type === "document_draft" ||
     type === "document_generation_preview" ||
     type === "document_generation_missing_fields" ||
     type === "actions" ||
@@ -972,78 +976,7 @@ async function tryResumePendingDocumentGeneration({
 }
 
 async function detectDocumentGenerationIntent(message, context = {}) {
-  const text = String(message || "").trim();
-  if (!text) return null;
-  const canonicalText = normalizeRefText(text);
-  const low = canonicalText.toLowerCase();
-  const hasGenerateVerb =
-    /\b(generate|create|draft|prepare|write)\b/i.test(canonicalText) ||
-    /(?:إنشاء|توليد|تحضير|صياغة)/.test(canonicalText);
-  if (!hasGenerateVerb) return null;
-  if (!/\b(document|letter|opinion|memo|summary|pdf|docx|html)\b/i.test(low) && !/(مذكرة|خطاب|ملخص|وثيقة)/.test(canonicalText)) {
-    return null;
-  }
-
-  let documentType = null;
-  if (/\b(court|postpone|postponement|motion|request letter)\b/i.test(low)) {
-    documentType = "COURT_REQUEST_LETTER";
-  } else if (/\b(legal opinion|opinion)\b/i.test(low)) {
-    documentType = "LEGAL_OPINION";
-  } else if (/\b(task memo|memo)\b/i.test(low) || /(مذكرة مهمة)/.test(canonicalText)) {
-    documentType = "TASK_MEMO";
-  } else if (/\b(session summary|hearing summary|session)\b/i.test(low) || /(ملخص جلسة)/.test(canonicalText)) {
-    documentType = "SESSION_SUMMARY";
-  }
-  if (!documentType) return null;
-
-  let format = "pdf";
-  if (/\bdocx\b/i.test(low)) format = "docx";
-  if (/\bhtml\b/i.test(low)) format = "html";
-
-  const language = /\b(arabic|arab|العربية|عربي)\b/i.test(canonicalText) ? "ar" : "en";
-
-  const explicit = canonicalText.match(/\b(client|dossier|lawsuit|mission|task|session)\s*#?\s*(\d+)\b/i);
-  let target = null;
-  if (explicit) {
-    target = { type: explicit[1].toLowerCase(), id: Number(explicit[2]) };
-  } else if (context?.lawsuitId) {
-    target = { type: "lawsuit", id: Number(context.lawsuitId) };
-  } else if (context?.dossierId) {
-    target = { type: "dossier", id: Number(context.dossierId) };
-  } else if (context?.taskId) {
-    target = { type: "task", id: Number(context.taskId) };
-  } else if (context?.sessionId) {
-    target = { type: "session", id: Number(context.sessionId) };
-  } else if (context?.clientId) {
-    target = { type: "client", id: Number(context.clientId) };
-  } else if (context?.missionId) {
-    target = { type: "mission", id: Number(context.missionId) };
-  }
-  if ((!target?.type || !Number.isInteger(target?.id) || target.id <= 0)) {
-    target = await resolveGenerationTargetFromReference(canonicalText);
-  }
-
-  const hasValidTarget =
-    Boolean(target?.type) && Number.isInteger(target?.id) && target.id > 0;
-  if (!hasValidTarget) {
-    const hints = extractTargetHints(canonicalText);
-    return {
-      target: null,
-      targetHints: hints,
-      documentType,
-      language,
-      format,
-      instructions: text,
-    };
-  }
-
-  return {
-    target,
-    documentType,
-    language,
-    format,
-    instructions: text,
-  };
+  return detectSharedDocumentGenerationIntent(message, context);
 }
 
 async function createGeneratedDocumentProposalFromPlan({
@@ -1056,20 +989,29 @@ async function createGeneratedDocumentProposalFromPlan({
   const proposal = await agentEngine.executeToolV2(
     "universalMutation",
     {
-      operation: "ATTACH_TO_ENTITY",
-      params: {
-        target: plan.target,
-        attachmentType: "generated_document",
-        payload: {
-          documentType: plan.documentType,
-          templateKey: plan.templateKey,
-          language: plan.language,
-          format: plan.format,
-          schemaVersion: plan.schemaVersion,
-          contentJson: plan.contentJson,
-          title: plan.contentJson?.content?.title || plan.documentType,
+      operations: [
+        {
+          op: "ATTACH_TO_ENTITY",
+          entityType: String(plan?.target?.type || "").toLowerCase() || "document",
+          payload: {
+            target: plan.target,
+            attachmentType: "generated_document",
+            payload: {
+              documentType: plan.documentType,
+              templateKey: plan.templateKey,
+              language: plan.language,
+              format: plan.format,
+              schemaVersion: plan.schemaVersion,
+              contentJson: plan.contentJson,
+              title: plan.contentJson?.content?.title || plan.documentType,
+            },
+          },
+          reason: "Attach generated document artifact from approved plan",
         },
-      },
+      ],
+      idempotencyKey: `docgen_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      origin: "system",
+      risk: "medium",
     },
     policy,
     {
@@ -1461,164 +1403,19 @@ router.post("/agent/chat", async (req, res) => {
       timestamp: new Date().toISOString(),
     });
 
-    const generationRequest = await detectDocumentGenerationIntent(message, requestContext);
-    const resumedPending = await tryResumePendingDocumentGeneration({
-      requestContext,
-      message,
-      followUpIntent,
-      sessionId,
-      userId: req.user?.id || null,
-    });
-    if (resumedPending) {
-      const interactionMode = resolveInteractionMode({
-        output: resumedPending.output,
-        intent: resumedPending.intent || "DOCUMENT_GENERATION",
-        toolExecutions: [],
-        documentContext: requestContext?.documentContext || null,
-      });
-      agentEngine.ledger.record({
-        type: "interaction_mode_selected",
-        mode: interactionMode,
-        endpoint: "/agent/chat",
-        timestamp: new Date().toISOString(),
-      });
-      emitStatus("Preparing action preview...", "working", interactionMode);
-      emitSafeChatResult({
-        output: resumedPending.output,
-        intent: resumedPending.intent || "DOCUMENT_GENERATION",
-        interactionMode,
-      });
-      await emitAssistantFinal({
-        output: resumedPending.output,
-        intent: resumedPending.intent || "DOCUMENT_GENERATION",
-        interactionMode,
-      });
-      emit("done", {
-        timestamp: new Date().toISOString(),
-        mode: "chatbot",
-        toolCalls: 1,
-        interactionMode,
-      });
-      return;
-    }
-    if (generationRequest) {
-      if (!generationRequest?.target?.id) {
-        const pendingOperation = agentEngine.beginPendingOperation(
-          requestContext,
-          buildDocumentGenerationPendingDescriptor({
-            generationRequest,
-            agentVersion: agentVersion || "v3",
-            sourceRoute: "/agent/chat",
-          }),
-        );
-        requestContext.pendingOperationId = pendingOperation?.id || null;
-      } else {
-        const currentPending = agentEngine.getPendingOperation(requestContext);
-        if (
-          currentPending &&
-          String(currentPending.operationType || "").toLowerCase() ===
-            "document_generation"
-        ) {
-          agentEngine.clearPendingOperation(requestContext, "target_resolved_new_turn");
-        }
-      }
-      const artifact = await buildDocumentGenerationPreviewArtifact({
-        requestContext,
-        userId: req.user?.id || null,
-        sessionId,
-        generationRequest,
-      });
-      const interactionMode = resolveInteractionMode({
-        output: artifact,
-        intent: "DOCUMENT_GENERATION",
-        toolExecutions: [],
-        documentContext: requestContext?.documentContext || null,
-      });
-      agentEngine.ledger.record({
-        type: "interaction_mode_selected",
-        mode: interactionMode,
-        endpoint: "/agent/chat",
-        timestamp: new Date().toISOString(),
-      });
-      emitStatus("Preparing document preview...", "working", interactionMode);
-      emitSafeChatResult({
-        output: artifact,
-        intent: "DOCUMENT_GENERATION",
-        interactionMode,
-      });
-      await emitAssistantFinal({
-        output: artifact,
-        intent: "DOCUMENT_GENERATION",
-        interactionMode,
-      });
-      emit("done", {
-        timestamp: new Date().toISOString(),
-        mode: "chatbot",
-        toolCalls: 1,
-        interactionMode,
-      });
-      return;
-    }
-
-    const preReadIntent = detectReadIntent(message, requestContext);
-    const shouldPreRouteRead =
-      preReadIntent &&
-      (preReadIntent.intent === READ_INTENTS.WEB_SEARCH ||
-        preReadIntent.intent === READ_INTENTS.DEEP_SEARCH);
-    if (shouldPreRouteRead) {
-      emitStatus(getStatusAction(preReadIntent.intent, "fetching"), "fetching");
-      const runResult = await agentEngine.run({
-        message,
-        context: requestContext,
-        agentVersion: agentVersion || "v3",
-        reasoner: "rule",
-        followUpIntent,
-        documentContext: requestContext?.documentContext || null,
-      });
-      const interactionMode = resolveInteractionMode({
-        output: runResult?.output,
-        intent: runResult?.intent || "READ_DATA",
-        result: runResult,
-        toolExecutions: [],
-        documentContext: requestContext?.documentContext || null,
-      });
-      agentEngine.ledger.record({
-        type: "interaction_mode_selected",
-        mode: interactionMode,
-        endpoint: "/agent/chat",
-        timestamp: new Date().toISOString(),
-      });
-      const preReadOutput = runResult?.output || {
-        type: "chat",
-        message: "No output produced by read flow.",
+    if (
+      requestContext?.documentContext &&
+      !requestContext.draftSession &&
+      isDocumentFocusedPrompt(message)
+    ) {
+      requestContext.draftSession = {
+        kind: "document_context",
+        source: "chat",
+        sessionId: sessionId || requestContext?.conversationId || null,
       };
-      const preReadAttachment = buildChatbotAttachmentArtifact({
-        output: preReadOutput,
-        toolExecutions: [],
-      });
-      if (preReadAttachment) {
-        emitSafeChatResult({
-          output: preReadAttachment,
-          intent: runResult?.intent || "READ_DATA",
-          interactionMode,
-        });
-      }
-      await emitAssistantFinal({
-        text: preReadOutput?.message,
-        output: preReadOutput,
-        intent: runResult?.intent || "READ_DATA",
-        interactionMode,
-      });
-      emit("done", {
-        timestamp: new Date().toISOString(),
-        mode: "chatbot",
-        toolCalls: 0,
-        interactionMode,
-      });
-      return;
     }
 
-    const result = await chatAgentService.run({
+    const result = await chatOrchestrator.runChatTurn({
       message,
       context: requestContext,
       followUpIntent,
@@ -1639,7 +1436,7 @@ router.post("/agent/chat", async (req, res) => {
     const toolExecutions = Array.isArray(result?.toolExecutions)
       ? result.toolExecutions
       : [];
-    const effectiveOutput = result?.ambiguityArtifact || searchArtifact || {
+    const effectiveOutput = result?.outputArtifact || result?.ambiguityArtifact || searchArtifact || {
       type: "chat",
       message: result?.message || "",
     };
@@ -1669,7 +1466,7 @@ router.post("/agent/chat", async (req, res) => {
     }
 
     const chatbotAttachment = buildChatbotAttachmentArtifact({
-      output: result?.ambiguityArtifact || searchArtifact || null,
+      output: result?.outputArtifact || result?.ambiguityArtifact || searchArtifact || null,
       toolExecutions,
     });
     if (chatbotAttachment) {
@@ -2155,6 +1952,7 @@ router.post("/agent/stream", async (req, res) => {
       envFlag("AGENT_MUTATION_INTENT_STREAM_DETECTION", false) &&
       detectorConfig.enabled &&
       (!detectorConfig.chatOnly || envFlag("AGENT_MUTATION_INTENT_STREAM_DETECTION", false));
+    const scopeBindingEnabled = envFlag("AGENT_SCOPE_BINDING_ENABLED", true);
 
     if (streamDetectorEnabled && typeof effectiveMessage === "string") {
       const state = getStreamMutationDetectionState(requestContext) || {};
@@ -2241,6 +2039,28 @@ router.post("/agent/stream", async (req, res) => {
         }
 
         if (detectorDecision?.decision === "propose" && detectorDecision.shadowMode !== true) {
+          let resolvedProposalInput = detectorDecision.proposalInput;
+          let scopeBindingAudit = null;
+          if (
+            scopeBindingEnabled &&
+            agentEngine.scopeManager &&
+            typeof agentEngine.scopeManager.resolveBindingsForProposalInput === "function"
+          ) {
+            const scopeBindingResult = await agentEngine.scopeManager.resolveBindingsForProposalInput({
+              proposalInput: detectorDecision.proposalInput,
+              requestContext,
+              executionContext: {
+                ...requestContext,
+                sessionId: sessionId || requestContext?.conversationId || null,
+                userId: requestContext?.userId || null,
+                tenantId: requestContext?.tenantId || null,
+              },
+              lookupFns: {},
+            });
+            resolvedProposalInput = scopeBindingResult?.proposalInput || detectorDecision.proposalInput;
+            scopeBindingAudit = scopeBindingResult?.bindingAudit || null;
+          }
+
           const execCtx = {
             ...requestContext,
             posture: "WORK",
@@ -2259,7 +2079,7 @@ router.post("/agent/stream", async (req, res) => {
 
           const v2Result = await agentEngine.executeToolV2(
             "propose_entity_mutation",
-            detectorDecision.proposalInput,
+            resolvedProposalInput,
             policy,
             execCtx,
           );
@@ -2284,6 +2104,7 @@ router.post("/agent/stream", async (req, res) => {
               riskLevel: detectorDecision.risk || "low",
               requiresExtraConfirmation:
                 detectorDecision.requiresExtraConfirmation === true,
+              scopeBinding: scopeBindingAudit || null,
             });
           }
 
@@ -2298,7 +2119,17 @@ router.post("/agent/stream", async (req, res) => {
             suppressMutationDetectionUntilResolved: true,
           });
 
-          const output = toProposalArtifact(proposal, execCtx.sessionId);
+          const artifactProposal =
+            scopeBindingAudit && scopeBindingAudit.applied
+              ? {
+                  ...proposal,
+                  confirmation: {
+                    ...(proposal?.confirmation || {}),
+                    scopeBinding: scopeBindingAudit,
+                  },
+                }
+              : proposal;
+          const output = toProposalArtifact(artifactProposal, execCtx.sessionId);
           const interactionMode = "operational";
           emit("artifact.final", {
             intent: "COMMAND",
@@ -2373,6 +2204,28 @@ router.post("/agent/stream", async (req, res) => {
       );
       artifactDelta.push(JSON.stringify(buildArtifactDigest(artifactOutput)));
       artifactDelta.flush();
+
+      try {
+        console.log(
+          "[AgentRouter][artifact.final]",
+          JSON.stringify({
+            intent: unifiedResult.intent || null,
+            artifactType:
+              artifactOutput && typeof artifactOutput === "object"
+                ? artifactOutput.type || "object_without_type"
+                : null,
+            proposalId:
+              artifactOutput?.proposalId ||
+              artifactOutput?.proposals?.[0]?.proposalId ||
+              null,
+            entityType: artifactOutput?.entityType || artifactOutput?.target?.type || null,
+            entityId: artifactOutput?.entityId || artifactOutput?.target?.id || null,
+            interactionMode,
+          }),
+        );
+      } catch (_) {
+        // Debug logging only
+      }
 
       emit("artifact.final", {
         intent: unifiedResult.intent,

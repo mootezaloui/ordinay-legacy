@@ -27,7 +27,27 @@ export interface ConfirmationPreview {
   };
   primaryChanges?: ConfirmationPreviewChange[];
   cascadeSummary?: ConfirmationPreviewCascadeGroup[];
-  effects?: string[];
+  effects?: Array<string | { type?: string; message?: string; count?: number }>;
+  planner?: {
+    legalSummary?: string | null;
+    caseFocusPoints?: string[];
+    suggestedNextSteps?: string[];
+    riskSignals?: string[];
+    semanticProfile?: {
+      assumptions?: string[];
+      missingOptional?: string[];
+      missingCritical?: string[];
+      summary?: string;
+      category?: string | null;
+      subtype?: string | null;
+      priority?: string | null;
+      phaseOrState?: string | null;
+    };
+    riskFlags?: string[];
+    confidence?: number;
+    source?: string;
+    suggestedChildren?: Array<{ entityType?: string; payload?: Record<string, unknown>; rationale?: string }>;
+  };
   reversibility?: "reversible" | "not_reversible" | "unknown" | string;
 }
 

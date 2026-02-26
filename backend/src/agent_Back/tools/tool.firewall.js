@@ -387,19 +387,16 @@ class ToolFirewall {
     }
 
     // GATE 7: Delete adapter restriction — block DELETE_ENTITY if adapter forbids it
-    if (
-      params &&
-      params.operation === "DELETE_ENTITY" &&
-      params.params &&
-      params.params.entityType
-    ) {
+    const deleteTargets = _extractDeleteEntityTypes(params);
+    if (deleteTargets.length > 0) {
+      for (const deleteEntityType of deleteTargets) {
       try {
-        const adapter = getAdapter(params.params.entityType);
+          const adapter = getAdapter(deleteEntityType);
         if (adapter.allowedDelete === false) {
           const result = this._buildRejection({
             toolName,
             reason: "DELETE_NOT_ALLOWED",
-            message: `Deletion is not allowed for entity type '${params.params.entityType}'. Use soft-delete or archive instead.`,
+              message: `Deletion is not allowed for entity type '${deleteEntityType}'. Use soft-delete or archive instead.`,
             policy,
             context,
             checks,
@@ -415,8 +412,9 @@ class ToolFirewall {
       checks.push({
         gate: "ADAPTER_DELETE_CHECK",
         passed: true,
-        message: `Delete is allowed for ${params.params.entityType}`,
+          message: `Delete is allowed for ${deleteEntityType}`,
       });
+      }
     }
 
     // ALL GATES PASSED
@@ -526,7 +524,21 @@ class ToolFirewall {
  */
 function _extractEntityTypes(params) {
   const types = new Set();
-  const p = params.params || params;
+  const ops = Array.isArray(params?.operations) ? params.operations : null;
+  if (ops && ops.length > 0) {
+    for (const op of ops) {
+      if (!op || typeof op !== "object") continue;
+      if (op.entityType) types.add(op.entityType);
+      const payload = op.payload && typeof op.payload === "object" ? op.payload : null;
+      if (payload?.entityType) types.add(payload.entityType);
+      if (payload?.sourceType) types.add(payload.sourceType);
+      if (payload?.targetType) types.add(payload.targetType);
+      if (payload?.target?.type) types.add(payload.target.type);
+    }
+    return [...types];
+  }
+
+  const p = params?.params || params || {};
 
   if (p.entityType) types.add(p.entityType);
   if (p.sourceType) types.add(p.sourceType);
@@ -534,6 +546,30 @@ function _extractEntityTypes(params) {
   if (p.target && p.target.type) types.add(p.target.type);
 
   return [...types];
+}
+
+function _extractDeleteEntityTypes(params) {
+  const types = [];
+  if (Array.isArray(params?.operations)) {
+    for (const op of params.operations) {
+      if (!op || typeof op !== "object") continue;
+      if (String(op.op || "").toUpperCase() !== "DELETE_ENTITY") continue;
+      if (typeof op.entityType === "string" && op.entityType.trim()) {
+        types.push(op.entityType);
+      }
+    }
+    return types;
+  }
+
+  if (
+    params &&
+    String(params.operation || "").toUpperCase() === "DELETE_ENTITY" &&
+    params.params &&
+    params.params.entityType
+  ) {
+    types.push(params.params.entityType);
+  }
+  return types;
 }
 
 module.exports = {

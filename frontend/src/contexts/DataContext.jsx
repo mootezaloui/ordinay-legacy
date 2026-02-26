@@ -639,20 +639,113 @@ export function DataProvider({ children }) {
 
       const entityType = String(detail.entityType || "").toLowerCase();
       const entityId = Number(detail.entityId || 0);
+      const operation = String(detail.operation || "update").toLowerCase();
       if (!Number.isInteger(entityId) || entityId <= 0) return;
 
       const upsertInList = (prev, nextRow) => {
-        if (!Array.isArray(prev) || prev.length === 0) return prev;
+        if (!Array.isArray(prev) || prev.length === 0) {
+          if (operation === "create") {
+            const createdRow = typeof nextRow === "function" ? nextRow({}) : nextRow;
+            return createdRow ? [createdRow] : prev;
+          }
+          return prev;
+        }
         let changed = false;
         const next = prev.map((row) => {
           if (Number(row?.id) !== entityId) return row;
           changed = true;
           return typeof nextRow === "function" ? nextRow(row) : { ...row, ...nextRow };
         });
-        return changed ? next : prev;
+        if (changed) return next;
+        if (operation === "create") {
+          const createdRow = typeof nextRow === "function" ? nextRow({}) : nextRow;
+          return createdRow ? [...prev, createdRow] : prev;
+        }
+        return prev;
+      };
+
+      const removeFromList = (prev) => {
+        if (!Array.isArray(prev) || prev.length === 0) return prev;
+        const next = prev.filter((row) => Number(row?.id) !== entityId);
+        return next.length === prev.length ? prev : next;
       };
 
       try {
+        if (operation === "delete") {
+          if (entityType === "client") {
+            setClients((prev) => {
+              const next = removeFromList(prev);
+              if (next !== prev) debouncedSaveToStorage("clients", next);
+              return next;
+            });
+            return;
+          }
+          if (entityType === "dossier") {
+            setDossiers((prev) => {
+              const next = removeFromList(prev);
+              if (next !== prev) debouncedSaveToStorage("dossiers", next);
+              return next;
+            });
+            return;
+          }
+          if (entityType === "lawsuit") {
+            setLawsuits((prev) => {
+              const next = removeFromList(prev);
+              if (next !== prev) debouncedSaveToStorage("lawsuits", next);
+              return next;
+            });
+            return;
+          }
+          if (entityType === "task") {
+            setTasks((prev) => {
+              const next = removeFromList(prev);
+              if (next !== prev) debouncedSaveToStorage("tasks", next);
+              return next;
+            });
+            return;
+          }
+          if (entityType === "session") {
+            setSessions((prev) => {
+              const next = removeFromList(prev);
+              if (next !== prev) debouncedSaveToStorage("sessions", next);
+              return next;
+            });
+            return;
+          }
+          if (entityType === "mission") {
+            setMissions((prev) => {
+              const next = removeFromList(prev);
+              if (next !== prev) debouncedSaveToStorage("missions", next);
+              return next;
+            });
+            return;
+          }
+          if (entityType === "officer") {
+            setOfficers((prev) => {
+              const next = removeFromList(prev);
+              if (next !== prev) debouncedSaveToStorage("officers", next);
+              return next;
+            });
+            return;
+          }
+          if (entityType === "personal_task") {
+            setPersonalTasks((prev) => {
+              const next = removeFromList(prev);
+              if (next !== prev) debouncedSaveToStorage("personalTasks", next);
+              return next;
+            });
+            return;
+          }
+          if (entityType === "financial_entry") {
+            setFinancialEntries((prev) => {
+              const next = removeFromList(prev);
+              if (next !== prev) debouncedSaveToStorage("financialEntries", next);
+              return next;
+            });
+            return;
+          }
+        }
+
         if (entityType === "client") {
           const apiRow = await apiClient.get(`/clients/${entityId}`);
           if (cancelled || !apiRow) return;

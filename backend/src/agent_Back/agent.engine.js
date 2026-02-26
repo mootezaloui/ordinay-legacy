@@ -4,6 +4,7 @@ const Ajv = require("ajv");
 const addFormats = require("ajv-formats");
 
 const ConversationContextStore = require("./context/conversation.context");
+const { ConversationScopeManager } = require("./context/conversationScopeManager");
 const RuleReasoner = require("./reasoners/rule.reasoner");
 const AgentLedgerService = require("./ledger/agent.ledger.service");
 const { initializeToolRegistry } = require("./tools");
@@ -64,6 +65,13 @@ class AgentEngine {
 
     // Initialize Conversation Context Store for follow-up handling
     this.contextStore = options.contextStore || new ConversationContextStore();
+    // Scope manager is an event-driven layer over the existing operational context store.
+    this.scopeManager =
+      options.scopeManager ||
+      new ConversationScopeManager({
+        contextStore: this.contextStore,
+        ledger: this.ledger,
+      });
 
     // Initialize Tool Registry and Firewall
     this.toolRegistry = options.toolRegistry || initializeToolRegistry();

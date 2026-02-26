@@ -30,6 +30,7 @@ import {
 import { ExplanationArtifact } from "./artifacts/ExplanationArtifact";
 import { RiskArtifact } from "./artifacts/RiskArtifact";
 import { DraftArtifact } from "./artifacts/DraftArtifact";
+import { DocumentDraftArtifact } from "./artifacts/DocumentDraftArtifact";
 import { ActionArtifact } from "./artifacts/ActionArtifact";
 import { ProposalArtifact } from "./artifacts/ProposalArtifact";
 import { SemanticConfirmationErrorBoundary } from "./artifacts/confirmation/SemanticConfirmationErrorBoundary";
@@ -1357,6 +1358,106 @@ function ArtifactBody({
           }
         }}
       />
+    );
+  }
+  if (dataType === "document_draft" && message.data?.documentDraft) {
+    const draftData = message.data.documentDraft;
+    const proposalData = message.data.proposal;
+    return (
+      <div className="space-y-3">
+        <DocumentDraftArtifact
+          data={draftData}
+          onSave={({ title, content }) => {
+            if (!activeSessionId || !activeSessionMessages || !updateSessionMessages) return;
+            const updatedMessages = activeSessionMessages.map((msg) => {
+              if (msg.id !== message.id) return msg;
+              if (msg.data?.type !== "document_draft" || !msg.data?.documentDraft) return msg;
+              return {
+                ...msg,
+                data: {
+                  ...msg.data,
+                  documentDraft: {
+                    ...msg.data.documentDraft,
+                    title,
+                    content,
+                  },
+                },
+              };
+            });
+            updateSessionMessages(activeSessionId, updatedMessages);
+          }}
+        />
+        {proposalData ? (
+          <SemanticConfirmationErrorBoundary>
+            <ProposalArtifact
+              data={proposalData}
+              onConfirm={async (proposalId, options) => {
+                const sessionId = proposalData.sessionId;
+                const execResult = await confirmProposal(proposalId, sessionId, options);
+                if (activeSessionId && activeSessionMessages && updateSessionMessages) {
+                  const safeMsg =
+                    execResult.error?.safeMessage ||
+                    execResult.error?.message ||
+                    "Execution failed";
+                  const nextMessages = activeSessionMessages.map((msg) => {
+                    if (msg.id !== message.id) return msg;
+                    if (!msg.data?.proposal) return msg;
+                    return {
+                      ...msg,
+                      data: {
+                        ...msg.data,
+                        proposal: {
+                          ...msg.data.proposal,
+                          proposals: (msg.data.proposal.proposals || []).map((p) =>
+                            p.proposalId !== proposalId
+                              ? p
+                              : {
+                                  ...p,
+                                  uiState:
+                                    execResult.status === "success"
+                                      ? { status: "confirmed" as const, executionResult: execResult }
+                                      : {
+                                          status: "failed" as const,
+                                          error: safeMsg,
+                                          executionResult: execResult,
+                                        },
+                                },
+                          ),
+                        },
+                      },
+                    };
+                  });
+                  updateSessionMessages(activeSessionId, nextMessages);
+                }
+                return execResult;
+              }}
+              onCancel={(proposalId) => {
+                if (activeSessionId && activeSessionMessages && updateSessionMessages) {
+                  const nextMessages = activeSessionMessages.map((msg) => {
+                    if (msg.id !== message.id) return msg;
+                    if (!msg.data?.proposal) return msg;
+                    return {
+                      ...msg,
+                      data: {
+                        ...msg.data,
+                        proposal: {
+                          ...msg.data.proposal,
+                          proposals: (msg.data.proposal.proposals || []).map((p) =>
+                            p.proposalId !== proposalId
+                              ? p
+                              : { ...p, uiState: { status: "cancelled" as const } },
+                          ),
+                        },
+                      },
+                    };
+                  });
+                  updateSessionMessages(activeSessionId, nextMessages);
+                }
+              }}
+            />
+          </SemanticConfirmationErrorBoundary>
+        ) : null}
+      </div>
     );
   }
   if (dataType === "actions" && message.data?.actionProposals) {

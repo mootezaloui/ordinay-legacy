@@ -551,6 +551,25 @@ function detectDataRequirements(message, context = {}) {
  */
 function extractEntityHints(message) {
   const hints = [];
+  const isWeakEntityNameHint = (value) => {
+    const text = String(value || "").trim().toLowerCase();
+    if (!text) return true;
+    if (
+      /^(is|are|was|were|do|does|did|can|could|would|will|should|has|have|had)\b/.test(
+        text,
+      )
+    ) {
+      return true;
+    }
+    if (
+      /^(is\s+that\s+(right|correct|true)|am\s+i\s+right|isn'?t\s+it|right|correct|true)$/.test(
+        text,
+      )
+    ) {
+      return true;
+    }
+    return false;
+  };
 
   // Pattern: "about X" or "regarding X" (e.g., "tell me about Youssef Daly")
   const aboutMatch = message.match(
@@ -652,7 +671,7 @@ function extractEntityHints(message) {
   const dossierNameMatch = message.match(
     /(dossier|case\s*file|matter)\s+(?:named\s+)?([A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+)*)/i,
   );
-  if (dossierNameMatch)
+  if (dossierNameMatch && !isWeakEntityNameHint(dossierNameMatch[2]))
     hints.push({
       type: "name",
       value: dossierNameMatch[2],
@@ -663,7 +682,7 @@ function extractEntityHints(message) {
   const lawsuitNameMatch = message.match(
     /(lawsuit|case|trial)\s+(?:named\s+)?([A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+)*)/i,
   );
-  if (lawsuitNameMatch)
+  if (lawsuitNameMatch && !isWeakEntityNameHint(lawsuitNameMatch[2]))
     hints.push({
       type: "name",
       value: lawsuitNameMatch[2],
@@ -674,7 +693,7 @@ function extractEntityHints(message) {
   const taskNameMatch = message.match(
     /(task|personal\s+task)\s+(?:named\s+)?([A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+)*)/i,
   );
-  if (taskNameMatch) {
+  if (taskNameMatch && !isWeakEntityNameHint(taskNameMatch[2])) {
     const type = String(taskNameMatch[1]).toLowerCase().includes("personal")
       ? "personal_task"
       : "task";
@@ -689,7 +708,7 @@ function extractEntityHints(message) {
   const sessionNameMatch = message.match(
     /(session|hearing|meeting)\s+(?:named\s+)?([A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+)*)/i,
   );
-  if (sessionNameMatch)
+  if (sessionNameMatch && !isWeakEntityNameHint(sessionNameMatch[2]))
     hints.push({
       type: "name",
       value: sessionNameMatch[2],
@@ -700,7 +719,7 @@ function extractEntityHints(message) {
   const missionNameMatch = message.match(
     /(mission)\s+(?:named\s+)?([A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+)*)/i,
   );
-  if (missionNameMatch)
+  if (missionNameMatch && !isWeakEntityNameHint(missionNameMatch[2]))
     hints.push({
       type: "name",
       value: missionNameMatch[2],
@@ -711,7 +730,7 @@ function extractEntityHints(message) {
   const officerNameMatch = message.match(
     /(officer|bailiff|huissier)\s+(?:named\s+)?([A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+)*)/i,
   );
-  if (officerNameMatch)
+  if (officerNameMatch && !isWeakEntityNameHint(officerNameMatch[2]))
     hints.push({
       type: "name",
       value: officerNameMatch[2],
@@ -859,9 +878,16 @@ function detectDraftIntent(message, context = {}) {
     return null;
   }
 
-  // Verb-first detection: draft, write, compose, prepare, rédiger
+  // Verb-first detection for drafting/generation.
+  // "generate/create" only count as drafting when paired with a document-like noun.
   const draftVerbPattern = /\b(draft|write|compose|prepare|rédiger|rediger)\b/i;
-  if (!draftVerbPattern.test(normalized)) {
+  const generationVerbPattern = /\b(generate|create|produce)\b/i;
+  const documentLikeNounPattern =
+    /\b(document|letter|message|email|mail|petition|motion|request|application|memorandum|memo|brief|draft|courrier|lettre|عريضة|طلب|وثيقة|مذكرة)\b/i;
+  const hasDraftVerb = draftVerbPattern.test(normalized);
+  const hasGenerationDraftCue =
+    generationVerbPattern.test(normalized) && documentLikeNounPattern.test(normalized);
+  if (!hasDraftVerb && !hasGenerationDraftCue) {
     return null;
   }
 
@@ -939,7 +965,7 @@ function detectDraftIntent(message, context = {}) {
 
   // Extract "for X" patterns specific to drafting context
   const forMatch = message.match(
-    /(?:draft|write|compose|prepare|rédiger|rediger)\s+(?:an?\s+)?(?:\w+\s+){0,3}(?:for|pour)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)/i,
+    /(?:draft|write|compose|prepare|rédiger|rediger|generate|create|produce)\s+(?:an?\s+)?(?:\w+\s+){0,4}(?:for|pour)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)/i,
   );
   if (forMatch && !entityHints.some((h) => h.value === forMatch[1].trim())) {
     entityHints.push({ type: "name", value: forMatch[1].trim() });

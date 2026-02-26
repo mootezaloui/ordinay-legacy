@@ -240,6 +240,34 @@ function isReadIntent(intentName) {
   );
 }
 
+function isStrongEntityHintForTarget(hint, entityType) {
+  const kind = String(hint?.type || "").toLowerCase();
+  if (!["id", "name", "reference"].includes(kind)) return false;
+  const hintedType = normalizeEntityType(hint?.entityType);
+  // Untyped hints can still target the current entity ("show dossier X").
+  if (!hintedType) return true;
+  return hintedType === entityType;
+}
+
+function shouldDeferReadAmbiguityUntilAfterTools(readIntent) {
+  const value = String(readIntent?.intent || "").toUpperCase();
+  if (!value) return false;
+  const entityType = deriveEntityTypeFromReadIntent(readIntent);
+  const hints = Array.isArray(readIntent?.entityHints) ? readIntent.entityHints : [];
+  const hasStrongTargetHint = hints.some((hint) =>
+    isStrongEntityHintForTarget(hint, entityType),
+  );
+  // Collection / aggregate / status-style reads should execute tools first.
+  if (value.startsWith("LIST_")) return !hasStrongTargetHint;
+  if (value.startsWith("COUNT_")) return true;
+  if (value.startsWith("EXISTS_")) return true;
+  if (value.startsWith("STATUS_")) return true;
+  // In this codebase, status and summary flows are represented as EXPLAIN_* / SUMMARIZE_*.
+  if (value.startsWith("EXPLAIN_")) return true;
+  if (value.startsWith("SUMMARIZE_")) return true;
+  return false;
+}
+
 function deriveEntityTypeFromReadIntent(readIntent) {
   const name = String(readIntent?.intent || "").toUpperCase();
   if (!name) return "";
@@ -296,7 +324,7 @@ function deriveTarget(message, readIntent, draftIntent) {
       ? readIntent.entityHints
       : [];
     const hasStrongHint = hints.some((hint) =>
-      ["id", "name", "reference"].includes(String(hint?.type || "")),
+      isStrongEntityHintForTarget(hint, entityType),
     );
     if (
       isListIntent(readIntent.intent) &&
@@ -323,7 +351,10 @@ function deriveTarget(message, readIntent, draftIntent) {
     const originalIntent = (() => {
       const rawIntent = String(readIntent.intent || "CHATBOT_AGENT_MODE");
       if (!isListIntent(rawIntent)) return rawIntent;
-      if (hasStrongHint || isLikelySingularMessage(message, entityType)) {
+      // Only coerce LIST_* → READ_* when we have a concrete identifier-ish hint.
+      // Singular wording alone ("open dossier?", "client status?") is often a
+      // scoped list/existence question and should stay on the READ pipeline.
+      if (hasStrongHint) {
         return listToRead[rawIntent] || rawIntent;
       }
       return rawIntent;
@@ -397,7 +428,7 @@ function shouldRequireEntityForRead({
   if (selectedHint) return true;
   const value = String(readIntent.intent || "").toUpperCase();
   if (value.startsWith("LIST_")) {
-    return isLikelySingularMessage(message, entityType);
+    return false;
   }
   const normalized = String(message || "").toLowerCase();
   if (/\b(my|all)\b/.test(normalized)) return false;
@@ -412,6 +443,33 @@ function isLikelySingularMessage(message, entityType) {
   const pluralPattern = ENTITY_PLURAL_HINTS[entityType];
   if (pluralPattern && pluralPattern.test(text)) return false;
   return ENTITY_KEYWORDS[entityType]?.test(text) === true;
+}
+
+function isLikelyQuestionTail(value) {
+  const text = String(value || "").trim().toLowerCase();
+  if (!text) return true;
+  if (
+    /^(is|are|was|were|do|does|did|can|could|would|will|should|has|have|had)\b/.test(
+      text,
+    )
+  ) {
+    return true;
+  }
+  if (
+    /^(right|correct|true|ok|okay|yes|no|status|state|summary|overview)$/.test(
+      text,
+    )
+  ) {
+    return true;
+  }
+  if (
+    /^(is\s+that\s+(right|correct|true)|am\s+i\s+right|isn'?t\s+it|does\s+it\s+exist)$/.test(
+      text,
+    )
+  ) {
+    return true;
+  }
+  return false;
 }
 
 function extractHintFromMessage(entityType, message) {
@@ -449,6 +507,9 @@ function extractHintFromMessage(entityType, message) {
         "week",
       ].includes(low)
     ) {
+      return null;
+    }
+    if (isLikelyQuestionTail(raw)) {
       return null;
     }
     return { mode: "name", identifier: raw };
@@ -924,6 +985,9 @@ async function resolveChatAmbiguity({
 
   const readIntent = detectReadIntent(userMessage, executionContext);
   const draftIntent = detectDraftIntent(userMessage, executionContext);
+  if (readIntent && shouldDeferReadAmbiguityUntilAfterTools(readIntent)) {
+    return { status: "skipped" };
+  }
   const target = deriveTarget(userMessage, readIntent, draftIntent);
   if (!target?.entityType) {
     return { status: "skipped" };

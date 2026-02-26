@@ -4,6 +4,7 @@ const { TOOL_DOMAIN_MAP } = require("../tools/tool.firewall");
 const { generateToolCallingTurn, generateChatResponse } = require("../llm.client");
 const { resolveInteractionPosture, POSTURES } = require("../posture.resolver");
 const { filterToolsForChat } = require("./chat.tool.exposure");
+const { rankExposedToolsForMessage, DEFAULT_TOOL_CAP } = require("./chat.tool.ranker");
 const { resolveChatAmbiguity } = require("./chat.ambiguity.resolver");
 const {
   detectMutationIntent,
@@ -21,9 +22,13 @@ const {
   logMutationIntentActionOutcome,
 } = require("./chat.mutationIntentLogging");
 const { resolveAdaptiveMutationRemediation } = require("../engine/agentMutationConstraintResolver");
+const { planEntityCreation } = require("../mutations/entityCreationPlanner");
 const { detectDraftIntent, isSlashCommand, parseSlashCommand } = require("../intent.classifier");
+const { detectDocumentGenerationIntent } = require("../documentGeneration.intent");
 const { toProposalArtifact } = require("../proposals/proposalArtifact");
 const operatorsService = require("../../services/operators.service");
+const documentGenerationService = require("../../services/documentGeneration/documentGeneration.service");
+const documentGenerationPreviewService = require("../../services/documentGeneration/documentGenerationPreview.service");
 const {
   resolveClientQuery,
   resolveDossierQuery,
@@ -75,6 +80,11 @@ const CHAT_MUTATION_DEBUG_ENABLED =
 const CHAT_ADAPTIVE_DOMAIN_CONSTRAINTS_ENABLED = ["1", "true", "yes", "on"].includes(
   String(process.env.AGENT_ADAPTIVE_DOMAIN_CONSTRAINTS ?? "1").toLowerCase(),
 );
+function isScopeBindingEnabled() {
+  return ["1", "true", "yes", "on"].includes(
+    String(process.env.AGENT_SCOPE_BINDING_ENABLED ?? "1").toLowerCase(),
+  );
+}
 
 function toErrorCode(message, fallback = "TOOL_EXECUTION_FAILED") {
   const raw = String(message || "").trim();
@@ -110,6 +120,7 @@ class ChatAgentService {
     this.mutationIntentExtractor = mutationIntentExtractor || generateChatResponse;
     this.maxToolRounds = maxToolRounds || MAX_TOOL_ROUNDS;
     this.maxCompletionTokens = maxCompletionTokens || MAX_COMPLETION_TOKENS;
+    this.scopeManager = engine.scopeManager || null;
   }
 
   async run({
@@ -272,16 +283,35 @@ class ChatAgentService {
           ? requestContext.dataAccess
           : {},
     };
+    const documentGenerationIntent = await detectDocumentGenerationIntent(
+      effectiveUserMessage,
+      requestContext,
+    );
+    const documentGenerationResponse =
+      documentGenerationIntent
+        ? await this._tryHandleDocumentGenerationChatIntent({
+            generationRequest: documentGenerationIntent,
+            requestContext,
+            executionContext,
+            policy,
+            userMessage: effectiveUserMessage,
+          })
+        : null;
+    if (documentGenerationResponse) {
+      return documentGenerationResponse;
+    }
 
     const conversationalMutationProposal =
-      await this._tryHandleStrongMutationIntentDetection({
-        userMessage,
-        effectiveUserMessage,
-        requestContext,
-        executionContext,
-        llmHistory,
-        policy,
-      });
+      ((draftIntent && draftIntent.intent) || documentGenerationIntent)
+        ? null
+        : await this._tryHandleStrongMutationIntentDetection({
+            userMessage,
+            effectiveUserMessage,
+            requestContext,
+            executionContext,
+            llmHistory,
+            policy,
+          });
     if (conversationalMutationProposal) {
       return conversationalMutationProposal;
     }
@@ -319,6 +349,7 @@ class ChatAgentService {
     const exposedTools = this._selectToolsForMessage(
       effectiveUserMessage,
       allExposedTools,
+      { executionContext, llmHistory },
     );
     const ambiguityResolution = resolvedSelection
       ? {
@@ -496,6 +527,13 @@ class ChatAgentService {
       posture,
       conversationId: requestContext.conversationId || null,
       toolCount: exposedTools.length,
+      toolExposureCap: DEFAULT_TOOL_CAP,
+      exposedToolRanks: exposedTools.map((tool) => ({
+        name: tool.name,
+        rank: tool.rank || null,
+        score: tool.rankScore ?? null,
+        reason: tool.rankReason || null,
+      })),
       timestamp: new Date().toISOString(),
     });
 
@@ -515,6 +553,22 @@ class ChatAgentService {
       const toolCalls = Array.isArray(assistant?.tool_calls)
         ? assistant.tool_calls
         : [];
+      if (toolCalls.length > 0) {
+        this.engine.ledger.record({
+          type: "chat_mode_tool_calls_requested",
+          conversationId: requestContext.conversationId || null,
+          requested: toolCalls.map((call) => {
+            const toolName = String(call?.function?.name || "").trim();
+            const exposed = exposedTools.find((tool) => tool.name === toolName);
+            return {
+              toolName,
+              rank: exposed?.rank || null,
+              score: exposed?.rankScore ?? null,
+            };
+          }),
+          timestamp: new Date().toISOString(),
+        });
+      }
       if (!toolCalls.length) {
         finalMessage = String(assistant?.content || "").trim();
         break;
@@ -616,6 +670,13 @@ class ChatAgentService {
   }
 
   _buildExposedTools(policy, executionContext) {
+    const toolSelectionMeta =
+      typeof this.engine.toolRegistry?.listForSelection === "function"
+        ? this.engine.toolRegistry.listForSelection({ agentVersion: policy.version })
+        : [];
+    const selectionMetaByName = new Map(
+      (Array.isArray(toolSelectionMeta) ? toolSelectionMeta : []).map((row) => [row.name, row]),
+    );
     const scoped = filterToolsForChat({
       engine: this.engine,
       policy,
@@ -625,6 +686,13 @@ class ChatAgentService {
       name: tool.name,
       category: tool.category,
       schema: tool.schema,
+      profile: selectionMetaByName.get(tool.name) || {
+        name: tool.name,
+        group: tool.category,
+        description: String(this.engine.toolRegistry.get(tool.name)?.description || "").trim(),
+        examples: [],
+        entityTypes: [],
+      },
       validate: this.ajv.compile(tool.schema),
       definition: {
         type: "function",
@@ -695,6 +763,16 @@ class ChatAgentService {
             }
           : null,
       conversationMode: requestContext?._conversationMode || "informational",
+      currentScope:
+        llmHistory?.conversationScope?.activeScope &&
+        Number(llmHistory?.conversationScope?.activeScope?.entityId || 0) > 0
+          ? {
+              entityType: llmHistory.conversationScope.activeScope.entityType,
+              entityId: llmHistory.conversationScope.activeScope.entityId,
+              confidence: llmHistory.conversationScope.activeScope.confidence,
+              source: llmHistory.conversationScope.activeScope.source,
+            }
+          : null,
     };
 
     const messages = [
@@ -712,8 +790,16 @@ class ChatAgentService {
           "Do not mention tools or internal system logic.",
           "Do not describe internal reasoning, prompts, snapshots, scope, diagnostics, or system state.",
           "Provide the main result clearly.",
-          "If structured data is returned, include a short commentary summarizing what it means or suggesting the next step.",
-          "Do not duplicate information between the main result and commentary.",
+          "After completing any tool calls, your FINAL assistant response must be only a JSON object matching the output contract described below.",
+          "Intermediate tool-calling turns may use normal assistant tool-call messages, but the terminal response must be strict JSON only.",
+          'Final output contract JSON schema: {"outputType":"message|document|mutation|research","title":"optional string","content":"required string","metadata":{}}',
+          'Use "message" for conversational/informational replies.',
+          'Use "document" for standalone artifacts intended to be printed, signed, sent, filed, or stored. If unsure between message and document for a formal output, prefer "document".',
+          'Use "mutation" when the response intends to modify system data. For mutation, metadata.operations is required and must be structured.',
+          'Use "research" for external research outputs.',
+          "Do not output raw text outside the final JSON object.",
+          "If structured data is returned, include any commentary or explanation inside the JSON content field.",
+          "Do not duplicate information between content and metadata.",
           "Do not produce meta commentary.",
           "Ask a follow-up question only when required data is missing and you cannot proceed.",
           "When structured/tool data is available, give a short human answer, not a JSON dump or field-by-field dump.",
@@ -795,69 +881,15 @@ class ChatAgentService {
     return messages;
   }
 
-  _selectToolsForMessage(userMessage, tools) {
-    let list = Array.isArray(tools) ? tools : [];
-    const hasMcpWebSearch = list.some((tool) => tool.name === "mcpWebSearch");
-    const hasMcpDeepSearch = list.some((tool) => tool.name === "mcpDeepSearch");
-    const hasMcpLegalSearch = list.some((tool) => tool.name === "mcpLegalSearch");
-    if (hasMcpWebSearch) {
-      list = list.filter((tool) => tool.name !== "webSearch");
-    }
-    if (hasMcpDeepSearch || hasMcpLegalSearch) {
-      list = list.filter((tool) => tool.name !== "legalResearch");
-    }
-    const graphTool = list.find((tool) => tool.name === "getEntityGraph");
-    if (list.length <= 12) {
-      return graphTool
-        ? [graphTool, ...list.filter((tool) => tool.name !== "getEntityGraph")]
-        : list;
-    }
-
-    const text = String(userMessage || "").toLowerCase();
-    const domainHints = [];
-    if (/\bclient|clients|customer|customers\b/.test(text)) domainHints.push("clients");
-    if (/\bdossier|dossiers|matter|matters|case|cases\b/.test(text))
-      domainHints.push("dossiers");
-    if (/\btask|tasks|todo|overdue\b/.test(text)) domainHints.push("tasks");
-    if (/\bsession|sessions|hearing|hearings\b/.test(text))
-      domainHints.push("sessions");
-    if (/\blawsuit|lawsuits|litigation\b/.test(text))
-      domainHints.push("lawsuits");
-    if (/\bfinancial|invoice|invoices|payment|payments|billing\b/.test(text))
-      domainHints.push("financialEntries");
-    if (/\bdocument|documents|doc|docs|pdf|file|files|attachment|attachments|summarize|summary|read\b/.test(text))
-      domainHints.push("documents");
-
-    const filtered =
-      domainHints.length > 0
-        ? list.filter((tool) => {
-            const domain = TOOL_DOMAIN_MAP[tool.name] || "";
-            return domainHints.includes(domain);
-          })
-        : [];
-
-    if (filtered.length > 0) {
-      if (graphTool && !filtered.some((tool) => tool.name === "getEntityGraph")) {
-        return [graphTool, ...filtered].slice(0, 12);
-      }
-      return filtered.slice(0, 12);
-    }
-
-    const preferred = list.filter((tool) => {
-      const domain = TOOL_DOMAIN_MAP[tool.name] || "";
-      return domain === "web" || domain === "legal";
+  _selectToolsForMessage(userMessage, tools, { executionContext = {}, llmHistory = {} } = {}) {
+    const ranked = rankExposedToolsForMessage({
+      userMessage,
+      tools,
+      executionContext,
+      llmHistory,
+      cap: DEFAULT_TOOL_CAP,
     });
-    if (preferred.length > 0) {
-      const picked = [...preferred, ...list.filter((tool) => !preferred.includes(tool))];
-      if (graphTool && !picked.some((tool) => tool.name === "getEntityGraph")) {
-        return [graphTool, ...picked].slice(0, 12);
-      }
-      return picked.slice(0, 12);
-    }
-    if (graphTool) {
-      return [graphTool, ...list.filter((tool) => tool.name !== "getEntityGraph")].slice(0, 12);
-    }
-    return list.slice(0, 12);
+    return ranked.tools;
   }
 
   async _tryHandleExplicitMutationSlashCommand({
@@ -959,7 +991,17 @@ class ChatAgentService {
         suppressMutationDetectionUntilResolved: true,
       });
 
-      const proposalArtifact = toProposalArtifact(proposal, executionContext.sessionId);
+      const artifactProposal =
+        bindingAudit && bindingAudit.applied
+          ? {
+              ...proposal,
+              confirmation: {
+                ...(proposal?.confirmation || {}),
+                scopeBinding: bindingAudit,
+              },
+            }
+          : proposal;
+      const proposalArtifact = toProposalArtifact(artifactProposal, executionContext.sessionId);
       const toolExecutions = [
         {
           ok: true,
@@ -1111,10 +1153,24 @@ class ChatAgentService {
   _resolveChatMutationExecutionMode({ requestContext = {}, detectorResult = null } = {}) {
     if (detectorResult?.requiresExtraConfirmation === true) return "confirm";
     const metadata = requestContext?.requestMetadata || {};
-    if (String(metadata.chatMutationExecutionMode || "").toLowerCase() === "auto_execute") {
-      return "auto_execute";
+    const metadataRequestedAutoExecute =
+      String(metadata.chatMutationExecutionMode || "").toLowerCase() === "auto_execute" ||
+      metadata.autoExecuteMutations === true;
+    const devAutoExecuteEnabled =
+      String(process.env.AGENT_DEV_ALLOW_AUTO_EXECUTE || "").toLowerCase() === "true" &&
+      String(process.env.NODE_ENV || "").toLowerCase() !== "production";
+
+    if (metadataRequestedAutoExecute && !devAutoExecuteEnabled) {
+      this.engine?.ledger?.record?.({
+        type: "chat_mutation_auto_execute_blocked",
+        sourceRoute: "/agent/chat",
+        reason: "DEV_FLAG_DISABLED",
+        timestamp: new Date().toISOString(),
+      });
+      return "confirm";
     }
-    if (metadata.autoExecuteMutations === true) {
+
+    if (metadataRequestedAutoExecute && devAutoExecuteEnabled) {
       return "auto_execute";
     }
     return "confirm";
@@ -1122,6 +1178,10 @@ class ChatAgentService {
 
   _adaptiveDomainConstraintsEnabled() {
     return CHAT_ADAPTIVE_DOMAIN_CONSTRAINTS_ENABLED;
+  }
+
+  _scopeBindingEnabled() {
+    return isScopeBindingEnabled();
   }
 
   async _createMutationWorkflowProposal({
@@ -1414,7 +1474,17 @@ class ChatAgentService {
         },
         suppressMutationDetectionUntilResolved: true,
       });
-      const proposalArtifact = toProposalArtifact(proposal, executionContext.sessionId);
+      const artifactProposal =
+        bindingAudit && bindingAudit.applied
+          ? {
+              ...proposal,
+              confirmation: {
+                ...(proposal?.confirmation || {}),
+                scopeBinding: bindingAudit,
+              },
+            }
+          : proposal;
+      const proposalArtifact = toProposalArtifact(artifactProposal, executionContext.sessionId);
       const finalMessage = this._buildAdaptiveWorkflowOutcomeMessage({
         status: "PROPOSED",
         resolverResult,
@@ -1733,6 +1803,7 @@ class ChatAgentService {
     detectorResult,
     policy,
     executionContext,
+    userMessage,
   }) {
     this._debugChatMutation("create_mutation_proposal:start", {
       operation: detectorResult?.proposalInput?.operation || null,
@@ -1742,11 +1813,89 @@ class ChatAgentService {
       payloadKeys: Object.keys(detectorResult?.proposalInput?.payload || {}),
       confidence: detectorResult?.scores?.finalConfidence ?? null,
     });
-    const toolArgs = await this._enrichCreateMutationProposalInputWithContext({
-      detectorResult,
-      policy,
-      executionContext,
-    });
+    let bindingAudit = null;
+    let toolArgs;
+    if (
+      this._scopeBindingEnabled() &&
+      this.scopeManager &&
+      typeof this.scopeManager.resolveBindingsForProposalInput === "function"
+    ) {
+      const scopeBinding = await this.scopeManager.resolveBindingsForProposalInput({
+        proposalInput: detectorResult?.proposalInput || {},
+        requestContext: executionContext,
+        executionContext,
+        lookupFns: {},
+        // Wrap existing ad-hoc deterministic enrichment instead of duplicating it.
+        legacyEnricher: async (proposalInputCandidate) =>
+          this._enrichCreateMutationProposalInputWithContext({
+            detectorResult: { ...detectorResult, proposalInput: proposalInputCandidate },
+            policy,
+            executionContext,
+          }),
+      });
+      bindingAudit = scopeBinding?.bindingAudit || null;
+      if (scopeBinding?.clarification?.message) {
+        const err = new Error(scopeBinding.clarification.message);
+        err.code = "CREATE_PLANNER_CLARIFY";
+        err.clarificationQuestions = [scopeBinding.clarification.message];
+        throw err;
+      }
+      toolArgs = scopeBinding?.proposalInput || detectorResult?.proposalInput || {};
+    } else {
+      toolArgs = await this._enrichCreateMutationProposalInputWithContext({
+        detectorResult,
+        policy,
+        executionContext,
+      });
+    }
+    let plannerResult = null;
+    if (String(toolArgs?.operation || "").toLowerCase() === "create") {
+      plannerResult = await planEntityCreation(
+        {
+          entityType: toolArgs?.entityType,
+          resolvedEntityContext: { parent: toolArgs?.parent || null },
+          conversationContext: String(userMessage || ""),
+          extractedSignals: {
+            parent: toolArgs?.parent || null,
+            detector: {
+              confidence: detectorResult?.scores?.finalConfidence ?? null,
+              reasonCode: detectorResult?.reasonCode || detectorResult?.stage3Decision?.reason || null,
+            },
+          },
+        },
+        {
+          logger: (entry) => this._debugChatMutation("entity_creation_planner", entry),
+        },
+      );
+      this._debugChatMutation("create_mutation_proposal:planner_result", {
+        hasPayload: Boolean(plannerResult?.enrichedPayload),
+        clarificationCount: Array.isArray(plannerResult?.clarificationQuestions)
+          ? plannerResult.clarificationQuestions.length
+          : 0,
+        confidence: plannerResult?.confidence ?? null,
+        source: plannerResult?.source || null,
+        semanticProfile: plannerResult?.semanticProfile || null,
+      });
+      if (Array.isArray(plannerResult?.clarificationQuestions) && plannerResult.clarificationQuestions.length > 0) {
+        const err = new Error(plannerResult.clarificationQuestions[0]);
+        err.code = "CREATE_PLANNER_CLARIFY";
+        err.clarificationQuestions = plannerResult.clarificationQuestions;
+        err.plannerResult = plannerResult;
+        throw err;
+      }
+      if (plannerResult?.enrichedPayload && typeof plannerResult.enrichedPayload === "object") {
+        const existingPayload = toolArgs.payload && typeof toolArgs.payload === "object" ? { ...toolArgs.payload } : {};
+        toolArgs.payload = { ...existingPayload, ...plannerResult.enrichedPayload };
+        for (const fk of ["client_id", "dossier_id", "lawsuit_id", "mission_id", "task_id"]) {
+          if (Object.prototype.hasOwnProperty.call(existingPayload, fk) && existingPayload[fk] != null) {
+            toolArgs.payload[fk] = existingPayload[fk];
+          }
+        }
+      }
+      if (typeof plannerResult?.semanticProfile?.summary === "string" && plannerResult.semanticProfile.summary.trim()) {
+        toolArgs.reasoningSummary = plannerResult.semanticProfile.summary.trim().slice(0, 280);
+      }
+    }
     this._debugChatMutation("create_mutation_proposal:tool_args_enriched", {
       operation: toolArgs?.operation || null,
       entityType: toolArgs?.entityType || null,
@@ -1761,6 +1910,7 @@ class ChatAgentService {
       strongMutationIntent: true,
       explicitMutationCommand: false,
       sourceRoute: "/agent/chat",
+      creationPlannerMeta: plannerResult || null,
     };
     const v2Result = await this.engine.executeToolV2(
       "propose_entity_mutation",
@@ -1781,7 +1931,7 @@ class ChatAgentService {
       err.code = "MUTATION_PROPOSAL_INVALID";
       throw err;
     }
-    return { proposal, toolArgs, stage3ExecutionContext };
+    return { proposal, toolArgs, stage3ExecutionContext, plannerResult, bindingAudit };
   }
 
   async _enrichCreateMutationProposalInputWithContext({
@@ -1936,8 +2086,36 @@ class ChatAgentService {
         detectorResult,
         policy: mutationPolicy,
         executionContext,
+        userMessage,
       });
     } catch (error) {
+      if (String(error?.code || "").toUpperCase() === "CREATE_PLANNER_CLARIFY") {
+        const finalMessage = String(
+          Array.isArray(error?.clarificationQuestions) && error.clarificationQuestions.length > 0
+            ? error.clarificationQuestions[0]
+            : error?.message || "I need one more detail before I can prepare this new record.",
+        );
+        this._recordTranscript({
+          requestContext,
+          userMessage,
+          finalMessage,
+          posture: "WORK",
+          toolExecutions: [],
+        });
+        return {
+          message: finalMessage,
+          agentVersion: policy.version,
+          posture: "WORK",
+          toolExecutions: [],
+          stepCommentaries: [],
+          rounds: 0,
+          ambiguityArtifact: null,
+          resolutionMeta: { planner: error?.plannerResult || null },
+          availableTools: [],
+          suppressIntentFraming: true,
+          suppressCommentary: false,
+        };
+      }
       const adaptiveResponse = await this._tryAdaptiveWorkflowForBlockedMutation({
         error,
         detectorResult,
@@ -2007,7 +2185,7 @@ class ChatAgentService {
       };
     }
 
-    const { proposal, toolArgs: resolvedToolArgs } = proposalBundle;
+    const { proposal, toolArgs: resolvedToolArgs, bindingAudit } = proposalBundle;
     const proposalRequiresExtraConfirmation =
       detectorResult.requiresExtraConfirmation === true ||
       proposal?.confirmation?.extraRiskAck === true;
@@ -2035,6 +2213,7 @@ class ChatAgentService {
         detectionScores: detectorResult.scores || null,
         riskLevel: proposalRequiresExtraConfirmation ? "high" : detectorResult.risk || "low",
         requiresExtraConfirmation: proposalRequiresExtraConfirmation,
+        scopeBinding: bindingAudit || null,
       });
     }
 
@@ -2063,7 +2242,17 @@ class ChatAgentService {
         suppressMutationDetectionUntilResolved: true,
       });
 
-      const proposalArtifact = toProposalArtifact(proposal, executionContext.sessionId);
+      const artifactProposal =
+        bindingAudit && bindingAudit.applied
+          ? {
+              ...proposal,
+              confirmation: {
+                ...(proposal?.confirmation || {}),
+                scopeBinding: bindingAudit,
+              },
+            }
+          : proposal;
+      const proposalArtifact = toProposalArtifact(artifactProposal, executionContext.sessionId);
       const finalMessage = this._buildUserFacingMutationOutcomeMessage({
         status: "PROPOSED",
         detectorResult,
@@ -2679,6 +2868,12 @@ class ChatAgentService {
     const toolName = String(call?.function?.name || "").trim();
     const exposed = exposedTools.find((tool) => tool.name === toolName);
     if (!exposed) {
+      this.engine.ledger.record({
+        type: "chat_mode_tool_call_rejected",
+        toolName,
+        reason: "TOOL_NOT_EXPOSED",
+        timestamp: new Date().toISOString(),
+      });
       return {
         ok: false,
         toolName,
@@ -2703,6 +2898,12 @@ class ChatAgentService {
         args = JSON.parse(String(rawArgs || "{}"));
       }
     } catch (_) {
+      this.engine.ledger.record({
+        type: "chat_mode_tool_call_rejected",
+        toolName,
+        reason: "TOOL_ARGUMENTS_INVALID_JSON",
+        timestamp: new Date().toISOString(),
+      });
       return {
         ok: false,
         toolName,
@@ -2720,6 +2921,12 @@ class ChatAgentService {
 
     const valid = exposed.validate(args);
     if (!valid) {
+      this.engine.ledger.record({
+        type: "chat_mode_tool_call_rejected",
+        toolName,
+        reason: "TOOL_ARGUMENTS_SCHEMA_INVALID",
+        timestamp: new Date().toISOString(),
+      });
       return {
         ok: false,
         toolName,
@@ -2768,6 +2975,7 @@ class ChatAgentService {
       this.engine.ledger.record({
         type: "chat_mode_tool_call",
         toolName,
+        toolRank: exposed?.rank || null,
         success: true,
         timestamp: new Date().toISOString(),
       });
@@ -2784,12 +2992,13 @@ class ChatAgentService {
         },
       };
     } catch (error) {
-      const code = toErrorCode(error?.reason || error?.message);
+      const code = String(error?.code || toErrorCode(error?.reason || error?.message));
       const safeMessage =
         String(error?.message || "").trim() || "Tool execution failed.";
       this.engine.ledger.record({
         type: "chat_mode_tool_call",
         toolName,
+        toolRank: exposed?.rank || null,
         success: false,
         error: safeMessage,
         timestamp: new Date().toISOString(),
@@ -2863,6 +3072,38 @@ class ChatAgentService {
           }
         : null;
 
+    if (this.scopeManager && typeof this.scopeManager.applyEvent === "function") {
+      // Event hook: update scope using explicit structured outcomes from this completed chat turn.
+      if (requestContext?.resolvedEntity?.type && Number(requestContext?.resolvedEntity?.id) > 0) {
+        this.scopeManager.applyEvent(requestContext, {
+          type: "ENTITY_SELECTED_EXPLICIT",
+          entityType: requestContext.resolvedEntity.type,
+          entityId: requestContext.resolvedEntity.id,
+          source: "explicit",
+          resolutionPath: "explicit_selection",
+        });
+      } else if (inferredActiveEntity?.type && Number(inferredActiveEntity?.id) > 0) {
+        this.scopeManager.applyEvent(requestContext, {
+          type: "READ_ENTITY_UNAMBIGUOUS",
+          entityType: inferredActiveEntity.type,
+          entityId: inferredActiveEntity.id,
+          source:
+            inferredActiveEntity.source === "chat_resolved_selection"
+              ? "explicit"
+              : inferredActiveEntity.source === "chat_tool_result" ||
+                  inferredActiveEntity.source === "chat_entity_graph"
+                ? "show_command"
+                : "resolved",
+          resolutionPath:
+            inferredActiveEntity.source === "chat_resolved_selection"
+              ? "explicit_selection"
+              : "tool_single_entity",
+        });
+      } else if (pendingSelection) {
+        this.scopeManager.applyEvent(requestContext, { type: "READ_AMBIGUOUS" });
+      }
+    }
+
     const operationalStore = this.engine.contextStore?._operationalStore;
     if (
       operationalStore &&
@@ -2896,9 +3137,17 @@ class ChatAgentService {
   }
 
   _applyHistoricalScope({ requestContext = {}, llmHistory = {}, userMessage = "" } = {}) {
-    const active = llmHistory?.activeEntity;
-    const activeType = String(active?.type || "").toLowerCase();
-    const activeId = Number(active?.id || 0);
+    if (
+      this.scopeManager &&
+      typeof this.scopeManager.projectScopeToRequestContext === "function"
+    ) {
+      this.scopeManager.projectScopeToRequestContext({ requestContext, llmHistory });
+    }
+
+    const active =
+      llmHistory?.conversationScope?.activeScope || llmHistory?.activeEntity || requestContext?.activeEntity;
+    const activeType = String(active?.entityType || active?.type || "").toLowerCase();
+    const activeId = Number(active?.entityId || active?.id || 0);
     if (!activeType || !Number.isFinite(activeId) || activeId <= 0) return;
 
     const scopeKeyMap = {
@@ -3382,6 +3631,136 @@ class ChatAgentService {
         legalReference: legalReference || null,
         missingLawyerFields: operator.missing,
       })}`,
+    };
+  }
+
+  async _tryHandleDocumentGenerationChatIntent({
+    generationRequest,
+    requestContext,
+    executionContext,
+    policy,
+    userMessage,
+  } = {}) {
+    if (!generationRequest || typeof generationRequest !== "object") return null;
+
+    if (!generationRequest?.target?.type || !Number.isInteger(Number(generationRequest?.target?.id))) {
+      const finalMessage =
+        "I can generate this as a stored document preview, but I need the exact target record first (client, dossier, lawsuit, task, mission, or session).";
+      this._recordTranscript({
+        requestContext,
+        userMessage,
+        finalMessage,
+        posture: executionContext?.posture || "WORK",
+        toolExecutions: [],
+      });
+      return {
+        message: finalMessage,
+        intent: "DOCUMENT_GENERATION",
+        agentVersion: policy?.version || "v3",
+        posture: executionContext?.posture || "WORK",
+        toolExecutions: [],
+        stepCommentaries: [],
+        rounds: 0,
+        ambiguityArtifact: null,
+        outputArtifact: null,
+        resolutionMeta: null,
+        availableTools: [],
+      };
+    }
+
+    let plan;
+    try {
+      plan = await documentGenerationService.planDocument(generationRequest);
+    } catch (error) {
+      if (String(error?.code || "") === "TEMPLATE_NOT_FOUND") {
+        const outputArtifact = {
+          type: "document_generation_missing_fields",
+          message: error.message || "Template not found for the requested document.",
+          documentType: generationRequest?.documentType || null,
+          target: generationRequest?.target || null,
+          missingFields: [
+            {
+              path: "template",
+              label: "Template",
+              reason: "template_not_found",
+              example: "Install a template for this documentType/language/version.",
+            },
+          ],
+          schemaVersion: null,
+          templateKey: null,
+        };
+        const finalMessage =
+          "I recognized a document-generation request, but the required template is not available. I returned a generation artifact with the missing template requirement.";
+        this._recordTranscript({
+          requestContext,
+          userMessage,
+          finalMessage,
+          posture: executionContext?.posture || "WORK",
+          toolExecutions: [],
+          artifactType: "document_generation_missing_fields",
+          artifact: outputArtifact,
+        });
+        return {
+          message: finalMessage,
+          intent: "DOCUMENT_GENERATION",
+          agentVersion: policy?.version || "v3",
+          posture: executionContext?.posture || "WORK",
+          toolExecutions: [],
+          stepCommentaries: [],
+          rounds: 0,
+          ambiguityArtifact: null,
+          outputArtifact,
+          resolutionMeta: null,
+          availableTools: [],
+        };
+      }
+      throw error;
+    }
+
+    const outputArtifact =
+      plan?.status === "missing_fields"
+        ? {
+            type: "document_generation_missing_fields",
+            message: "Required fields are missing before generation.",
+            documentType: plan.documentType,
+            target: plan.target,
+            missingFields: plan.missingFields,
+            schemaVersion: plan.schemaVersion,
+            templateKey: plan.templateKey,
+          }
+        : documentGenerationPreviewService.createPreview(plan, {
+            conversationId: requestContext?.conversationId || null,
+            sessionId: executionContext?.sessionId || null,
+            createdBy: executionContext?.userId ? String(executionContext.userId) : null,
+          });
+
+    const finalMessage =
+      outputArtifact?.type === "document_generation_preview"
+        ? "I prepared a stored document generation preview artifact. Review it, then confirm to create and attach the generated document."
+        : "I prepared a document-generation requirements artifact showing the missing fields needed before generation.";
+
+    this._recordTranscript({
+      requestContext,
+      userMessage,
+      finalMessage,
+      posture: executionContext?.posture || "WORK",
+      toolExecutions: [],
+      artifactType: outputArtifact?.type || null,
+      artifact: outputArtifact || null,
+    });
+
+    return {
+      message: finalMessage,
+      intent: "DOCUMENT_GENERATION",
+      agentVersion: policy?.version || "v3",
+      posture: executionContext?.posture || "WORK",
+      toolExecutions: [],
+      stepCommentaries: [],
+      rounds: 0,
+      ambiguityArtifact: null,
+      outputArtifact,
+      resolutionMeta: null,
+      availableTools: [],
     };
   }
 

@@ -529,9 +529,11 @@ export default function AggregatedRelatedTab({
   };
 
   const handleDeleteItem = async (itemId) => {
+    const targetItem = localItems.find(item => item.id === itemId);
+    const itemName = targetItem && entityConfig.getTitle ? entityConfig.getTitle(targetItem) : entityConfig.title?.toLowerCase();
     if (await confirm({
-      title: t("dialog.detail.related.delete.title"),
-      message: t("dialog.detail.related.delete.message", { entity: t("detail.related.fallback.entity").toLowerCase() }),
+      title: t("dialog.detail.related.delete.title", { entity: itemName }),
+      message: t("dialog.detail.related.delete.message", { entity: itemName }),
       confirmText: t("dialog.detail.related.delete.confirm"),
       cancelText: t("dialog.detail.related.delete.cancel"),
       variant: "danger"

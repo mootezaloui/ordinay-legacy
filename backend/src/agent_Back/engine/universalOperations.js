@@ -628,7 +628,12 @@ async function executeMutationWorkflow(params, context) {
       : null;
   const canReachRequestedGoal = workflow.canReachRequestedGoal !== false;
 
-  if (!workflowType || !rootEntity || !rootEntity.type || !Number.isInteger(Number(rootEntity.id))) {
+  const isUniversalBatch = workflowType === 'UNIVERSAL_MUTATION_BATCH';
+  if (
+    !workflowType ||
+    (!isUniversalBatch &&
+      (!rootEntity || !rootEntity.type || !Number.isInteger(Number(rootEntity.id))))
+  ) {
     const err = new Error('workflowType and valid rootEntity are required');
     err.code = 'INVALID_WORKFLOW';
     throw err;
@@ -643,13 +648,30 @@ async function executeMutationWorkflow(params, context) {
   let stepsSucceeded = 0;
   for (const step of steps) {
     const actionType = String(step?.actionType || '').toUpperCase();
-    if (actionType !== 'UPDATE_ENTITY') {
-      const err = new Error(`Unsupported workflow step action: ${actionType || 'UNKNOWN'}`);
-      err.code = 'UNSUPPORTED_WORKFLOW_STEP_ACTION';
-      throw err;
-    }
     try {
-      const result = await executeUpdateEntity(step.params || {}, context);
+      let result;
+      switch (actionType) {
+        case 'CREATE_ENTITY':
+          result = await executeCreateEntity(step.params || {}, context);
+          break;
+        case 'UPDATE_ENTITY':
+          result = await executeUpdateEntity(step.params || {}, context);
+          break;
+        case 'DELETE_ENTITY':
+          result = await executeDeleteEntity(step.params || {}, context);
+          break;
+        case 'LINK_ENTITIES':
+          result = await executeLinkEntities(step.params || {}, context);
+          break;
+        case 'ATTACH_TO_ENTITY':
+          result = await executeAttachToEntity(step.params || {}, context);
+          break;
+        default: {
+          const err = new Error(`Unsupported workflow step action: ${actionType || 'UNKNOWN'}`);
+          err.code = 'UNSUPPORTED_WORKFLOW_STEP_ACTION';
+          throw err;
+        }
+      }
       stepResults.push({
         stepId: step.stepId || null,
         actionType,
@@ -675,7 +697,11 @@ async function executeMutationWorkflow(params, context) {
   }
 
   let goalReached = Boolean(canReachRequestedGoal);
-  if (requestedGoal && String(requestedGoal.operation || '').toLowerCase() === 'update') {
+  if (
+    rootEntity &&
+    requestedGoal &&
+    String(requestedGoal.operation || '').toLowerCase() === 'update'
+  ) {
     // If a workflow claims it can reach the goal, ensure the last matching update succeeded on the root entity.
     const lastRootUpdate = [...stepResults]
       .reverse()
@@ -697,10 +723,12 @@ async function executeMutationWorkflow(params, context) {
   return {
     ok: true,
     workflowType,
-    rootEntity: {
-      type: String(rootEntity.type || '').toLowerCase(),
-      id: Number(rootEntity.id),
-    },
+    rootEntity: rootEntity
+      ? {
+          type: String(rootEntity.type || '').toLowerCase(),
+          id: Number(rootEntity.id),
+        }
+      : null,
     stepsAttempted: steps.length,
     stepsSucceeded,
     stepsFailed: steps.length - stepsSucceeded,
