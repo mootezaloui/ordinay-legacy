@@ -159,15 +159,13 @@ export default function SearchableSelect({
     const updatePosition = () => {
       if (!isOpen || !inputRef.current) return;
       const rect = inputRef.current.getBoundingClientRect();
-      const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
-      const scrollX = window.scrollX || document.documentElement.scrollLeft || 0;
       const offset = 4; // small gap between input and dropdown
       const top = placement === "top"
-        ? rect.top + scrollY - offset
-        : rect.bottom + scrollY + offset;
-      const left = rect.left + scrollX;
+        ? rect.top - offset
+        : rect.bottom + offset;
+      const left = rect.left;
       setDropdownStyle({
-        position: "absolute",
+        position: "fixed",
         top,
         left,
         width: rect.width,
