@@ -285,21 +285,14 @@ function deriveEntityTypeFromReadIntent(readIntent) {
   return "";
 }
 
-function deriveDraftEntityType(draftIntent, message) {
-  const draftType = String(draftIntent?.draftType || "").toUpperCase();
-  if (draftType === "CLIENT_EMAIL") return "client";
-  if (draftType === "HEARING_SUMMARY") return "session";
-  if (draftType === "INVITATION") {
-    if (ENTITY_KEYWORDS.session.test(message)) return "session";
-    if (ENTITY_KEYWORDS.lawsuit.test(message)) return "lawsuit";
-    if (ENTITY_KEYWORDS.dossier.test(message)) return "dossier";
-    return "session";
-  }
-  if (draftType === "INTERNAL_NOTE") {
-    if (ENTITY_KEYWORDS.lawsuit.test(message)) return "lawsuit";
-    if (ENTITY_KEYWORDS.dossier.test(message)) return "dossier";
-    if (ENTITY_KEYWORDS.client.test(message)) return "client";
-    return "dossier";
+function deriveDraftEntityType(draftIntent) {
+  const hints = Array.isArray(draftIntent?.entityHints) ? draftIntent.entityHints : [];
+  const typedHint = hints.find((hint) => {
+    const hintedType = normalizeEntityType(hint?.entityType);
+    return Boolean(hintedType && ENTITY_CONFIG[hintedType]);
+  });
+  if (typedHint) {
+    return normalizeEntityType(typedHint.entityType);
   }
   return "";
 }
@@ -369,7 +362,7 @@ function deriveTarget(message, readIntent, draftIntent) {
   }
 
   if (draftIntent?.intent) {
-    const entityType = deriveDraftEntityType(draftIntent, message);
+    const entityType = deriveDraftEntityType(draftIntent);
     if (entityType) {
       return {
         capability: "draft",

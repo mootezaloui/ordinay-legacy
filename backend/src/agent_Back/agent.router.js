@@ -1733,15 +1733,62 @@ router.post("/agent/document-generation/preview/confirm", async (req, res, next)
       },
     });
   } catch (err) {
+    if (String(err?.code || "") === "PREVIEW_NOT_CONFIRMABLE") {
+      try {
+        const preview = documentGenerationPreviewService.getPreviewByUid(previewId);
+        const status = String(preview?.status || "").toLowerCase();
+        if (status === "expired" || status === "cancelled") {
+          const effectiveSessionId =
+            sessionId || preview?.session_id || preview?.conversation_id || null;
+          clearPendingConfirmationStateForSession(effectiveSessionId, req.user?.id || null);
+          recordPreviewCancelledTurn({
+            sessionId: effectiveSessionId,
+            userId: req.user?.id || null,
+            previewId,
+            reason: status || "cancelled",
+          });
+          return res.json({
+            status: "ok",
+            data: {
+              output: buildPreviewCancelledArtifact({
+                previewId,
+                reason: status || "cancelled",
+              }),
+            },
+          });
+        }
+      } catch (_) {
+        // fall through to default error handling
+      }
+    }
     return next(err);
   }
 });
 
 router.post("/agent/document-generation/preview/cancel", async (req, res, next) => {
-  const { previewId } = req.body || {};
+  const { previewId, sessionId } = req.body || {};
   try {
+    const preview = documentGenerationPreviewService.getPreviewByUid(previewId);
     const result = documentGenerationPreviewService.cancelPreview(previewId);
-    return res.json({ status: "ok", data: result });
+    const effectiveSessionId =
+      sessionId || preview?.session_id || preview?.conversation_id || null;
+    clearPendingConfirmationStateForSession(effectiveSessionId, req.user?.id || null);
+    recordPreviewCancelledTurn({
+      sessionId: effectiveSessionId,
+      userId: req.user?.id || null,
+      previewId,
+      reason: result?.reason || "cancelled",
+    });
+    return res.json({
+      status: "ok",
+      data: {
+        ...result,
+        output: buildPreviewCancelledArtifact({
+          previewId,
+          reason: result?.reason || "cancelled",
+        }),
+      },
+    });
   } catch (err) {
     return next(err);
   }
@@ -1770,6 +1817,53 @@ function buildArtifactDigest(output) {
     digest.entityId = output.entityId;
   }
   return digest;
+}
+
+function buildPreviewCancelledArtifact({ previewId = null, reason = "cancelled" } = {}) {
+  return {
+    type: "document_generation_preview_cancelled",
+    message: "Preview cancelled.",
+    previewId: previewId || null,
+    reason: String(reason || "cancelled"),
+    status: "cancelled",
+    timestamp: new Date().toISOString(),
+  };
+}
+
+function clearPendingConfirmationStateForSession(sessionId, userId) {
+  if (!sessionId) return;
+  try {
+    if (typeof agentEngine.clearPendingMutationProposal === "function") {
+      agentEngine.clearPendingMutationProposal({
+        sessionId: String(sessionId),
+        userId: userId || "default",
+      });
+    }
+  } catch (_) {
+    // best-effort cleanup
+  }
+}
+
+function recordPreviewCancelledTurn({ sessionId, userId, previewId, reason }) {
+  if (!sessionId) return;
+  const transcriptStore = agentEngine.contextStore?._transcriptStore;
+  if (!transcriptStore || typeof transcriptStore.addTurn !== "function") return;
+  try {
+    const artifact = buildPreviewCancelledArtifact({ previewId, reason });
+    transcriptStore.addTurn(String(sessionId), userId || "default", {
+      userMessage: null,
+      agentIntent: "CHATBOT_AGENT_MODE",
+      agentOutput: {
+        type: "chat",
+        message: artifact.message,
+        posture: "ASSISTANT",
+        toolCalls: 0,
+      },
+      artifactType: artifact.type,
+    });
+  } catch (_) {
+    // best-effort transcript marker
+  }
 }
 
 function createDeltaEmitter(emitDelta) {

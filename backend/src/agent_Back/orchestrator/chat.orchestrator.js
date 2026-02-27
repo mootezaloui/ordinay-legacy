@@ -1,6 +1,7 @@
 "use strict";
 
 const documentGenerationPreviewService = require("../../services/documentGeneration/documentGenerationPreview.service");
+const operatorsService = require("../../services/operators.service");
 const { ChatAgentService } = require("../chat/chat.agent.service");
 const { resolveChatAmbiguity } = require("../chat/chat.ambiguity.resolver");
 const { filterToolsForState } = require("../chat/chat.tool.exposure");
@@ -8,6 +9,7 @@ const { detectDraftIntent } = require("../intent.classifier");
 const { toProposalArtifact } = require("../proposals/proposalArtifact");
 const { CHAT_STATES, selectInitialState } = require("./chat.state.machine");
 const { parseFinalOutputContract } = require("./output.contract");
+const { parseJsonResponse } = require("../llm/llm.validation");
 const {
   getChatOrchestratorState,
   updateChatOrchestratorState,
@@ -70,6 +72,17 @@ class ChatOrchestrator {
     };
   }
 
+  _traceExecutionStep(requestContext = {}, step = "", details = {}) {
+    this.engine?.ledger?.record?.({
+      type: "chat_orchestrator_trace",
+      sourceRoute: "/agent/chat",
+      conversationId: requestContext?.conversationId || null,
+      step: String(step || "").trim() || "unknown",
+      ...(details && typeof details === "object" ? details : {}),
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   _resolveOutputContractExecutionPolicy(currentPolicy = null) {
     if (this.engine && typeof this.engine._resolvePolicy === "function") {
       try {
@@ -89,6 +102,7 @@ class ChatOrchestrator {
     activeScope,
     requestContext,
     executionContext,
+    structuredContext = null,
   }) {
     if (!activeScope?.entityType || !activeScope?.entityId) return null;
     const metadata =
@@ -128,6 +142,12 @@ class ChatOrchestrator {
           title: String(title),
           markdown,
         },
+        structuredContext:
+          structuredContext &&
+          typeof structuredContext === "object" &&
+          !Array.isArray(structuredContext)
+            ? structuredContext
+            : undefined,
       },
       previewHtml,
     };
@@ -210,6 +230,423 @@ class ChatOrchestrator {
       return { entityType: "client", entityId: Number(requestContext.clientId) };
     }
     return null;
+  }
+
+  async _safeReadTool(toolName, params, policy) {
+    if (!this.engine || typeof this.engine._callReadTool !== "function") return null;
+    try {
+      const result = await this.engine._callReadTool(toolName, params, policy);
+      return result && typeof result === "object" ? result : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async _buildStructuredContextFromScope({ activeScope, policy }) {
+    const context = {
+      client: null,
+      dossier: null,
+      systemDate: new Date().toISOString().slice(0, 10),
+      office: null,
+    };
+
+    try {
+      const op = operatorsService.getCurrentOperator();
+      context.office = {
+        name: op?.name || null,
+        title: op?.title || null,
+        barNumber: op?.bar_number || op?.bar_id || null,
+        officeName: op?.office_name || op?.office || null,
+        officeAddress: op?.office_address || null,
+        email: op?.email || null,
+        phone: op?.phone || op?.mobile || null,
+      };
+    } catch (_) {
+      context.office = null;
+    }
+
+    const type = String(activeScope?.entityType || "").toLowerCase();
+    const id = Number(activeScope?.entityId || 0);
+    if (!type || !Number.isInteger(id) || id <= 0) return context;
+
+    if (type === "client") {
+      const row = await this._safeReadTool("getClient", { clientId: id }, policy);
+      const client = row?.client || null;
+      if (client) {
+        context.client = {
+          id: Number(client.id) || id,
+          fullName: client.name || null,
+          name: client.name || null,
+          email: client.email || null,
+          phone: client.phone || client.alternate_phone || null,
+          company: client.company || null,
+        };
+      }
+      const dossiersResult = await this._safeReadTool("listDossiers", { clientId: id, limit: 10 }, policy);
+      const dossiers = Array.isArray(dossiersResult?.dossiers) ? dossiersResult.dossiers : [];
+      if (dossiers.length === 1) {
+        const dossier = dossiers[0];
+        context.dossier = {
+          id: Number(dossier.id) || null,
+          reference: dossier.reference || dossier.code || null,
+          title: dossier.title || null,
+          status: dossier.status || null,
+          clientId: id,
+        };
+      }
+      return context;
+    }
+
+    if (type === "dossier") {
+      const row = await this._safeReadTool("getDossier", { dossierId: id }, policy);
+      const dossier = row?.dossier || null;
+      if (dossier) {
+        context.dossier = {
+          id: Number(dossier.id) || id,
+          reference: dossier.reference || dossier.code || null,
+          title: dossier.title || null,
+          status: dossier.status || null,
+          clientId: Number(dossier.client_id) || null,
+        };
+        if (Number(dossier.client_id) > 0) {
+          const c = await this._safeReadTool("getClient", { clientId: Number(dossier.client_id) }, policy);
+          const client = c?.client || null;
+          if (client) {
+            context.client = {
+              id: Number(client.id) || Number(dossier.client_id),
+              fullName: client.name || null,
+              name: client.name || null,
+              email: client.email || null,
+              phone: client.phone || client.alternate_phone || null,
+              company: client.company || null,
+            };
+          }
+        }
+      }
+      return context;
+    }
+
+    return context;
+  }
+
+  _scopeKeyForEntityType(entityType = "") {
+    const map = {
+      client: "clientId",
+      dossier: "dossierId",
+      lawsuit: "lawsuitId",
+      task: "taskId",
+      session: "sessionId",
+      mission: "missionId",
+      personal_task: "personalTaskId",
+      financial_entry: "financialEntryId",
+      notification: "notificationId",
+      history_event: "historyEventId",
+      officer: "officerId",
+    };
+    return map[String(entityType || "").toLowerCase()] || null;
+  }
+
+  _normalizeEntityTypeForDiscovery(value = "") {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (!normalized) return "";
+    if (normalized === "case") return "lawsuit";
+    if (normalized === "hearing") return "session";
+    if (normalized === "personal task") return "personal_task";
+    if (normalized === "financial entry") return "financial_entry";
+    if (normalized === "history event") return "history_event";
+    return normalized;
+  }
+
+  _extractScopeDiscoveryHints(userMessage, requestContext = {}) {
+    const draftIntent = detectDraftIntent(userMessage, requestContext || {});
+    if (!draftIntent || !Array.isArray(draftIntent.entityHints) || draftIntent.entityHints.length === 0) {
+      return [];
+    }
+    const hints = [];
+    for (const hint of draftIntent.entityHints) {
+      const type = String(hint?.type || "").toLowerCase();
+      const rawValue =
+        type === "reference"
+          ? String(hint?.reference || hint?.value || "").trim()
+          : type === "id"
+            ? String(hint?.id || hint?.entityId || hint?.value || "").trim()
+            : String(hint?.nameHint || hint?.value || "").trim();
+      if (!rawValue) continue;
+      const hintedEntityType = this._normalizeEntityTypeForDiscovery(hint?.entityType);
+      hints.push({
+        identifier: rawValue,
+        mode: type === "id" ? "id" : "name",
+        hintedEntityType: hintedEntityType || null,
+      });
+    }
+    const seen = new Set();
+    return hints.filter((hint) => {
+      const key = `${hint.mode}:${hint.hintedEntityType || "any"}:${hint.identifier.toLowerCase()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  async _extractScopeDiscoveryHintsWithLLM(userMessage) {
+    const extractor = this.helper?.mutationIntentExtractor;
+    if (typeof extractor !== "function") return [];
+    const prompt = [
+      "Extract entity resolution hints from this user request.",
+      "Return JSON only with shape: {\"hints\":[{\"entityType\":\"client|dossier|lawsuit|task|session|mission\",\"identifier\":\"string\",\"confidence\":0.0}]}",
+      "Rules:",
+      "- Extract only explicit concrete references likely pointing to an existing record.",
+      "- Do not infer missing entities.",
+      "- If uncertain, return {\"hints\":[]}.",
+      `User message: ${String(userMessage || "")}`,
+    ].join("\n");
+    let raw = "";
+    try {
+      raw = await extractor(prompt);
+    } catch (_) {
+      return [];
+    }
+    const parsed = parseJsonResponse(raw);
+    const rows = Array.isArray(parsed?.hints) ? parsed.hints : [];
+    const allowedTypes = new Set(["client", "dossier", "lawsuit", "task", "session", "mission"]);
+    const hints = [];
+    for (const row of rows) {
+      const entityType = String(row?.entityType || "").trim().toLowerCase();
+      const identifier = String(row?.identifier || "").trim();
+      const confidence = Number(row?.confidence);
+      if (!allowedTypes.has(entityType)) continue;
+      if (!identifier) continue;
+      if (!Number.isFinite(confidence) || confidence < 0.85) continue;
+      hints.push({
+        identifier,
+        mode: "name",
+        hintedEntityType: entityType,
+      });
+    }
+    const seen = new Set();
+    return hints.filter((hint) => {
+      const key = `${hint.mode}:${hint.hintedEntityType || "any"}:${hint.identifier.toLowerCase()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  _buildScopeDiscoverySuggestion({ message, found = [], ambiguous = [] } = {}) {
+    const suggestions = [];
+    for (const row of found) {
+      suggestions.push({
+        entityType: row.entityType,
+        entityId: row.entityId,
+        label: row.entityLabel || `${row.entityType} #${row.entityId}`,
+        score: 1,
+      });
+    }
+    for (const row of ambiguous) {
+      const entityType = String(row?.entityType || "").toLowerCase();
+      const candidates = Array.isArray(row?.candidates) ? row.candidates : [];
+      for (const c of candidates) {
+        const id = Number(c?.id || 0);
+        if (!entityType || !Number.isInteger(id) || id <= 0) continue;
+        suggestions.push({
+          entityType,
+          entityId: id,
+          label: String(c?.name || `${entityType} #${id}`),
+          score: Number.isFinite(Number(c?.score)) ? Number(c.score) : null,
+        });
+      }
+    }
+    const deduped = [];
+    const seen = new Set();
+    for (const s of suggestions) {
+      const key = `${s.entityType}:${s.entityId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(s);
+      if (deduped.length >= 7) break;
+    }
+    return {
+      type: "context_suggestion",
+      message: "I found multiple possible records. Please confirm the exact one before I generate the document artifact.",
+      entityType: deduped[0]?.entityType || null,
+      reason: "multiple_matches",
+      originalIntent: "CHATBOT_AGENT_MODE",
+      originalMessage: message,
+      suggestions: deduped,
+      timestamp: nowIso(),
+      confidence: 0.82,
+      source: "scope_discovery",
+      allowManualInput: true,
+      manualInputHint: "Provide the exact entity reference, ID, or full name.",
+    };
+  }
+
+  async _discoverScopeBeforeContract({
+    userMessage,
+    requestContext,
+    executionContext,
+    policy,
+    llmHistory,
+  } = {}) {
+    const alreadyScoped = this._resolveActiveEntityScope(requestContext, llmHistory);
+    if (alreadyScoped) {
+      return { status: "skipped", reason: "already_scoped" };
+    }
+    let hints = this._extractScopeDiscoveryHints(userMessage, requestContext);
+    if (!hints.length) {
+      const draftIntent = detectDraftIntent(userMessage, requestContext || {});
+      if (draftIntent?.intent) {
+        hints = await this._extractScopeDiscoveryHintsWithLLM(userMessage);
+      }
+    }
+    if (!hints.length) {
+      return { status: "skipped", reason: "no_hints" };
+    }
+
+    const defaultEntityTypes = ["client", "dossier", "lawsuit", "task", "session", "mission"];
+    const found = [];
+    const ambiguous = [];
+    for (const hint of hints) {
+      const candidateTypes = hint.hintedEntityType
+        ? [hint.hintedEntityType]
+        : defaultEntityTypes;
+      for (const entityType of candidateTypes) {
+        let resolution = null;
+        try {
+          resolution = await this.engine.resolveEntity(
+            {
+              entityType,
+              identifier: hint.identifier,
+              mode: hint.mode,
+              scopeClientId:
+                entityType === "dossier" && Number(requestContext?.clientId || 0) > 0
+                  ? Number(requestContext.clientId)
+                  : null,
+            },
+            policy,
+          );
+        } catch (_) {
+          resolution = null;
+        }
+        if (resolution?.found && Number.isInteger(Number(resolution.entityId)) && Number(resolution.entityId) > 0) {
+          found.push({
+            entityType: String(resolution.entityType || entityType).toLowerCase(),
+            entityId: Number(resolution.entityId),
+            entityLabel: resolution.entityLabel || null,
+          });
+          continue;
+        }
+        if (String(resolution?.reason || "").toLowerCase() === "ambiguous") {
+          ambiguous.push({
+            entityType: String(entityType).toLowerCase(),
+            candidates: Array.isArray(resolution?.candidates) ? resolution.candidates : [],
+          });
+        }
+      }
+    }
+
+    const foundDeduped = [];
+    const seen = new Set();
+    for (const row of found) {
+      const key = `${row.entityType}:${row.entityId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      foundDeduped.push(row);
+    }
+
+    if (foundDeduped.length === 1) {
+      return {
+        status: "resolved",
+        resolvedEntity: foundDeduped[0],
+      };
+    }
+    if (foundDeduped.length > 1 || ambiguous.length > 0) {
+      return {
+        status: "ambiguous",
+        suggestionArtifact: this._buildScopeDiscoverySuggestion({
+          message: userMessage,
+          found: foundDeduped,
+          ambiguous,
+        }),
+      };
+    }
+    return { status: "skipped", reason: "unresolved" };
+  }
+
+  _deriveResolvedEntityFromAmbiguity(ambiguityResolution = null) {
+    const meta = ambiguityResolution?.resolutionMeta || null;
+    const metaType = String(meta?.entityType || "").toLowerCase();
+    const metaId = Number(meta?.chosenId || 0);
+    if (metaType && Number.isInteger(metaId) && metaId > 0) {
+      return { entityType: metaType, entityId: metaId };
+    }
+
+    const resolvedScope =
+      ambiguityResolution?.resolvedScope && typeof ambiguityResolution.resolvedScope === "object"
+        ? ambiguityResolution.resolvedScope
+        : null;
+    if (!resolvedScope) return null;
+
+    const scopeToType = {
+      clientId: "client",
+      dossierId: "dossier",
+      lawsuitId: "lawsuit",
+      taskId: "task",
+      sessionId: "session",
+      missionId: "mission",
+      personalTaskId: "personal_task",
+      financialEntryId: "financial_entry",
+      notificationId: "notification",
+      historyEventId: "history_event",
+      officerId: "officer",
+    };
+    for (const [key, type] of Object.entries(scopeToType)) {
+      const id = Number(resolvedScope?.[key] || 0);
+      if (Number.isInteger(id) && id > 0) {
+        return { entityType: type, entityId: id };
+      }
+    }
+    return null;
+  }
+
+  _pinEntityScopeBeforeContract({
+    requestContext,
+    executionContext,
+    resolvedEntity,
+    source = "resolved",
+  } = {}) {
+    const type = String(resolvedEntity?.entityType || "").toLowerCase();
+    const id = Number(resolvedEntity?.entityId || 0);
+    if (!type || !Number.isInteger(id) || id <= 0) return null;
+
+    const scopeKey = this._scopeKeyForEntityType(type);
+    if (scopeKey) {
+      requestContext[scopeKey] = id;
+      executionContext[scopeKey] = id;
+    }
+
+    if (!requestContext.resolvedEntity) {
+      requestContext.resolvedEntity = { type, id };
+    }
+
+    updateChatOrchestratorState(this.engine, requestContext, {
+      activeScope: {
+        entityType: type,
+        entityId: id,
+        source,
+        confidence: 1,
+      },
+    });
+    if (this.helper?.scopeManager && typeof this.helper.scopeManager.applyEvent === "function") {
+      this.helper.scopeManager.applyEvent(requestContext, {
+        type: source === "explicit_selection" ? "ENTITY_SELECTED_EXPLICIT" : "READ_ENTITY_UNAMBIGUOUS",
+        entityType: type,
+        entityId: id,
+        source: source === "explicit_selection" ? "explicit" : "resolved",
+        resolutionPath: source === "explicit_selection" ? "explicit_selection" : "tool_single_entity",
+      });
+    }
+    return { entityType: type, entityId: id };
   }
 
   async _proposeStoreDocumentDraftArtifact({
@@ -400,6 +837,13 @@ class ChatOrchestrator {
       userId,
       tenantId,
     });
+    this._traceExecutionStep(requestContext, "context_packet_built", {
+      hasClientId: Number(requestContext?.clientId || 0) > 0,
+      hasDossierId: Number(requestContext?.dossierId || 0) > 0,
+      hasResolvedEntity:
+        Boolean(requestContext?.resolvedEntity?.type) &&
+        Number(requestContext?.resolvedEntity?.id || 0) > 0,
+    });
     const policy = this.engine._resolvePolicy(agentVersion);
     const llmHistory =
       typeof this.engine.contextStore?.getContextForLLMInjection === "function"
@@ -489,6 +933,9 @@ class ChatOrchestrator {
       context: requestContext,
       llmHistory,
     });
+    this._traceExecutionStep(requestContext, "posture_determined", {
+      posture,
+    });
     const executionContext = {
       ...requestContext,
       posture,
@@ -516,18 +963,126 @@ class ChatOrchestrator {
           confidence: 1,
         },
       });
+      this._pinEntityScopeBeforeContract({
+        requestContext,
+        executionContext,
+        resolvedEntity: {
+          entityType: resolvedSelection.entityType,
+          entityId: resolvedSelection.entityId,
+        },
+        source: "explicit_selection",
+      });
+      this._traceExecutionStep(requestContext, "scope_pinned_pre_llm", {
+        source: "explicit_selection",
+        entityType: resolvedSelection.entityType,
+        entityId: resolvedSelection.entityId,
+      });
     }
 
-    const ambiguityResolution = await resolveChatAmbiguity({
-      engine: this.engine,
-      message: effectiveUserMessage,
-      policy,
+    const discoveredScope = await this._discoverScopeBeforeContract({
+      userMessage: effectiveUserMessage,
+      requestContext,
       executionContext,
-      exposedTools: [],
+      policy,
+      llmHistory,
+    });
+    this._traceExecutionStep(requestContext, "scope_discovery_completed", {
+      status: discoveredScope?.status || "skipped",
+      reason: discoveredScope?.reason || null,
+      entityType: discoveredScope?.resolvedEntity?.entityType || null,
+      entityId: discoveredScope?.resolvedEntity?.entityId || null,
+    });
+    if (discoveredScope?.status === "resolved" && discoveredScope?.resolvedEntity) {
+      this._pinEntityScopeBeforeContract({
+        requestContext,
+        executionContext,
+        resolvedEntity: discoveredScope.resolvedEntity,
+        source: "resolved",
+      });
+      this._traceExecutionStep(requestContext, "scope_pinned_pre_llm", {
+        source: "scope_discovery",
+        entityType: discoveredScope.resolvedEntity.entityType,
+        entityId: discoveredScope.resolvedEntity.entityId,
+      });
+    } else if (discoveredScope?.status === "ambiguous" && discoveredScope?.suggestionArtifact) {
+      const pendingClarification = {
+        entityType: discoveredScope?.suggestionArtifact?.entityType || null,
+        resumeState: state,
+        artifact: discoveredScope.suggestionArtifact,
+        resolutionMeta: {
+          status: "ambiguous",
+          entityType: discoveredScope?.suggestionArtifact?.entityType || null,
+          candidatesCount: Array.isArray(discoveredScope?.suggestionArtifact?.suggestions)
+            ? discoveredScope.suggestionArtifact.suggestions.length
+            : 0,
+          autoPicked: false,
+          chosenId: null,
+        },
+        createdAt: nowIso(),
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      };
+      updateChatOrchestratorState(this.engine, requestContext, {
+        activeState: CHAT_STATES.CLARIFY,
+        pendingClarification,
+      });
+      const finalMessage =
+        String(discoveredScope.suggestionArtifact.message || "").trim() ||
+        "I need one more detail to continue.";
+      this.helper._recordTranscript({
+        requestContext,
+        userMessage,
+        finalMessage,
+        posture,
+        toolExecutions: [],
+        artifactType: "context_suggestion",
+        artifact: discoveredScope.suggestionArtifact,
+      });
+      return withStateOutput(
+        {
+          message: finalMessage,
+          ambiguityArtifact: discoveredScope.suggestionArtifact,
+          outputArtifact: discoveredScope.suggestionArtifact,
+          resolutionMeta: pendingClarification.resolutionMeta,
+        },
+        CHAT_STATES.FINAL,
+      );
+    }
+
+    const shouldSkipAmbiguityForUnscopedDraft =
+      Boolean(draftIntent?.intent) &&
+      (!Array.isArray(draftIntent?.entityHints) || draftIntent.entityHints.length === 0) &&
+      !this._resolveActiveEntityScope(requestContext, llmHistory);
+    const ambiguityResolution = shouldSkipAmbiguityForUnscopedDraft
+      ? { status: "skipped" }
+      : await resolveChatAmbiguity({
+          engine: this.engine,
+          message: effectiveUserMessage,
+          policy,
+          executionContext,
+          exposedTools: [],
+        });
+    this._traceExecutionStep(requestContext, "entity_resolution_completed", {
+      status: ambiguityResolution?.status || "skipped",
+      entityType: ambiguityResolution?.resolutionMeta?.entityType || null,
+      chosenId: ambiguityResolution?.resolutionMeta?.chosenId || null,
     });
     if (ambiguityResolution?.status === "resolved" && ambiguityResolution?.resolvedScope) {
       Object.assign(requestContext, ambiguityResolution.resolvedScope);
       Object.assign(executionContext, ambiguityResolution.resolvedScope);
+      const resolvedFromAmbiguity = this._deriveResolvedEntityFromAmbiguity(ambiguityResolution);
+      if (resolvedFromAmbiguity) {
+        this._pinEntityScopeBeforeContract({
+          requestContext,
+          executionContext,
+          resolvedEntity: resolvedFromAmbiguity,
+          source: "resolved",
+        });
+        this._traceExecutionStep(requestContext, "scope_pinned_pre_llm", {
+          source: "resolved",
+          entityType: resolvedFromAmbiguity.entityType,
+          entityId: resolvedFromAmbiguity.entityId,
+        });
+      }
     }
     if (
       ["ambiguous", "missing", "not_found"].includes(String(ambiguityResolution?.status || "")) &&
@@ -614,6 +1169,10 @@ class ChatOrchestrator {
       executionContext,
       signal,
     });
+    this._traceExecutionStep(requestContext, "output_contract_generation_completed", {
+      rounds: loopResult?.rounds || 0,
+      toolCalls: Array.isArray(loopResult?.toolExecutions) ? loopResult.toolExecutions.length : 0,
+    });
     const parsedContract = parseFinalOutputContract(loopResult.finalMessage);
     if (!parsedContract.ok) {
       return this._buildOutputContractInvalidResult({
@@ -625,10 +1184,25 @@ class ChatOrchestrator {
       });
     }
     const contract = parsedContract.contract;
+    const scopedForDraftRouting = this._resolveActiveEntityScope(requestContext, llmHistory);
+    const routedOutputType =
+      contract.outputType === "message" && draftIntent?.intent && scopedForDraftRouting
+        ? "document"
+        : contract.outputType;
+    if (routedOutputType !== contract.outputType) {
+      this._traceExecutionStep(requestContext, "output_type_adjusted", {
+        from: contract.outputType,
+        to: routedOutputType,
+        reason: "draft_intent_with_scoped_context",
+      });
+    }
+    this._traceExecutionStep(requestContext, "output_contract_parsed", {
+      outputType: routedOutputType,
+    });
     this.engine?.ledger?.record?.({
       type: "chat_output_contract_parsed",
       sourceRoute: "/agent/chat",
-      outputType: contract.outputType,
+      outputType: routedOutputType,
       hasTitle: typeof contract.title === "string" && contract.title.trim().length > 0,
       contentLength: contract.content.length,
       metadataKeys: Object.keys(contract.metadata || {}),
@@ -641,13 +1215,13 @@ class ChatOrchestrator {
     let nextState = CHAT_STATES.FINAL;
     let routeAction = "message";
 
-    if (contract.outputType === "message" || contract.outputType === "research") {
+    if (routedOutputType === "message" || routedOutputType === "research") {
       finalMessage = this.helper._enforceExecutionLockedNoAdvisoryFallback({
         finalMessage: contract.content,
         requestContext,
       });
-      routeAction = contract.outputType === "research" ? "research_message" : "message";
-      if (contract.outputType === "research" && contract.metadata && Object.keys(contract.metadata).length > 0) {
+      routeAction = routedOutputType === "research" ? "research_message" : "message";
+      if (routedOutputType === "research" && contract.metadata && Object.keys(contract.metadata).length > 0) {
         outputArtifact = {
           type: "research_contract",
           title: contract.title || null,
@@ -655,55 +1229,99 @@ class ChatOrchestrator {
           metadata: contract.metadata,
         };
       }
-    } else if (contract.outputType === "document") {
+    } else if (routedOutputType === "document") {
       routeAction = "document_tool";
       const activeScope = this._resolveActiveEntityScope(requestContext, llmHistory);
+      const structuredContext = activeScope
+        ? await this._buildStructuredContextFromScope({ activeScope, policy })
+        : {
+            client: null,
+            dossier: null,
+            systemDate: new Date().toISOString().slice(0, 10),
+            office: null,
+          };
+      this._traceExecutionStep(requestContext, "document_tool_called", {
+        toolName: "planGeneratedDocument",
+        hasActiveScope: Boolean(activeScope),
+      });
+      const executionPolicy = this._resolveOutputContractExecutionPolicy(policy);
+      const docToolResult = await this.engine.executeToolV2(
+        "planGeneratedDocument",
+        {
+          ...(contract.title ? { title: contract.title } : {}),
+          content: contract.content,
+          metadata: {
+            ...(contract.metadata || {}),
+            structuredContext,
+          },
+        },
+        executionPolicy,
+        {
+          ...executionContext,
+          confirmed: true,
+          sourceRoute: "/agent/chat",
+        },
+      );
+      const draftArtifactBase = docToolResult?.result && typeof docToolResult.result === "object"
+        ? { ...docToolResult.result }
+        : {
+            type: "document_draft",
+            title: contract.title || "Document Draft",
+            content: contract.content,
+            metadata: contract.metadata || {},
+            entityType: null,
+            entityId: null,
+          };
+      const groundedContract = {
+        title:
+          (typeof draftArtifactBase.title === "string" && draftArtifactBase.title.trim()) ||
+          contract.title,
+        content:
+          (typeof draftArtifactBase.content === "string" && draftArtifactBase.content.trim()) ||
+          contract.content,
+        metadata: {
+          ...(contract.metadata || {}),
+          ...(draftArtifactBase?.metadata && typeof draftArtifactBase.metadata === "object"
+            ? draftArtifactBase.metadata
+            : {}),
+        },
+      };
       if (activeScope) {
         const previewArtifact = this._createPreviewArtifactFromDocumentContract({
-          contract,
+          contract: groundedContract,
           activeScope,
           requestContext,
           executionContext,
+          structuredContext,
         });
         if (previewArtifact) {
           outputArtifact = previewArtifact;
           finalMessage =
             "I prepared a document preview. You can edit it and confirm to create a proposal for storing it in the selected record.";
+          this._traceExecutionStep(requestContext, "artifact_preview_pipeline_triggered", {
+            outputType: "document",
+            artifactType: previewArtifact.type || null,
+            entityType: activeScope.entityType,
+            entityId: activeScope.entityId,
+            previewSource: "planGeneratedDocument_grounded",
+          });
         }
       }
       if (!outputArtifact) {
-        const executionPolicy = this._resolveOutputContractExecutionPolicy(policy);
-        const docToolResult = await this.engine.executeToolV2(
-          "planGeneratedDocument",
-          {
-            ...(contract.title ? { title: contract.title } : {}),
-            content: contract.content,
-            metadata: contract.metadata || {},
-          },
-          executionPolicy,
-          {
-            ...executionContext,
-            confirmed: true,
-            sourceRoute: "/agent/chat",
-          },
-        );
-        const draftArtifactBase = docToolResult?.result && typeof docToolResult.result === "object"
-          ? { ...docToolResult.result }
-          : {
-              type: "document_draft",
-              title: contract.title || "Document Draft",
-              content: contract.content,
-              metadata: contract.metadata || {},
-              entityType: null,
-              entityId: null,
-            };
         outputArtifact = {
           ...draftArtifactBase,
           ...(activeScope ? activeScope : {}),
         };
-        finalMessage = contract.content;
+        finalMessage = groundedContract.content;
+        this._traceExecutionStep(requestContext, "artifact_preview_pipeline_triggered", {
+          outputType: "document",
+          artifactType: outputArtifact?.type || null,
+          entityType: outputArtifact?.entityType || null,
+          entityId: outputArtifact?.entityId || null,
+          previewSource: "planGeneratedDocument",
+        });
       }
-    } else if (contract.outputType === "mutation") {
+    } else if (routedOutputType === "mutation") {
       routeAction = "mutation_proposal";
       let proposal = null;
       try {
@@ -724,7 +1342,7 @@ class ChatOrchestrator {
         this.engine?.ledger?.record?.({
           type: "chat_output_contract_routed",
           sourceRoute: "/agent/chat",
-          outputType: contract.outputType,
+          outputType: routedOutputType,
           routeAction: "mutation_error",
           proposalCreated: false,
           timestamp: new Date().toISOString(),
@@ -791,7 +1409,7 @@ class ChatOrchestrator {
     this.engine?.ledger?.record?.({
       type: "chat_output_contract_routed",
       sourceRoute: "/agent/chat",
-      outputType: contract.outputType,
+      outputType: routedOutputType,
       routeAction,
       proposalCreated: mutationOutcome?.status === "PROPOSED",
       timestamp: new Date().toISOString(),
@@ -817,7 +1435,7 @@ class ChatOrchestrator {
         "[ChatOrchestrator][ArtifactOut]",
         JSON.stringify({
           state: nextState,
-          outputType: contract.outputType,
+          outputType: routedOutputType,
           artifactType:
             outputArtifact && typeof outputArtifact === "object"
               ? outputArtifact.type || "object_without_type"
@@ -850,6 +1468,7 @@ class ChatOrchestrator {
         })),
         resolutionMeta: {
           outputContract: contract,
+          routedOutputType,
         },
       },
       nextState,

@@ -2,6 +2,7 @@
 
 const { TOOL_CATEGORIES } = require("../tool.registry");
 const documentGenerationService = require("../../../services/documentGeneration/documentGeneration.service");
+const plannerService = require("../../../services/documentGeneration/planner.service");
 
 const legacyInputSchema = {
   type: "object",
@@ -124,15 +125,30 @@ async function handler(params) {
       params.metadata && typeof params.metadata === "object" && !Array.isArray(params.metadata)
         ? { ...params.metadata }
         : {};
+    const structuredContext =
+      metadata.structuredContext &&
+      typeof metadata.structuredContext === "object" &&
+      !Array.isArray(metadata.structuredContext)
+        ? metadata.structuredContext
+        : {};
     const title =
       (typeof params.title === "string" && params.title.trim()) ||
       (typeof metadata.title === "string" && metadata.title.trim()) ||
       "Document Draft";
+    const grounded = await plannerService.groundDraftContent({
+      title,
+      content: String(params.content || ""),
+      language: metadata.language || "en",
+      structuredContext,
+    });
     return {
       type: "document_draft",
-      title: String(title).trim(),
-      content: String(params.content || ""),
-      metadata,
+      title: String(grounded.title || title).trim(),
+      content: String(grounded.content || params.content || ""),
+      metadata: {
+        ...metadata,
+        structuredContext,
+      },
       entityType: null,
       entityId: null,
     };

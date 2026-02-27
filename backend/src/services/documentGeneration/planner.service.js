@@ -40,6 +40,15 @@ function loadTargetEntity(target) {
     .get({ id: target.id });
 }
 
+function loadEntityByTypeAndId(entityType, entityId) {
+  const table = ENTITY_TABLE_MAP[String(entityType || "").toLowerCase()];
+  const id = Number(entityId);
+  if (!table || !Number.isInteger(id) || id <= 0) return null;
+  return db
+    .prepare(`SELECT * FROM ${table} WHERE id = @id AND deleted_at IS NULL`)
+    .get({ id });
+}
+
 function isoDate(value) {
   if (!value) return null;
   const d = new Date(value);
@@ -55,6 +64,10 @@ function defaultSignatory() {
     name: op?.name || null,
     title: op?.title || null,
     barNumber: op?.bar_number || null,
+    officeName: op?.office_name || op?.office || null,
+    officeAddress: op?.office_address || null,
+    email: op?.email || null,
+    phone: op?.phone || op?.mobile || null,
   };
 }
 
@@ -128,6 +141,78 @@ function pruneUnset(value) {
   return value;
 }
 
+function mergeObjects(base, override) {
+  const safeBase = base && typeof base === "object" && !Array.isArray(base) ? base : {};
+  const safeOverride =
+    override && typeof override === "object" && !Array.isArray(override) ? override : {};
+  return { ...safeBase, ...safeOverride };
+}
+
+function toClientContext(client) {
+  if (!client || typeof client !== "object") return null;
+  return {
+    id: Number(client.id) || null,
+    fullName: client.name || null,
+    name: client.name || null,
+    email: client.email || null,
+    phone: client.phone || client.alternate_phone || null,
+    company: client.company || null,
+  };
+}
+
+function toDossierContext(dossier) {
+  if (!dossier || typeof dossier !== "object") return null;
+  return {
+    id: Number(dossier.id) || null,
+    reference: dossier.reference || dossier.code || null,
+    title: dossier.title || null,
+    status: dossier.status || null,
+    clientId: Number(dossier.client_id) || null,
+  };
+}
+
+function buildDeterministicStructuredContext({ normalized, entity, provided }) {
+  const seed = provided && typeof provided === "object" && !Array.isArray(provided) ? provided : {};
+  let client = null;
+  let dossier = null;
+
+  const targetType = String(normalized?.target?.type || "").toLowerCase();
+  if (targetType === "client") {
+    client = entity;
+  } else if (targetType === "dossier") {
+    dossier = entity;
+    if (Number(entity?.client_id) > 0) {
+      client = loadEntityByTypeAndId("client", entity.client_id);
+    }
+  } else {
+    const entityDossierId = Number(entity?.dossier_id || 0);
+    const entityClientId = Number(entity?.client_id || 0);
+    if (entityDossierId > 0) {
+      dossier = loadEntityByTypeAndId("dossier", entityDossierId);
+      if (Number(dossier?.client_id) > 0) {
+        client = loadEntityByTypeAndId("client", dossier.client_id);
+      }
+    }
+    if (!client && entityClientId > 0) {
+      client = loadEntityByTypeAndId("client", entityClientId);
+    }
+  }
+
+  const deterministic = {
+    client: toClientContext(client),
+    dossier: toDossierContext(dossier),
+    systemDate: new Date().toISOString().slice(0, 10),
+    office: defaultSignatory(),
+  };
+
+  return {
+    client: mergeObjects(deterministic.client, seed.client),
+    dossier: mergeObjects(deterministic.dossier, seed.dossier),
+    systemDate: seed.systemDate || deterministic.systemDate,
+    office: mergeObjects(deterministic.office, seed.office),
+  };
+}
+
 function buildFallbackMarkdown(envelope, normalized) {
   const content = envelope?.content || {};
   const lines = [];
@@ -169,10 +254,14 @@ function buildFallbackMarkdown(envelope, normalized) {
   return lines.join("\n");
 }
 
-function buildContentByType(documentType, target, entity, language, instructions) {
+function buildContentByType(documentType, target, entity, language, instructions, structuredContext = {}) {
   const rawInstructions = normalizeText(instructions);
   const signatory = defaultSignatory();
   const today = new Date().toISOString().slice(0, 10);
+  const scopedClientName =
+    String(structuredContext?.client?.fullName || structuredContext?.client?.name || "").trim() || null;
+  const scopedDossierReference =
+    String(structuredContext?.dossier?.reference || "").trim() || null;
 
   const baseTitle = extractLabeledValue(rawInstructions, ["title", "subject", "العنوان", "الموضوع"]);
 
@@ -208,8 +297,9 @@ function buildContentByType(documentType, target, entity, language, instructions
         name: extractLabeledValue(rawInstructions, ["recipient\\s*name", "judge\\s*name", "اسم\\s*القاضي"]),
       },
       case: {
-        reference: caseReference,
-        dossierReference: entity?.dossier_id ? `D-${entity.dossier_id}` : null,
+        reference: caseReference || scopedDossierReference,
+        dossierReference: scopedDossierReference || (entity?.dossier_id ? `D-${entity.dossier_id}` : null),
+        clientName: scopedClientName,
       },
       request: {
         type: requestType,
@@ -217,7 +307,7 @@ function buildContentByType(documentType, target, entity, language, instructions
       },
       legalReferences: [],
       dates: {
-        issueDate: today,
+        issueDate: structuredContext?.systemDate || today,
         hearingDate,
       },
       signatory,
@@ -285,28 +375,40 @@ function parseJsonCandidate(text) {
 }
 
 async function generateEnvelopeWithLlm({ normalized, entity }) {
+  const structuredContext = buildDeterministicStructuredContext({
+    normalized,
+    entity,
+    provided: normalized.structuredContext,
+  });
   const seedEnvelope = {
     documentType: normalized.documentType,
     schemaVersion: SCHEMA_VERSION,
     language: normalized.language,
     targetEntity: normalized.target,
+    structuredContext,
     content: buildContentByType(
       normalized.documentType,
       normalized.target,
       entity,
       normalized.language,
       normalized.instructions,
+      structuredContext,
     ),
   };
 
   const systemPrompt =
     "You generate legal document content JSON only. " +
     "Return valid JSON only. " +
-    "No markdown, no explanations, no placeholders, no fabricated fields.";
+    "Use structuredContext fields as authoritative values when present. " +
+    "Do not use placeholder markers for known fields. " +
+    "Do not hallucinate unknown fields. " +
+    "If a required value is missing, leave it empty or omit optional fields. " +
+    "No markdown and no explanations.";
   const userPrompt = [
     "Generate a structured document payload.",
-    "Use user instructions and entity context.",
-    "If data is unavailable, omit optional fields.",
+    "Use user instructions, entity context, and structuredContext.",
+    "Known structuredContext values must be copied exactly.",
+    "If data is unavailable, omit optional fields or leave empty values without placeholder markers.",
     "",
     `request=${JSON.stringify({
       target: normalized.target,
@@ -316,6 +418,7 @@ async function generateEnvelopeWithLlm({ normalized, entity }) {
       instructions: normalized.instructions,
     })}`,
     `entityContext=${JSON.stringify(entity || {})}`,
+    `structuredContext=${JSON.stringify(structuredContext)}`,
     `seed=${JSON.stringify(seedEnvelope)}`,
   ].join("\n");
 
@@ -335,17 +438,32 @@ async function generateEnvelopeWithLlm({ normalized, entity }) {
     err.code = "DOCUMENT_PLANNING_LLM_FAILED";
     throw err;
   }
+  if (!parsed.structuredContext || typeof parsed.structuredContext !== "object") {
+    parsed.structuredContext = structuredContext;
+  }
   return parsed;
 }
 
-async function generateNarrativeBodyWithLlm({ documentType, language, instructions, content }) {
+async function generateNarrativeBodyWithLlm({
+  documentType,
+  language,
+  instructions,
+  content,
+  structuredContext = {},
+}) {
   const systemPrompt =
-    "You write formal legal document text in markdown only. Return markdown only, no JSON.";
+    "You write formal legal document text in markdown only. " +
+    "Use structuredContext values exactly when present. " +
+    "Do not output placeholder markers for known fields. " +
+    "Do not fabricate unknown values. " +
+    "If a value is missing, leave it blank without placeholder syntax. " +
+    "Return markdown only, no JSON.";
   const userPrompt = [
     `documentType=${documentType}`,
     `language=${language}`,
     `instructions=${instructions || ""}`,
     `contentContext=${JSON.stringify(content || {})}`,
+    `structuredContext=${JSON.stringify(structuredContext || {})}`,
     "",
     "Write the final official document body text in the requested language as markdown.",
   ].join("\n");
@@ -365,6 +483,10 @@ async function generateNarrativeBodyWithLlm({ documentType, language, instructio
 async function enrichEnvelopeNarrative({ envelope, normalized }) {
   const docType = normalized.documentType;
   const content = envelope?.content || {};
+  const structuredContext =
+    envelope?.structuredContext && typeof envelope.structuredContext === "object"
+      ? envelope.structuredContext
+      : {};
 
   const existingMarkdown = content?.markdown;
   if (!existingMarkdown || !String(existingMarkdown).trim()) {
@@ -373,6 +495,7 @@ async function enrichEnvelopeNarrative({ envelope, normalized }) {
       language: normalized.language,
       instructions: normalized.instructions,
       content,
+      structuredContext,
     });
     if (markdown) {
       envelope.content = envelope.content || {};
@@ -401,6 +524,10 @@ function normalizePlanInput(input = {}) {
     language,
     format,
     instructions: typeof input.instructions === "string" ? input.instructions.trim() : "",
+    structuredContext:
+      input.structuredContext && typeof input.structuredContext === "object" && !Array.isArray(input.structuredContext)
+        ? input.structuredContext
+        : {},
   };
 }
 
@@ -450,6 +577,49 @@ async function planDocument(input = {}) {
   };
 }
 
+async function groundDraftContent(input = {}) {
+  const title = String(input.title || "").trim();
+  const content = String(input.content || "").trim();
+  const language = String(input.language || "en").trim().toLowerCase() || "en";
+  const structuredContext =
+    input.structuredContext && typeof input.structuredContext === "object" && !Array.isArray(input.structuredContext)
+      ? input.structuredContext
+      : {};
+  if (!content) return { title, content };
+
+  const systemPrompt =
+    "You rewrite legal draft markdown with strict data grounding. " +
+    "Use structuredContext values exactly when present. " +
+    "Do not use placeholder markers for known fields. " +
+    "Do not fabricate unknown values. " +
+    "If a value is missing, leave it blank without placeholder markers. " +
+    "Return markdown only.";
+  const userPrompt = [
+    `language=${language}`,
+    `title=${title || ""}`,
+    `structuredContext=${JSON.stringify(structuredContext)}`,
+    `draft=${content}`,
+    "",
+    "Rewrite the draft as an official legal document in markdown.",
+  ].join("\n");
+
+  const rewritten = await collectFinalTextFromLlm({
+    mode: "text",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+    temperature: 0.1,
+    maxTokens: 1400,
+  });
+
+  return {
+    title,
+    content: String(rewritten || content).trim() || content,
+  };
+}
+
 module.exports = {
   planDocument,
+  groundDraftContent,
 };
