@@ -194,7 +194,13 @@ export function AgentFolderItem({
                   <MoreVertical className="w-3.5 h-3.5 text-slate-400" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44 bg-white/95 dark:bg-[#1e293b]/95 border border-black/[0.06] dark:border-white/[0.06] shadow-xl rounded-2xl z-50">
+              <DropdownMenuContent
+                side="top"
+                align="end"
+                sideOffset={6}
+                collisionPadding={8}
+                className="w-44 max-h-none overflow-y-visible bg-white/95 dark:bg-[#1e293b]/95 border border-black/[0.06] dark:border-white/[0.06] shadow-xl rounded-2xl z-50"
+              >
                 <DropdownMenuItem onClick={handleStartEdit}>
                   <Edit2 className="w-3.5 h-3.5 mr-2" />
                   Rename

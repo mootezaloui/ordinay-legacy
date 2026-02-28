@@ -1556,6 +1556,25 @@ function ArtifactBody({
           await cancelDocumentGenerationPreview(
             message.data!.documentGenerationPreview!.previewId,
           );
+          if (activeSessionId && activeSessionMessages && updateSessionMessages) {
+            const updatedMessages = activeSessionMessages.map((msg) => {
+              if (msg.id !== message.id) return msg;
+              return {
+                ...msg,
+                data: {
+                  ...msg.data!,
+                  documentGenerationPreview: {
+                    ...msg.data!.documentGenerationPreview!,
+                    structuredSummaryMetadata: {
+                      ...msg.data!.documentGenerationPreview!.structuredSummaryMetadata,
+                      status: "cancelled",
+                    },
+                  },
+                },
+              };
+            });
+            updateSessionMessages(activeSessionId, updatedMessages);
+          }
         }}
       />
     );

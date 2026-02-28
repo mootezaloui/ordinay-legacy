@@ -1,6 +1,7 @@
 "use strict";
 
 const { DATA_REQUIREMENTS } = require("../intent.classifier");
+const { buildDataBindings } = require("../utils/dataBinding.resolver");
 
 const ENTITY_RESOLUTION_CONFIG = Object.freeze({
   client: {
@@ -707,6 +708,9 @@ function _buildEnrichedContext(context, fetchedData, dataReqs) {
   // Flag for reasoner to know data was fetched
   enriched._dataEnriched = true;
   enriched._dataRequirements = dataReqs;
+
+  // Data integrity: build placeholder bindings from fetched entity data
+  enriched._dataBindings = buildDataBindings(enriched);
 
   return enriched;
 }

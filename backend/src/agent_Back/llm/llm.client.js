@@ -10,6 +10,7 @@ const {
   WEB_SEARCH_SUMMARY_PROMPT,
 } = require("./llm.prompts");
 const { parseJsonResponse } = require("./llm.validation");
+const { buildPlaceholderInstruction } = require("../utils/dataBinding.resolver");
 
 const LLM_BASE_URL = process.env.LLM_BASE_URL || "http://127.0.0.1:11434";
 const LLM_MODEL = process.env.LLM_MODEL || "gpt-oss:120b-cloud";
@@ -273,15 +274,19 @@ function buildChatHistoryBlock(historyContext) {
   return lines.length > 0 ? lines.join("\n") : "";
 }
 
-function buildChatPrompt(message, historyContext) {
+function buildChatPrompt(message, historyContext, dataBindings) {
   const historyBlock = buildChatHistoryBlock(historyContext);
+  const bindingBlock = dataBindings ? buildPlaceholderInstruction(dataBindings) : "";
+  const systemBlock = bindingBlock
+    ? `${CHAT_SYSTEM_PROMPT}\n\n${bindingBlock}`
+    : CHAT_SYSTEM_PROMPT;
   if (historyBlock) {
-    return `${CHAT_SYSTEM_PROMPT}\n\n${historyBlock}\n\nUser: ${message}\n\nAssistant:`;
+    return `${systemBlock}\n\n${historyBlock}\n\nUser: ${message}\n\nAssistant:`;
   }
-  return `${CHAT_SYSTEM_PROMPT}\n\nUser: ${message}\n\nAssistant:`;
+  return `${systemBlock}\n\nUser: ${message}\n\nAssistant:`;
 }
 
-async function generateChatResponse(message, historyContext = null) {
+async function generateChatResponse(message, historyContext = null, dataBindings = null) {
   console.log(
     "[LLM][ChatCompletion] Invoked",
     JSON.stringify({ preview: String(message || "").slice(0, 80) }),
@@ -304,7 +309,7 @@ async function generateChatResponse(message, historyContext = null) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: LLM_MODEL,
-        prompt: buildChatPrompt(message, historyContext),
+        prompt: buildChatPrompt(message, historyContext, dataBindings),
         stream: false,
         options: {
           temperature: 0.2,

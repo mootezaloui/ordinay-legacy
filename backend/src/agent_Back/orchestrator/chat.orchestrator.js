@@ -1,12 +1,13 @@
 "use strict";
 
 const documentGenerationPreviewService = require("../../services/documentGeneration/documentGenerationPreview.service");
-const operatorsService = require("../../services/operators.service");
 const { ChatAgentService } = require("../chat/chat.agent.service");
 const { resolveChatAmbiguity } = require("../chat/chat.ambiguity.resolver");
 const { filterToolsForState } = require("../chat/chat.tool.exposure");
 const { detectDraftIntent } = require("../intent.classifier");
 const { toProposalArtifact } = require("../proposals/proposalArtifact");
+const { buildDocumentContext } = require("./document.context.builder");
+const { buildDocumentSafeContext } = require("./document.exposure.firewall");
 const { CHAT_STATES, selectInitialState } = require("./chat.state.machine");
 const { parseFinalOutputContract } = require("./output.contract");
 const { parseJsonResponse } = require("../llm/llm.validation");
@@ -230,103 +231,6 @@ class ChatOrchestrator {
       return { entityType: "client", entityId: Number(requestContext.clientId) };
     }
     return null;
-  }
-
-  async _safeReadTool(toolName, params, policy) {
-    if (!this.engine || typeof this.engine._callReadTool !== "function") return null;
-    try {
-      const result = await this.engine._callReadTool(toolName, params, policy);
-      return result && typeof result === "object" ? result : null;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  async _buildStructuredContextFromScope({ activeScope, policy }) {
-    const context = {
-      client: null,
-      dossier: null,
-      systemDate: new Date().toISOString().slice(0, 10),
-      office: null,
-    };
-
-    try {
-      const op = operatorsService.getCurrentOperator();
-      context.office = {
-        name: op?.name || null,
-        title: op?.title || null,
-        barNumber: op?.bar_number || op?.bar_id || null,
-        officeName: op?.office_name || op?.office || null,
-        officeAddress: op?.office_address || null,
-        email: op?.email || null,
-        phone: op?.phone || op?.mobile || null,
-      };
-    } catch (_) {
-      context.office = null;
-    }
-
-    const type = String(activeScope?.entityType || "").toLowerCase();
-    const id = Number(activeScope?.entityId || 0);
-    if (!type || !Number.isInteger(id) || id <= 0) return context;
-
-    if (type === "client") {
-      const row = await this._safeReadTool("getClient", { clientId: id }, policy);
-      const client = row?.client || null;
-      if (client) {
-        context.client = {
-          id: Number(client.id) || id,
-          fullName: client.name || null,
-          name: client.name || null,
-          email: client.email || null,
-          phone: client.phone || client.alternate_phone || null,
-          company: client.company || null,
-        };
-      }
-      const dossiersResult = await this._safeReadTool("listDossiers", { clientId: id, limit: 10 }, policy);
-      const dossiers = Array.isArray(dossiersResult?.dossiers) ? dossiersResult.dossiers : [];
-      if (dossiers.length === 1) {
-        const dossier = dossiers[0];
-        context.dossier = {
-          id: Number(dossier.id) || null,
-          reference: dossier.reference || dossier.code || null,
-          title: dossier.title || null,
-          status: dossier.status || null,
-          clientId: id,
-        };
-      }
-      return context;
-    }
-
-    if (type === "dossier") {
-      const row = await this._safeReadTool("getDossier", { dossierId: id }, policy);
-      const dossier = row?.dossier || null;
-      if (dossier) {
-        context.dossier = {
-          id: Number(dossier.id) || id,
-          reference: dossier.reference || dossier.code || null,
-          title: dossier.title || null,
-          status: dossier.status || null,
-          clientId: Number(dossier.client_id) || null,
-        };
-        if (Number(dossier.client_id) > 0) {
-          const c = await this._safeReadTool("getClient", { clientId: Number(dossier.client_id) }, policy);
-          const client = c?.client || null;
-          if (client) {
-            context.client = {
-              id: Number(client.id) || Number(dossier.client_id),
-              fullName: client.name || null,
-              name: client.name || null,
-              email: client.email || null,
-              phone: client.phone || client.alternate_phone || null,
-              company: client.company || null,
-            };
-          }
-        }
-      }
-      return context;
-    }
-
-    return context;
   }
 
   _scopeKeyForEntityType(entityType = "") {
@@ -1232,17 +1136,18 @@ class ChatOrchestrator {
     } else if (routedOutputType === "document") {
       routeAction = "document_tool";
       const activeScope = this._resolveActiveEntityScope(requestContext, llmHistory);
-      const structuredContext = activeScope
-        ? await this._buildStructuredContextFromScope({ activeScope, policy })
-        : {
-            client: null,
-            dossier: null,
-            systemDate: new Date().toISOString().slice(0, 10),
-            office: null,
-          };
+      const documentContext = await buildDocumentContext({
+        activeScope,
+        readTool: async (toolName, params) => {
+          if (!this.engine || typeof this.engine._callReadTool !== "function") return null;
+          return this.engine._callReadTool(toolName, params, policy);
+        },
+      });
+      const documentSafeContext = buildDocumentSafeContext(documentContext);
       this._traceExecutionStep(requestContext, "document_tool_called", {
         toolName: "planGeneratedDocument",
         hasActiveScope: Boolean(activeScope),
+        hasClientDbId: Number(documentContext?.internal?.clientDbId || 0) > 0,
       });
       const executionPolicy = this._resolveOutputContractExecutionPolicy(policy);
       const docToolResult = await this.engine.executeToolV2(
@@ -1252,7 +1157,7 @@ class ChatOrchestrator {
           content: contract.content,
           metadata: {
             ...(contract.metadata || {}),
-            structuredContext,
+            structuredContext: documentSafeContext,
           },
         },
         executionPolicy,
@@ -1292,7 +1197,7 @@ class ChatOrchestrator {
           activeScope,
           requestContext,
           executionContext,
-          structuredContext,
+          structuredContext: documentSafeContext,
         });
         if (previewArtifact) {
           outputArtifact = previewArtifact;

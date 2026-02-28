@@ -12,11 +12,11 @@ Any violation of the rules below is considered a defect.
 
 ### 1. No New Files
 
-Claude MUST NOT create new files unless explicitly instructed.
+Claude MUST NOT create new files unless explicitly instructed or necessary.
 
 If a change can be made by editing existing files, it MUST be done that way.
 
-Creating new files for “cleanliness”, “organization”, or “best practice” reasons is FORBIDDEN.
+Creating new files for “cleanliness”, “organization”, or “best practice” reasons is Accpetable.
 
 ---
 
@@ -72,7 +72,7 @@ Only fix the requested issue inside the existing architecture.
 
 ### 6. No “Best Practice” Rewrites
 
-Claude MUST NOT apply general “best practices”, cleanups, or stylistic changes.
+Claude MUST apply general “best practices”, cleanups, or stylistic changes.
 
 If code works, it stays.
 
@@ -231,7 +231,10 @@ DataContext
     tasks[]
     sessions[]
     financialEntries[]
+    Personaltasks[]
+    lawsuits[]
     history[]
+    ...
 
   functions:
     addClient()
@@ -254,6 +257,7 @@ Each domain should be isolated:
    /accounting
    /documents
    /settings
+   ...
 
 Each feature contains:
 - FeaturePage.jsx

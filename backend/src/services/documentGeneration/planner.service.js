@@ -399,15 +399,19 @@ async function generateEnvelopeWithLlm({ normalized, entity }) {
   const systemPrompt =
     "You generate legal document content JSON only. " +
     "Return valid JSON only. " +
-    "Use structuredContext fields as authoritative values when present. " +
-    "Do not use placeholder markers for known fields. " +
-    "Do not hallucinate unknown fields. " +
-    "If a required value is missing, leave it empty or omit optional fields. " +
+    "Use ONLY fields from structuredContext. " +
+    "If structuredContext.client.fullName exists, do not output placeholders for client name. " +
+    "If structuredContext.dossier.reference exists, include it. " +
+    "If structuredContext.lawyer fields are empty, do not fabricate them. " +
+    "Never invent license numbers or identity numbers. " +
+    "Never output internal DB IDs. " +
+    "If data is missing, leave blank values or omit optional fields without placeholder markers. " +
     "No markdown and no explanations.";
   const userPrompt = [
     "Generate a structured document payload.",
     "Use user instructions, entity context, and structuredContext.",
-    "Known structuredContext values must be copied exactly.",
+    "Copy known structuredContext values exactly.",
+    "Do not output internal identifiers.",
     "If data is unavailable, omit optional fields or leave empty values without placeholder markers.",
     "",
     `request=${JSON.stringify({
@@ -453,9 +457,12 @@ async function generateNarrativeBodyWithLlm({
 }) {
   const systemPrompt =
     "You write formal legal document text in markdown only. " +
-    "Use structuredContext values exactly when present. " +
-    "Do not output placeholder markers for known fields. " +
-    "Do not fabricate unknown values. " +
+    "Use ONLY fields from structuredContext. " +
+    "If structuredContext.client.fullName exists, do not output placeholders for client name. " +
+    "If structuredContext.dossier.reference exists, include it. " +
+    "If structuredContext.lawyer fields are empty, do not fabricate them. " +
+    "Never invent license numbers or identity numbers. " +
+    "Never output internal DB IDs. " +
     "If a value is missing, leave it blank without placeholder syntax. " +
     "Return markdown only, no JSON.";
   const userPrompt = [
@@ -589,9 +596,12 @@ async function groundDraftContent(input = {}) {
 
   const systemPrompt =
     "You rewrite legal draft markdown with strict data grounding. " +
-    "Use structuredContext values exactly when present. " +
-    "Do not use placeholder markers for known fields. " +
-    "Do not fabricate unknown values. " +
+    "Use ONLY fields from structuredContext. " +
+    "If structuredContext.client.fullName exists, do not output placeholders for client name. " +
+    "If structuredContext.dossier.reference exists, include it. " +
+    "If structuredContext.lawyer fields are empty, do not fabricate them. " +
+    "Never invent license numbers or identity numbers. " +
+    "Never output internal DB IDs. " +
     "If a value is missing, leave it blank without placeholder markers. " +
     "Return markdown only.";
   const userPrompt = [

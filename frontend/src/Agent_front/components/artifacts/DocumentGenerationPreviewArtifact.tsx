@@ -142,7 +142,13 @@ export function DocumentGenerationPreviewArtifact({
   onCancel,
 }: DocumentGenerationPreviewArtifactProps) {
   const contextData = useData() as DataContextLike;
-  const [state, setState] = useState<PreviewState>("ready");
+  const [state, setState] = useState<PreviewState>(() => {
+    const metaStatus = data.structuredSummaryMetadata?.status;
+    if (metaStatus === "cancelled") return "cancelled";
+    const expiresAt = data.structuredSummaryMetadata?.expiresAt;
+    if (expiresAt && new Date(expiresAt).getTime() < Date.now()) return "cancelled";
+    return "ready";
+  });
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedMarkdown, setEditedMarkdown] = useState(

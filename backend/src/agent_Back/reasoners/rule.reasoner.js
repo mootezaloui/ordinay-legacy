@@ -5,6 +5,7 @@ const { generateChatResponse } = require("../llm.client");
 const {
   interpret: postReadInterpret,
 } = require("../interpreters/post-read.interpreter");
+const { resolveDataBindings } = require("../utils/dataBinding.resolver");
 
 class RuleReasoner extends BaseReasoner {
   constructor() {
@@ -16,15 +17,20 @@ class RuleReasoner extends BaseReasoner {
     const llmResponse = await generateChatResponse(
       message,
       context.llmContext || null,
+      context._dataBindings || null,
     );
+
+    const resolvedMessage = context._dataBindings
+      ? resolveDataBindings(llmResponse, context._dataBindings)
+      : llmResponse;
 
     return {
       type: "chat",
       message:
-        llmResponse ||
+        resolvedMessage ||
         "I apologize, but I am unable to respond right now. Please try again.",
       timestamp,
-      source: llmResponse ? "llm" : "fallback",
+      source: resolvedMessage ? "llm" : "fallback",
     };
   }
 

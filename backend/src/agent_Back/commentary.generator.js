@@ -19,6 +19,8 @@
  *   - GUIDANCE: Calm, suggestive. For "what next" questions.
  */
 
+const { buildPlaceholderInstruction, resolveDataBindings } = require("./utils/dataBinding.resolver");
+
 const LLM_BASE_URL = process.env.LLM_BASE_URL || "http://127.0.0.1:11434";
 const LLM_MODEL = process.env.LLM_MODEL || "gpt-oss:120b-cloud";
 const LLM_TIMEOUT = parseInt(process.env.LLM_COMMENTARY_TIMEOUT || "30000", 10);
@@ -950,6 +952,14 @@ ${mode === COMMENTARY_MODES.GUIDANCE ? "- Recommend a sequence and explain why o
 - If you cannot add new insight, respond with exactly: [silent]
 ${forceResponse ? "\nYou must respond with 2-4 short sentences." : ""}`;
 
+  // Data integrity: inject placeholder instruction if bindings available
+  const bindingInstruction = context?._dataBindings
+    ? buildPlaceholderInstruction(context._dataBindings)
+    : "";
+  const fullUserPrompt = bindingInstruction
+    ? `${bindingInstruction}\n\n${userPrompt}`
+    : userPrompt;
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), LLM_TIMEOUT);
 
@@ -959,7 +969,7 @@ ${forceResponse ? "\nYou must respond with 2-4 short sentences." : ""}`;
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: LLM_MODEL,
-        prompt: `${systemPrompt}\n\nUser: ${userPrompt}\n\nAssistant:`,
+        prompt: `${systemPrompt}\n\nUser: ${fullUserPrompt}\n\nAssistant:`,
         stream: false,
         options: {
           temperature: 0.2, // Lower temperature for more consistent mode adherence
@@ -982,7 +992,12 @@ ${forceResponse ? "\nYou must respond with 2-4 short sentences." : ""}`;
     }
 
     const data = await response.json();
-    const commentary = (data.response || "").trim();
+    const rawCommentary = (data.response || "").trim();
+
+    // Data integrity: resolve placeholders with exact DB values
+    const commentary = context?._dataBindings
+      ? resolveDataBindings(rawCommentary, context._dataBindings)
+      : rawCommentary;
 
     // Validate commentary isn't empty or too short
     if (!commentary || commentary.length < minLength) {
@@ -1141,6 +1156,14 @@ ${mode === COMMENTARY_MODES.GUIDANCE ? "- Recommend a sequence and explain why o
 - If you cannot add new insight, respond with exactly: [silent]
 You must respond with 2-4 short sentences.`;
 
+  // Data integrity: inject placeholder instruction if bindings available
+  const streamBindingInstruction = context?._dataBindings
+    ? buildPlaceholderInstruction(context._dataBindings)
+    : "";
+  const streamFullUserPrompt = streamBindingInstruction
+    ? `${streamBindingInstruction}\n\n${userPrompt}`
+    : userPrompt;
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), LLM_TIMEOUT);
 
@@ -1191,7 +1214,7 @@ You must respond with 2-4 short sentences.`;
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: LLM_MODEL,
-        prompt: `${systemPrompt}\n\nUser: ${userPrompt}\n\nAssistant:`,
+        prompt: `${systemPrompt}\n\nUser: ${streamFullUserPrompt}\n\nAssistant:`,
         stream: true,
         options: {
           temperature: 0.2, // Lower temperature for more consistent mode adherence
@@ -1221,9 +1244,14 @@ You must respond with 2-4 short sentences.`;
       JSON.stringify({ chunks: emittedChunks, chars: fullContent.length }),
     );
 
+    // Data integrity: resolve placeholders on final accumulated text
+    const resolvedContent = context?._dataBindings
+      ? resolveDataBindings(fullContent, context._dataBindings)
+      : fullContent;
+
     // Stream ended without done signal
     const sanitized = sanitizeCommentary(
-      fullContent,
+      resolvedContent,
       artifactSummary,
       artifact,
       {
