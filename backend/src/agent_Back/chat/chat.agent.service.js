@@ -30,6 +30,13 @@ const operatorsService = require("../../services/operators.service");
 const documentGenerationService = require("../../services/documentGeneration/documentGeneration.service");
 const documentGenerationPreviewService = require("../../services/documentGeneration/documentGenerationPreview.service");
 const {
+  DEFAULT_DOCUMENT_OUTPUT_FORMAT_PREFERENCE,
+  normalizeOutputFormatPreference,
+} = require("../../domain/documentFormatGovernance");
+const {
+  resolveStorageTarget,
+} = require("../../domain/document.storage.resolver");
+const {
   resolveClientQuery,
   resolveDossierQuery,
   resolveTaskQuery,
@@ -150,14 +157,34 @@ class ChatAgentService {
 
     const policy = this.engine._resolvePolicy(agentVersion);
     const draftIntent = detectDraftIntent(effectiveUserMessage, context || {});
+    const contextMetadata =
+      context?.requestMetadata &&
+      typeof context.requestMetadata === "object" &&
+      !Array.isArray(context.requestMetadata)
+        ? context.requestMetadata
+        : {};
+    const incomingMetadata =
+      metadata && typeof metadata === "object" && !Array.isArray(metadata) ? metadata : {};
+    const mergedMetadata = {
+      ...contextMetadata,
+      ...incomingMetadata,
+    };
+    const documentOutputFormatPreference =
+      normalizeOutputFormatPreference(
+        mergedMetadata.documentOutputFormatPreference ||
+          context?.documentOutputFormatPreference,
+      ) || DEFAULT_DOCUMENT_OUTPUT_FORMAT_PREFERENCE;
     const requestContext = {
       ...(context || {}),
       conversationId:
         context?.conversationId || context?.agentSessionId || sessionId || undefined,
       userId: context?.userId || userId || "default",
       tenantId: context?.tenantId || tenantId || null,
-      requestMetadata:
-        metadata && typeof metadata === "object" ? { ...metadata } : undefined,
+      documentOutputFormatPreference,
+      requestMetadata: {
+        ...mergedMetadata,
+        documentOutputFormatPreference,
+      },
     };
     if (resolvedSelection) {
       Object.assign(requestContext, resolvedSelection.scope);
@@ -795,6 +822,11 @@ class ChatAgentService {
           'Final output contract JSON schema: {"outputType":"message|document|mutation|research","title":"optional string","content":"required string","metadata":{}}',
           'Use "message" for conversational/informational replies.',
           'Use "document" for standalone artifacts intended to be printed, signed, sent, filed, or stored. If unsure between message and document for a formal output, prefer "document".',
+          'For outputType "document", metadata must include artifactKind and structureHints.',
+          'metadata.artifactKind should be one of: document, table, email, letter, report, memo.',
+          'metadata.structureHints must include booleans: hasTabularData, requiresEditing, intendedForFiling.',
+          'metadata.storageHint is optional and should be one of: inherit, client, dossier, lawsuit, financial_entry, mission, session, task.',
+          "If storageHint is omitted, use inherit.",
           'Use "mutation" when the response intends to modify system data. For mutation, metadata.operations is required and must be structured.',
           'Use "research" for external research outputs.',
           "Do not output raw text outside the final JSON object.",
@@ -3123,14 +3155,24 @@ class ChatAgentService {
   }
 
   _inferEntityTypeFromScope(context = {}) {
-    if (context.clientId) return "client";
-    if (context.dossierId) return "dossier";
-    if (context.lawsuitId) return "lawsuit";
-    if (context.taskId) return "task";
-    if (context.sessionId) return "session";
-    if (context.missionId) return "mission";
+    try {
+      const resolved = resolveStorageTarget({
+        activeScope: {
+          taskId: context.taskId,
+          sessionId: context.sessionId,
+          missionId: context.missionId,
+          financialEntryId: context.financialEntryId,
+          lawsuitId: context.lawsuitId,
+          dossierId: context.dossierId,
+          clientId: context.clientId,
+        },
+      });
+      if (resolved?.entityType) return resolved.entityType;
+    } catch (_) {
+      // Fall through to non-storage conversational scopes.
+    }
+
     if (context.personalTaskId) return "personal_task";
-    if (context.financialEntryId) return "financial_entry";
     if (context.notificationId) return "notification";
     if (context.historyEventId) return "history_event";
     return null;
@@ -3565,21 +3607,25 @@ class ChatAgentService {
   }
 
   _extractScopedEntityFromContext(executionContext = {}) {
-    const keyMap = [
-      ["dossierId", "dossier"],
-      ["lawsuitId", "lawsuit"],
-      ["taskId", "task"],
-      ["missionId", "mission"],
-      ["sessionId", "session"],
-      ["clientId", "client"],
-    ];
-    for (const [scopeKey, entityType] of keyMap) {
-      const id = Number(executionContext?.[scopeKey] || 0);
-      if (Number.isInteger(id) && id > 0) {
-        return { entityType, entityId: id };
-      }
+    try {
+      const resolved = resolveStorageTarget({
+        activeScope: {
+          taskId: executionContext?.taskId,
+          sessionId: executionContext?.sessionId,
+          missionId: executionContext?.missionId,
+          financialEntryId: executionContext?.financialEntryId,
+          lawsuitId: executionContext?.lawsuitId,
+          dossierId: executionContext?.dossierId,
+          clientId: executionContext?.clientId,
+        },
+      });
+      return {
+        entityType: resolved.entityType,
+        entityId: resolved.entityId,
+      };
+    } catch (_) {
+      return null;
     }
-    return null;
   }
 
   _requiresGroundedDraft({ userMessage, draftIntent, scopeContext }) {

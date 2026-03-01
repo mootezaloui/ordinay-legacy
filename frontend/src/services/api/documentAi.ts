@@ -5,6 +5,7 @@ export interface DocumentAiSettings {
   document_ai_provider: string;
   document_ai_redaction_mode: 'none' | 'basic' | 'strict' | string;
   document_ai_retain_artifacts_days: number;
+  document_output_format_preference: 'auto' | 'pdf' | 'docx' | 'xlsx' | 'html';
 }
 
 export interface DocumentAiAuditLog {
@@ -23,6 +24,8 @@ export async function getDocumentAiSettings(): Promise<DocumentAiSettings> {
     ...server,
     document_ai_enabled: false,
     document_ai_provider: 'local',
+    document_output_format_preference:
+      server?.document_output_format_preference || 'auto',
   };
 }
 
@@ -39,6 +42,8 @@ export async function updateDocumentAiSettings(
     ...server,
     document_ai_enabled: false,
     document_ai_provider: 'local',
+    document_output_format_preference:
+      server?.document_output_format_preference || 'auto',
   };
 }
 

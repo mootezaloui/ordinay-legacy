@@ -1,6 +1,10 @@
 "use strict";
 
 const db = require("../db/connection");
+const {
+  DEFAULT_DOCUMENT_OUTPUT_FORMAT_PREFERENCE,
+  normalizeOutputFormatPreference,
+} = require("../domain/documentFormatGovernance");
 
 const TABLE_SQL = `
 CREATE TABLE IF NOT EXISTS app_settings (
@@ -83,11 +87,18 @@ function getDocumentAiPolicy() {
 
 function getDocumentAiSettings() {
   const policy = getDocumentAiPolicy();
+  const rawPreference = getSetting(
+    "document_output_format_preference",
+    DEFAULT_DOCUMENT_OUTPUT_FORMAT_PREFERENCE,
+  );
+  const documentOutputFormatPreference =
+    normalizeOutputFormatPreference(rawPreference) || DEFAULT_DOCUMENT_OUTPUT_FORMAT_PREFERENCE;
   return {
     document_ai_enabled: policy.enabled,
     document_ai_provider: policy.provider,
     document_ai_redaction_mode: policy.redactionMode,
     document_ai_retain_artifacts_days: policy.retainArtifactsDays,
+    document_output_format_preference: documentOutputFormatPreference,
   };
 }
 
@@ -107,6 +118,12 @@ function updateDocumentAiSettings(patch = {}) {
     const parsed = Number.parseInt(String(patch.document_ai_retain_artifacts_days || "30"), 10);
     const clamped = Number.isFinite(parsed) ? Math.max(1, Math.min(3650, parsed)) : 30;
     setSetting("document_ai_retain_artifacts_days", String(clamped));
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, "document_output_format_preference")) {
+    const value =
+      normalizeOutputFormatPreference(patch.document_output_format_preference) ||
+      DEFAULT_DOCUMENT_OUTPUT_FORMAT_PREFERENCE;
+    setSetting("document_output_format_preference", value);
   }
   return getDocumentAiSettings();
 }

@@ -178,13 +178,40 @@ export function DocumentGenerationPreviewArtifact({
     }
   };
 
-  const disabled = state === "confirming" || state === "cancelled";
+  const storageTarget =
+    data.storageDecision?.resolvedTarget &&
+    typeof data.storageDecision.resolvedTarget === "object"
+      ? data.storageDecision.resolvedTarget
+      : null;
+  const storageScopeMissing = String(data.storageDecision?.status || "").toLowerCase() === "missing";
+  const disabled = state === "confirming" || state === "cancelled" || storageScopeMissing;
   const hasEditedContent = editedMarkdown.trim().length > 0;
   const summaryMeta = data.structuredSummaryMetadata || {};
   const isRtl = String(data.language || "").toLowerCase() === "ar";
   const targetTypeLabel = toTitleCase(data.targetEntity.type || "Target");
   const targetRef = `${targetTypeLabel} #${data.targetEntity.id}`;
   const documentLabel = toTitleCase(data.documentType);
+  const canonicalFormatLabel = String(
+    data.canonicalFormat || data.format || "",
+  ).toUpperCase();
+  const previewFormatLabel = String(data.previewFormat || "").toUpperCase();
+  const selectionModeRaw = String(data.formatSelection?.selectionMode || "auto").toLowerCase();
+  const selectionModeLabel =
+    selectionModeRaw === "explicit"
+      ? "Explicit"
+      : selectionModeRaw === "preference"
+        ? "Preference"
+        : "Auto";
+  const formatWarning = Array.isArray(data.formatSelection?.warnings)
+    ? data.formatSelection?.warnings.find((warning) => warning?.message)?.message || null
+    : null;
+  const storageWarning =
+    typeof data.storageDecision?.message === "string" && data.storageDecision.message.trim()
+      ? data.storageDecision.message.trim()
+      : null;
+  const storageTargetLabel = storageTarget
+    ? `${toTitleCase(String(storageTarget.entityType || ""))} #${storageTarget.entityId}`
+    : "Unresolved";
   const resolvedContext = resolveDossierAndClient(
     data.targetEntity.type,
     Number(data.targetEntity.id),
@@ -275,13 +302,29 @@ export function DocumentGenerationPreviewArtifact({
               {documentLabel}
             </span>
             <span className="inline-flex items-center gap-1 rounded-md border border-black/[0.08] bg-white px-2 py-1 text-[11px] font-medium text-slate-600 dark:border-white/[0.1] dark:bg-slate-800/70 dark:text-slate-300">
-              {String(data.language || "").toUpperCase()} / {String(data.format || "").toUpperCase()}
+              {`${String(data.language || "").toUpperCase()} / Preview ${previewFormatLabel || "HTML"}`}
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-md border border-black/[0.08] bg-white px-2 py-1 text-[11px] font-medium text-slate-600 dark:border-white/[0.1] dark:bg-slate-800/70 dark:text-slate-300">
+              {`Will be saved as: ${canonicalFormatLabel || "PDF"} (${selectionModeLabel})`}
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-md border border-black/[0.08] bg-white px-2 py-1 text-[11px] font-medium text-slate-600 dark:border-white/[0.1] dark:bg-slate-800/70 dark:text-slate-300">
+              {`Will be stored in: ${storageTargetLabel}`}
             </span>
             <span className="inline-flex items-center gap-1 rounded-md border border-black/[0.08] bg-white px-2 py-1 text-[11px] font-medium text-slate-600 dark:border-white/[0.1] dark:bg-slate-800/70 dark:text-slate-300">
               <Layers className="h-3 w-3" />
               {data.templateKey} ({data.schemaVersion})
             </span>
           </div>
+          {formatWarning ? (
+            <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-800 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-300">
+              {formatWarning}
+            </div>
+          ) : null}
+          {storageWarning ? (
+            <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-800 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-300">
+              {storageWarning}
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -375,7 +418,11 @@ export function DocumentGenerationPreviewArtifact({
             </>
           )}
           {state === "ready" && (
-            <span className="text-xs text-slate-400 dark:text-slate-500">Review and confirm to proceed</span>
+            <span className="text-xs text-slate-400 dark:text-slate-500">
+              {storageScopeMissing
+                ? "Resolve target scope before confirmation"
+                : "Review and confirm to proceed"}
+            </span>
           )}
           {state === "failed" && (
             <>

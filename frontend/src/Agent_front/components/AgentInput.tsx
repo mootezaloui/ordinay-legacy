@@ -17,6 +17,7 @@ import {
   SlashCommand,
 } from "../../services/api/agent";
 import { apiClient } from "../../services/api/client";
+import { getDocumentFormatGovernance } from "../../services/api/documentFormats";
 
 export interface ContextIndicator {
   type: "client" | "dossier" | "lawsuit" | "session" | "task" | "global";
@@ -108,6 +109,9 @@ export function AgentInput({
   const [documentSearch, setDocumentSearch] = useState("");
   const [systemDocuments, setSystemDocuments] = useState<SystemDocument[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [fileUploadAccept, setFileUploadAccept] = useState(
+    ".pdf,.doc,.docx,.txt,.csv,.md,.json,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.bmp,.webp,.tif,.tiff,.heic,.heif",
+  );
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const documentPickerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -163,6 +167,15 @@ export function AgentInput({
 
   useEffect(() => {
     getSlashCommands().then(setCommands);
+  }, []);
+
+  useEffect(() => {
+    getDocumentFormatGovernance()
+      .then((governance) => {
+        const accept = String(governance?.supported?.uploadAccept || "").trim();
+        if (accept) setFileUploadAccept(accept);
+      })
+      .catch(() => {});
   }, []);
 
   const autoFilteredCommands = useMemo(() => {
@@ -709,7 +722,7 @@ export function AgentInput({
               multiple
               onChange={handleFileUpload}
               className="hidden"
-              accept=".pdf,.doc,.docx,.txt,.csv,.md,.json,.xls,.xlsx,.ppt,.pptx"
+              accept={fileUploadAccept}
             />
             <input
               ref={imageInputRef}

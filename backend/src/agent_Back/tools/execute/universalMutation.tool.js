@@ -613,12 +613,15 @@ async function buildSingleOperationProposal(input, executionContext = {}) {
         throw new Error('file_ref attachment requires payload.filePath and payload.fileName');
       }
       if (attachmentType === ATTACHMENT_TYPES.GENERATED_DOCUMENT) {
-        if (!payload.documentType || !payload.templateKey || !payload.language || !payload.format) {
-          throw new Error('generated_document attachment requires payload.documentType, templateKey, language, and format');
+        const canonicalFormat = payload.canonicalFormat || payload.format;
+        if (!payload.documentType || !payload.templateKey || !payload.language || !canonicalFormat) {
+          throw new Error('generated_document attachment requires payload.documentType, templateKey, language, and canonicalFormat');
         }
         if (!payload.schemaVersion || !payload.contentJson) {
           throw new Error('generated_document attachment requires payload.schemaVersion and contentJson');
         }
+        payload.canonicalFormat = canonicalFormat;
+        payload.format = canonicalFormat;
       }
 
       // Compute snapshot hash of target entity

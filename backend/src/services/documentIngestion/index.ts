@@ -2,6 +2,9 @@ const fs = require("fs");
 const {
   detectDocumentType,
 } = require("./extractText.ts");
+const {
+  isIngestibleFormat,
+} = require("../../domain/documentFormatGovernance");
 const { runDocumentIntel } = require("../../doc_intel/pipeline");
 const { getOcrWorkerManager } = require("../../doc_intel/ocrTesseractWorker/manager");
 const { emitDocumentEvent } = require("../../doc_intel/progressEvents");
@@ -77,7 +80,7 @@ function buildFailure(reason) {
 }
 
 function isSupportedType(type) {
-  return ["pdf", "docx", "xlsx", "pptx", "image", "text"].includes(type);
+  return isIngestibleFormat(type);
 }
 
 async function ingestDocument({ documentId, filePath, mimeType, options = {}, signal }) {

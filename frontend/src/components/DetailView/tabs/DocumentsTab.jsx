@@ -4,6 +4,7 @@ import { useConfirm } from "../../../contexts/ConfirmContext";
 import { useSettings } from "../../../contexts/SettingsContext";
 import ContentSection from "../../layout/ContentSection";
 import documentService from "../../../services/documentService.js";
+import { getDocumentFormatGovernance } from "../../../services/api/documentFormats";
 import { useTranslation } from "react-i18next";
 import { InlineLoader } from "../../brand/OrdinayDataLoader";
 
@@ -27,11 +28,23 @@ export default function DocumentsTab({ data, config, onDocumentsChange, reloadKe
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [missingFiles, setMissingFiles] = useState(new Set());
+  const [uploadAccept, setUploadAccept] = useState(
+    ".pdf,.doc,.docx,.txt,.csv,.md,.json,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.bmp,.webp,.tif,.tiff,.heic,.heif",
+  );
 
   // Load documents for this entity
   useEffect(() => {
     loadDocuments();
   }, [entityType, entityId, reloadKey]);
+
+  useEffect(() => {
+    getDocumentFormatGovernance()
+      .then((governance) => {
+        const accept = String(governance?.supported?.uploadAccept || "").trim();
+        if (accept) setUploadAccept(accept);
+      })
+      .catch(() => {});
+  }, []);
 
   const loadDocuments = async () => {
     const entityDocuments = await documentService.getEntityDocuments(entityType, entityId);
@@ -320,7 +333,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange, reloadKe
   const handleRelink = async (docId) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.zip,.rar,.txt';
+    input.accept = uploadAccept;
 
     input.onchange = async (e) => {
       const file = e.target.files?.[0];
@@ -408,7 +421,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange, reloadKe
                 multiple
                 onChange={handleFileInputChange}
                 className="hidden"
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.zip,.rar,.txt"
+                accept={uploadAccept}
               />
             </label>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-4">
@@ -447,7 +460,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange, reloadKe
                   multiple
                   onChange={handleFileInputChange}
                   className="hidden"
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.zip,.rar,.txt"
+                  accept={uploadAccept}
                 />
               </label>
             </div>

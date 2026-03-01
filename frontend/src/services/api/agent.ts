@@ -613,11 +613,36 @@ export interface DocumentGenerationPreviewOutput {
   documentType: string;
   targetEntity: { type: string; id: number };
   language: string;
+  canonicalFormat: string;
+  previewFormat: string;
+  // Backward compatibility field (equals canonicalFormat).
   format: string;
   templateKey: string;
   schemaVersion: string;
   previewHtml: string;
   contentMarkdown?: string;
+  formatSelection?: {
+    selectionMode?: 'auto' | 'preference' | 'explicit' | string;
+    selectionSource?: string;
+    preference?: string;
+    artifactKind?: string;
+    structureHints?: {
+      hasTabularData?: boolean;
+      requiresEditing?: boolean;
+      intendedForFiling?: boolean;
+    };
+    warnings?: Array<{ code?: string; message?: string }>;
+    [key: string]: unknown;
+  };
+  storageDecision?: {
+    storageHint?: 'inherit' | 'client' | 'dossier' | 'lawsuit' | 'financial_entry' | 'mission' | 'session' | 'task' | string;
+    status?: 'resolved' | 'missing' | string;
+    resolutionMode?: 'inherit' | 'hint' | string;
+    message?: string | null;
+    activeScope?: Record<string, unknown> | null;
+    resolvedTarget?: { entityType: string; entityId: number } | null;
+    [key: string]: unknown;
+  };
   structuredSummaryMetadata?: {
     title?: string | null;
     generatedAt?: string | null;
@@ -992,10 +1017,10 @@ export async function confirmDocumentGenerationPreview(
   previewId: string,
   sessionId?: string,
   editedMarkdown?: string
-): Promise<ProposalOutput> {
+): Promise<ProposalOutput | ContextSuggestionOutput> {
   const response = await apiClient.post<{
     status: string;
-    data?: { output?: ProposalOutput };
+    data?: { output?: ProposalOutput | ContextSuggestionOutput };
     error?: string;
   }>('/agent/document-generation/preview/confirm', { previewId, sessionId, editedMarkdown });
 

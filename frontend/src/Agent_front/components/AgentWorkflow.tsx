@@ -1542,6 +1542,15 @@ function ArtifactBody({
           );
           const updatedMessages = activeSessionMessages.map((msg) => {
             if (msg.id !== message.id) return msg;
+            if (proposal.type === "context_suggestion") {
+              return {
+                ...msg,
+                data: {
+                  type: "context_suggestion" as const,
+                  contextSuggestion: proposal,
+                },
+              };
+            }
             return {
               ...msg,
               data: {

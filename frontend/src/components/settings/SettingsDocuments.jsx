@@ -17,6 +17,7 @@ export default function SettingsDocuments() {
     document_ai_provider: "local",
     document_ai_redaction_mode: "none",
     document_ai_retain_artifacts_days: 30,
+    document_output_format_preference: "auto",
   });
   const [logs, setLogs] = useState([]);
 
@@ -35,6 +36,8 @@ export default function SettingsDocuments() {
           document_ai_redaction_mode: remoteSettings.document_ai_redaction_mode || "none",
           document_ai_retain_artifacts_days:
             Number(remoteSettings.document_ai_retain_artifacts_days) || 30,
+          document_output_format_preference:
+            remoteSettings.document_output_format_preference || "auto",
         });
         setLogs(auditLogs);
       } catch (error) {
@@ -63,6 +66,8 @@ export default function SettingsDocuments() {
         document_ai_redaction_mode: updated.document_ai_redaction_mode || "none",
         document_ai_retain_artifacts_days:
           Number(updated.document_ai_retain_artifacts_days) || 30,
+        document_output_format_preference:
+          updated.document_output_format_preference || "auto",
       });
       setLogs(await listDocumentAiAuditLogs(20));
       showToast("Document AI settings saved", "success");
@@ -144,6 +149,22 @@ export default function SettingsDocuments() {
                     }
                     className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
                   />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">
+                    Preferred output format
+                  </label>
+                  <select
+                    value={settings.document_output_format_preference}
+                    onChange={(e) => onChange("document_output_format_preference", e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                  >
+                    <option value="auto">Auto</option>
+                    <option value="pdf">PDF</option>
+                    <option value="docx">DOCX</option>
+                    <option value="xlsx">XLSX</option>
+                    <option value="html">HTML</option>
+                  </select>
                 </div>
               </div>
 

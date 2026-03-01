@@ -225,7 +225,7 @@ function initialize() {
   ];
   const dossierColumns = [{ name: "adversary_name", definition: "TEXT" }];
   const sessionColumns = [{ name: "session_date", definition: "DATE" }];
-    const documentColumns = [
+  const documentColumns = [
       { name: "copy_type", definition: "TEXT" },
       { name: "officer_id", definition: "INTEGER" },
       { name: "original_filename", definition: "TEXT" },
@@ -276,6 +276,10 @@ function initialize() {
       { name: "processing_finished_at", definition: "DATETIME" },
       { name: "failure_stage", definition: "TEXT" },
       { name: "failure_detail", definition: "TEXT" },
+  ];
+  const documentGenerationPreviewColumns = [
+    { name: "format_governance_json", definition: "TEXT" },
+    { name: "storage_governance_json", definition: "TEXT" },
   ];
 
   [
@@ -349,6 +353,8 @@ function initialize() {
         template_key TEXT NOT NULL,
         schema_version TEXT NOT NULL,
         content_json TEXT NOT NULL,
+        format_governance_json TEXT,
+        storage_governance_json TEXT,
         preview_html TEXT NOT NULL,
         status TEXT NOT NULL CHECK (status IN ('preview_ready', 'proposed', 'cancelled', 'expired', 'failed')),
         proposal_id TEXT,
@@ -361,6 +367,7 @@ function initialize() {
       CREATE INDEX IF NOT EXISTS idx_document_generation_previews_session_created ON document_generation_previews(session_id, created_at DESC);
     `);
   }
+  ensureTableColumns("document_generation_previews", documentGenerationPreviewColumns);
 
   // Ensure default operator exists
   const hasDefaultOperator = db

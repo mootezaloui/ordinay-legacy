@@ -2,6 +2,9 @@ const service = require('../services/documents.service');
 const storage = require('../services/documentStorage');
 const documentAiSettings = require('../services/documentAiSettings.service');
 const documentGenerationService = require('../services/documentGeneration/documentGeneration.service');
+const {
+  getFormatGovernanceSnapshot,
+} = require("../domain/documentFormatGovernance");
 const { parseId } = require('./_utils');
 
 async function list(req, res, next) {
@@ -66,6 +69,14 @@ async function upload(req, res, next) {
     if (error.code === 'missing_file_data') {
       return res.status(400).json({ message: 'Missing file data' });
     }
+    next(error);
+  }
+}
+
+async function getFormatGovernance(req, res, next) {
+  try {
+    res.json(getFormatGovernanceSnapshot());
+  } catch (error) {
     next(error);
   }
 }
@@ -252,6 +263,7 @@ module.exports = {
   get,
   create,
   upload,
+  getFormatGovernance,
   planGeneration,
   generate,
   getGeneration,

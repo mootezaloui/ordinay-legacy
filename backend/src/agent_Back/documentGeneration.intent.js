@@ -1,6 +1,10 @@
 "use strict";
 
 const db = require("../db/connection");
+const {
+  DocumentFormat,
+  normalizeFormat,
+} = require("../domain/documentFormatGovernance");
 
 function normalizeRefText(value) {
   return String(value || "").replace(/[\u2010-\u2015\u2212]/g, "-");
@@ -107,7 +111,7 @@ async function detectDocumentGenerationIntent(message, context = {}) {
     /(?:إنشاء|توليد|تحضير|صياغة)/.test(canonicalText);
   if (!hasGenerateVerb) return null;
   if (
-    !/\b(document|letter|opinion|memo|summary|pdf|docx|html)\b/i.test(low) &&
+    !/\b(document|letter|opinion|memo|summary|pdf|docx|xlsx|excel|spreadsheet|html)\b/i.test(low) &&
     !/(مذكرة|خطاب|ملخص|وثيقة)/.test(canonicalText)
   ) {
     return null;
@@ -133,9 +137,15 @@ async function detectDocumentGenerationIntent(message, context = {}) {
   }
   if (!documentType) return null;
 
-  let format = "pdf";
-  if (/\bdocx\b/i.test(low)) format = "docx";
-  if (/\bhtml\b/i.test(low)) format = "html";
+  let canonicalFormat = null;
+  let previewFormat = null;
+  if (/\bdocx\b/i.test(low)) canonicalFormat = DocumentFormat.DOCX;
+  if (/\b(xlsx|excel|spreadsheet)\b/i.test(low)) canonicalFormat = DocumentFormat.XLSX;
+  if (/\bpdf\b/i.test(low)) canonicalFormat = DocumentFormat.PDF;
+  if (/\bhtml\b/i.test(low)) previewFormat = DocumentFormat.HTML;
+
+  canonicalFormat = normalizeFormat(canonicalFormat);
+  previewFormat = normalizeFormat(previewFormat);
 
   const language = /\b(arabic|arab|العربية|عربي)\b/i.test(canonicalText) ? "ar" : "en";
 
@@ -179,7 +189,10 @@ async function detectDocumentGenerationIntent(message, context = {}) {
       targetHints: extractTargetHints(canonicalText),
       documentType,
       language,
-      format,
+      canonicalFormat,
+      previewFormat,
+      // Backward compatibility for legacy callers.
+      format: canonicalFormat,
       instructions: text,
     };
   }
@@ -188,7 +201,10 @@ async function detectDocumentGenerationIntent(message, context = {}) {
     target,
     documentType,
     language,
-    format,
+    canonicalFormat,
+    previewFormat,
+    // Backward compatibility for legacy callers.
+    format: canonicalFormat,
     instructions: text,
   };
 }

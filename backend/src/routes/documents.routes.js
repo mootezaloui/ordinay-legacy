@@ -5,6 +5,7 @@ const router = express.Router();
 
 router.get('/count', controller.count);
 router.get('/', controller.list);
+router.get('/formats/governance', controller.getFormatGovernance);
 router.post('/upload', controller.upload);
 router.post('/generate/plan', controller.planGeneration);
 router.post('/generate', controller.generate);

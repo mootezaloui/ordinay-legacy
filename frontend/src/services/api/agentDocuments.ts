@@ -6,6 +6,7 @@
  */
 
 import { apiClient } from './client';
+import { getDocumentFormatGovernance } from "./documentFormats";
 
 // ============================================================================
 // Types
@@ -87,24 +88,6 @@ export interface UploadResult extends AgentSessionDocument {
 /** Maximum file size for agent session document uploads (20 MB) */
 const MAX_UPLOAD_SIZE_BYTES = 20 * 1024 * 1024;
 
-/** Supported MIME types for agent document uploads */
-const SUPPORTED_MIME_TYPES = new Set([
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  'text/plain',
-  'text/csv',
-  'text/markdown',
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-  'image/tiff',
-  'image/heic',
-  'image/heif',
-]);
-
 // ============================================================================
 // API Functions
 // ============================================================================
@@ -122,8 +105,22 @@ export async function uploadSessionDocument(
   if (file.size > MAX_UPLOAD_SIZE_BYTES) {
     throw new Error(`File "${file.name}" exceeds the ${MAX_UPLOAD_SIZE_BYTES / (1024 * 1024)} MB limit`);
   }
-  if (file.type && !SUPPORTED_MIME_TYPES.has(file.type)) {
-    console.warn(`[AgentDocs] File type "${file.type}" for "${file.name}" may not support text extraction`);
+  const governance = await getDocumentFormatGovernance();
+  const supportedMimes = new Set(
+    (governance?.supported?.ingestMimeTypes || []).map((mime) => String(mime || "").toLowerCase()),
+  );
+  const supportedExtensions = new Set(
+    (governance?.supported?.ingestExtensions || []).map((ext) => String(ext || "").toLowerCase()),
+  );
+  const fileMime = String(file.type || "").toLowerCase();
+  const fileExtension = String(file.name.split(".").pop() || "").toLowerCase();
+  const looksSupported =
+    (fileMime && supportedMimes.has(fileMime)) ||
+    (fileExtension && supportedExtensions.has(fileExtension));
+  if (!looksSupported) {
+    console.warn(
+      `[AgentDocs] File "${file.name}" (${file.type || "unknown"}) is not in backend-supported ingest formats`,
+    );
   }
 
   const dataBase64 = await fileToBase64(file);

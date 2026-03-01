@@ -9,6 +9,15 @@ const plannerService = require("./planner.service");
 const { renderDocument } = require("./renderer.service");
 const { ENTITY_COLUMN_MAP } = require("./constants");
 const {
+  DEFAULT_DOCUMENT_OUTPUT_FORMAT_PREFERENCE,
+  DEFAULT_CANONICAL_FORMAT,
+  DEFAULT_PREVIEW_FORMAT,
+  chooseOutputFormats,
+  formatToExtension,
+  normalizeFormat,
+  isCanonicalFormat,
+} = require("../../domain/documentFormatGovernance");
+const {
   emitGenerationEvent,
   getLatestGenerationEvent,
   subscribeGenerationEvents,
@@ -49,9 +58,44 @@ function makeGenerationUid() {
 }
 
 function generationExtension(format) {
-  if (format === "pdf") return "pdf";
-  if (format === "docx") return "docx";
-  return "html";
+  const extension = formatToExtension(format);
+  return extension || formatToExtension(DEFAULT_CANONICAL_FORMAT);
+}
+
+function resolvePlanFormats(input = {}) {
+  const canonicalCandidate = normalizeFormat(input.canonicalFormat || input.format);
+  if (canonicalCandidate && !isCanonicalFormat(canonicalCandidate)) {
+    const err = new Error(`Unsupported canonical format: ${canonicalCandidate}`);
+    err.status = 400;
+    err.code = "UNSUPPORTED_CANONICAL_FORMAT";
+    throw err;
+  }
+  const selectedFormats = chooseOutputFormats({
+    preference: canonicalCandidate || DEFAULT_DOCUMENT_OUTPUT_FORMAT_PREFERENCE,
+    artifactKind: "document",
+    structureHints: {
+      hasTabularData: false,
+      requiresEditing: false,
+      intendedForFiling: false,
+    },
+  });
+  const canonicalFormat = canonicalCandidate || selectedFormats.canonicalFormat || DEFAULT_CANONICAL_FORMAT;
+  if (!isCanonicalFormat(canonicalFormat)) {
+    const err = new Error(`Unsupported canonical format: ${canonicalFormat}`);
+    err.status = 400;
+    err.code = "UNSUPPORTED_CANONICAL_FORMAT";
+    throw err;
+  }
+  const previewFormat =
+    normalizeFormat(input.previewFormat) || selectedFormats.previewFormat || DEFAULT_PREVIEW_FORMAT;
+  return {
+    canonicalFormat,
+    previewFormat,
+    formatSelection: {
+      ...selectedFormats,
+      ...(canonicalCandidate ? { selectionMode: "explicit", selectionSource: "explicit_request" } : {}),
+    },
+  };
 }
 
 function createGenerationRecord(input) {
@@ -125,10 +169,19 @@ function safeJsonParse(value) {
 }
 
 async function generateFromReadyPlan(plan, { createdBy } = {}) {
-  const record = createGenerationRecord({ ...plan, createdBy, status: "planned" });
+  const { canonicalFormat, previewFormat, formatSelection } = resolvePlanFormats(plan);
+  const normalizedPlan = {
+    ...plan,
+    canonicalFormat,
+    previewFormat,
+    formatSelection: formatSelection || plan.formatSelection || null,
+    // Backward compatibility for legacy format readers/writers.
+    format: canonicalFormat,
+  };
+  const record = createGenerationRecord({ ...normalizedPlan, createdBy, status: "planned" });
   emitGenerationEvent(record.id, "planning", { status: "planned" });
 
-  const extension = generationExtension(plan.format);
+  const extension = generationExtension(normalizedPlan.canonicalFormat);
   const fileNameBase = `${record.generation_uid}.${extension}`;
   const outputDir = path.join(documentStorage.ensureDocumentsRoot(), "generated", new Date().toISOString().slice(0, 10));
   const outputPath = path.join(outputDir, fileNameBase);
@@ -138,31 +191,34 @@ async function generateFromReadyPlan(plan, { createdBy } = {}) {
     updateGeneration(record.generation_uid, { status: "rendering" });
 
     const rendered = await renderDocument({
-      documentType: plan.documentType,
-      language: plan.language,
-      schemaVersion: plan.schemaVersion,
-      contentJson: plan.contentJson,
-      format: plan.format,
+      documentType: normalizedPlan.documentType,
+      language: normalizedPlan.language,
+      schemaVersion: normalizedPlan.schemaVersion,
+      contentJson: normalizedPlan.contentJson,
+      format: normalizedPlan.canonicalFormat,
       outputPath,
     });
 
     emitGenerationEvent(record.id, "persisting", { status: "persisting" });
 
-    const entityColumn = ENTITY_COLUMN_MAP[plan.target.type];
+    const entityColumn = ENTITY_COLUMN_MAP[normalizedPlan.target.type];
     const title =
-      plan.contentJson?.content?.title ||
-      `${plan.documentType} ${plan.target.type}#${plan.target.id}`;
+      normalizedPlan.contentJson?.content?.title ||
+      `${normalizedPlan.documentType} ${normalizedPlan.target.type}#${normalizedPlan.target.id}`;
 
     const artifactJson = JSON.stringify({
       generation_uid: record.generation_uid,
-      templateKey: plan.templateKey,
-      schemaVersion: plan.schemaVersion,
-      documentType: plan.documentType,
-      language: plan.language,
-      format: plan.format,
+      templateKey: normalizedPlan.templateKey,
+      schemaVersion: normalizedPlan.schemaVersion,
+      documentType: normalizedPlan.documentType,
+      language: normalizedPlan.language,
+      canonicalFormat: normalizedPlan.canonicalFormat,
+      previewFormat: normalizedPlan.previewFormat,
+      formatSelection: normalizedPlan.formatSelection || null,
+      format: normalizedPlan.canonicalFormat,
       contentHash: crypto
         .createHash("sha256")
-        .update(JSON.stringify(plan.contentJson))
+        .update(JSON.stringify(normalizedPlan.contentJson))
         .digest("hex"),
     });
 
@@ -172,9 +228,9 @@ async function generateFromReadyPlan(plan, { createdBy } = {}) {
       original_filename: `${title}.${extension}`,
       mime_type: rendered.mime_type,
       size_bytes: rendered.size_bytes,
-      notes: `Generated ${plan.documentType}`,
+      notes: `Generated ${normalizedPlan.documentType}`,
       copy_type: "generated",
-      [entityColumn]: plan.target.id,
+      [entityColumn]: normalizedPlan.target.id,
     });
 
     db.prepare("UPDATE documents SET artifact_json = @artifact_json, updated_at = CURRENT_TIMESTAMP WHERE id = @id")
@@ -198,11 +254,14 @@ async function generateFromReadyPlan(plan, { createdBy } = {}) {
       documentId: document.id,
       downloadUrl: `/documents/${document.id}/download`,
       metadata: {
-        templateKey: plan.templateKey,
-        schemaVersion: plan.schemaVersion,
-        documentType: plan.documentType,
-        language: plan.language,
-        format: plan.format,
+        templateKey: normalizedPlan.templateKey,
+        schemaVersion: normalizedPlan.schemaVersion,
+        documentType: normalizedPlan.documentType,
+        language: normalizedPlan.language,
+        canonicalFormat: normalizedPlan.canonicalFormat,
+        previewFormat: normalizedPlan.previewFormat,
+        formatSelection: normalizedPlan.formatSelection || null,
+        format: normalizedPlan.canonicalFormat,
       },
     };
   } catch (error) {
@@ -237,12 +296,16 @@ async function generateDocument(input, options = {}) {
 }
 
 async function generateFromAttachmentPayload({ target, payload, createdBy }) {
+  const { canonicalFormat, previewFormat, formatSelection } = resolvePlanFormats(payload || {});
   const plan = {
     status: "ready",
     target,
     documentType: payload.documentType,
     language: payload.language,
-    format: payload.format,
+    canonicalFormat,
+    previewFormat,
+    formatSelection: formatSelection || payload?.formatSelection || null,
+    format: canonicalFormat,
     schemaVersion: payload.schemaVersion,
     templateKey: payload.templateKey,
     contentJson: payload.contentJson,

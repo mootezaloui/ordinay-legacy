@@ -11,8 +11,6 @@
  */
 
 import {
-  createDocument,
-  isValidFileType,
   isValidFileSize,
   getCategoryFromType,
   formatFileSize,
@@ -20,6 +18,7 @@ import {
 } from "../models/Document.js";
 import { LocalStorageProvider } from "./storage/LocalStorageProvider.js";
 import { apiClient } from "./api/client";
+import { getDocumentFormatGovernance } from "./api/documentFormats";
 import { getAppLicenseState } from "./licenseService";
 import { isElectron } from "../lib/apiConfig";
 
@@ -57,6 +56,21 @@ class DocumentService {
       data_base64: base64,
     };
     return apiClient.post("/documents/upload", payload);
+  }
+
+  async getFormatGovernance() {
+    return getDocumentFormatGovernance();
+  }
+
+  resolveGovernedMimeType(governance, extension) {
+    const safeExtension = String(extension || "").toLowerCase();
+    if (!governance || !safeExtension) return null;
+    const extensionByFormat = governance?.mappings?.extensionByFormat || {};
+    const mimeByFormat = governance?.mappings?.mimeByFormat || {};
+    const matchedFormat = Object.keys(extensionByFormat).find(
+      (format) => String(extensionByFormat[format] || "").toLowerCase() === safeExtension,
+    );
+    return matchedFormat ? mimeByFormat[matchedFormat] || null : null;
   }
 
   /**
@@ -129,13 +143,21 @@ class DocumentService {
    * @param {File} file - File to validate
    * @returns {Object} Validation result
    */
-  validateFile(file) {
-    const extension = file.name.split(".").pop();
+  async validateFile(file) {
+    const extension = String(file?.name?.split(".").pop() || "").toLowerCase();
+    const governance = await this.getFormatGovernance();
+    const supportedExtensions = new Set(
+      (governance?.supported?.ingestExtensions || []).map((ext) => String(ext || "").toLowerCase()),
+    );
 
-    if (!isValidFileType(extension)) {
+    if (!extension || !supportedExtensions.has(extension)) {
+      const supportedDisplay = Array.from(supportedExtensions)
+        .slice(0, 16)
+        .map((ext) => `.${ext}`)
+        .join(", ");
       return {
         valid: false,
-        error: `Type de fichier non supporté: .${extension}`,
+        error: `Unsupported file type: .${extension || "unknown"}. Supported: ${supportedDisplay}`,
       };
     }
 
@@ -146,7 +168,7 @@ class DocumentService {
       };
     }
 
-    return { valid: true };
+    return { valid: true, governance, extension };
   }
 
   /**
@@ -169,17 +191,21 @@ class DocumentService {
         return { success: false, error: "License inactive" };
       }
       // Validate file
-      const validation = this.validateFile(file);
+      const validation = await this.validateFile(file);
       if (!validation.valid) {
         return { success: false, error: validation.error };
       }
 
-      const extension = file.name.split(".").pop();
+      const extension = validation.extension || file.name.split(".").pop();
+      const governance = validation.governance || (await this.getFormatGovernance());
       // Map 'proces' to 'lawsuit' for storage and backend if needed
       let mappedEntityType = entityType === "proces" ? "lawsuit" : entityType;
 
       let filePath = null;
-      let mimeType = file.type || getMimeType(extension);
+      let mimeType =
+        file.type ||
+        this.resolveGovernedMimeType(governance, extension) ||
+        getMimeType(extension);
       let sizeBytes = file.size;
 
       if (isElectron() && window.electronAPI?.apiRequest) {
@@ -628,6 +654,7 @@ class DocumentService {
       let mimeType = newFile.type || document.mimeType;
       let sizeBytes = newFile.size;
       const extension = newFile.name.split(".").pop();
+      const governance = await this.getFormatGovernance();
 
       if (isElectron() && window.electronAPI?.apiRequest) {
         const uploadResult = await this.uploadFileToBackend(newFile);
@@ -650,7 +677,10 @@ class DocumentService {
       await apiClient.put(`/documents/${documentId}`, {
         title: newFile.name,
         file_path: filePath,
-        mime_type: mimeType || getMimeType(extension),
+        mime_type:
+          mimeType ||
+          this.resolveGovernedMimeType(governance, extension) ||
+          getMimeType(extension),
         size_bytes: sizeBytes,
         original_filename: newFile.name,
       });

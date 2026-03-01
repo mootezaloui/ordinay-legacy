@@ -7,12 +7,6 @@ const DOCUMENT_TYPES = Object.freeze({
   SESSION_SUMMARY: "SESSION_SUMMARY",
 });
 
-const DOCUMENT_FORMATS = Object.freeze({
-  HTML: "html",
-  PDF: "pdf",
-  DOCX: "docx",
-});
-
 const SUPPORTED_LANGUAGES = Object.freeze(["ar", "en"]);
 const SCHEMA_VERSION = "1.0.0";
 
@@ -40,18 +34,10 @@ const ENTITY_COLUMN_MAP = Object.freeze({
   officer: "officer_id",
 });
 
-const MIME_BY_FORMAT = Object.freeze({
-  html: "text/html",
-  pdf: "application/pdf",
-  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-});
-
 module.exports = {
   DOCUMENT_TYPES,
-  DOCUMENT_FORMATS,
   SUPPORTED_LANGUAGES,
   SCHEMA_VERSION,
   TARGET_TYPES,
   ENTITY_COLUMN_MAP,
-  MIME_BY_FORMAT,
 };

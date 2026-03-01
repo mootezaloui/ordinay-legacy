@@ -2,6 +2,10 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const crypto = require("crypto");
+const {
+  formatToExtension,
+  mimeToFormat,
+} = require("../domain/documentFormatGovernance");
 
 const MAX_BYTES = Number.parseInt(
   process.env.DOCUMENT_INGESTION_MAX_BYTES || "25000000",
@@ -51,20 +55,9 @@ function sanitizeExtension(ext) {
 }
 
 function extensionFromMime(mimeType) {
-  const mime = String(mimeType || "").toLowerCase();
-  if (mime === "application/pdf") return ".pdf";
-  if (
-    mime ===
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-  ) {
-    return ".docx";
-  }
-  if (mime === "image/png") return ".png";
-  if (mime === "image/jpeg") return ".jpg";
-  if (mime === "image/jpg") return ".jpg";
-  if (mime === "image/webp") return ".webp";
-  if (mime === "image/tiff") return ".tiff";
-  return "";
+  const format = mimeToFormat(mimeType);
+  const ext = formatToExtension(format);
+  return ext ? `.${ext}` : "";
 }
 
 function decodeBase64Payload(payload) {

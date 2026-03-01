@@ -1,59 +1,20 @@
 const fs = require("fs");
 const path = require("path");
 const zlib = require("zlib");
+const {
+  detectIngestFormat,
+  resolveIngestionDocType,
+  isIngestibleFormat,
+} = require("../../domain/documentFormatGovernance");
 
 function detectDocumentType(filePath, mimeType) {
-  const ext = filePath ? path.extname(filePath).toLowerCase() : "";
-  const normalizedMime = mimeType ? mimeType.toLowerCase() : "";
-
-  if (normalizedMime === "application/pdf" || ext === ".pdf") return "pdf";
-  if (
-    normalizedMime ===
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-    ext === ".docx"
-  ) {
-    return "docx";
-  }
-  if (
-    normalizedMime ===
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
-    ext === ".xlsx"
-  ) {
-    return "xlsx";
-  }
-  if (
-    normalizedMime ===
-      "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
-    ext === ".pptx"
-  ) {
-    return "pptx";
-  }
-  if (
-    normalizedMime.startsWith("text/") ||
-    normalizedMime === "application/json" ||
-    [".txt", ".md", ".csv", ".json", ".rtf"].includes(ext)
-  ) {
-    return "text";
-  }
-  if (
-    normalizedMime.startsWith("image/") ||
-    [
-      ".png",
-      ".jpg",
-      ".jpeg",
-      ".gif",
-      ".tif",
-      ".tiff",
-      ".bmp",
-      ".webp",
-      ".heic",
-      ".heif",
-    ].includes(ext)
-  ) {
-    return "image";
-  }
-
-  return "unknown";
+  const normalized = detectIngestFormat({
+    filePath,
+    mimeType,
+    extension: filePath ? path.extname(filePath) : "",
+  });
+  if (!isIngestibleFormat(normalized)) return "unknown";
+  return resolveIngestionDocType({ format: normalized });
 }
 
 function normalizeText(value) {

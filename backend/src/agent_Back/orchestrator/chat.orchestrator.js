@@ -8,6 +8,7 @@ const { detectDraftIntent } = require("../intent.classifier");
 const { toProposalArtifact } = require("../proposals/proposalArtifact");
 const { buildDocumentContext } = require("./document.context.builder");
 const { buildDocumentSafeContext } = require("./document.exposure.firewall");
+const { discoverScopedTarget } = require("../context/scopeDiscovery");
 const { CHAT_STATES, selectInitialState } = require("./chat.state.machine");
 const { parseFinalOutputContract } = require("./output.contract");
 const { parseJsonResponse } = require("../llm/llm.validation");
@@ -17,6 +18,23 @@ const {
   clearPendingClarificationState,
 } = require("./chat.session.state");
 const { runChatToolLoop } = require("./chat.tool.loop");
+const {
+  DEFAULT_DOCUMENT_OUTPUT_FORMAT_PREFERENCE,
+  DEFAULT_CANONICAL_FORMAT,
+  DEFAULT_PREVIEW_FORMAT,
+  chooseOutputFormats,
+  normalizeArtifactKind,
+  normalizeFormat,
+  normalizeOutputFormatPreference,
+  normalizeStructureHints,
+  isCanonicalFormat,
+  isPreviewFormat,
+} = require("../../domain/documentFormatGovernance");
+const {
+  StorageHint,
+  normalizeStorageHint,
+  resolveStorageTarget,
+} = require("../../domain/document.storage.resolver");
 
 function nowIso() {
   return new Date().toISOString();
@@ -36,6 +54,11 @@ function inferLanguageFromText(text, fallback = "en") {
   // Script detection only, no keyword routing.
   if (/[\u0600-\u06FF]/.test(raw)) return "ar";
   return fallback;
+}
+
+function validId(value) {
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : null;
 }
 
 function withStateOutput(result, state) {
@@ -62,14 +85,34 @@ class ChatOrchestrator {
   }
 
   _buildRequestContext({ context = {}, sessionId, metadata, userId, tenantId }) {
+    const contextMetadata =
+      context?.requestMetadata &&
+      typeof context.requestMetadata === "object" &&
+      !Array.isArray(context.requestMetadata)
+        ? context.requestMetadata
+        : {};
+    const incomingMetadata =
+      metadata && typeof metadata === "object" && !Array.isArray(metadata) ? metadata : {};
+    const mergedMetadata = {
+      ...contextMetadata,
+      ...incomingMetadata,
+    };
+    const resolvedPreference =
+      normalizeOutputFormatPreference(
+        mergedMetadata.documentOutputFormatPreference ||
+          context?.documentOutputFormatPreference,
+      ) || DEFAULT_DOCUMENT_OUTPUT_FORMAT_PREFERENCE;
     return {
       ...(context || {}),
       conversationId:
         context?.conversationId || context?.agentSessionId || sessionId || undefined,
       userId: context?.userId || userId || "default",
       tenantId: context?.tenantId || tenantId || null,
-      requestMetadata:
-        metadata && typeof metadata === "object" ? { ...metadata } : context?.requestMetadata,
+      documentOutputFormatPreference: resolvedPreference,
+      requestMetadata: {
+        ...mergedMetadata,
+        documentOutputFormatPreference: resolvedPreference,
+      },
     };
   }
 
@@ -98,6 +141,58 @@ class ChatOrchestrator {
     return currentPolicy;
   }
 
+  _buildScopeSnapshotForStorage({ requestContext = {}, activeScope = null } = {}) {
+    const snapshot = {
+      taskId: null,
+      sessionId: null,
+      missionId: null,
+      financialEntryId: null,
+      lawsuitId: null,
+      dossierId: null,
+      clientId: null,
+      entityType: null,
+      entityId: null,
+    };
+    if (activeScope?.entityType && validId(activeScope?.entityId)) {
+      snapshot.entityType = String(activeScope.entityType).toLowerCase();
+      snapshot.entityId = validId(activeScope.entityId);
+      const scopeKey = this._scopeKeyForEntityType(snapshot.entityType);
+      if (scopeKey && !snapshot[scopeKey]) {
+        snapshot[scopeKey] = snapshot.entityId;
+      }
+      return snapshot;
+    }
+    snapshot.taskId = validId(requestContext?.taskId);
+    snapshot.sessionId = validId(requestContext?.sessionId);
+    snapshot.missionId = validId(requestContext?.missionId);
+    snapshot.financialEntryId = validId(requestContext?.financialEntryId);
+    snapshot.lawsuitId = validId(requestContext?.lawsuitId);
+    snapshot.dossierId = validId(requestContext?.dossierId);
+    snapshot.clientId = validId(requestContext?.clientId);
+    return snapshot;
+  }
+
+  _buildStorageScopeSuggestion({
+    message = "I need to know which record should store this document before I can continue.",
+    originalMessage = "",
+  } = {}) {
+    return {
+      type: "context_suggestion",
+      message,
+      entityType: "dossier",
+      reason: "missing_context",
+      originalIntent: "CHATBOT_AGENT_MODE",
+      originalMessage: originalMessage || null,
+      suggestions: [],
+      timestamp: nowIso(),
+      confidence: 0.9,
+      source: "storage_scope_resolution",
+      allowManualInput: true,
+      manualInputHint:
+        "Open/select the target client, dossier, lawsuit, task, session, mission, or financial entry, then retry.",
+    };
+  }
+
   _createPreviewArtifactFromDocumentContract({
     contract,
     activeScope,
@@ -105,7 +200,6 @@ class ChatOrchestrator {
     executionContext,
     structuredContext = null,
   }) {
-    if (!activeScope?.entityType || !activeScope?.entityId) return null;
     const metadata =
       contract?.metadata && typeof contract.metadata === "object" && !Array.isArray(contract.metadata)
         ? contract.metadata
@@ -121,21 +215,76 @@ class ChatOrchestrator {
     const documentType =
       (typeof metadata.documentType === "string" && metadata.documentType.trim()) ||
       "freeform_request";
-    const format =
-      (typeof metadata.format === "string" && metadata.format.trim().toLowerCase()) ||
-      "html";
+    const requestedCanonicalFormat = normalizeFormat(
+      metadata.canonicalFormat || metadata.format,
+    );
+    const requestedPreviewFormat = normalizeFormat(metadata.previewFormat);
+    const explicitCanonicalFormat = isCanonicalFormat(requestedCanonicalFormat)
+      ? requestedCanonicalFormat
+      : null;
+    const preferenceFromContext =
+      normalizeOutputFormatPreference(requestContext?.documentOutputFormatPreference) ||
+      normalizeOutputFormatPreference(requestContext?.requestMetadata?.documentOutputFormatPreference) ||
+      DEFAULT_DOCUMENT_OUTPUT_FORMAT_PREFERENCE;
+    const artifactKind = normalizeArtifactKind(metadata.artifactKind) || "document";
+    const structureHints = normalizeStructureHints(metadata.structureHints);
+    const formatSelection = chooseOutputFormats({
+      preference: explicitCanonicalFormat || preferenceFromContext,
+      artifactKind,
+      structureHints,
+    });
+    if (explicitCanonicalFormat) {
+      formatSelection.selectionMode = "explicit";
+      formatSelection.selectionSource = "explicit_request";
+    }
+    const canonicalFormat = isCanonicalFormat(formatSelection.canonicalFormat)
+      ? formatSelection.canonicalFormat
+      : DEFAULT_CANONICAL_FORMAT;
+    const previewFormat = isPreviewFormat(requestedPreviewFormat)
+      ? requestedPreviewFormat
+      : isPreviewFormat(formatSelection.previewFormat)
+        ? formatSelection.previewFormat
+        : DEFAULT_PREVIEW_FORMAT;
     const templateKey =
       (typeof metadata.templateKey === "string" && metadata.templateKey.trim()) ||
       "llm.freeform.document";
     const schemaVersion =
       (typeof metadata.schemaVersion === "string" && metadata.schemaVersion.trim()) ||
       "v1";
+    const explicitStorageHint =
+      normalizeStorageHint(requestContext?.requestMetadata?.storageHint) || null;
+    const storageHint = explicitStorageHint || StorageHint.INHERIT;
+    const scopeSnapshot = this._buildScopeSnapshotForStorage({
+      requestContext,
+      activeScope,
+    });
+    let storageTarget;
+    try {
+      storageTarget = resolveStorageTarget({
+        activeScope: scopeSnapshot,
+        storageHint,
+      });
+    } catch (error) {
+      if (String(error?.code || "") === "STORAGE_SCOPE_MISSING") {
+        return this._buildStorageScopeSuggestion({
+          message:
+            String(error?.message || "").trim() ||
+            "I need a resolved target record before I can prepare this stored document preview.",
+          originalMessage: contract?.content || "",
+        });
+      }
+      throw error;
+    }
     const previewHtml = `<div dir="${language === "ar" ? "rtl" : "ltr"}" style="white-space:pre-wrap;font-family:system-ui,sans-serif;">${escapeHtml(markdown)}</div>`;
     const plan = {
-      target: { type: activeScope.entityType, id: Number(activeScope.entityId) },
+      target: { type: storageTarget.entityType, id: Number(storageTarget.entityId) },
       documentType,
       language,
-      format,
+      canonicalFormat,
+      previewFormat,
+      formatSelection,
+      // Backward compatibility for downstream code still expecting `format`.
+      format: canonicalFormat,
       templateKey,
       schemaVersion,
       contentJson: {
@@ -149,6 +298,27 @@ class ChatOrchestrator {
           !Array.isArray(structuredContext)
             ? structuredContext
             : undefined,
+      },
+      storageGovernance: {
+        storageHint,
+        activeScope: scopeSnapshot,
+        resolvedTarget: {
+          entityType: storageTarget.entityType,
+          entityId: storageTarget.entityId,
+        },
+        resolutionMode: storageTarget.resolutionMode,
+        status: "resolved",
+        hasScopeBinding:
+          requestContext?.hasScopeBinding === true ||
+          (explicitStorageHint && explicitStorageHint !== StorageHint.INHERIT) ||
+          storageHint !== StorageHint.INHERIT ||
+          String(storageTarget?.entityType || "").toLowerCase() !== "client",
+        scopeDiscoveryHint:
+          requestContext?._scopeDiscoveryHint &&
+          typeof requestContext._scopeDiscoveryHint === "object" &&
+          !Array.isArray(requestContext._scopeDiscoveryHint)
+            ? requestContext._scopeDiscoveryHint
+            : null,
       },
       previewHtml,
     };
@@ -224,11 +394,17 @@ class ChatOrchestrator {
         entityId: Number(activeScope.entityId),
       };
     }
-    if (Number.isInteger(Number(requestContext?.dossierId)) && Number(requestContext.dossierId) > 0) {
-      return { entityType: "dossier", entityId: Number(requestContext.dossierId) };
-    }
-    if (Number.isInteger(Number(requestContext?.clientId)) && Number(requestContext.clientId) > 0) {
-      return { entityType: "client", entityId: Number(requestContext.clientId) };
+    try {
+      const resolvedStorageScope = resolveStorageTarget({
+        activeScope: this._buildScopeSnapshotForStorage({ requestContext, activeScope: null }),
+        storageHint: StorageHint.INHERIT,
+      });
+      return {
+        entityType: resolvedStorageScope.entityType,
+        entityId: resolvedStorageScope.entityId,
+      };
+    } catch (_) {
+      // fall through to null
     }
     return null;
   }
@@ -336,6 +512,65 @@ class ChatOrchestrator {
     });
   }
 
+  async _extractDocumentScopeHintWithLLM(userMessage) {
+    const extractor = this.helper?.mutationIntentExtractor;
+    if (typeof extractor !== "function") {
+      return {
+        queryText: String(userMessage || "").trim() || null,
+        preferredScopeLevels: [],
+      };
+    }
+    const prompt = [
+      "Extract a scope-discovery hint for deterministic entity resolution.",
+      "Return JSON only with shape:",
+      '{"queryText":"string|null","preferredScopeLevels":["dossier","lawsuit","session","task","mission","financial_entry","client"]}',
+      "Rules:",
+      "- Never return IDs.",
+      "- Keep queryText as concise noun phrase(s) describing the target context.",
+      "- preferredScopeLevels should list likely scope levels by priority.",
+      "- If uncertain, set queryText to the original message and preferredScopeLevels to [].",
+      `User message: ${String(userMessage || "")}`,
+    ].join("\n");
+    let raw = "";
+    try {
+      raw = await Promise.race([
+        extractor(prompt),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("SCOPE_HINT_TIMEOUT")), 1500),
+        ),
+      ]);
+    } catch (_) {
+      return {
+        queryText: String(userMessage || "").trim() || null,
+        preferredScopeLevels: [],
+      };
+    }
+    const parsed = parseJsonResponse(raw);
+    const queryText = String(
+      parsed?.queryText || parsed?.query || parsed?.text || String(userMessage || ""),
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    const allowed = new Set([
+      "client",
+      "dossier",
+      "lawsuit",
+      "session",
+      "task",
+      "mission",
+      "financial_entry",
+    ]);
+    const preferredScopeLevels = Array.isArray(parsed?.preferredScopeLevels)
+      ? parsed.preferredScopeLevels
+          .map((value) => String(value || "").trim().toLowerCase())
+          .filter((value) => allowed.has(value))
+      : [];
+    return {
+      queryText: queryText || null,
+      preferredScopeLevels: Array.from(new Set(preferredScopeLevels)),
+    };
+  }
+
   _buildScopeDiscoverySuggestion({ message, found = [], ambiguous = [] } = {}) {
     const suggestions = [];
     for (const row of found) {
@@ -383,6 +618,170 @@ class ChatOrchestrator {
       allowManualInput: true,
       manualInputHint: "Provide the exact entity reference, ID, or full name.",
     };
+  }
+
+  _isClientOnlyArtifactScope({ activeScope, requestContext = {} } = {}) {
+    if (activeScope?.entityType && activeScope?.entityId) {
+      return String(activeScope.entityType).toLowerCase() === "client";
+    }
+    if (!validId(requestContext?.clientId)) return false;
+    const deeperKeys = [
+      "dossierId",
+      "lawsuitId",
+      "financialEntryId",
+      "missionId",
+      "sessionId",
+      "taskId",
+    ];
+    return !deeperKeys.some((key) => validId(requestContext?.[key]));
+  }
+
+  _buildArtifactScopeClarifySuggestion({ message, candidates = [] } = {}) {
+    const suggestions = (Array.isArray(candidates) ? candidates : [])
+      .map((candidate, index) => {
+        const entityType = String(candidate?.entityType || "").toLowerCase();
+        const entityId = Number(candidate?.entityId || 0);
+        if (!entityType || !Number.isInteger(entityId) || entityId <= 0) return null;
+        return {
+          id: `scope-discovery-${entityType}-${entityId}-${index}`,
+          entityType,
+          entityId,
+          label: String(candidate?.label || `${entityType} #${entityId}`),
+          subtitle: candidate?.reference ? `Reference: ${String(candidate.reference)}` : null,
+          metadata: {
+            score: Number.isFinite(Number(candidate?.score))
+              ? Number(Number(candidate.score).toFixed(3))
+              : null,
+          },
+          intent: "RESOLVE_CONTEXT_AND_CONTINUE",
+          scope: {
+            [this._scopeKeyForEntityType(entityType) || "entityId"]: entityId,
+          },
+          resolveContext: {
+            originalIntent: "CHATBOT_AGENT_MODE",
+          },
+        };
+      })
+      .filter(Boolean)
+      .slice(0, 5);
+    return {
+      type: "context_suggestion",
+      message:
+        "I found multiple matching records under this client. Please confirm which record should receive this generated artifact.",
+      entityType: suggestions[0]?.entityType || "dossier",
+      reason: "multiple_matches",
+      originalIntent: "CHATBOT_AGENT_MODE",
+      originalMessage: String(message || "").trim() || null,
+      suggestions,
+      timestamp: nowIso(),
+      confidence: 0.82,
+      source: "scope_discovery",
+      allowManualInput: true,
+      manualInputHint: "Provide the exact reference, title, ID, or date of the target record.",
+    };
+  }
+
+  async _discoverArtifactScopeFromClient({
+    userMessage,
+    requestContext,
+    executionContext,
+    policy,
+    llmHistory,
+  } = {}) {
+    const explicitStorageHint =
+      normalizeStorageHint(requestContext?.requestMetadata?.storageHint) || StorageHint.INHERIT;
+    if (explicitStorageHint !== StorageHint.INHERIT) {
+      return { status: "skipped", reason: "explicit_storage_hint" };
+    }
+
+    const activeScope = this._resolveActiveEntityScope(requestContext, llmHistory);
+    if (!this._isClientOnlyArtifactScope({ activeScope, requestContext })) {
+      return { status: "skipped", reason: "already_scoped" };
+    }
+    const clientId = validId(
+      activeScope?.entityType === "client" ? activeScope?.entityId : requestContext?.clientId,
+    );
+    if (!clientId) {
+      return { status: "none", reason: "client_scope_missing" };
+    }
+
+    const llmHint = await this._extractDocumentScopeHintWithLLM(userMessage);
+    this.engine?.ledger?.record?.({
+      type: "chat_scope_discovery_started",
+      sourceRoute: "/agent/chat",
+      conversationId: requestContext?.conversationId || null,
+      clientId,
+      hint: llmHint,
+      timestamp: nowIso(),
+    });
+
+    const discovery = await discoverScopedTarget({
+      engine: this.engine,
+      clientId,
+      message: userMessage,
+      hint: llmHint,
+      policy,
+    });
+    this.engine?.ledger?.record?.({
+      type: "chat_scope_discovery_result",
+      sourceRoute: "/agent/chat",
+      conversationId: requestContext?.conversationId || null,
+      clientId,
+      status: discovery?.status || "none",
+      targetType:
+        discovery?.target?.entityType ||
+        discovery?.entityType ||
+        null,
+      targetId:
+        discovery?.target?.entityId ||
+        discovery?.entityId ||
+        null,
+      topScore: Number.isFinite(Number(discovery?.topScore)) ? Number(discovery.topScore) : null,
+      runnerUpScore:
+        Number.isFinite(Number(discovery?.runnerUpScore)) ? Number(discovery.runnerUpScore) : null,
+      timestamp: nowIso(),
+    });
+    if (discovery?.status === "resolved" && discovery.entityType && validId(discovery.entityId)) {
+      const pinned = this._pinEntityScopeBeforeContract({
+        requestContext,
+        executionContext,
+        resolvedEntity: {
+          entityType: discovery.entityType,
+          entityId: Number(discovery.entityId),
+        },
+        source: "scope_discovery",
+      });
+      requestContext.hasScopeBinding = true;
+      executionContext.hasScopeBinding = true;
+      requestContext._scopeDiscoveryHint = llmHint;
+      executionContext._scopeDiscoveryHint = llmHint;
+      return {
+        status: "resolved",
+        resolvedEntity: pinned,
+        confidence: Number(discovery.confidence || 0),
+        candidatesPreview: discovery.candidatesPreview || [],
+        hint: llmHint,
+      };
+    }
+    if (discovery?.status === "clarify") {
+      requestContext.hasScopeBinding = false;
+      executionContext.hasScopeBinding = false;
+      requestContext._scopeDiscoveryHint = llmHint;
+      executionContext._scopeDiscoveryHint = llmHint;
+      return {
+        status: "clarify",
+        suggestionArtifact: this._buildArtifactScopeClarifySuggestion({
+          message: userMessage,
+          candidates: discovery.candidates || [],
+        }),
+        hint: llmHint,
+      };
+    }
+    requestContext.hasScopeBinding = false;
+    executionContext.hasScopeBinding = false;
+    requestContext._scopeDiscoveryHint = llmHint;
+    executionContext._scopeDiscoveryHint = llmHint;
+    return { status: "none" };
   }
 
   async _discoverScopeBeforeContract({
@@ -478,6 +877,25 @@ class ChatOrchestrator {
   }
 
   _deriveResolvedEntityFromAmbiguity(ambiguityResolution = null) {
+    const resolvedScope =
+      ambiguityResolution?.resolvedScope && typeof ambiguityResolution.resolvedScope === "object"
+        ? ambiguityResolution.resolvedScope
+        : null;
+    if (resolvedScope) {
+      try {
+        const resolvedStorageScope = resolveStorageTarget({
+          activeScope: resolvedScope,
+          storageHint: StorageHint.INHERIT,
+        });
+        return {
+          entityType: resolvedStorageScope.entityType,
+          entityId: resolvedStorageScope.entityId,
+        };
+      } catch (_) {
+        // fall through to metadata
+      }
+    }
+
     const meta = ambiguityResolution?.resolutionMeta || null;
     const metaType = String(meta?.entityType || "").toLowerCase();
     const metaId = Number(meta?.chosenId || 0);
@@ -485,31 +903,6 @@ class ChatOrchestrator {
       return { entityType: metaType, entityId: metaId };
     }
 
-    const resolvedScope =
-      ambiguityResolution?.resolvedScope && typeof ambiguityResolution.resolvedScope === "object"
-        ? ambiguityResolution.resolvedScope
-        : null;
-    if (!resolvedScope) return null;
-
-    const scopeToType = {
-      clientId: "client",
-      dossierId: "dossier",
-      lawsuitId: "lawsuit",
-      taskId: "task",
-      sessionId: "session",
-      missionId: "mission",
-      personalTaskId: "personal_task",
-      financialEntryId: "financial_entry",
-      notificationId: "notification",
-      historyEventId: "history_event",
-      officerId: "officer",
-    };
-    for (const [key, type] of Object.entries(scopeToType)) {
-      const id = Number(resolvedScope?.[key] || 0);
-      if (Number.isInteger(id) && id > 0) {
-        return { entityType: type, entityId: id };
-      }
-    }
     return null;
   }
 
@@ -529,9 +922,8 @@ class ChatOrchestrator {
       executionContext[scopeKey] = id;
     }
 
-    if (!requestContext.resolvedEntity) {
-      requestContext.resolvedEntity = { type, id };
-    }
+    requestContext.resolvedEntity = { type, id };
+    executionContext.resolvedEntity = { type, id };
 
     updateChatOrchestratorState(this.engine, requestContext, {
       activeScope: {
@@ -1135,7 +1527,74 @@ class ChatOrchestrator {
       }
     } else if (routedOutputType === "document") {
       routeAction = "document_tool";
-      const activeScope = this._resolveActiveEntityScope(requestContext, llmHistory);
+      let activeScope = this._resolveActiveEntityScope(requestContext, llmHistory);
+      const scopedDiscovery = await this._discoverArtifactScopeFromClient({
+        userMessage: effectiveUserMessage,
+        requestContext,
+        executionContext,
+        policy,
+        llmHistory,
+      });
+      this._traceExecutionStep(requestContext, "artifact_scope_discovery_completed", {
+        status: scopedDiscovery?.status || "skipped",
+        reason: scopedDiscovery?.reason || null,
+        entityType: scopedDiscovery?.resolvedEntity?.entityType || null,
+        entityId: scopedDiscovery?.resolvedEntity?.entityId || null,
+      });
+      if (scopedDiscovery?.status === "resolved" && scopedDiscovery.resolvedEntity) {
+        activeScope = {
+          entityType: scopedDiscovery.resolvedEntity.entityType,
+          entityId: scopedDiscovery.resolvedEntity.entityId,
+        };
+      } else if (
+        scopedDiscovery?.status === "clarify" &&
+        scopedDiscovery?.suggestionArtifact
+      ) {
+        const pendingClarification = {
+          entityType: scopedDiscovery?.suggestionArtifact?.entityType || null,
+          resumeState: state,
+          artifact: scopedDiscovery.suggestionArtifact,
+          resolutionMeta: {
+            status: "ambiguous",
+            entityType: scopedDiscovery?.suggestionArtifact?.entityType || null,
+            candidatesCount: Array.isArray(scopedDiscovery?.suggestionArtifact?.suggestions)
+              ? scopedDiscovery.suggestionArtifact.suggestions.length
+              : 0,
+            autoPicked: false,
+            chosenId: null,
+          },
+          createdAt: nowIso(),
+          expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+        };
+        updateChatOrchestratorState(this.engine, requestContext, {
+          activeState: CHAT_STATES.CLARIFY,
+          pendingClarification,
+        });
+        const finalClarifyMessage =
+          String(scopedDiscovery.suggestionArtifact.message || "").trim() ||
+          "I need one more detail to continue.";
+        this.helper._recordTranscript({
+          requestContext,
+          userMessage,
+          finalMessage: finalClarifyMessage,
+          posture,
+          toolExecutions: loopResult.toolExecutions,
+          artifactType: "context_suggestion",
+          artifact: scopedDiscovery.suggestionArtifact,
+        });
+        return withStateOutput(
+          {
+            message: finalClarifyMessage,
+            toolExecutions: loopResult.toolExecutions,
+            stepCommentaries: loopResult.stepCommentaries,
+            rounds: loopResult.rounds,
+            ambiguityArtifact: scopedDiscovery.suggestionArtifact,
+            outputArtifact: scopedDiscovery.suggestionArtifact,
+            resolutionMeta: pendingClarification.resolutionMeta,
+          },
+          CHAT_STATES.FINAL,
+        );
+      }
       const documentContext = await buildDocumentContext({
         activeScope,
         readTool: async (toolName, params) => {
@@ -1191,26 +1650,53 @@ class ChatOrchestrator {
             : {}),
         },
       };
-      if (activeScope) {
-        const previewArtifact = this._createPreviewArtifactFromDocumentContract({
-          contract: groundedContract,
-          activeScope,
-          requestContext,
-          executionContext,
-          structuredContext: documentSafeContext,
+      const previewArtifact = this._createPreviewArtifactFromDocumentContract({
+        contract: groundedContract,
+        activeScope,
+        requestContext,
+        executionContext,
+        structuredContext: documentSafeContext,
+      });
+      if (previewArtifact?.type === "context_suggestion") {
+        outputArtifact = previewArtifact;
+        finalMessage =
+          String(previewArtifact.message || "").trim() ||
+          "I need the target record before I can prepare this stored document preview.";
+        nextState = CHAT_STATES.CLARIFY;
+        const pendingClarification = {
+          entityType: "dossier",
+          resumeState: state,
+          artifact: previewArtifact,
+          resolutionMeta: {
+            status: "missing",
+            entityType: "dossier",
+            candidatesCount: 0,
+            autoPicked: false,
+            chosenId: null,
+          },
+          createdAt: nowIso(),
+          expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+        };
+        updateChatOrchestratorState(this.engine, requestContext, {
+          activeState: CHAT_STATES.CLARIFY,
+          pendingClarification,
         });
-        if (previewArtifact) {
-          outputArtifact = previewArtifact;
-          finalMessage =
-            "I prepared a document preview. You can edit it and confirm to create a proposal for storing it in the selected record.";
-          this._traceExecutionStep(requestContext, "artifact_preview_pipeline_triggered", {
-            outputType: "document",
-            artifactType: previewArtifact.type || null,
-            entityType: activeScope.entityType,
-            entityId: activeScope.entityId,
-            previewSource: "planGeneratedDocument_grounded",
-          });
-        }
+        this._traceExecutionStep(requestContext, "artifact_preview_scope_missing", {
+          outputType: "document",
+          artifactType: previewArtifact.type || null,
+          previewSource: "storage_scope_guard",
+        });
+      } else if (previewArtifact) {
+        outputArtifact = previewArtifact;
+        finalMessage =
+          "I prepared a document preview. You can edit it and confirm to create a proposal for storing it in the selected record.";
+        this._traceExecutionStep(requestContext, "artifact_preview_pipeline_triggered", {
+          outputType: "document",
+          artifactType: previewArtifact.type || null,
+          entityType: previewArtifact?.targetEntity?.type || activeScope?.entityType || null,
+          entityId: previewArtifact?.targetEntity?.id || activeScope?.entityId || null,
+          previewSource: "planGeneratedDocument_grounded",
+        });
       }
       if (!outputArtifact) {
         outputArtifact = {

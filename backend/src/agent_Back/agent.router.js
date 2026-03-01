@@ -15,13 +15,35 @@ const { detectDocumentGenerationIntent: detectSharedDocumentGenerationIntent } =
 const db = require("../db/connection");
 const documentGenerationService = require("../services/documentGeneration/documentGeneration.service");
 const documentGenerationPreviewService = require("../services/documentGeneration/documentGenerationPreview.service");
+const documentAiSettingsService = require("../services/documentAiSettings.service");
+const dossiersService = require("../services/dossiers.service");
+const lawsuitsService = require("../services/lawsuits.service");
+const sessionsService = require("../services/sessions.service");
+const tasksService = require("../services/tasks.service");
+const missionsService = require("../services/missions.service");
+const financialService = require("../services/financial.service");
 const { resolveInteractionMode } = require("./interactionMode.resolver");
+const { discoverScopedTarget } = require("./context/scopeDiscovery");
 const { mapUserFailure } = require("./failure/userFailure.mapper");
 const { toProposalArtifact } = require("./proposals/proposalArtifact");
 const { generateChatResponse } = require("./llm.client");
 const { enforceUserSafeResponsePolicy } = require("./chat/chat.userSafeResponsePolicy");
 const eventEnvelopeSchema = require("./schemas/event-envelope.schema.json");
 const failureSchema = require("./schemas/failure.schema.json");
+const {
+  DEFAULT_CANONICAL_FORMAT,
+  DEFAULT_DOCUMENT_OUTPUT_FORMAT_PREFERENCE,
+  DEFAULT_PREVIEW_FORMAT,
+  chooseOutputFormats,
+  normalizeOutputFormatPreference,
+  normalizeFormat,
+  isCanonicalFormat,
+  isPreviewFormat,
+} = require("../domain/documentFormatGovernance");
+const {
+  StorageHint,
+  resolveStorageTarget,
+} = require("../domain/document.storage.resolver");
 
 const router = express.Router();
 const agentEngine = new AgentEngine();
@@ -287,9 +309,33 @@ function buildRequestContext(context, sessionId, documentContext, metadata) {
       })),
     };
   }
-  if (metadata && typeof metadata === "object") {
-    requestContext.requestMetadata = { ...metadata };
-  }
+  const workspaceSettings = documentAiSettingsService.getDocumentAiSettings();
+  const workspacePreference =
+    normalizeOutputFormatPreference(workspaceSettings?.document_output_format_preference) ||
+    DEFAULT_DOCUMENT_OUTPUT_FORMAT_PREFERENCE;
+  const contextMetadata =
+    requestContext.requestMetadata &&
+    typeof requestContext.requestMetadata === "object" &&
+    !Array.isArray(requestContext.requestMetadata)
+      ? requestContext.requestMetadata
+      : {};
+  const incomingMetadata =
+    metadata && typeof metadata === "object" && !Array.isArray(metadata) ? metadata : {};
+  const mergedMetadata = {
+    ...contextMetadata,
+    ...incomingMetadata,
+  };
+  const resolvedPreference =
+    normalizeOutputFormatPreference(
+      mergedMetadata.documentOutputFormatPreference ||
+        requestContext.documentOutputFormatPreference ||
+        workspacePreference,
+    ) || DEFAULT_DOCUMENT_OUTPUT_FORMAT_PREFERENCE;
+  requestContext.documentOutputFormatPreference = resolvedPreference;
+  requestContext.requestMetadata = {
+    ...mergedMetadata,
+    documentOutputFormatPreference: resolvedPreference,
+  };
   return requestContext;
 }
 
@@ -861,17 +907,58 @@ function inferPendingBindingEntityType(generationRequest = {}) {
   return "dossier";
 }
 
+function normalizeGenerationRequestFormats(generationRequest = {}, options = {}) {
+  const canonicalCandidate = normalizeFormat(
+    generationRequest?.canonicalFormat || generationRequest?.format,
+  );
+  const previewCandidate = normalizeFormat(generationRequest?.previewFormat);
+  const explicitCanonical = isCanonicalFormat(canonicalCandidate) ? canonicalCandidate : null;
+  const resolvedPreference =
+    normalizeOutputFormatPreference(
+      options.documentOutputFormatPreference ||
+        generationRequest?.documentOutputFormatPreference,
+    ) || DEFAULT_DOCUMENT_OUTPUT_FORMAT_PREFERENCE;
+  const formatSelection = chooseOutputFormats({
+    preference: explicitCanonical || resolvedPreference,
+    artifactKind: "document",
+    structureHints: {
+      hasTabularData: false,
+      requiresEditing: false,
+      intendedForFiling: false,
+    },
+  });
+  if (explicitCanonical) {
+    formatSelection.selectionMode = "explicit";
+    formatSelection.selectionSource = "explicit_request";
+  }
+  const canonicalFormat = explicitCanonical || formatSelection.canonicalFormat || DEFAULT_CANONICAL_FORMAT;
+  const previewFormat = isPreviewFormat(previewCandidate)
+    ? previewCandidate
+    : formatSelection.previewFormat || DEFAULT_PREVIEW_FORMAT;
+  return {
+    ...(generationRequest || {}),
+    canonicalFormat,
+    previewFormat,
+    formatSelection,
+    // Backward compatibility for legacy payloads.
+    format: canonicalFormat,
+  };
+}
+
 function buildDocumentGenerationPendingDescriptor({
   generationRequest,
   agentVersion = "v3",
   sourceRoute = "/agent/chat",
 } = {}) {
-  const bindingEntityType = inferPendingBindingEntityType(generationRequest);
+  const normalizedGenerationRequest = normalizeGenerationRequestFormats(generationRequest, {
+    documentOutputFormatPreference: generationRequest?.documentOutputFormatPreference,
+  });
+  const bindingEntityType = inferPendingBindingEntityType(normalizedGenerationRequest);
   return {
     operationType: "document_generation",
     lockedCapability: "draft",
     originalIntent: "DOCUMENT_GENERATION",
-    originalMessage: generationRequest?.instructions || null,
+    originalMessage: normalizedGenerationRequest?.instructions || null,
     policyVersion: agentVersion || "v3",
     requiredBindings: [
       {
@@ -885,11 +972,15 @@ function buildDocumentGenerationPendingDescriptor({
       resumeType: "document_generation_preview",
       generationRequest: {
         target: null,
-        targetHints: generationRequest?.targetHints || null,
-        documentType: generationRequest?.documentType || null,
-        language: generationRequest?.language || "en",
-        format: generationRequest?.format || "pdf",
-        instructions: generationRequest?.instructions || "",
+        targetHints: normalizedGenerationRequest?.targetHints || null,
+        documentType: normalizedGenerationRequest?.documentType || null,
+        language: normalizedGenerationRequest?.language || "en",
+        canonicalFormat: normalizedGenerationRequest.canonicalFormat,
+        previewFormat: normalizedGenerationRequest.previewFormat,
+        formatSelection: normalizedGenerationRequest.formatSelection || null,
+        // Backward compatibility for legacy resumption payloads.
+        format: normalizedGenerationRequest.canonicalFormat,
+        instructions: normalizedGenerationRequest?.instructions || "",
       },
     },
     auditMeta: {
@@ -985,6 +1076,29 @@ async function createGeneratedDocumentProposalFromPlan({
   userId,
   plan,
 }) {
+  const targetResolution = await resolveGeneratedDocumentAttachTarget({
+    requestContext,
+    plan,
+  });
+  if (targetResolution?.artifact) {
+    return targetResolution.artifact;
+  }
+  const effectivePlan = {
+    ...plan,
+    target: targetResolution?.target || plan?.target,
+    storageGovernance: {
+      ...(plan?.storageGovernance || {}),
+      ...(targetResolution?.storageGovernancePatch || {}),
+    },
+  };
+
+  const targetType = String(effectivePlan?.target?.type || "").toLowerCase();
+  const targetId = Number(effectivePlan?.target?.id || 0);
+  const hasScopeBinding =
+    effectivePlan?.storageGovernance?.hasScopeBinding === true ||
+    requestContext?.hasScopeBinding === true ||
+    (targetType && targetType !== "client");
+
   const policy = agentEngine._resolvePolicy("v3");
   const proposal = await agentEngine.executeToolV2(
     "universalMutation",
@@ -992,18 +1106,22 @@ async function createGeneratedDocumentProposalFromPlan({
       operations: [
         {
           op: "ATTACH_TO_ENTITY",
-          entityType: String(plan?.target?.type || "").toLowerCase() || "document",
+          entityType: String(effectivePlan?.target?.type || "").toLowerCase() || "document",
           payload: {
-            target: plan.target,
+            target: effectivePlan.target,
             attachmentType: "generated_document",
             payload: {
-              documentType: plan.documentType,
-              templateKey: plan.templateKey,
-              language: plan.language,
-              format: plan.format,
-              schemaVersion: plan.schemaVersion,
-              contentJson: plan.contentJson,
-              title: plan.contentJson?.content?.title || plan.documentType,
+              documentType: effectivePlan.documentType,
+              templateKey: effectivePlan.templateKey,
+              language: effectivePlan.language,
+              canonicalFormat: effectivePlan.canonicalFormat || effectivePlan.format,
+              previewFormat: effectivePlan.previewFormat || DEFAULT_PREVIEW_FORMAT,
+              formatSelection: effectivePlan.formatSelection || null,
+              // Backward compatibility for legacy payload readers.
+              format: effectivePlan.canonicalFormat || effectivePlan.format,
+              schemaVersion: effectivePlan.schemaVersion,
+              contentJson: effectivePlan.contentJson,
+              title: effectivePlan.contentJson?.content?.title || effectivePlan.documentType,
             },
           },
           reason: "Attach generated document artifact from approved plan",
@@ -1024,16 +1142,143 @@ async function createGeneratedDocumentProposalFromPlan({
   );
 
   if (proposal?.result?.proposalId && proposal?.result?.requiresConfirmation) {
+    const scopeBindingAudit = hasScopeBinding
+      ? {
+          applied: true,
+          source:
+            effectivePlan?.storageGovernance?.resolutionMode === "hint"
+              ? "storage_hint"
+              : String(targetResolution?.source || "scope_resolution"),
+          target: {
+            entityType: targetType || null,
+            entityId: Number.isInteger(targetId) && targetId > 0 ? targetId : null,
+          },
+        }
+      : null;
     agentEngine.storeProposal(proposal.result, {
       conversationId: requestContext?.conversationId || null,
       sessionId: sessionId || null,
       userId: userId || null,
       tenantId: requestContext?.tenantId || null,
+      scopeBinding: scopeBindingAudit,
     });
     return proposal.result;
   }
 
   throw new Error("Failed to create document generation proposal");
+}
+
+async function resolveGeneratedDocumentAttachTarget({
+  requestContext,
+  plan,
+} = {}) {
+  const targetType = String(plan?.target?.type || "").toLowerCase();
+  const targetId = Number(plan?.target?.id || 0);
+  const hasScopeBinding =
+    plan?.storageGovernance?.hasScopeBinding === true ||
+    requestContext?.hasScopeBinding === true ||
+    (targetType && targetType !== "client");
+
+  if (
+    targetType !== "client" ||
+    !Number.isInteger(targetId) ||
+    targetId <= 0 ||
+    hasScopeBinding
+  ) {
+    return {
+      target: plan?.target || null,
+      storageGovernancePatch: null,
+      source: "existing_scope",
+      artifact: null,
+    };
+  }
+
+  if (clientHasDeeperScopeEntities(targetId)) {
+    let discovery = null;
+    try {
+      discovery = await discoverScopedTarget({
+        engine: buildDeterministicScopeDiscoveryEngine(),
+        clientId: targetId,
+        message:
+          String(plan?.contentJson?.content?.markdown || "").trim() ||
+          String(plan?.contentJson?.content?.title || "").trim(),
+        hint:
+          plan?.storageGovernance?.scopeDiscoveryHint &&
+          typeof plan.storageGovernance.scopeDiscoveryHint === "object"
+            ? plan.storageGovernance.scopeDiscoveryHint
+            : null,
+        limits: { maxClarifyCandidates: 5 },
+      });
+    } catch (_) {
+      discovery = null;
+    }
+
+    if (
+      discovery?.status === "resolved" &&
+      discovery?.target?.entityType &&
+      Number.isInteger(Number(discovery?.target?.entityId)) &&
+      Number(discovery.target.entityId) > 0
+    ) {
+      return {
+        target: {
+          type: String(discovery.target.entityType).toLowerCase(),
+          id: Number(discovery.target.entityId),
+        },
+        storageGovernancePatch: {
+          hasScopeBinding: true,
+          status: "resolved",
+          resolvedTarget: {
+            entityType: String(discovery.target.entityType).toLowerCase(),
+            entityId: Number(discovery.target.entityId),
+          },
+          resolutionMode: "inherit",
+        },
+        source: "scope_discovery_recovery",
+        artifact: null,
+      };
+    }
+
+    const candidateSuggestions = Array.isArray(discovery?.candidates)
+      ? discovery.candidates
+          .map((candidate, index) => {
+            const entityType = String(candidate?.entityType || "").toLowerCase();
+            const entityId = Number(candidate?.entityId || 0);
+            if (!entityType || !Number.isInteger(entityId) || entityId <= 0) return null;
+            return {
+              id: `scope-guard-${entityType}-${entityId}-${index}`,
+              entityType,
+              entityId,
+              label: String(candidate?.label || `${entityType} #${entityId}`),
+              subtitle: candidate?.reference ? `Reference: ${String(candidate.reference)}` : null,
+              metadata: {
+                score: Number.isFinite(Number(candidate?.score))
+                  ? Number(Number(candidate.score).toFixed(3))
+                  : null,
+              },
+              intent: "RESOLVE_CONTEXT_AND_CONTINUE",
+            };
+          })
+          .filter(Boolean)
+      : [];
+
+    return {
+      target: plan?.target || null,
+      storageGovernancePatch: null,
+      source: "scope_guard_clarify",
+      artifact: buildStorageScopeSuggestionArtifact({
+        message:
+          "I found deeper records under this client. Please confirm the exact dossier/lawsuit/task/session/mission/financial entry before I attach this generated document.",
+        originalMessage: String(plan?.contentJson?.content?.markdown || "").trim() || null,
+        suggestions: candidateSuggestions,
+      }),
+    };
+  }
+  return {
+    target: plan?.target || null,
+    storageGovernancePatch: null,
+    source: "no_deeper_entities",
+    artifact: null,
+  };
 }
 
 async function buildDocumentGenerationPreviewArtifact({
@@ -1042,17 +1287,20 @@ async function buildDocumentGenerationPreviewArtifact({
   sessionId,
   generationRequest,
 }) {
+  const normalizedGenerationRequest = normalizeGenerationRequestFormats(generationRequest, {
+    documentOutputFormatPreference: requestContext?.documentOutputFormatPreference,
+  });
   const toTargetRecovery = async ({ code = "TARGET_UNRESOLVED" } = {}) => {
     const targetType = String(
-      generationRequest?.target?.type ||
-        generationRequest?.targetHints?.hintedType ||
+      normalizedGenerationRequest?.target?.type ||
+        normalizedGenerationRequest?.targetHints?.hintedType ||
         "entity",
     ).toLowerCase();
-    const rawTargetId = generationRequest?.target?.id;
+    const rawTargetId = normalizedGenerationRequest?.target?.id;
     const normalizedTargetId = Number.isFinite(Number(rawTargetId))
       ? Number(rawTargetId)
       : null;
-    const reference = String(generationRequest?.targetHints?.reference || "").trim() || null;
+    const reference = String(normalizedGenerationRequest?.targetHints?.reference || "").trim() || null;
     const mapped = await mapUserFailure(
       {
         code,
@@ -1069,17 +1317,17 @@ async function buildDocumentGenerationPreviewArtifact({
     return mapped.recovery;
   };
 
-  if (!generationRequest?.target?.type || !generationRequest?.target?.id) {
+  if (!normalizedGenerationRequest?.target?.type || !normalizedGenerationRequest?.target?.id) {
     return toTargetRecovery({ code: "TARGET_UNRESOLVED" });
   }
 
-  if (!targetEntityExists(generationRequest.target)) {
+  if (!targetEntityExists(normalizedGenerationRequest.target)) {
     return toTargetRecovery({ code: "TARGET_NOT_FOUND" });
   }
 
   let plan;
   try {
-    plan = await documentGenerationService.planDocument(generationRequest);
+    plan = await documentGenerationService.planDocument(normalizedGenerationRequest);
   } catch (error) {
     if (
       /Target entity not found/i.test(String(error?.message || "")) ||
@@ -1088,12 +1336,12 @@ async function buildDocumentGenerationPreviewArtifact({
       return toTargetRecovery({ code: "TARGET_NOT_FOUND" });
     }
     if (error?.code === "TEMPLATE_NOT_FOUND") {
-      return {
-        type: "document_generation_missing_fields",
-        message: error.message || "Template not found for the requested document.",
-        documentType: generationRequest?.documentType || null,
-        target: generationRequest?.target || null,
-        missingFields: [
+        return {
+          type: "document_generation_missing_fields",
+          message: error.message || "Template not found for the requested document.",
+          documentType: normalizedGenerationRequest?.documentType || null,
+          target: normalizedGenerationRequest?.target || null,
+          missingFields: [
           {
             path: "template",
             label: "Template",
@@ -1176,11 +1424,14 @@ router.post("/agent/run", async (req, res, next) => {
       });
     }
 
-    const generationRequest = await detectDocumentGenerationIntent(
+    const generationIntent = await detectDocumentGenerationIntent(
       effectiveMessage,
       requestContext,
     );
-    if (generationRequest) {
+    if (generationIntent) {
+      const generationRequest = normalizeGenerationRequestFormats(generationIntent, {
+        documentOutputFormatPreference: requestContext?.documentOutputFormatPreference,
+      });
       if (!generationRequest?.target?.id) {
         const pendingOperation = agentEngine.beginPendingOperation(
           requestContext,
@@ -1675,7 +1926,7 @@ router.post("/agent/confirm", async (req, res, next) => {
 router.post("/agent/document-generation/preview/confirm", async (req, res, next) => {
   const { previewId, sessionId, editedMarkdown } = req.body || {};
   try {
-    const proposal = await documentGenerationPreviewService.confirmPreview(previewId, {
+    const proposalOrOutput = await documentGenerationPreviewService.confirmPreview(previewId, {
       transformPayload: (payload) => {
         const text = String(editedMarkdown || "").trim();
         if (!text) return payload;
@@ -1708,28 +1959,80 @@ router.post("/agent/document-generation/preview/confirm", async (req, res, next)
           req.body?.metadata || null,
         );
 
+        const storageGovernance =
+          payload?.storageGovernance &&
+          typeof payload.storageGovernance === "object" &&
+          !Array.isArray(payload.storageGovernance)
+            ? payload.storageGovernance
+            : null;
+        let resolvedStorageTarget = null;
+        if (storageGovernance) {
+          try {
+            resolvedStorageTarget = resolveStorageTarget({
+              activeScope: storageGovernance.activeScope || {},
+              storageHint: storageGovernance.storageHint || StorageHint.INHERIT,
+            });
+          } catch (error) {
+            if (String(error?.code || "") === "STORAGE_SCOPE_MISSING") {
+              return buildStorageScopeSuggestionArtifact({
+                message:
+                  String(error?.message || "").trim() ||
+                  "I need the target record before I can store this generated document.",
+                originalMessage:
+                  String(payload?.contentJson?.content?.markdown || "").trim() || null,
+              });
+            }
+            throw error;
+          }
+        }
+        const effectiveTarget = resolvedStorageTarget
+          ? {
+              type: resolvedStorageTarget.entityType,
+              id: resolvedStorageTarget.entityId,
+            }
+          : target;
+
         return createGeneratedDocumentProposalFromPlan({
           requestContext,
           sessionId: effectiveSessionId,
           userId: req.user?.id || null,
           plan: {
-            target,
+            target: effectiveTarget,
             documentType: payload.documentType,
             templateKey: payload.templateKey,
             language: payload.language,
-            format: payload.format,
+            canonicalFormat: payload.canonicalFormat || payload.format,
+            previewFormat: payload.previewFormat || DEFAULT_PREVIEW_FORMAT,
+            formatSelection: payload.formatSelection || null,
+            // Backward compatibility for legacy readers.
+            format: payload.canonicalFormat || payload.format,
             schemaVersion: payload.schemaVersion,
             contentJson: payload.contentJson,
+            storageGovernance:
+              payload?.storageGovernance && typeof payload.storageGovernance === "object"
+                ? payload.storageGovernance
+                : null,
           },
         });
       },
     });
-    const effectiveSessionId =
-      sessionId || proposal?.sessionId || null;
+    if (
+      proposalOrOutput &&
+      typeof proposalOrOutput === "object" &&
+      proposalOrOutput.type === "context_suggestion"
+    ) {
+      return res.json({
+        status: "ok",
+        data: {
+          output: proposalOrOutput,
+        },
+      });
+    }
+    const effectiveSessionId = sessionId || proposalOrOutput?.sessionId || null;
     return res.json({
       status: "ok",
       data: {
-        output: toProposalArtifact(proposal, effectiveSessionId),
+        output: toProposalArtifact(proposalOrOutput, effectiveSessionId),
       },
     });
   } catch (err) {
@@ -1827,6 +2130,187 @@ function buildPreviewCancelledArtifact({ previewId = null, reason = "cancelled" 
     reason: String(reason || "cancelled"),
     status: "cancelled",
     timestamp: new Date().toISOString(),
+  };
+}
+
+function buildStorageScopeSuggestionArtifact({
+  message = "I need the exact target record before storing this document.",
+  originalMessage = null,
+  suggestions = [],
+} = {}) {
+  return {
+    type: "context_suggestion",
+    message: String(message || "").trim() || "I need the exact target record before storing this document.",
+    entityType: "dossier",
+    reason: "missing_context",
+    originalIntent: "CHATBOT_AGENT_MODE",
+    originalMessage: originalMessage || null,
+    suggestions: Array.isArray(suggestions) ? suggestions.slice(0, 5) : [],
+    timestamp: new Date().toISOString(),
+    confidence: 0.9,
+    source: "document_storage_scope",
+    allowManualInput: true,
+    manualInputHint:
+      "Open or select the target client, dossier, lawsuit, task, session, mission, or financial entry and try again.",
+  };
+}
+
+function clientHasDeeperScopeEntities(clientId) {
+  const normalizedClientId = Number(clientId || 0);
+  if (!Number.isInteger(normalizedClientId) || normalizedClientId <= 0) return false;
+  try {
+    const row = db
+      .prepare(
+        `SELECT CASE
+          WHEN EXISTS (SELECT 1 FROM dossiers d WHERE d.client_id = @client_id AND d.deleted_at IS NULL LIMIT 1) THEN 1
+          WHEN EXISTS (
+            SELECT 1
+            FROM lawsuits l
+            JOIN dossiers d ON d.id = l.dossier_id
+            WHERE d.client_id = @client_id
+              AND l.deleted_at IS NULL
+              AND d.deleted_at IS NULL
+            LIMIT 1
+          ) THEN 1
+          WHEN EXISTS (
+            SELECT 1
+            FROM sessions s
+            LEFT JOIN dossiers d ON d.id = s.dossier_id
+            LEFT JOIN lawsuits l ON l.id = s.lawsuit_id
+            LEFT JOIN dossiers dl ON dl.id = l.dossier_id
+            WHERE (
+              d.client_id = @client_id OR dl.client_id = @client_id
+            )
+              AND s.deleted_at IS NULL
+              AND (d.id IS NULL OR d.deleted_at IS NULL)
+              AND (l.id IS NULL OR l.deleted_at IS NULL)
+              AND (dl.id IS NULL OR dl.deleted_at IS NULL)
+            LIMIT 1
+          ) THEN 1
+          WHEN EXISTS (
+            SELECT 1
+            FROM tasks t
+            LEFT JOIN dossiers d ON d.id = t.dossier_id
+            LEFT JOIN lawsuits l ON l.id = t.lawsuit_id
+            LEFT JOIN dossiers dl ON dl.id = l.dossier_id
+            WHERE (
+              d.client_id = @client_id OR dl.client_id = @client_id
+            )
+              AND t.deleted_at IS NULL
+              AND (d.id IS NULL OR d.deleted_at IS NULL)
+              AND (l.id IS NULL OR l.deleted_at IS NULL)
+              AND (dl.id IS NULL OR dl.deleted_at IS NULL)
+            LIMIT 1
+          ) THEN 1
+          WHEN EXISTS (
+            SELECT 1
+            FROM missions m
+            LEFT JOIN dossiers d ON d.id = m.dossier_id
+            LEFT JOIN lawsuits l ON l.id = m.lawsuit_id
+            LEFT JOIN dossiers dl ON dl.id = l.dossier_id
+            WHERE (
+              d.client_id = @client_id OR dl.client_id = @client_id
+            )
+              AND m.deleted_at IS NULL
+              AND (d.id IS NULL OR d.deleted_at IS NULL)
+              AND (l.id IS NULL OR l.deleted_at IS NULL)
+              AND (dl.id IS NULL OR dl.deleted_at IS NULL)
+            LIMIT 1
+          ) THEN 1
+          WHEN EXISTS (
+            SELECT 1
+            FROM financial_entries fe
+            LEFT JOIN dossiers d ON d.id = fe.dossier_id
+            LEFT JOIN lawsuits l ON l.id = fe.lawsuit_id
+            LEFT JOIN dossiers dl ON dl.id = l.dossier_id
+            WHERE (
+              fe.client_id = @client_id OR d.client_id = @client_id OR dl.client_id = @client_id
+            )
+              AND fe.deleted_at IS NULL
+              AND (d.id IS NULL OR d.deleted_at IS NULL)
+              AND (l.id IS NULL OR l.deleted_at IS NULL)
+              AND (dl.id IS NULL OR dl.deleted_at IS NULL)
+            LIMIT 1
+          ) THEN 1
+          ELSE 0
+        END AS has_deeper`,
+      )
+      .get({ client_id: normalizedClientId });
+    return Number(row?.has_deeper || 0) === 1;
+  } catch (_) {
+    return false;
+  }
+}
+
+function buildDeterministicScopeDiscoveryEngine() {
+  return {
+    async _callReadTool(toolName, params = {}) {
+      const limit = Math.max(1, Math.min(Number(params?.limit) || 50, 200));
+      if (toolName === "listDossiersForClient") {
+        const clientId = Number(params?.clientId || 0);
+        const rows = dossiersService
+          .list()
+          .filter((row) => Number(row?.client_id || 0) === clientId)
+          .slice(0, limit);
+        return { dossiers: rows };
+      }
+      if (toolName === "listLawsuits") {
+        const dossierId = Number(params?.dossierId || 0);
+        const rows = lawsuitsService
+          .list()
+          .filter((row) => (dossierId > 0 ? Number(row?.dossier_id || 0) === dossierId : true))
+          .slice(0, limit);
+        return { lawsuits: rows };
+      }
+      if (toolName === "listSessions") {
+        const dossierId = Number(params?.dossierId || 0);
+        const lawsuitId = Number(params?.lawsuitId || 0);
+        const rows = sessionsService
+          .list()
+          .filter((row) => {
+            if (lawsuitId > 0) return Number(row?.lawsuit_id || 0) === lawsuitId;
+            if (dossierId > 0) return Number(row?.dossier_id || 0) === dossierId;
+            return true;
+          })
+          .slice(0, limit);
+        return { sessions: rows };
+      }
+      if (toolName === "listTasks") {
+        const dossierId = Number(params?.dossierId || 0);
+        const lawsuitId = Number(params?.lawsuitId || 0);
+        const rows = tasksService
+          .list()
+          .filter((row) => {
+            if (lawsuitId > 0) return Number(row?.lawsuit_id || 0) === lawsuitId;
+            if (dossierId > 0) return Number(row?.dossier_id || 0) === dossierId;
+            return true;
+          })
+          .slice(0, limit);
+        return { tasks: rows };
+      }
+      if (toolName === "listMissions") {
+        const dossierId = Number(params?.dossierId || 0);
+        const lawsuitId = Number(params?.lawsuitId || 0);
+        const rows = missionsService
+          .list()
+          .filter((row) => {
+            if (lawsuitId > 0) return Number(row?.lawsuit_id || 0) === lawsuitId;
+            if (dossierId > 0) return Number(row?.dossier_id || 0) === dossierId;
+            return true;
+          })
+          .slice(0, limit);
+        return { missions: rows };
+      }
+      if (toolName === "listFinancialEntries") {
+        const clientId = Number(params?.clientId || 0);
+        const rows = financialService
+          .list(false)
+          .filter((row) => Number(row?.client_id || 0) === clientId)
+          .slice(0, limit);
+        return { financialEntries: rows };
+      }
+      return {};
+    },
   };
 }
 
@@ -2380,5 +2864,10 @@ router.post("/agent/stream", async (req, res) => {
   }
   res.end();
 });
+
+router.__private = {
+  clientHasDeeperScopeEntities,
+  resolveGeneratedDocumentAttachTarget,
+};
 
 module.exports = router;

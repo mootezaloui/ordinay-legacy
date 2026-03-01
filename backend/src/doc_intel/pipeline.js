@@ -214,7 +214,7 @@ async function runDocumentIntel({
       if (hasSubstantiveText(nativeText)) {
         textSource = "native";
       }
-    } else if (docType === "docx" || docType === "text") {
+    } else if (docType === "docx" || docType === "xlsx" || docType === "pptx" || docType === "text") {
       const native = extractNativeText(filePath, mimeType, docType);
       nativeText = normalizeText(native.text || "").trim();
       if (shouldReadable(nativeText)) {

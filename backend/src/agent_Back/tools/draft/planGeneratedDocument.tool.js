@@ -3,6 +3,9 @@
 const { TOOL_CATEGORIES } = require("../tool.registry");
 const documentGenerationService = require("../../../services/documentGeneration/documentGeneration.service");
 const plannerService = require("../../../services/documentGeneration/planner.service");
+const {
+  SUPPORTED_CANONICAL_FORMATS,
+} = require("../../../domain/documentFormatGovernance");
 
 const legacyInputSchema = {
   type: "object",
@@ -20,7 +23,7 @@ const legacyInputSchema = {
     },
     documentType: { type: "string" },
     language: { type: "string", enum: ["ar", "en"] },
-    format: { type: "string", enum: ["html", "pdf", "docx"] },
+    format: { type: "string", enum: [...SUPPORTED_CANONICAL_FORMATS] },
     instructions: { type: "string" },
   },
 };
@@ -69,7 +72,7 @@ const legacyOutputSchema = {
         schemaVersion: { type: "string" },
         documentType: { type: "string" },
         language: { type: "string", enum: ["ar", "en"] },
-        format: { type: "string", enum: ["html", "pdf", "docx"] },
+        format: { type: "string", enum: [...SUPPORTED_CANONICAL_FORMATS] },
       },
     },
     entityType: { type: "string" },

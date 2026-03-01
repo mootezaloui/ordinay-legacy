@@ -6,11 +6,19 @@ const { scanForPlaceholders } = require("./placeholderGuard");
 const { renderMarkdownToHtml } = require("./markdownRender.service");
 const {
   DOCUMENT_TYPES,
-  DOCUMENT_FORMATS,
   SUPPORTED_LANGUAGES,
   SCHEMA_VERSION,
   TARGET_TYPES,
 } = require("./constants");
+const {
+  DEFAULT_DOCUMENT_OUTPUT_FORMAT_PREFERENCE,
+  DEFAULT_CANONICAL_FORMAT,
+  DEFAULT_PREVIEW_FORMAT,
+  chooseOutputFormats,
+  normalizeFormat,
+  isCanonicalFormat,
+  isPreviewFormat,
+} = require("../../domain/documentFormatGovernance");
 
 const ENTITY_TABLE_MAP = Object.freeze({
   client: "clients",
@@ -418,7 +426,8 @@ async function generateEnvelopeWithLlm({ normalized, entity }) {
       target: normalized.target,
       documentType: normalized.documentType,
       language: normalized.language,
-      format: normalized.format,
+      canonicalFormat: normalized.canonicalFormat,
+      previewFormat: normalized.previewFormat,
       instructions: normalized.instructions,
     })}`,
     `entityContext=${JSON.stringify(entity || {})}`,
@@ -517,19 +526,42 @@ function normalizePlanInput(input = {}) {
   const target = input.target || {};
   const documentType = String(input.documentType || "").trim();
   const language = String(input.language || "").trim().toLowerCase() || "en";
-  const format = String(input.format || "").trim().toLowerCase() || DOCUMENT_FORMATS.HTML;
+  const requestedCanonicalFormat = normalizeFormat(input.canonicalFormat || input.format);
+  const requestedPreviewFormat = normalizeFormat(input.previewFormat);
+  if (requestedCanonicalFormat && !isCanonicalFormat(requestedCanonicalFormat)) {
+    assert(false, "Unsupported canonical format");
+  }
+  const selectedFormats = chooseOutputFormats({
+    preference: requestedCanonicalFormat || DEFAULT_DOCUMENT_OUTPUT_FORMAT_PREFERENCE,
+    artifactKind: "document",
+    structureHints: {
+      hasTabularData: false,
+      requiresEditing: false,
+      intendedForFiling: false,
+    },
+  });
+  const canonicalFormat = requestedCanonicalFormat || selectedFormats.canonicalFormat || DEFAULT_CANONICAL_FORMAT;
+  const previewFormat = requestedPreviewFormat || selectedFormats.previewFormat || DEFAULT_PREVIEW_FORMAT;
 
   assert(TARGET_TYPES.includes(target.type), "Invalid target.type");
   assert(Number.isInteger(Number(target.id)) && Number(target.id) > 0, "Invalid target.id");
   assert(Object.values(DOCUMENT_TYPES).includes(documentType), "Unsupported documentType");
   assert(SUPPORTED_LANGUAGES.includes(language), "Unsupported language");
-  assert(Object.values(DOCUMENT_FORMATS).includes(format), "Unsupported format");
+  assert(isCanonicalFormat(canonicalFormat), "Unsupported canonical format");
+  assert(isPreviewFormat(previewFormat), "Unsupported preview format");
 
   return {
     target: { type: target.type, id: Number(target.id) },
     documentType,
     language,
-    format,
+    canonicalFormat,
+    previewFormat,
+    formatSelection: {
+      ...selectedFormats,
+      ...(requestedCanonicalFormat ? { selectionMode: "explicit", selectionSource: "explicit_request" } : {}),
+    },
+    // Backward compatibility for callers still reading `format`.
+    format: canonicalFormat,
     instructions: typeof input.instructions === "string" ? input.instructions.trim() : "",
     structuredContext:
       input.structuredContext && typeof input.structuredContext === "object" && !Array.isArray(input.structuredContext)
@@ -573,7 +605,11 @@ async function planDocument(input = {}) {
     target: normalized.target,
     documentType: normalized.documentType,
     language: normalized.language,
-    format: normalized.format,
+    canonicalFormat: normalized.canonicalFormat,
+    previewFormat: normalized.previewFormat,
+    formatSelection: normalized.formatSelection,
+    // Backward compatibility for legacy payloads.
+    format: normalized.canonicalFormat,
     schemaVersion: envelope.schemaVersion || SCHEMA_VERSION,
     templateKey: "MARKDOWN_DIRECT",
     contentJson: envelope,

@@ -1,6 +1,14 @@
 "use strict";
 
 const { parseJsonResponse } = require("../llm/llm.validation");
+const {
+  normalizeArtifactKind,
+  normalizeStructureHints,
+} = require("../../domain/documentFormatGovernance");
+const {
+  StorageHint,
+  normalizeStorageHint,
+} = require("../../domain/document.storage.resolver");
 
 const OUTPUT_TYPES = new Set(["message", "document", "mutation", "research"]);
 
@@ -65,18 +73,70 @@ function parseFinalOutputContract(text) {
     };
   }
 
+  const normalizedContract = {
+    outputType,
+    title: title ? title.trim() : null,
+    content: content.trim(),
+    metadata: metadata || {},
+  };
+
+  if (normalizedContract.outputType === "document") {
+    const rawMetadata = normalizedContract.metadata || {};
+    const artifactKind = normalizeArtifactKind(rawMetadata.artifactKind) || "document";
+    const structureHints = normalizeStructureHints(rawMetadata.structureHints);
+    const storageHint =
+      normalizeStorageHint(rawMetadata.storageHint) || StorageHint.INHERIT;
+    const warnings = [];
+
+    if (rawMetadata.artifactKind != null && !normalizeArtifactKind(rawMetadata.artifactKind)) {
+      warnings.push({
+        code: "DOCUMENT_ARTIFACT_KIND_INVALID",
+        message: "metadata.artifactKind is invalid; defaulted to 'document'.",
+      });
+    } else if (rawMetadata.artifactKind == null) {
+      warnings.push({
+        code: "DOCUMENT_ARTIFACT_KIND_MISSING",
+        message: "metadata.artifactKind missing; defaulted to 'document'.",
+      });
+    }
+
+    if (
+      rawMetadata.structureHints != null &&
+      (typeof rawMetadata.structureHints !== "object" || Array.isArray(rawMetadata.structureHints))
+    ) {
+      warnings.push({
+        code: "DOCUMENT_STRUCTURE_HINTS_INVALID",
+        message: "metadata.structureHints invalid; defaulted to deterministic false booleans.",
+      });
+    } else if (rawMetadata.structureHints == null) {
+      warnings.push({
+        code: "DOCUMENT_STRUCTURE_HINTS_MISSING",
+        message: "metadata.structureHints missing; defaulted to deterministic false booleans.",
+      });
+    }
+
+    if (rawMetadata.storageHint != null && !normalizeStorageHint(rawMetadata.storageHint)) {
+      warnings.push({
+        code: "DOCUMENT_STORAGE_HINT_INVALID",
+        message: "metadata.storageHint is invalid; defaulted to 'inherit'.",
+      });
+    }
+
+    normalizedContract.metadata = {
+      ...rawMetadata,
+      artifactKind,
+      structureHints,
+      storageHint,
+      ...(warnings.length > 0 ? { _outputContractWarnings: warnings } : {}),
+    };
+  }
+
   return {
     ok: true,
-    contract: {
-      outputType,
-      title: title ? title.trim() : null,
-      content: content.trim(),
-      metadata: metadata || {},
-    },
+    contract: normalizedContract,
   };
 }
 
 module.exports = {
   parseFinalOutputContract,
 };
-
