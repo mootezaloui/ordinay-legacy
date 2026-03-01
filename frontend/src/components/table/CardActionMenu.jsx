@@ -2,11 +2,26 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 
+const actionIcons = {
+  view: "fas fa-eye",
+  edit: "fas fa-pen",
+  delete: "fas fa-trash-alt",
+  more: "fas fa-ellipsis-h",
+};
+
 export default function CardActionMenu({ actions = [] }) {
   if (actions.length === 0) return null;
+
+  const normalActions = actions.filter(
+    (a) => a.variant !== "delete" && a.icon !== "delete"
+  );
+  const destructiveActions = actions.filter(
+    (a) => a.variant === "delete" || a.icon === "delete"
+  );
 
   return (
     <DropdownMenu>
@@ -25,17 +40,16 @@ export default function CardActionMenu({ actions = [] }) {
         side="top"
         align="end"
         sideOffset={6}
-        collisionPadding={8}
-        className="w-44 max-h-none overflow-y-visible"
+        collisionPadding={16}
+        className="min-w-[10rem] max-h-none overflow-y-visible"
       >
-        {actions.map((action, idx) => {
+        {normalActions.map((action, idx) => {
           const label = action.title || action.icon || "Action";
-          const isDestructive = action.variant === "delete" || action.icon === "delete";
+          const iconClass = actionIcons[action.icon] || actionIcons.more;
 
           return (
             <DropdownMenuItem
               key={`${label}-${idx}`}
-              className={isDestructive ? "text-red-600 dark:text-red-400 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/20" : ""}
               onSelect={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
@@ -47,7 +61,36 @@ export default function CardActionMenu({ actions = [] }) {
                 }
               }}
             >
-              {label}
+              <i className={`${iconClass} w-4 text-center text-slate-400 dark:text-slate-500`}></i>
+              <span>{label}</span>
+            </DropdownMenuItem>
+          );
+        })}
+
+        {normalActions.length > 0 && destructiveActions.length > 0 && (
+          <DropdownMenuSeparator />
+        )}
+
+        {destructiveActions.map((action, idx) => {
+          const label = action.title || action.icon || "Action";
+
+          return (
+            <DropdownMenuItem
+              key={`destructive-${label}-${idx}`}
+              className="text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 focus:bg-red-50 dark:focus:bg-red-900/20"
+              onSelect={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (typeof action.onClick === "function") {
+                  action.onClick({
+                    stopPropagation: () => {},
+                    preventDefault: () => {},
+                  });
+                }
+              }}
+            >
+              <i className="fas fa-trash-alt w-4 text-center"></i>
+              <span>{label}</span>
             </DropdownMenuItem>
           );
         })}

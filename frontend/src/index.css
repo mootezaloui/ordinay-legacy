@@ -87,14 +87,14 @@
   body {
     min-height: 100vh;
     @apply bg-slate-50 dark:bg-slate-900;
-    /* Prevent layout shift when dropdowns open */
-    overflow-x: clip;
   }
 
   #root {
     min-height: 100vh;
     @apply bg-slate-50 dark:bg-slate-900;
-    /* No overflow constraint on #root - allows flex children and portals to work correctly */
+    /* Prevent horizontal scrollbar on app content — placed on #root (not body)
+       so that Radix portals appended to body are not clipped by viewport overflow */
+    overflow-x: hidden;
   }
 
   body {
