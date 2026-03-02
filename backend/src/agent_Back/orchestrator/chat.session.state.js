@@ -5,6 +5,7 @@ const DEFAULT_STATE = Object.freeze({
   activeScope: null,
   pendingClarification: null,
   pendingProposal: null,
+  turnCounter: 0,
 });
 
 function _keyParts(requestContext = {}) {
@@ -65,4 +66,3 @@ module.exports = {
   clearPendingProposalState,
   clearPendingClarificationState,
 };
-

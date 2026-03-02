@@ -1,5 +1,11 @@
 "use strict";
 
+const {
+  sanitizeForDisplay,
+  sanitizeDisplayText,
+  buildProposalDisplaySummary,
+} = require("../presentation/presentationSanitizer");
+
 const FORBIDDEN_PATTERNS = [
   { key: "slash_mutate", regex: /\/mutate\b/i },
   { key: "api", regex: /\bapi\b/i },
@@ -17,10 +23,6 @@ const FORBIDDEN_PATTERNS = [
   { key: "domain_rules", regex: /\bdomain\s+rules?\b/i },
 ];
 
-function normalizeText(value) {
-  return String(value || "").replace(/\s+/g, " ").trim();
-}
-
 function findForbiddenMatches(text) {
   const source = String(text || "");
   if (!source) return [];
@@ -29,34 +31,6 @@ function findForbiddenMatches(text) {
     if (rule.regex.test(source)) matches.push(rule.key);
   }
   return matches;
-}
-
-function sanitizeSummaryText(text) {
-  let cleaned = String(text || "").trim();
-  if (!cleaned) return "";
-  cleaned = cleaned.replace(/\/mutate\b/gi, "");
-  cleaned = cleaned.replace(/\b(?:payload|api|endpoint|syntax)\b/gi, "");
-  cleaned = cleaned.replace(/\s+/g, " ").trim();
-  return cleaned;
-}
-
-function sanitizeStructuredValue(value) {
-  if (value === null || value === undefined) return value ?? null;
-  if (typeof value === "string") return sanitizeSummaryText(value);
-  if (typeof value === "number" || typeof value === "boolean") return value;
-  if (Array.isArray(value)) {
-    return value.map((item) => sanitizeStructuredValue(item)).filter((item) => item !== "");
-  }
-  if (typeof value === "object") {
-    const out = {};
-    for (const [key, item] of Object.entries(value)) {
-      const sanitized = sanitizeStructuredValue(item);
-      if (sanitized === undefined) continue;
-      out[key] = sanitized;
-    }
-    return out;
-  }
-  return sanitizeSummaryText(String(value));
 }
 
 function buildFallbackMessage(mutationOutcome = null) {
@@ -80,47 +54,18 @@ function buildFallbackMessage(mutationOutcome = null) {
 }
 
 function redactProposalArtifact(output) {
-  if (!output || typeof output !== "object") return output;
-  if (String(output.type || "").toLowerCase() !== "proposal") return output;
+  if (!output || typeof output !== "object") return sanitizeForDisplay(output);
+  if (String(output.type || "").toLowerCase() !== "proposal") return sanitizeForDisplay(output);
 
   const proposals = Array.isArray(output.proposals) ? output.proposals : [];
-  return {
+  const safeOutput = {
     ...output,
-    proposals: proposals.map((proposal) => {
-      const safe = {
-        proposalId: proposal?.proposalId || null,
-        status: proposal?.status || null,
-        requiresConfirmation: proposal?.requiresConfirmation === true,
-        humanReadableSummary: sanitizeSummaryText(proposal?.humanReadableSummary || ""),
-        affectedEntities: Array.isArray(proposal?.affectedEntities)
-          ? proposal.affectedEntities
-          : [],
-        reversible: proposal?.reversible === true,
-        version: proposal?.version || null,
-        posture: proposal?.posture || null,
-        sessionId: proposal?.sessionId || output?.sessionId || null,
-      };
-      if (proposal?.confirmation && typeof proposal.confirmation === "object") {
-        safe.confirmation = {
-          mode: proposal.confirmation.mode || null,
-          extraRiskAck: proposal.confirmation.extraRiskAck === true,
-          warnings: Array.isArray(proposal.confirmation.warnings)
-            ? proposal.confirmation.warnings.map((w) => sanitizeSummaryText(w)).filter(Boolean)
-            : undefined,
-          impactSummary: Array.isArray(proposal.confirmation.impactSummary)
-            ? proposal.confirmation.impactSummary.map((w) => sanitizeSummaryText(w)).filter(Boolean)
-            : undefined,
-        };
-        if (proposal.confirmation.preview && typeof proposal.confirmation.preview === "object") {
-          safe.confirmation.preview = sanitizeStructuredValue(proposal.confirmation.preview);
-        }
-      }
-      if (proposal?.actionType && findForbiddenMatches(proposal.actionType).length === 0) {
-        safe.actionType = proposal.actionType;
-      }
-      return safe;
-    }),
+    proposals: proposals.map((proposal) => ({
+      ...proposal,
+      humanReadableSummary: buildProposalDisplaySummary(proposal),
+    })),
   };
+  return sanitizeForDisplay(safeOutput);
 }
 
 function enforceUserSafeResponsePolicy({
@@ -131,7 +76,8 @@ function enforceUserSafeResponsePolicy({
   route = "/agent/chat",
 } = {}) {
   const sanitizedOutput = redactProposalArtifact(output);
-  const textMatches = findForbiddenMatches(text);
+  const normalizedText = sanitizeDisplayText(String(text || ""));
+  const textMatches = findForbiddenMatches(normalizedText);
   const proposalSummaries =
     sanitizedOutput &&
     typeof sanitizedOutput === "object" &&
@@ -144,9 +90,9 @@ function enforceUserSafeResponsePolicy({
   const summaryMatches = findForbiddenMatches(proposalSummaries);
   const matchedPatterns = Array.from(new Set([...textMatches, ...summaryMatches]));
 
-  let safeText = String(text || "");
-  if (matchedPatterns.length > 0) {
-    safeText = buildFallbackMessage(mutationOutcome);
+  let safeText = normalizedText;
+  if (matchedPatterns.length > 0 || !safeText) {
+    safeText = sanitizeDisplayText(buildFallbackMessage(mutationOutcome));
     if (typeof logger === "function") {
       try {
         logger({
@@ -175,6 +121,5 @@ module.exports = {
     findForbiddenMatches,
     redactProposalArtifact,
     buildFallbackMessage,
-    sanitizeStructuredValue,
   },
 };

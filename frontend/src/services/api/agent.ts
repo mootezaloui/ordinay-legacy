@@ -7,6 +7,7 @@
 
 import { apiClient } from './client';
 import { getApiBase, getBackendConfig, isElectron } from '../../lib/apiConfig';
+import type { EntityMutationSuccessEvent } from '../../core/mutationSync';
 
 // Context scopes supported by the agent
 export type ContextScope = 'GLOBAL' | 'CLIENT' | 'DOSSIER' | 'lawsuit' | 'SESSION' | 'TASK';
@@ -1176,7 +1177,8 @@ export type StreamEventType =
   | 'commentary_chunk'
   | 'done'
   | 'error'
-  | 'cancelled';
+  | 'cancelled'
+  | 'entity_mutation_success';
 
 /**
  * Status event data - describes what the agent is currently doing.
@@ -1220,6 +1222,7 @@ export interface StreamCallbacks {
   /** Streaming chunk for commentary message (for real-time display) */
   onCommentaryChunk?: (chunk: string) => void;
   onDone?: (data: { timestamp: string; fullContent?: string; mutationOutcome?: { status?: string; entityType?: string; entityId?: number | string; operation?: string } | null }) => void;
+  onMutationEvent?: (event: EntityMutationSuccessEvent) => void;
   onError?: (error: string) => void;
   onCancelled?: () => void;
 }
@@ -1604,6 +1607,9 @@ export function streamAgentMessage(
               break;
             case 'cancelled':
               callbacks.onCancelled?.();
+              break;
+            case 'entity_mutation_success':
+              callbacks.onMutationEvent?.(data as EntityMutationSuccessEvent);
               break;
             default:
               callbacks.onResult?.({

@@ -86,6 +86,8 @@ function normalizeData(data) {
     // Task statuses (also used for personal tasks)
     "Not Started": "todo",
     "Not started": "todo", // Handle lowercase variation
+    "Non commencee": "todo",
+    "Non commencée": "todo",
     todo: "todo",
     Todo: "todo",
     "In Progress": "in_progress",
@@ -122,7 +124,17 @@ function normalizeData(data) {
 
   // Normalize priority field (if present)
   if (normalized.priority && typeof normalized.priority === "string") {
-    normalized.priority = normalized.priority.toLowerCase();
+    const priorityMappings = {
+      Urgent: "urgent",
+      urgente: "urgent",
+      High: "high",
+      Haute: "high",
+      Medium: "medium",
+      Moyenne: "medium",
+      Low: "low",
+      Basse: "low",
+    };
+    normalized.priority = priorityMappings[normalized.priority] || normalized.priority.toLowerCase();
   }
 
   // Normalize category field (if present) to lowercase

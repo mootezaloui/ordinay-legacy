@@ -37,8 +37,8 @@ function create(payload) {
   const insertData = {
     description: null,
     category: null,
-    status: "Non commencée",
-    priority: "Moyenne",
+    status: "todo",
+    priority: "medium",
     due_date: null,
     completed_at: null,
     ...data,

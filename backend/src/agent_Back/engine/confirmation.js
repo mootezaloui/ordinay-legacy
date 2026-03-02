@@ -2,6 +2,9 @@
 
 const crypto = require("crypto");
 const { ACTION_STATUS } = require("../contracts/actionProposal.contract");
+const {
+  emitEntityMutationEventsFromExecution,
+} = require("../../realtime/entityMutationEvents");
 const EXPLICIT_MUTATION_ACTIONS = new Set(["CREATE_ENTITY", "UPDATE_ENTITY", "DELETE_ENTITY", "EXECUTE_MUTATION_WORKFLOW"]);
 const STAGE3_STRONG_INTENT_MUTATION_ACTIONS = new Set(["CREATE_ENTITY", "UPDATE_ENTITY", "DELETE_ENTITY", "EXECUTE_MUTATION_WORKFLOW"]);
 const CONFIRM_DEBUG_ENABLED =
@@ -557,6 +560,12 @@ async function confirmProposal({ proposalId, sessionId, userId, ackRisk = false 
       sessionId: sessionId || contextSnapshot?.sessionId || proposal?.sessionId || null,
       userId: userId || contextSnapshot?.userId || null,
     });
+    emitEntityMutationEventsFromExecution({
+      proposal,
+      executionResult,
+      sessionId: sessionId || contextSnapshot?.sessionId || proposal?.sessionId || null,
+      source: "agent",
+    });
 
     return executionResult;
   } catch (err) {
@@ -667,6 +676,12 @@ async function confirmProposal({ proposalId, sessionId, userId, ackRisk = false 
           executionResult,
           sessionId: sessionId || contextSnapshot?.sessionId || proposal?.sessionId || null,
           userId: userId || contextSnapshot?.userId || null,
+        });
+        emitEntityMutationEventsFromExecution({
+          proposal,
+          executionResult,
+          sessionId: sessionId || contextSnapshot?.sessionId || proposal?.sessionId || null,
+          source: "agent",
         });
 
         return executionResult;

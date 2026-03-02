@@ -64,9 +64,6 @@ export default function DetailView({ entityType }) {
     return contextWithOperator;
   };
 
-  // Key to force DocumentsTab reload
-  const [documentsReloadKey, setDocumentsReloadKey] = useState(0);
-
   // Map entity types to their i18n namespaces
   const getTranslationNamespace = (type) => {
     const namespaceMap = {
@@ -374,17 +371,8 @@ export default function DetailView({ entityType }) {
     setOriginalData(newData);
   };
 
-  // Called after document generation to force reload
-  const handleDocumentGenerated = async (newDoc) => {
-    setDocumentsReloadKey((k) => k + 1);
-    // Fetch latest documents from backend and update parent state for badge
-    if (data && data.id && config && config.entityType) {
-      const entityDocuments = await import('../../services/documentService').then(m => m.default.getEntityDocuments(config.entityType, data.id));
-      handleDocumentsChange(entityDocuments);
-    }
-    if (typeof loadDocuments === 'function') loadDocuments();
-    if (typeof handleDataRefresh === 'function') handleDataRefresh();
-  };
+  // Global mutationSync handles post-generation refreshes.
+  const handleDocumentGenerated = async () => {};
 
   const handleItemsChange = async (itemsKey, newItems) => {
     const newData = { ...data, [itemsKey]: newItems };
@@ -478,8 +466,6 @@ export default function DetailView({ entityType }) {
       setIsEditing(false);
       showToast(t("detail.toast.success.save", { ns: "common" }), "success");
       justSaved.current = true;
-      // Optionally refresh from backend for denormalized fields
-      setTimeout(() => { handleDataRefresh(); }, 10);
     } catch (error) {
       console.error("Error saving:", error);
       showToast(t("detail.toast.error.save", { ns: "common" }), "error");
@@ -583,7 +569,6 @@ export default function DetailView({ entityType }) {
             data={data}
             config={config}
             onDocumentsChange={handleDocumentsChange}
-            reloadKey={documentsReloadKey}
           />
         );
       case "timeline":

@@ -1,11 +1,21 @@
 "use strict";
 
+const {
+  sanitizeForDisplay,
+  buildProposalDisplaySummary,
+} = require("../presentation/presentationSanitizer");
+
 const PROPOSAL_DEBUG_ENABLED =
   ["1", "true", "yes", "on"].includes(String(process.env.AGENT_CHAT_MUTATION_DEBUG || "").toLowerCase()) ||
   ["1", "true", "yes", "on"].includes(String(process.env.AGENT_MUTATION_DEBUG || "").toLowerCase()) ||
   process.env.NODE_ENV !== "production";
 
 function toProposalArtifact(proposal, sessionId) {
+  const displayProposal = sanitizeForDisplay({
+    ...proposal,
+    humanReadableSummary: buildProposalDisplaySummary(proposal),
+  });
+
   const artifact = {
     type: "proposal",
     sessionId: sessionId || null,
@@ -15,15 +25,26 @@ function toProposalArtifact(proposal, sessionId) {
         status: proposal.status,
         actionType: proposal.actionType,
         requiresConfirmation: proposal.requiresConfirmation,
-        humanReadableSummary: proposal.humanReadableSummary,
-        affectedEntities: proposal.affectedEntities,
+        humanReadableSummary: displayProposal?.humanReadableSummary || "",
+        affectedEntities: Array.isArray(displayProposal?.affectedEntities)
+          ? displayProposal.affectedEntities
+          : [],
         reversible: proposal.reversible,
         version: proposal.version,
         posture: proposal.posture,
-        confirmation: proposal.confirmation || null,
-        snapshot: proposal.snapshot,
+        confirmation:
+          displayProposal?.confirmation && typeof displayProposal.confirmation === "object"
+            ? displayProposal.confirmation
+            : null,
+        snapshot:
+          displayProposal?.snapshot && typeof displayProposal.snapshot === "object"
+            ? displayProposal.snapshot
+            : null,
         sessionId: proposal.sessionId || sessionId || null,
-        params: proposal.params,
+        params:
+          displayProposal?.params && typeof displayProposal.params === "object"
+            ? displayProposal.params
+            : {},
       },
     ],
   };

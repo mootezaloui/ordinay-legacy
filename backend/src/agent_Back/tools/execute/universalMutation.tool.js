@@ -67,6 +67,18 @@ function pickDisplayValue(entity = {}) {
   return chosen ? String(chosen).trim() : null;
 }
 
+function toDisplayEntityName(entityType) {
+  return String(entityType || "record")
+    .replace(/[_-]+/g, " ")
+    .toLowerCase();
+}
+
+function summarizeMutationFields(value = {}) {
+  const keys = Object.keys(value || {}).filter((key) => key && !/(^id$|_id$|Id$|ID$)/.test(key));
+  if (keys.length === 0) return "";
+  return ` fields [${keys.join(", ")}]`;
+}
+
 function resolveEntityDisplay(type, id) {
   const table = ENTITY_TABLE_BY_TYPE[type];
   if (!table || !id) return null;
@@ -78,7 +90,7 @@ function resolveEntityDisplay(type, id) {
     const primary = pickDisplayValue(row);
     return {
       reference: typeof row.reference === 'string' && row.reference.trim() ? String(row.reference).trim() : null,
-      label: primary || `${type} #${id}`,
+      label: primary || `selected ${toDisplayEntityName(type)}`,
     };
   } catch {
     return null;
@@ -438,7 +450,10 @@ async function buildSingleOperationProposal(input, executionContext = {}) {
       // No snapshot needed for creation (entity doesn't exist yet)
       snapshot = null;
 
-      actionSummary = `Create new ${entityType}: ${JSON.stringify(payload).substring(0, 100)}...`;
+      const displayName = pickDisplayValue(payload || {});
+      actionSummary = displayName
+        ? `Create ${toDisplayEntityName(entityType)}: ${displayName}`
+        : `Create selected ${toDisplayEntityName(entityType)}${summarizeMutationFields(payload)}`;
 
       const rules = getReversibilityRules(entityType);
       reversible = rules.create.reversible;
@@ -465,8 +480,8 @@ async function buildSingleOperationProposal(input, executionContext = {}) {
         timestamp: new Date().toISOString(),
       };
 
-      const changesList = Object.entries(changes).map(([k, v]) => `${k}=${v}`).join(', ');
-      actionSummary = `Update ${entityType} ${entityId}: ${changesList}`;
+      const display = resolveEntityDisplay(entityType, entityId);
+      actionSummary = `Update ${display?.label || `selected ${toDisplayEntityName(entityType)}`}${summarizeMutationFields(changes)}`;
 
       const rules = getReversibilityRules(entityType);
       reversible = rules.update.reversible;
@@ -499,7 +514,8 @@ async function buildSingleOperationProposal(input, executionContext = {}) {
         timestamp: new Date().toISOString(),
       };
 
-      actionSummary = `Delete ${entityType} ${entityId}`;
+      const display = resolveEntityDisplay(entityType, entityId);
+      actionSummary = `Delete ${display?.label || `selected ${toDisplayEntityName(entityType)}`}`;
 
       const deleteRules = getReversibilityRules(entityType);
       reversible = deleteRules.delete ? deleteRules.delete.reversible : false;
@@ -571,10 +587,12 @@ async function buildSingleOperationProposal(input, executionContext = {}) {
         timestamp: new Date().toISOString(),
       };
 
+      const sourceDisplay = resolveEntityDisplay(sourceType, sourceId);
+      const targetDisplay = resolveEntityDisplay(targetType, targetId);
       if (linkMode === LINK_MODES.REMOVE) {
-        actionSummary = `Unlink ${sourceType} ${sourceId} from ${targetType} ${targetId} via ${linkField}`;
+        actionSummary = `Remove ${toDisplayEntityName(targetType)} link from ${sourceDisplay?.label || `selected ${toDisplayEntityName(sourceType)}`}`;
       } else {
-        actionSummary = `Link ${sourceType} ${sourceId} to ${targetType} ${targetId} via ${linkField}`;
+        actionSummary = `Link ${sourceDisplay?.label || `selected ${toDisplayEntityName(sourceType)}`} to ${targetDisplay?.label || `selected ${toDisplayEntityName(targetType)}`}`;
       }
 
       if (sourceType === 'note') {
@@ -634,7 +652,7 @@ async function buildSingleOperationProposal(input, executionContext = {}) {
       };
 
       const display = resolveEntityDisplay(target.type, target.id);
-      const targetLabel = display?.label || `${target.type} #${target.id}`;
+      const targetLabel = display?.label || `selected ${toDisplayEntityName(target.type)}`;
       params.target = {
         ...target,
         label: targetLabel,

@@ -11,6 +11,7 @@
 
 import { getApiBase, isElectron } from '../../lib/apiConfig';
 import { getAppLicenseState } from '../licenseService';
+import { emitEntityMutationFromApiResponse } from '../../core/mutationSync';
 
 const isLicenseLocked = () =>
   ["ACTIVATING", "ERROR"].includes(getAppLicenseState());
@@ -118,17 +119,29 @@ export const apiClient = {
   post: <T>(path: string, body: unknown) =>
     isLicenseLocked()
       ? Promise.reject(new Error("License inactive"))
-      : request<T>("POST", path, body),
+      : request<T>("POST", path, body).then((response) => {
+          emitEntityMutationFromApiResponse({ method: "POST", path, response, requestBody: body });
+          return response;
+        }),
   put: <T>(path: string, body: unknown) =>
     isLicenseLocked()
       ? Promise.reject(new Error("License inactive"))
-      : request<T>("PUT", path, body),
+      : request<T>("PUT", path, body).then((response) => {
+          emitEntityMutationFromApiResponse({ method: "PUT", path, response, requestBody: body });
+          return response;
+        }),
   patch: <T>(path: string, body: unknown) =>
     isLicenseLocked()
       ? Promise.reject(new Error("License inactive"))
-      : request<T>("PATCH", path, body),
+      : request<T>("PATCH", path, body).then((response) => {
+          emitEntityMutationFromApiResponse({ method: "PATCH", path, response, requestBody: body });
+          return response;
+        }),
   delete: <T>(path: string, body?: unknown) =>
     isLicenseLocked()
       ? Promise.reject(new Error("License inactive"))
-      : request<T>("DELETE", path, body),
+      : request<T>("DELETE", path, body).then((response) => {
+          emitEntityMutationFromApiResponse({ method: "DELETE", path, response, requestBody: body });
+          return response;
+        }),
 };

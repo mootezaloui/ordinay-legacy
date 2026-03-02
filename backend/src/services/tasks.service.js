@@ -66,8 +66,8 @@ function create(payload) {
     "Provide either dossier_id or lawsuit_id (exclusive)"
   );
   assert(insertData.title, "title is required");
-  if (!insertData.status) insertData.status = "Non commencee";
-  if (!insertData.priority) insertData.priority = "Moyenne";
+  if (!insertData.status) insertData.status = "todo";
+  if (!insertData.priority) insertData.priority = "medium";
 
   try {
     const stmt = db.prepare(

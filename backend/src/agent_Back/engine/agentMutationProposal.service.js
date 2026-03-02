@@ -69,7 +69,7 @@ function readFieldCaseInsensitive(record, field) {
 
 function entityPreviewLabel(entityType, entityId, entity) {
   const type = String(entityType || "").toLowerCase();
-  const fallback = `${toTitleCase(type || "item")} #${entityId ?? "?"}`;
+  const fallback = `selected ${toTitleCase(type || "item").toLowerCase()}`;
   if (!entity || typeof entity !== "object") return fallback;
   if (type === "client") return String(entity.name || entity.reference || fallback);
   if (type === "task") return String(entity.title || fallback);
@@ -249,14 +249,16 @@ function buildUpdateSnapshot(entityType, entityId) {
 function buildHumanSummary({ operation, entityType, entityId, payload, reasoningSummary }) {
   if (operation === "create") {
     const title = typeof payload?.title === "string" && payload.title.trim() ? payload.title.trim() : null;
-    return title ? `Create ${entityType}: ${title}` : `Create ${entityType}`;
+    return title ? `Create ${entityType}: ${title}` : `Create selected ${entityType}`;
   }
   if (operation === "delete") {
-    return `Delete ${entityType} #${entityId}`;
+    return `Delete selected ${entityType}`;
   }
-  const fieldList = Object.keys(payload || {}).join(", ");
+  const fieldList = Object.keys(payload || {})
+    .filter((key) => !/(^id$|_id$|Id$|ID$)/.test(key))
+    .join(", ");
   const fieldPart = fieldList ? ` fields [${fieldList}]` : " fields";
-  return `Update ${entityType} #${entityId}${fieldPart}`;
+  return `Update selected ${entityType}${fieldPart}`;
 }
 
 function buildCreateEntityConfirmationPreview({

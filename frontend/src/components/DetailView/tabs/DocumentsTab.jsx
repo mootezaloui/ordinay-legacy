@@ -7,13 +7,14 @@ import documentService from "../../../services/documentService.js";
 import { getDocumentFormatGovernance } from "../../../services/api/documentFormats";
 import { useTranslation } from "react-i18next";
 import { InlineLoader } from "../../brand/OrdinayDataLoader";
+import { subscribeEntityMutationSuccess } from "../../../core/mutationSync";
 
 /**
  * Documents Tab - Centralized document management
  * Uses entity-agnostic document service with abstracted storage
  * Desktop-first design with local filesystem support
  */
-export default function DocumentsTab({ data, config, onDocumentsChange, reloadKey }) {
+export default function DocumentsTab({ data, config, onDocumentsChange }) {
   const { showToast } = useToast();
   const { confirm } = useConfirm();
   const { formatDate } = useSettings();
@@ -35,7 +36,21 @@ export default function DocumentsTab({ data, config, onDocumentsChange, reloadKe
   // Load documents for this entity
   useEffect(() => {
     loadDocuments();
-  }, [entityType, entityId, reloadKey]);
+  }, [entityType, entityId]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeEntityMutationSuccess((event) => {
+      const parentType = String(event.scope?.parentEntityType || "").toLowerCase();
+      const parentId = Number(event.scope?.parentEntityId || 0);
+      const sameParent = parentType === String(entityType || "").toLowerCase() && parentId === Number(entityId);
+      const sameEntity = event.entityType === String(entityType || "").toLowerCase() && Number(event.entityId) === Number(entityId);
+      const isDocumentMutation = event.entityType === "document";
+      if (sameParent || sameEntity || isDocumentMutation) {
+        loadDocuments();
+      }
+    });
+    return () => unsubscribe();
+  }, [entityType, entityId]);
 
   useEffect(() => {
     getDocumentFormatGovernance()

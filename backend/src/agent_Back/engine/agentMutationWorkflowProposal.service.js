@@ -42,7 +42,7 @@ function _toTitleCase(value) {
 
 function _formatEntityLabel(entityType, entityId) {
   const typeLabel = _toTitleCase(String(entityType || "item")).trim() || "Item";
-  return `${typeLabel} #${entityId ?? "?"}`;
+  return `selected ${typeLabel.toLowerCase()}`;
 }
 
 function _readFieldCaseInsensitive(record, field) {
@@ -277,7 +277,7 @@ function _buildHumanSummary({ rootEntity, rootLabel, workflowType, canReachReque
   const rootType = String(rootEntity?.type || "entity").replace(/_/g, " ");
   const target =
     String(rootLabel || "").trim() ||
-    `${rootType.charAt(0).toUpperCase()}${rootType.slice(1)} #${rootEntity?.id ?? "?"}`;
+    `selected ${rootType.toLowerCase()}`;
   if (String(workflowType || "") === "client_inactivation_cleanup") {
     return canReachRequestedGoal
       ? `Update ${target} after cleaning related records`

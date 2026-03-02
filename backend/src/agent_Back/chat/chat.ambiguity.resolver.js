@@ -107,6 +107,20 @@ const ENTITY_KEYWORDS = Object.freeze({
   history_event: /\b(history|audit\s*trail|activity\s*log|audit)\b/i,
 });
 
+const SCOPE_PARAM_KEYS = Object.freeze([
+  "clientId",
+  "dossierId",
+  "lawsuitId",
+  "taskId",
+  "personalTaskId",
+  "sessionId",
+  "missionId",
+  "officerId",
+  "financialEntryId",
+  "notificationId",
+  "historyEventId",
+]);
+
 function normalizeUnicodeText(value) {
   return String(value || "")
     .normalize("NFKC")
@@ -426,6 +440,87 @@ function shouldRequireEntityForRead({
   const normalized = String(message || "").toLowerCase();
   if (/\b(my|all)\b/.test(normalized)) return false;
   return true;
+}
+
+function buildScopeAwareListParams({
+  executionContext = {},
+  query = "",
+  limit = 8,
+  filters = null,
+} = {}) {
+  const params = { limit };
+  if (query) params.query = query;
+  for (const key of SCOPE_PARAM_KEYS) {
+    const value = toNumber(executionContext?.[key]);
+    if (value) params[key] = value;
+  }
+  if (filters && typeof filters === "object") {
+    for (const [key, value] of Object.entries(filters)) {
+      if (value === undefined || value === null || value === "") continue;
+      if (params[key] !== undefined) continue;
+      params[key] = value;
+    }
+  }
+  return params;
+}
+
+function hasScopeContext(executionContext = {}) {
+  return SCOPE_PARAM_KEYS.some((key) => toNumber(executionContext?.[key]));
+}
+
+function hasStrongResolutionRequest(message, readIntent, entityType = "") {
+  const normalized = String(message || "").toLowerCase();
+  if (!normalized) return false;
+  if (
+    /\b(show|list|open|view|read|give|get|display|see|fetch|retrieve|find|lookup|look up)\b/.test(
+      normalized,
+    )
+  ) {
+    return true;
+  }
+  const hints = Array.isArray(readIntent?.entityHints) ? readIntent.entityHints : [];
+  if (
+    hints.some((hint) => {
+      const type = String(hint?.type || "").toLowerCase();
+      if (type !== "id" && type !== "reference") return false;
+      const hintedType = normalizeEntityType(hint?.entityType);
+      return !hintedType || hintedType === entityType;
+    })
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function hasFutureIntentSignal(message) {
+  const normalized = String(message || "").toLowerCase();
+  if (!normalized) return false;
+  const modalFuture =
+    /\b(will|shall)\b/.test(normalized) ||
+    /\b(?:am|is|are|was|were|be)\s+going\s+to\b/.test(normalized) ||
+    /\babout\s+to\b/.test(normalized);
+  const infinitiveIntent = /\b(?:plan|intend|aim|expect|prepare)\s+to\s+\w+/i.test(
+    normalized,
+  );
+  const stateTransition =
+    /\b(?:start|begin|become|enter|move\s+to|transition\s+to|turn\s+into)\b/.test(
+      normalized,
+    );
+  return modalFuture || infinitiveIntent || stateTransition;
+}
+
+function deriveMentionedEntityType(message) {
+  const text = String(message || "");
+  if (!text) return "";
+  const ranked = Object.entries(ENTITY_KEYWORDS)
+    .map(([entityType, pattern]) => {
+      const match = pattern.exec(text);
+      if (!match || typeof match.index !== "number") return null;
+      return { entityType, index: match.index };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.index - b.index);
+  return ranked[0]?.entityType || "";
 }
 
 function isLikelySingularMessage(message, entityType) {
@@ -803,16 +898,19 @@ async function listCandidates({
   policy,
   executionContext,
   query = "",
+  filters = null,
 }) {
   const cfg = ENTITY_CONFIG[entityType];
   if (!cfg || !cfg.listTool || typeof engine?._callReadTool !== "function") {
     return [];
   }
   try {
-    const params = {
+    const params = buildScopeAwareListParams({
+      executionContext,
+      query,
       limit: 8,
-    };
-    if (query) params.query = query;
+      filters,
+    });
     const payload = await engine._callReadTool(cfg.listTool, params, policy);
     return extractCandidatesFromList(entityType, payload?.[cfg.listKey] || []);
   } catch {
@@ -824,15 +922,22 @@ async function listRows({
   engine,
   entityType,
   policy,
+  executionContext,
   query = "",
+  filters = null,
+  limit = 200,
 }) {
   const cfg = ENTITY_CONFIG[entityType];
   if (!cfg || !cfg.listTool || typeof engine?._callReadTool !== "function") {
     return [];
   }
   try {
-    const params = { limit: 200 };
-    if (query) params.query = query;
+    const params = buildScopeAwareListParams({
+      executionContext,
+      query,
+      limit,
+      filters,
+    });
     const payload = await engine._callReadTool(cfg.listTool, params, policy);
     return Array.isArray(payload?.[cfg.listKey]) ? payload[cfg.listKey] : [];
   } catch {
@@ -989,10 +1094,59 @@ async function resolveChatAmbiguity({
   const entityType = normalizeEntityType(target.entityType);
   const cfg = ENTITY_CONFIG[entityType];
   if (!cfg) return { status: "skipped" };
+  const futureMentionedEntityType = hasFutureIntentSignal(userMessage)
+    ? deriveMentionedEntityType(userMessage)
+    : "";
+  const routedEntityType =
+    futureMentionedEntityType && ENTITY_CONFIG[futureMentionedEntityType]
+      ? futureMentionedEntityType
+      : entityType;
+  const routedCfg = ENTITY_CONFIG[routedEntityType] || cfg;
 
   const dataAccess = executionContext?.dataAccess || {};
-  if (!canAccessEntityDomain(entityType, dataAccess)) {
+  if (!canAccessEntityDomain(routedEntityType, dataAccess)) {
     return { status: "skipped" };
+  }
+
+  if (
+    target.capability === "read" &&
+    hasScopeContext(executionContext) &&
+    hasFutureIntentSignal(userMessage) &&
+    !hasStrongResolutionRequest(userMessage, readIntent, routedEntityType)
+  ) {
+    const routedScopeId = toNumber(executionContext?.[routedCfg.scopeKey]);
+    if (routedScopeId) {
+      return {
+        status: "resolved",
+        resolvedScope: { [routedCfg.scopeKey]: routedScopeId },
+        resolutionMeta: {
+          status: "resolved",
+          entityType: routedEntityType,
+          candidatesCount: 1,
+          autoPicked: false,
+          chosenId: routedScopeId,
+        },
+      };
+    }
+    const existing = await listRows({
+      engine,
+      entityType: routedEntityType,
+      policy,
+      executionContext,
+      filters: readIntent?.filters || null,
+      limit: 1,
+    });
+    if (!existing.length) {
+      return {
+        status: "skipped",
+        reason: "future_intent_create_candidate",
+        mutationHint: {
+          operation: "CREATE_ENTITY",
+          entityType: routedEntityType,
+          source: "future_intent_without_existing_scope_entity",
+        },
+      };
+    }
   }
 
   const scopeId = toNumber(executionContext?.[cfg.scopeKey]);
@@ -1190,6 +1344,7 @@ async function resolveChatAmbiguity({
       policy,
       executionContext,
       query: selectedHint.identifier,
+      filters: readIntent?.filters || null,
     });
   }
   if (candidates.length > 0) {
@@ -1197,7 +1352,9 @@ async function resolveChatAmbiguity({
       engine,
       entityType,
       policy,
+      executionContext,
       query: selectedHint.identifier,
+      filters: readIntent?.filters || null,
     });
     candidates = enrichCandidatesFromRows(candidates, rows);
   }

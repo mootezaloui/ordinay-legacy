@@ -10,6 +10,7 @@ import {
   proposalToSemanticInput,
   type DataContextLike,
 } from "./confirmation/proposalToSemanticInput";
+import { emitEntityMutationSuccess } from "../../../core/mutationSync";
 
 interface ProposalArtifactProps {
   data: ProposalOutput;
@@ -28,7 +29,6 @@ interface SemanticRenderItem {
   debugPayload?: Record<string, unknown>;
 }
 
-const AGENT_MUTATION_EXECUTED_EVENT = "ordinay:agent-mutation-executed";
 const SEMANTIC_CONFIRMATION_PANEL_DEBUG_STORAGE_KEY = "ordinay:debug:semantic-confirmation-panel";
 
 function isSemanticConfirmationPanelDebugEnabled(): boolean {
@@ -47,21 +47,19 @@ function emitExecutedMutationEvent(detail: {
   entityId: number;
   operation?: string;
 }) {
-  if (typeof window === "undefined" || typeof window.dispatchEvent !== "function") return;
   const entityType = String(detail?.entityType || "").trim().toLowerCase();
   const entityId = Number(detail?.entityId || 0);
   if (!entityType || !Number.isInteger(entityId) || entityId <= 0) return;
   const op = String(detail?.operation || "update").trim().toLowerCase();
-  window.dispatchEvent(
-    new CustomEvent(AGENT_MUTATION_EXECUTED_EVENT, {
-      detail: {
-        status: "EXECUTED",
-        entityType,
-        entityId,
-        operation: op === "create" || op === "update" || op === "delete" ? op : "update",
-      },
-    }),
-  );
+  emitEntityMutationSuccess({
+    type: "ENTITY_MUTATION_SUCCESS",
+    entityType,
+    entityId,
+    operation: op === "create" || op === "update" || op === "delete" || op === "attach" ? op : "update",
+    scope: {},
+    source: "agent",
+    timestamp: new Date().toISOString(),
+  });
 }
 
 function emitExecutedMutationFromExecutionResult(execResult?: ExecutionResult) {

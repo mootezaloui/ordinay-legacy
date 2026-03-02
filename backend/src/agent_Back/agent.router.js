@@ -44,6 +44,9 @@ const {
   StorageHint,
   resolveStorageTarget,
 } = require("../domain/document.storage.resolver");
+const {
+  subscribeEntityMutationSuccess,
+} = require("../realtime/entityMutationEvents");
 
 const router = express.Router();
 const agentEngine = new AgentEngine();
@@ -1552,6 +1555,12 @@ router.post("/agent/chat", async (req, res) => {
       res.flush();
     }
   };
+  const detachMutationListener = subscribeEntityMutationSuccess((mutationEvent) => {
+    if (aborted) return;
+    const eventSessionId = String(mutationEvent?.sessionId || "");
+    if (!eventSessionId || String(sessionId || "") !== eventSessionId) return;
+    emit("entity_mutation_success", mutationEvent);
+  });
 
   const emitVisibleAssistantText = async ({
     text,
@@ -1775,6 +1784,7 @@ router.post("/agent/chat", async (req, res) => {
       interactionMode: "operational",
     });
   } finally {
+    detachMutationListener();
     if (!aborted) {
       res.end();
     }
