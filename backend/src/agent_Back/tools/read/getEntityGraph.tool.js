@@ -251,7 +251,14 @@ function findRoot(dataset, entityType, entityId) {
   return null;
 }
 
-function collectDirectChildren({ dataset, rootType, rootId, categoryAllowance, nowMs }) {
+function collectDirectChildren({
+  dataset,
+  rootType,
+  rootId,
+  categoryAllowance,
+  nowMs,
+  forceClientDossiersForTraversal = false,
+}) {
   const direct = {
     dossiers: [],
     lawsuits: [],
@@ -266,7 +273,10 @@ function collectDirectChildren({ dataset, rootType, rootId, categoryAllowance, n
       .filter((row) => Number(row[column]) === Number(value))
       .map((row) => toGraphNode("document", row, nowMs));
 
-  if (rootType === "client" && categoryAllowance.dossiers) {
+  if (
+    rootType === "client" &&
+    (categoryAllowance.dossiers || forceClientDossiersForTraversal)
+  ) {
     direct.dossiers = dataset.dossiers
       .filter((row) => Number(row.client_id) === rootId)
       .map((row) => toGraphNode("dossier", row, nowMs));
@@ -525,6 +535,13 @@ async function getEntityGraph(
     rootId: normalizedEntityId,
     categoryAllowance,
     nowMs,
+    forceClientDossiersForTraversal:
+      normalizedEntityType === "client" &&
+      Number(depth) === 2 &&
+      (categoryAllowance.lawsuits ||
+        categoryAllowance.tasks ||
+        categoryAllowance.missions ||
+        categoryAllowance.sessions),
   });
 
   const categoryMap = {};

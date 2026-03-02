@@ -4,7 +4,8 @@ const documentGenerationPreviewService = require("../../services/documentGenerat
 const { ChatAgentService } = require("../chat/chat.agent.service");
 const { resolveChatAmbiguity } = require("../chat/chat.ambiguity.resolver");
 const { filterToolsForState } = require("../chat/chat.tool.exposure");
-const { detectDraftIntent } = require("../intent.classifier");
+const { detectDraftIntent, detectReadIntent } = require("../intent.classifier");
+const { buildReadPlan } = require("../read/readPlan.builder");
 const { toProposalArtifact } = require("../proposals/proposalArtifact");
 const { buildDocumentContext } = require("./document.context.builder");
 const { buildDocumentSafeContext } = require("./document.exposure.firewall");
@@ -68,6 +69,26 @@ function validId(value) {
   const id = Number(value);
   return Number.isInteger(id) && id > 0 ? id : null;
 }
+
+const DETERMINISTIC_LIST_INTENTS = new Set([
+  "LIST_DOSSIERS",
+  "LIST_LAWSUITS",
+  "LIST_TASKS",
+  "LIST_OVERDUE_TASKS",
+  "LIST_MISSIONS",
+  "LIST_SESSIONS",
+  "LIST_UPCOMING_SESSIONS",
+  "LIST_DOCUMENTS",
+]);
+
+const LIST_CATEGORY_LABELS = Object.freeze({
+  dossiers: "dossiers",
+  lawsuits: "lawsuits",
+  tasks: "tasks",
+  missions: "missions",
+  sessions: "sessions",
+  documents: "documents",
+});
 
 function withStateOutput(result, state) {
   return {
@@ -498,6 +519,151 @@ class ChatOrchestrator {
       // fall through to null
     }
     return null;
+  }
+
+  _isDeterministicListIntent(readIntent = null) {
+    const intentName = String(readIntent?.intent || "").trim().toUpperCase();
+    return DETERMINISTIC_LIST_INTENTS.has(intentName);
+  }
+
+  _formatGraphListItem(node = {}, listCategory = "") {
+    const label =
+      String(node?.title || node?.name || "").trim() ||
+      String(listCategory || "item").replace(/s$/, "");
+    const status = String(node?.status || "").trim();
+    const dueIso = String(node?.keyDates?.nextUpcoming || "").trim();
+    const due = dueIso ? dueIso.slice(0, 10) : "";
+    if (status && due) return `- ${label} (${status}, ${due})`;
+    if (status) return `- ${label} (${status})`;
+    if (due) return `- ${label} (${due})`;
+    return `- ${label}`;
+  }
+
+  _renderDeterministicReadList({ graphResult = {}, listCategory = "" } = {}) {
+    const rows = Array.isArray(graphResult?.children?.[listCategory])
+      ? graphResult.children[listCategory]
+      : [];
+    const categoryLabel = LIST_CATEGORY_LABELS[listCategory] || listCategory || "items";
+    const rootLabel =
+      String(graphResult?.root?.title || graphResult?.root?.name || "").trim() || null;
+
+    if (!rows.length) {
+      if (rootLabel) return `No ${categoryLabel} found for ${rootLabel}.`;
+      return `No ${categoryLabel} found in the current scope.`;
+    }
+
+    const head = rootLabel
+      ? `Found ${rows.length} ${categoryLabel} for ${rootLabel}:`
+      : `Found ${rows.length} ${categoryLabel}:`;
+    const body = rows.slice(0, 12).map((row) => this._formatGraphListItem(row, listCategory));
+    if (rows.length > body.length) {
+      body.push(`- and ${rows.length - body.length} more`);
+    }
+    return [head, ...body].join("\n");
+  }
+
+  async _tryRunDeterministicReadList({
+    userMessage = "",
+    requestContext = {},
+    llmHistory = null,
+    policy = null,
+    posture = "ASSISTANT",
+    state = CHAT_STATES.RETRIEVE,
+  } = {}) {
+    const readIntent = detectReadIntent(String(userMessage || ""), requestContext || {});
+    if (!this._isDeterministicListIntent(readIntent)) return null;
+
+    const activeScope = this._resolveActiveEntityScope(requestContext, llmHistory);
+    const plan = buildReadPlan({
+      intent: readIntent,
+      requestContext,
+      activeScope,
+    });
+    if (!plan) return null;
+
+    this._traceExecutionStep(requestContext, "deterministic_read_plan_built", {
+      intent: readIntent.intent,
+      toolName: plan.toolName,
+      toolInput: plan.toolInput,
+    });
+
+    let graphResult = null;
+    let toolError = null;
+    try {
+      graphResult = await this.engine._callReadTool(
+        plan.toolName,
+        plan.toolInput,
+        policy,
+      );
+    } catch (error) {
+      toolError = error;
+    }
+
+    const toolExecution = {
+      toolName: plan.toolName,
+      args: plan.toolInput,
+      ok: !toolError,
+      result: graphResult,
+      error: toolError
+        ? {
+            code: String(toolError?.code || "TOOL_EXECUTION_FAILED"),
+            message: String(toolError?.message || "Tool execution failed."),
+          }
+        : null,
+      responseForModel: toolError
+        ? {
+            ok: false,
+            error: String(toolError?.message || "Tool execution failed."),
+          }
+        : graphResult,
+    };
+
+    const listCategory = String(plan?.renderHint?.listCategory || "").trim();
+    const finalMessage = toolError
+      ? `I could not retrieve ${LIST_CATEGORY_LABELS[listCategory] || "the list"} right now.`
+      : this._renderDeterministicReadList({
+          graphResult,
+          listCategory,
+        });
+
+    updateChatOrchestratorState(this.engine, requestContext, {
+      activeState: state,
+    });
+
+    const outputArtifact = {
+      type: "chat",
+      message: finalMessage,
+      deterministicRead: true,
+      listCategory,
+    };
+    this.helper._recordTranscript({
+      requestContext,
+      userMessage,
+      finalMessage,
+      posture,
+      toolExecutions: [toolExecution],
+      artifactType: "chat",
+      artifact: outputArtifact,
+    });
+
+    return withStateOutput(
+      {
+        message: finalMessage,
+        toolExecutions: [toolExecution],
+        stepCommentaries: [],
+        rounds: 0,
+        outputArtifact,
+        resolutionMeta: {
+          deterministicReadPlan: {
+            intent: readIntent.intent,
+            toolName: plan.toolName,
+            toolInput: plan.toolInput,
+            renderHint: plan.renderHint,
+          },
+        },
+      },
+      CHAT_STATES.FINAL,
+    );
   }
 
   _scopeKeyForEntityType(entityType = "") {
@@ -1896,6 +2062,18 @@ class ChatOrchestrator {
         },
         CHAT_STATES.FINAL,
       );
+    }
+
+    const deterministicReadResult = await this._tryRunDeterministicReadList({
+      userMessage: effectiveUserMessage,
+      requestContext,
+      llmHistory,
+      policy,
+      posture,
+      state,
+    });
+    if (deterministicReadResult) {
+      return deterministicReadResult;
     }
 
     const stateForTools = state === CHAT_STATES.RETRIEVE ? CHAT_STATES.RETRIEVE : CHAT_STATES.PLAN_DRAFT;

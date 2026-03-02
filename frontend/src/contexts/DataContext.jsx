@@ -377,7 +377,7 @@ export function DataProvider({ children }) {
   const debouncedSaveToStorage = useCallback((key, value) => {
     if (saveTimersRef.current[key]) clearTimeout(saveTimersRef.current[key]);
     saveTimersRef.current[key] = setTimeout(() => {
-      debouncedSaveToStorage(key, value);
+      saveToStorage(key, value);
       delete saveTimersRef.current[key];
     }, 1000);
   }, []);
@@ -624,7 +624,7 @@ export function DataProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [syncTick]);
 
   // Global mutation sync subscription: any successful mutation invalidates and reloads context state.
   useEffect(() => {
@@ -639,7 +639,7 @@ export function DataProvider({ children }) {
       if (refreshTimer) clearTimeout(refreshTimer);
       unsubscribe();
     };
-  }, [syncTick]);
+  }, []);
 
   // --- Clients ---
   const addClient = useCallback(async (client) => {

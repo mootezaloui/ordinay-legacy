@@ -19,6 +19,10 @@ const crypto = require('crypto');
 const { TOOL_CATEGORIES } = require('../tool.registry');
 const { getAdapter, computeSnapshotHash, validatePayload, getReversibilityRules } = require('../../engine/entityAdapters');
 const { createActionProposal, generateProposalId, ACTION_STATUS } = require('../../contracts/actionProposal.contract');
+const {
+  bindMutationScope,
+  resolveBoundFromScopeLabels,
+} = require('../../mutations/mutationScopeBinder');
 
 const OPERATION_TYPES = Object.freeze({
   CREATE_ENTITY: 'CREATE_ENTITY',
@@ -77,6 +81,30 @@ function summarizeMutationFields(value = {}) {
   const keys = Object.keys(value || {}).filter((key) => key && !/(^id$|_id$|Id$|ID$)/.test(key));
   if (keys.length === 0) return "";
   return ` fields [${keys.join(", ")}]`;
+}
+
+function buildScopeBindingRequiredError({ entityType, missingRequired = [], boundLabels = [] }) {
+  const normalizedType = toDisplayEntityName(entityType);
+  const missing = Array.isArray(missingRequired) ? missingRequired : [];
+  let message = `I need additional context to create this ${normalizedType}.`;
+  if (missing.includes("dossier_reference")) {
+    message = "I need the dossier reference to continue.";
+  } else if (missing.includes("dossier_or_lawsuit_reference")) {
+    message = "I need either a dossier reference or a lawsuit reference to continue.";
+  } else if (missing.includes("target_reference")) {
+    message = "I need the target record reference to continue.";
+  }
+
+  const withScope = Array.isArray(boundLabels) && boundLabels.length > 0
+    ? `${message} Current scope: ${boundLabels.join(", ")}.`
+    : message;
+
+  const err = new Error(withScope);
+  err.code = "MUTATION_SCOPE_BINDING_REQUIRED";
+  err.type = "mutation_scope_binding_required";
+  err.missingRequired = missing;
+  err.userMessageDraft = withScope;
+  return err;
 }
 
 function resolveEntityDisplay(type, id) {
@@ -444,16 +472,34 @@ async function buildSingleOperationProposal(input, executionContext = {}) {
         throw new Error('CREATE_ENTITY requires entityType and payload');
       }
 
+      const scopeBinding = bindMutationScope({
+        entityType,
+        payload,
+        activeScope: executionContext,
+      });
+      params.payload = scopeBinding.boundPayload;
+      const boundLabels = resolveBoundFromScopeLabels(scopeBinding.boundFromScope);
+      if (Array.isArray(scopeBinding.missingRequired) && scopeBinding.missingRequired.length > 0) {
+        throw buildScopeBindingRequiredError({
+          entityType,
+          missingRequired: scopeBinding.missingRequired,
+          boundLabels,
+        });
+      }
+
       // Validate payload
-      validatePayload(entityType, 'create', payload);
+      validatePayload(entityType, 'create', params.payload);
 
       // No snapshot needed for creation (entity doesn't exist yet)
       snapshot = null;
 
-      const displayName = pickDisplayValue(payload || {});
+      const displayName = pickDisplayValue(params.payload || {});
       actionSummary = displayName
         ? `Create ${toDisplayEntityName(entityType)}: ${displayName}`
-        : `Create selected ${toDisplayEntityName(entityType)}${summarizeMutationFields(payload)}`;
+        : `Create selected ${toDisplayEntityName(entityType)}${summarizeMutationFields(params.payload)}`;
+      if (boundLabels.length > 0) {
+        actionSummary = `${actionSummary} (${boundLabels.join(", ")})`;
+      }
 
       const rules = getReversibilityRules(entityType);
       reversible = rules.create.reversible;
@@ -611,9 +657,24 @@ async function buildSingleOperationProposal(input, executionContext = {}) {
 
     case OPERATION_TYPES.ATTACH_TO_ENTITY: {
       const { target, attachmentType, payload } = params;
-      if (!target || !target.type || !target.id || !attachmentType || !payload) {
-        throw new Error('ATTACH_TO_ENTITY requires target (type, id), attachmentType, and payload');
+      if (!attachmentType || !payload) {
+        throw new Error('ATTACH_TO_ENTITY requires attachmentType and payload');
       }
+
+      const scopeBinding = bindMutationScope({
+        entityType: 'document_attach',
+        payload: { target, ...(payload && typeof payload === 'object' ? { payload } : {}) },
+        activeScope: executionContext,
+      });
+      const boundTarget = scopeBinding.boundPayload?.target || target;
+      if (!boundTarget || !boundTarget.type || !boundTarget.id) {
+        throw buildScopeBindingRequiredError({
+          entityType: 'document',
+          missingRequired: scopeBinding.missingRequired,
+          boundLabels: resolveBoundFromScopeLabels(scopeBinding.boundFromScope),
+        });
+      }
+      params.target = boundTarget;
 
       const validAttachmentTypes = Object.values(ATTACHMENT_TYPES);
       if (!validAttachmentTypes.includes(attachmentType)) {
@@ -643,20 +704,20 @@ async function buildSingleOperationProposal(input, executionContext = {}) {
       }
 
       // Compute snapshot hash of target entity
-      const attachHash = computeSnapshotHash(target.type, target.id);
+      const attachHash = computeSnapshotHash(params.target.type, params.target.id);
       snapshot = {
-        scope: target.type,
-        scopeId: target.id,
+        scope: params.target.type,
+        scopeId: params.target.id,
         hash: attachHash,
         timestamp: new Date().toISOString(),
       };
 
-      const display = resolveEntityDisplay(target.type, target.id);
-      const targetLabel = display?.label || `selected ${toDisplayEntityName(target.type)}`;
+      const display = resolveEntityDisplay(params.target.type, params.target.id);
+      const targetLabel = display?.label || `selected ${toDisplayEntityName(params.target.type)}`;
       params.target = {
-        ...target,
+        ...params.target,
         label: targetLabel,
-        reference: display?.reference || target.reference || null,
+        reference: display?.reference || params.target.reference || null,
       };
 
       actionSummary = `Attach ${attachmentType} to ${targetLabel}`;
@@ -664,8 +725,8 @@ async function buildSingleOperationProposal(input, executionContext = {}) {
 
       affectedEntities = [
         {
-          type: target.type,
-          id: target.id,
+          type: params.target.type,
+          id: params.target.id,
           operation: 'attach',
           reference: display?.reference || undefined,
           label: targetLabel,

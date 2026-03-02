@@ -32,6 +32,43 @@ const FIELD_PROMPT_TEMPLATES = Object.freeze({
   document_id: "Please select the related document.",
 });
 
+const PRESERVE_ID_LIKE_KEYS = new Set([
+  "proposalId",
+  "sessionId",
+  "conversationId",
+  "eventId",
+  "turnId",
+  "requestId",
+]);
+
+const ENTITY_SERVICE_BY_TOKEN = Object.freeze({
+  client: "../../services/clients.service",
+  dossier: "../../services/dossiers.service",
+  lawsuit: "../../services/lawsuits.service",
+  task: "../../services/tasks.service",
+  session: "../../services/sessions.service",
+  mission: "../../services/missions.service",
+  officer: "../../services/officers.service",
+  document: "../../services/documents.service",
+  personal_task: "../../services/personalTasks.service",
+  financial_entry: "../../services/financial.service",
+});
+
+const ENTITY_LABEL_FIELDS = Object.freeze({
+  client: ["name", "reference", "title"],
+  dossier: ["title", "reference", "lawsuit_number", "lawsuitNumber"],
+  lawsuit: ["title", "reference", "lawsuit_number", "lawsuitNumber"],
+  task: ["title", "reference"],
+  session: ["title", "session_type", "type", "reference"],
+  mission: ["title", "mission_number", "missionNumber", "reference"],
+  officer: ["name", "reference", "agency"],
+  document: ["title", "reference", "original_filename"],
+  personal_task: ["title", "reference"],
+  financial_entry: ["title", "description", "reference"],
+});
+
+const SERVICE_CACHE = new Map();
+
 function toTitleCase(value) {
   return String(value || "")
     .replace(/[_-]+/g, " ")
@@ -94,6 +131,40 @@ function sanitizeValidationMessage(message) {
   return text;
 }
 
+function getServiceForEntity(entityToken = "") {
+  const key = String(entityToken || "").trim().toLowerCase();
+  if (!key || !ENTITY_SERVICE_BY_TOKEN[key]) return null;
+  if (SERVICE_CACHE.has(key)) return SERVICE_CACHE.get(key);
+  try {
+    // eslint-disable-next-line global-require, import/no-dynamic-require
+    const service = require(ENTITY_SERVICE_BY_TOKEN[key]);
+    SERVICE_CACHE.set(key, service || null);
+    return service || null;
+  } catch (_) {
+    SERVICE_CACHE.set(key, null);
+    return null;
+  }
+}
+
+function resolveEntityLabelFromId(entityToken, idValue) {
+  const id = Number(idValue);
+  if (!entityToken || !Number.isInteger(id) || id <= 0) return null;
+  const service = getServiceForEntity(entityToken);
+  if (!service || typeof service.get !== "function") return null;
+  try {
+    const row = service.get(id);
+    if (!row || typeof row !== "object") return null;
+    const fields = ENTITY_LABEL_FIELDS[entityToken] || ["title", "name", "reference"];
+    for (const field of fields) {
+      const value = row[field];
+      if (typeof value === "string" && value.trim()) return value.trim();
+    }
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
+
 function looksLikeJsonDump(text) {
   return /[{[]\s*"[^"]+"\s*:/.test(String(text || ""));
 }
@@ -132,8 +203,7 @@ function sanitizeDisplayText(text) {
   }
   out = out.replace(/\b([a-z]+)_id\b/gi, (_, token) => `${token} reference`);
   out = out.replace(/\b([A-Za-z][A-Za-z ]{1,40})\s+#\d+\b/g, "$1");
-  out = out.replace(/\b(?:id|ID)\s*[:#]?\s*\d+\b/g, "");
-  out = cleanupStandaloneNumericTokens(out);
+  out = out.replace(/\bid\s*[:#]?\s*\d+\b/gi, "");
   return out.replace(/\s+/g, " ").trim();
 }
 
@@ -165,8 +235,7 @@ function findDisplayAlias(obj = {}, rawKey = "") {
     }
   }
 
-  const entityLabel = FK_ENTITY_LABELS[token] || toTitleCase(token).toLowerCase() || "record";
-  return `selected ${entityLabel}`;
+  return null;
 }
 
 function sanitizeObject(obj) {
@@ -193,14 +262,14 @@ function sanitizeObject(obj) {
 
     if (FOREIGN_KEY_PATTERN.test(key)) {
       const entityToken = normalizeEntityTokenFromField(key);
-      const aliasValue = findDisplayAlias(obj, key);
+      const aliasValue = findDisplayAlias(obj, key) || resolveEntityLabelFromId(entityToken, value);
       const aliasKey = entityToken && !ID_KEY_PATTERN.test(entityToken) ? `${entityToken}_ref` : "linked_ref";
       if (typeof aliasValue === "string" && aliasValue.trim()) {
         out[aliasKey] = sanitizeDisplayText(aliasValue);
       }
       continue;
     }
-    if (ID_KEY_PATTERN.test(key)) continue;
+    if (ID_KEY_PATTERN.test(key) && !PRESERVE_ID_LIKE_KEYS.has(key)) continue;
 
     const sanitizedValue = sanitizeForDisplay(value);
     if (sanitizedValue === undefined) continue;
@@ -246,6 +315,9 @@ function buildProposalDisplaySummary(proposal = {}) {
     params.entityLabel ||
     previewRoot.label ||
     params.title ||
+    params?.payload?.title ||
+    params?.payload?.name ||
+    params?.payload?.reference ||
     params.reference ||
     params?.target?.label ||
     null;
