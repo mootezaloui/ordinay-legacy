@@ -1061,9 +1061,43 @@ td[data-column-id="actions"] [data-table-action-button] {
   line-height: 1.8;
 }
 
+.agent-chat-text .prose h1,
+.agent-chat-text .prose h2,
+.agent-chat-text .prose h3 {
+  margin-top: 1.1em;
+  margin-bottom: 0.4em;
+  font-weight: 600;
+}
+
+.agent-chat-text .prose ul,
+.agent-chat-text .prose ol {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  padding-left: 1.4em;
+}
+
+.agent-chat-text .prose li {
+  margin-top: 0.2em;
+  margin-bottom: 0.2em;
+}
+
+.agent-chat-text .prose p {
+  margin-top: 0.6em;
+  margin-bottom: 0.6em;
+}
+
+.agent-chat-text .prose p:first-child {
+  margin-top: 0;
+}
+
+.agent-chat-text .prose p:last-child {
+  margin-bottom: 0;
+}
+
 .agent-message-row,
 .user-message-row {
   display: flex;
+  width: 100%;
   align-items: flex-start;
   gap: 0.75rem;
 }
@@ -1074,6 +1108,12 @@ td[data-column-id="actions"] [data-table-action-button] {
 
 .user-message-row {
   justify-content: flex-end;
+}
+
+.user-message-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
 }
 
 .agent-bubble,
@@ -1233,6 +1273,34 @@ td[data-column-id="actions"] [data-table-action-button] {
 .dark .agent-artifact-card.is-error {
   --artifact-bg: rgba(69, 26, 3, 0.2);
   --artifact-border: rgba(245, 158, 11, 0.2);
+}
+
+/* Agent flat mode: remove all card/bubble chrome in chat workflow */
+.agent-flat-mode .agent-artifact-card,
+.agent-flat-mode .agent-bubble,
+.agent-flat-mode .agent-bubble-soft,
+.agent-flat-mode .agent-progress-card {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+.agent-flat-mode .agent-artifact-card::before {
+  display: none !important;
+}
+
+.agent-flat-mode .agent-artifact-header,
+.agent-flat-mode .agent-artifact-header-explanation,
+.agent-flat-mode .agent-artifact-header-risk,
+.agent-flat-mode .agent-artifact-header-draft,
+.agent-flat-mode .agent-artifact-header-action,
+.agent-flat-mode .agent-artifact-header-comparison,
+.agent-flat-mode .agent-artifact-header-collection,
+.agent-flat-mode .agent-artifact-header-proposal,
+.agent-flat-mode .agent-artifact-header-web-search {
+  background: transparent !important;
+  border-bottom: 0 !important;
 }
 
 .agent-artifact-header {

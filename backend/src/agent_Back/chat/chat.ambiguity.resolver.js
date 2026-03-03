@@ -579,7 +579,7 @@ function extractHintFromMessage(entityType, message) {
     new RegExp(`\\b${entityType.replace("_", "\\s+")}\\s+([^?.,!\\n]+)`, "i"),
   );
   if (byName && String(byName[1] || "").trim()) {
-    const raw = String(byName[1] || "").trim();
+    const raw = trimAfterIntentShift(cleanEntityPhrase(String(byName[1] || "").trim()));
     const low = raw.toLowerCase();
     if (
       [
@@ -622,6 +622,8 @@ function trimAfterIntentShift(value) {
   if (!text) return "";
   const stopPatterns = [
     /\b(i need to|i need|can you|could you|please|help me|write|draft|compose|prepare)\b/i,
+    /\b(we will|i will|what do you think|what should|how should)\b/i,
+    /\b(today|tomorrow|this week|right now)\b/i,
     /\b(اريد|أريد|عايز|محتاج)\b/u,
   ];
   let cut = text.length;
@@ -719,11 +721,19 @@ function selectHint(hints, entityType) {
     (hint) => String(hint?.type || "") === "reference",
   );
   if (byReference && String(byReference.value || "").trim()) {
-    return { mode: "name", identifier: String(byReference.value).trim() };
+    const identifier = trimAfterIntentShift(
+      cleanEntityPhrase(String(byReference.value).trim()),
+    );
+    if (!identifier) return null;
+    return { mode: "name", identifier };
   }
   const byName = pool.find((hint) => String(hint?.type || "") === "name");
   if (byName && String(byName.value || "").trim()) {
-    const rawName = String(byName.value || "").trim().toLowerCase();
+    const normalizedName = trimAfterIntentShift(
+      cleanEntityPhrase(String(byName.value || "").trim()),
+    );
+    if (!normalizedName) return null;
+    const rawName = normalizedName.toLowerCase();
     if (
       [
         "status",
@@ -740,7 +750,7 @@ function selectHint(hints, entityType) {
     ) {
       return null;
     }
-    return { mode: "name", identifier: String(byName.value).trim() };
+    return { mode: "name", identifier: normalizedName };
   }
   return null;
 }

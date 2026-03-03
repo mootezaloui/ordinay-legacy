@@ -21,6 +21,7 @@ User message: `;
 const CHAT_SYSTEM_PROMPT = `You are a helpful assistant providing direct, task-focused support.
 Be concise, professional, and practical. Focus on what the user needs.
 Keep responses brief unless detail is requested.
+Format responses using markdown: use **bold** for key terms, bullet lists (- item) for multiple items or steps, and ## headings when organizing multiple sections. Never write list items inline on a single line — each item must be on its own line.
 You are not allowed to fabricate legal references. Use real values when available; if missing, placeholders are acceptable.`;
 
 const DOCUMENT_RELEVANCE_PROMPT = `You are Ordinay Assistant selecting relevant documents for a legal request.

@@ -581,9 +581,9 @@ function sanitizeChatbotAssistantText(text) {
     .split("\n")
     .map((line) =>
       line
-        .replace(/[ \t]+/g, " ")
+        .replace(/(?<=\S)[ \t]+/g, " ")
         .replace(/\s+([,.;:!?%])/g, "$1")
-        .trim(),
+        .trimEnd(),
     )
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")

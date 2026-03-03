@@ -86,12 +86,15 @@ function buildScopeIdByType(context = {}) {
 function hasFutureIntentStructure(message) {
   const text = String(message || "").toLowerCase();
   if (!text) return false;
+  const mutationAction =
+    "(?:create|add|set|update|edit|change|mark|assign|schedule|delete|remove|rename|reschedule)";
   return (
-    /\b(will|shall)\b/.test(text) ||
-    /\b(?:am|is|are|was|were|be)\s+going\s+to\b/.test(text) ||
-    /\babout\s+to\b/.test(text) ||
-    /\b(?:plan|intend|aim|expect|prepare)\s+to\s+\w+/.test(text) ||
-    /\b(?:start|begin|become|enter|move\s+to|transition\s+to|turn\s+into)\b/.test(
+    new RegExp(`\\b(?:will|shall)\\s+${mutationAction}\\b`).test(text) ||
+    new RegExp(`\\b(?:am|is|are|was|were|be)\\s+going\\s+to\\s+${mutationAction}\\b`).test(
+      text,
+    ) ||
+    new RegExp(`\\babout\\s+to\\s+${mutationAction}\\b`).test(text) ||
+    new RegExp(`\\b(?:plan|intend|aim|expect|prepare)\\s+to\\s+${mutationAction}\\b`).test(
       text,
     )
   );
@@ -100,7 +103,7 @@ function hasFutureIntentStructure(message) {
 function hasMutationVerbStructure(message) {
   const text = String(message || "").toLowerCase();
   if (!text) return false;
-  return /\b(create|open|add|set|update|edit|change|mark|assign|schedule|delete|remove)\b/.test(
+  return /\b(create|add|set|update|edit|change|mark|assign|schedule|delete|remove|rename|reschedule)\b/.test(
     text,
   );
 }

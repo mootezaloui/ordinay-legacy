@@ -128,7 +128,10 @@ function buildCategoryAllowance({
   accessFilter = null,
   contextDataAccess = null,
 }) {
-  const includeSet = Array.isArray(include) ? new Set(include) : null;
+  // Treat an empty include array as "no include filter" to avoid false-empty graphs
+  // when the model emits include: [].
+  const includeSet =
+    Array.isArray(include) && include.length > 0 ? new Set(include) : null;
   const allowed = {};
 
   for (const category of CHILD_CATEGORIES) {

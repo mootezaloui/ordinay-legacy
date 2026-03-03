@@ -192,8 +192,12 @@ export function AgentMessage({
   };
 
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"} group`}>
-      <div className="max-w-[85%]">
+    <div
+      className={`group flex w-full items-start ${isUser ? "justify-end" : "justify-start"}`}
+    >
+      <div
+        className={`flex flex-col ${isUser ? "max-w-[70%] items-end" : "max-w-[85%] items-start"}`}
+      >
         <div
           className={`${
             isUser
@@ -201,7 +205,7 @@ export function AgentMessage({
               : isError
                 ? "bg-red-50 dark:bg-red-900/20 text-[#0f172a] dark:text-[#f1f5f9] border border-red-200 dark:border-red-800 shadow-sm"
                 : "bg-white dark:bg-[#1e293b] text-[#0f172a] dark:text-[#f1f5f9] border border-black/[0.06] dark:border-white/[0.06] shadow-sm"
-          } rounded-2xl px-6 py-4`}
+          } w-fit max-w-full break-words rounded-2xl px-6 py-4`}
         >
           {/* Streaming: show content with cursor, or spinner if no content yet */}
           <div ref={contentRef}>
@@ -317,13 +321,21 @@ export function AgentMessage({
         </div>
 
         {/* Footer row: timestamp + action aligned; outside bubble */}
-        <div className="flex items-center justify-between text-xs mt-2">
+        <div
+          className={`mt-2 flex items-center text-xs ${
+            isUser
+              ? "w-fit max-w-full self-end gap-2"
+              : "w-full justify-between"
+          }`}
+        >
           <div
             className={`${
               isUser ? "text-blue-100" : "text-slate-500 dark:text-slate-400"
             }`}
           >
-            {getRelativeTime(message.timestamp)}
+            <span className="whitespace-nowrap">
+              {getRelativeTime(message.timestamp)}
+            </span>
             {message.edited && (
               <span className="text-slate-400 dark:text-slate-500 ml-2">
                 · edited

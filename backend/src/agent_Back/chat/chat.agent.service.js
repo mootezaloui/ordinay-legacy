@@ -652,6 +652,11 @@ class ChatAgentService {
       deterministicGrounding,
       toolExecutions,
     });
+    finalMessage = this._enforceGroundingSnapshotConsistency({
+      userMessage: effectiveUserMessage,
+      finalMessage,
+      deterministicGrounding,
+    });
     finalMessage = this._enforceResolvedSelectionAnswer({
       finalMessage,
       resolvedSelection,
@@ -660,6 +665,10 @@ class ChatAgentService {
     finalMessage = this._enforceExecutionLockedNoAdvisoryFallback({
       finalMessage,
       requestContext,
+    });
+    finalMessage = this._normalizeResponseMarkdown({
+      content: finalMessage,
+      outputType: "message",
     });
 
     this._recordTranscript({
@@ -810,6 +819,10 @@ class ChatAgentService {
           "Respond directly and concisely.",
           "When performing analysis, retrieval, search, or generation tasks, begin with a short natural intent sentence (1-2 lines).",
           "Use clean markdown in a single message bubble.",
+          "Markdown must be readable: use paragraphs, bullet lists, and headings when useful.",
+          "Never place list items inline after a colon. Put each bullet on its own line.",
+          "For multi-section answers, use short section headings (for example: **Current Work**, **Next Steps**).",
+          "Do not output HTML tags; output markdown only.",
           "Preferred structure for non-trivial tasks: optional italic intent line, main result paragraph(s) or bullets, optional '**What this means**' commentary.",
           "Do not restate the user's request.",
           "Do not restate the user's request verbatim.",
@@ -820,6 +833,7 @@ class ChatAgentService {
           "After completing any tool calls, your FINAL assistant response must be only a JSON object matching the output contract described below.",
           "Intermediate tool-calling turns may use normal assistant tool-call messages, but the terminal response must be strict JSON only.",
           'Final output contract JSON schema: {"outputType":"message|document|mutation|research","title":"optional string","content":"required string","metadata":{}}',
+          'CRITICAL: The "content" field value must be markdown-formatted text following the formatting rules above. Apply headers (##), bullet lists (- item), numbered lists (1. item), and bold (**text**) inside the content string. Never write lists inline — each item must be on its own line.',
           'Use "message" for conversational/informational replies.',
           'Use "document" for standalone artifacts intended to be printed, signed, sent, filed, or stored. If unsure between message and document for a formal output, prefer "document".',
           'For outputType "document", metadata must include artifactKind and structureHints.',
@@ -3379,6 +3393,41 @@ class ChatAgentService {
     return "I could not load grounded entity data for this request. Please provide the exact client name or dossier/lawsuit reference, then I can give a precise priority plan.";
   }
 
+  _enforceGroundingSnapshotConsistency({
+    userMessage,
+    finalMessage,
+    deterministicGrounding,
+  }) {
+    const snapshot = deterministicGrounding?.snapshot;
+    if (!snapshot || typeof snapshot !== "object") return String(finalMessage || "");
+    if (!this._looksEntityScopedRequest(userMessage)) return String(finalMessage || "");
+
+    const metrics = snapshot.metrics || {};
+    const relatedCount =
+      Number(metrics.totalDossiers || 0) +
+      Number(metrics.totalLawsuits || 0) +
+      Number(metrics.totalTasks || 0) +
+      Number(metrics.totalMissions || 0) +
+      Number(metrics.totalSessions || 0) +
+      Number(metrics.totalDocuments || 0);
+    if (relatedCount <= 0) return String(finalMessage || "");
+
+    const message = String(finalMessage || "").trim();
+    if (!message) return this._buildEntityGraphResponse(snapshot);
+
+    const contradictoryEmptyLinkClaim =
+      /\bno\b[\s\S]{0,100}\b(dossiers?|lawsuits?|tasks?|missions?|sessions?|documents?)\b/i.test(
+        message,
+      ) ||
+      /\bnone\b[\s\S]{0,100}\b(dossiers?|lawsuits?|tasks?|missions?|sessions?|documents?)\b/i.test(
+        message,
+      ) ||
+      /\bno\b[\s\S]{0,80}\blinked\b/i.test(message);
+
+    if (!contradictoryEmptyLinkClaim) return message;
+    return this._buildEntityGraphResponse(snapshot);
+  }
+
   _enforceResolvedSelectionAnswer({
     finalMessage,
     resolvedSelection,
@@ -3941,6 +3990,52 @@ class ChatAgentService {
     return "I can prepare a confirmation-ready change for this request. Please confirm the exact entity if there are multiple matches.";
   }
 
+  _normalizeResponseMarkdown({ content = "", outputType = "message" } = {}) {
+    const kind = String(outputType || "").toLowerCase();
+    if (!["message", "research", "document"].includes(kind)) {
+      return String(content || "").trim();
+    }
+
+    let text = String(content || "")
+      .replace(/\r\n?/g, "\n")
+      .replace(/\u00a0/g, " ")
+      .trim();
+    if (!text) return "";
+
+    // Normalize unicode dashes so downstream list heuristics are consistent.
+    text = text.replace(/[–—]/g, " - ");
+
+    // Fix common model formatting issues where list markers are emitted inline.
+    text = text.replace(/:\s+-\s+/g, ":\n- ");
+    text = text.replace(/([.!?])\s+-\s+/g, "$1\n- ");
+    text = text.replace(/:\s+(\d+\.\s+)/g, ":\n$1");
+    text = text.replace(/([.!?])\s+([A-Z][^:\n]{3,80})\s+(?=1\.\s)/g, "$1\n\n$2\n");
+    // Numbered steps: split only typical list ordinals (1-99), not years like 2026.
+    text = text.replace(/\s(?=\d{1,2}\.\s+[A-Z])/g, "\n");
+    // Handle "Heading - **Item**: ..." where only the first bullet remains inline.
+    text = text.replace(/([^\n])\s+-\s+(?=\*\*[^*\n]{1,120}\*\*\s*:)/g, "$1\n- ");
+
+    // If the model emitted many inline dash clauses, convert them to bullet lines.
+    // Use tolerant spacing so patterns like " - **Bold**" and non-breaking spaces are handled.
+    const inlineDashCount = (text.match(/[ \t]-[ \t]/g) || []).length;
+    if (inlineDashCount >= 2) {
+      text = text.replace(/[ \t]+-[ \t]+/g, "\n- ");
+    }
+
+    // Separate dense paragraphs from numbered lists when they are inline.
+    text = text.replace(/([^\n])\s+(?=1\.\s)/g, "$1\n");
+    text = text.replace(/(\n-\s[^\n]{2,220}\.)\s+(?=[A-Z])/g, "$1\n");
+    text = text.replace(/(\n\d{1,2}\.\s[^\n]{2,220}\.)\s+(?=[A-Z])/g, "$1\n");
+    text = text.replace(/([^\n])\s+(?=\d{1,2}\.\s+[A-Za-z])/g, "$1\n");
+    text = text.replace(/(^|\n)([A-Z][A-Za-z]*(?:\s+[A-Za-z]+){1,5})\s+By\b/g, "$1$2\nBy");
+
+    // Keep markdown spacing deterministic.
+    text = text.replace(/[ \t]+\n/g, "\n");
+    text = text.replace(/-\s{2,}/g, "- ");
+    text = text.replace(/\n{3,}/g, "\n\n");
+    return text;
+  }
+
   async _resolveMutationEntityByName({
     entityType,
     query,
@@ -4084,6 +4179,8 @@ class ChatAgentService {
     const match = text.match(/\bclient\s+([^?.,!\n]+)/i);
     if (!match) return null;
     const value = String(match[1] || "")
+      .replace(/\b(we will|i will|what do you think|what should|how should)\b.*$/i, "")
+      .replace(/\b(today|tomorrow|this week|right now)\b.*$/i, "")
       .replace(/\b(what|which|where|why|when|how)\b.*$/i, "")
       .replace(/\s+/g, " ")
       .trim();

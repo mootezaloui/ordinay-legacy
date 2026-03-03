@@ -75,6 +75,14 @@ function validId(value) {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
+const DRAFT_INTENT_PREFIX = "DRAFT_";
+
+const DOCUMENT_ARTIFACT_AUTH_REASON = Object.freeze({
+  INTENT_NOT_DRAFT: "INTENT_NOT_DRAFT",
+  MISSING_EXPLICIT_DRAFT_SIGNAL: "MISSING_EXPLICIT_DRAFT_SIGNAL",
+  SCOPE_NOT_RESOLVED: "SCOPE_NOT_RESOLVED",
+});
+
 const DETERMINISTIC_LIST_INTENTS = new Set([
   "LIST_DOSSIERS",
   "LIST_LAWSUITS",
@@ -1360,6 +1368,78 @@ class ChatOrchestrator {
     );
   }
 
+  _hasDraftIntentClassification(draftIntent = null) {
+    const intent = String(draftIntent?.intent || "").toUpperCase();
+    return intent.startsWith(DRAFT_INTENT_PREFIX);
+  }
+
+  _hasExplicitDraftingSignal(message = "") {
+    const normalized = String(message || "").toLowerCase();
+    if (!normalized) return false;
+    const draftVerbPattern = /\b(draft|write|compose|prepare|r[eé]diger|r[eé]diger)\b/i;
+    const generationVerbPattern = /\b(generate|create|produce)\b/i;
+    const documentLikeNounPattern =
+      /\b(document|letter|message|email|mail|petition|motion|request|application|memorandum|memo|brief|draft|courrier|lettre|عريضة|طلب|وثيقة|مذكرة)\b/i;
+    const hasDraftVerb = draftVerbPattern.test(normalized);
+    const hasGenerationDraftCue =
+      generationVerbPattern.test(normalized) && documentLikeNounPattern.test(normalized);
+    return hasDraftVerb || hasGenerationDraftCue;
+  }
+
+  _isScopeResolved(activeScope = null) {
+    if (!activeScope || typeof activeScope !== "object") return false;
+    const entityType = String(activeScope.entityType || "").toLowerCase();
+    const entityId = Number(activeScope.entityId || 0);
+    return Boolean(entityType && Number.isInteger(entityId) && entityId > 0);
+  }
+
+  _authorizeDocumentArtifact({
+    requestContext,
+    userMessage = "",
+    draftIntent = null,
+    activeScope = null,
+    stage = "document",
+    requireScope = true,
+  } = {}) {
+    const reasonCodes = [];
+    if (!this._hasDraftIntentClassification(draftIntent)) {
+      reasonCodes.push(DOCUMENT_ARTIFACT_AUTH_REASON.INTENT_NOT_DRAFT);
+    }
+    if (!this._hasExplicitDraftingSignal(userMessage)) {
+      reasonCodes.push(DOCUMENT_ARTIFACT_AUTH_REASON.MISSING_EXPLICIT_DRAFT_SIGNAL);
+    }
+    if (requireScope && !this._isScopeResolved(activeScope)) {
+      reasonCodes.push(DOCUMENT_ARTIFACT_AUTH_REASON.SCOPE_NOT_RESOLVED);
+    }
+    const allowed = reasonCodes.length === 0;
+    this.engine?.ledger?.record?.({
+      type: allowed ? "artifact_authorization_pass" : "artifact_authorization_denied",
+      sourceRoute: "/agent/chat",
+      artifactType: "document",
+      stage,
+      reasonCodes,
+      draftIntent: draftIntent?.intent || null,
+      hasExplicitDraftSignal: this._hasExplicitDraftingSignal(userMessage),
+      hasScope: this._isScopeResolved(activeScope),
+      scopeEntityType: activeScope?.entityType || null,
+      scopeEntityId: Number(activeScope?.entityId || 0) || null,
+      timestamp: new Date().toISOString(),
+    });
+    return { allowed, reasonCodes };
+  }
+
+  _buildDocumentAuthorizationDowngradeMessage({
+    contract = null,
+    reasonCodes = [],
+  } = {}) {
+    const base = String(contract?.content || "").trim();
+    if (base) return base;
+    if (reasonCodes.includes(DOCUMENT_ARTIFACT_AUTH_REASON.SCOPE_NOT_RESOLVED)) {
+      return "I can help with this once the target record is selected.";
+    }
+    return "I can discuss this as guidance, but I cannot generate a document artifact for this request.";
+  }
+
   async _buildMutationProposalFromOutputContract({
     contract,
     policy,
@@ -2260,6 +2340,10 @@ class ChatOrchestrator {
         finalMessage: contract.content,
         requestContext,
       });
+      finalMessage = this.helper._normalizeResponseMarkdown({
+        content: finalMessage,
+        outputType: routedOutputType === "research" ? "research" : "message",
+      });
       routeAction = routedOutputType === "research" ? "research_message" : "message";
       if (routedOutputType === "research" && contract.metadata && Object.keys(contract.metadata).length > 0) {
         outputArtifact = {
@@ -2272,6 +2356,26 @@ class ChatOrchestrator {
     } else if (routedOutputType === "document") {
       routeAction = "document_tool";
       let activeScope = this._resolveActiveEntityScope(requestContext, llmHistory);
+      const routeAuthorization = this._authorizeDocumentArtifact({
+        requestContext,
+        userMessage: effectiveUserMessage,
+        draftIntent,
+        activeScope,
+        stage: "document_route_gate",
+        requireScope: false,
+      });
+      if (!routeAuthorization.allowed) {
+        routeAction = "document_downgraded_to_message";
+        outputArtifact = null;
+        finalMessage = this.helper._enforceExecutionLockedNoAdvisoryFallback({
+          finalMessage: this._buildDocumentAuthorizationDowngradeMessage({
+            contract,
+            reasonCodes: routeAuthorization.reasonCodes,
+          }),
+          requestContext,
+        });
+        nextState = CHAT_STATES.FINAL;
+      } else {
       const scopedDiscovery = await this._discoverArtifactScopeFromClient({
         userMessage: effectiveUserMessage,
         requestContext,
@@ -2290,7 +2394,27 @@ class ChatOrchestrator {
           entityType: scopedDiscovery.resolvedEntity.entityType,
           entityId: scopedDiscovery.resolvedEntity.entityId,
         };
-      } else if (
+      }
+      const artifactAuthorization = this._authorizeDocumentArtifact({
+        requestContext,
+        userMessage: effectiveUserMessage,
+        draftIntent,
+        activeScope,
+        stage: "document_artifact_emit",
+      });
+      if (!artifactAuthorization.allowed) {
+        routeAction = "document_downgraded_to_message";
+        outputArtifact = null;
+        finalMessage = this.helper._enforceExecutionLockedNoAdvisoryFallback({
+          finalMessage: this._buildDocumentAuthorizationDowngradeMessage({
+            contract,
+            reasonCodes: artifactAuthorization.reasonCodes,
+          }),
+          requestContext,
+        });
+        nextState = CHAT_STATES.FINAL;
+      } else {
+      if (
         scopedDiscovery?.status === "clarify" &&
         scopedDiscovery?.suggestionArtifact
       ) {
@@ -2458,6 +2582,8 @@ class ChatOrchestrator {
           previewSource: "planGeneratedDocument",
         });
       }
+      }
+      }
     } else if (routedOutputType === "mutation") {
       routeAction = "mutation_proposal";
       let proposal = null;
@@ -2543,6 +2669,10 @@ class ChatOrchestrator {
         requestContext,
       });
     }
+    finalMessage = this.helper._normalizeResponseMarkdown({
+      content: finalMessage,
+      outputType: routedOutputType,
+    });
 
     if (nextState !== CHAT_STATES.EXECUTE) {
       updateChatOrchestratorState(this.engine, requestContext, {

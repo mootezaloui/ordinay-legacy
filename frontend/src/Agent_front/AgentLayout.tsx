@@ -135,7 +135,7 @@ export function AgentLayout({
   };
 
   return (
-    <div className="relative w-full h-full flex gap-0 bg-[#f8fafc] dark:bg-[#0f172a]">
+    <div className="agent-flat-mode relative w-full h-full flex gap-0 bg-[#f8fafc] dark:bg-[#0f172a]">
       {/* ══════════════════════════════════════════════════════════════════
           LEFT SIDEBAR - Conversation History
           Desktop: Static column | Mobile: Overlay drawer

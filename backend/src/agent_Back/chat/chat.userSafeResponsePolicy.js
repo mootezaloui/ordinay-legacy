@@ -76,7 +76,14 @@ function enforceUserSafeResponsePolicy({
   route = "/agent/chat",
 } = {}) {
   const sanitizedOutput = redactProposalArtifact(output);
-  const normalizedText = sanitizeDisplayText(String(text || ""));
+  const normalizedText = String(text || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map((line) => sanitizeDisplayText(line))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
   const textMatches = findForbiddenMatches(normalizedText);
   const proposalSummaries =
     sanitizedOutput &&

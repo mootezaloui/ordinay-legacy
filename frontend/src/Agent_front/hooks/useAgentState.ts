@@ -148,6 +148,25 @@ function createMessageId(prefix: "u" | "a" | "i"): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function mergeUniqueCommentaryLines(existingMessage: string, incomingMessage: string): string {
+  const lines = `${String(existingMessage || "").trim()}\n${String(incomingMessage || "").trim()}`
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const uniqueLines: string[] = [];
+  const seen = new Set<string>();
+  for (const line of lines) {
+    const dedupeKey = line.replace(/\s+/g, " ").toLowerCase();
+    if (!seen.has(dedupeKey)) {
+      seen.add(dedupeKey);
+      uniqueLines.push(line);
+    }
+  }
+
+  return uniqueLines.join("\n");
+}
+
 export function useAgentState() {
   const { t } = useTranslation("common");
   const {
@@ -840,9 +859,17 @@ export function useAgentState() {
           // Receive complete conversational commentary about the artifact
           if (streamSessionRef.current !== sessionId) return;
           if (data.visibility === "metadata") return;
-          commentary = data;
+          const mergedMessage = mergeUniqueCommentaryLines(
+            String(commentary?.message || ""),
+            String(data?.message || ""),
+          );
+          commentary = {
+            ...(commentary || {}),
+            ...(data || {}),
+            message: mergedMessage,
+          };
           // Reset streaming content since we have complete commentary
-          streamedCommentaryContent = data.message || "";
+          streamedCommentaryContent = mergedMessage;
 
           // Update message with commentary (artifact already rendered)
           const messageWithCommentary: AgentMessage = {
@@ -1326,8 +1353,16 @@ export function useAgentState() {
           // ========== STAGE 4: COMMENTARY ==========
           if (streamSessionRef.current !== sessionId) return;
           if (data.visibility === "metadata") return;
-          commentary = data;
-          streamedCommentaryContent = data.message || "";
+          const mergedMessage = mergeUniqueCommentaryLines(
+            String(commentary?.message || ""),
+            String(data?.message || ""),
+          );
+          commentary = {
+            ...(commentary || {}),
+            ...(data || {}),
+            message: mergedMessage,
+          };
+          streamedCommentaryContent = mergedMessage;
 
           // Update message with commentary (artifact already rendered)
           const messageWithCommentary: AgentMessage = {
@@ -1839,12 +1874,10 @@ export function useAgentState() {
           // ========== STAGE 4: COMMENTARY ==========
           if (streamSessionRef.current !== activeSessionId) return;
           if (data.visibility === "metadata") return;
-          const incoming = String(data?.message || "").trim();
-          const existing = String(commentary?.message || "").trim();
-          const mergedMessage =
-            incoming && existing && existing !== incoming
-              ? `${existing}\n${incoming}`
-              : incoming || existing;
+          const mergedMessage = mergeUniqueCommentaryLines(
+            String(commentary?.message || ""),
+            String(data?.message || ""),
+          );
           commentary = {
             ...(commentary || {}),
             ...(data || {}),

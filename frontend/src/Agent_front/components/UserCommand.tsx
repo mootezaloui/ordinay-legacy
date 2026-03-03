@@ -117,8 +117,8 @@ export function UserCommand({
 
   if (isEditing) {
     return (
-      <div className="py-3 user-message-row">
-        <div className="w-full max-w-[44rem]">
+      <div className="py-3 user-message-row w-full">
+        <div className="w-full max-w-[70%]">
           <textarea
             aria-label="Edit your message"
             className="w-full min-h-[4rem] p-4 rounded-2xl border border-black/[0.06] dark:border-white/[0.06] bg-white/90 dark:bg-[#0f172a]/70 text-sm text-[#0f172a] dark:text-[#f1f5f9] resize-vertical focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-400/20"
@@ -148,18 +148,20 @@ export function UserCommand({
   }
 
   return (
-    <div className="user-message-row">
-      <div className="group max-w-full">
-        <div className="user-bubble agent-chat-text text-[15px] leading-relaxed">
+    <div className="user-message-row w-full">
+      <div className="user-message-wrapper group w-full max-w-[70%]">
+        <div className="user-bubble agent-chat-text w-fit max-w-full break-words text-[15px] leading-relaxed">
           {/* Attachment previews */}
           {message.attachments && message.attachments.length > 0 && (
             <MessageAttachments attachments={message.attachments} />
           )}
           {message.content && <span>{message.content}</span>}
         </div>
-        <div className="mt-2 flex items-center justify-end gap-2 text-[11px] text-slate-400 dark:text-slate-500">
+        <div className="mt-2 flex w-fit max-w-full items-center gap-2 self-end text-[11px] text-slate-400 dark:text-slate-500">
           {message.edited && <span>(edited)</span>}
-          <span>{getRelativeTime(message.timestamp)}</span>
+          <span className="whitespace-nowrap">
+            {getRelativeTime(message.timestamp)}
+          </span>
           {isLastUserMessage && (
             <button
               type="button"

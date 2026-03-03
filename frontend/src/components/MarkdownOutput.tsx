@@ -1,12 +1,25 @@
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 import { openExternalLink } from "../lib/externalLink";
 
 interface MarkdownOutputProps {
   content: string;
+}
+
+function normalizeMarkdownForRender(content: string): string {
+  let text = String(content || "").replace(/\r\n?/g, "\n");
+  if (!text.trim()) return "";
+
+  // Preserve explicit single line breaks as markdown hard breaks for chat readability,
+  // while keeping block structures (lists/headings/tables/quotes) intact.
+  text = text.replace(
+    /([^\n])\n(?!\n|[#>*\-+]|\d+\.\s|\|)/g,
+    "$1  \n",
+  );
+
+  return text;
 }
 
 export const MarkdownOutput: React.FC<MarkdownOutputProps> = ({ content }) => {
@@ -23,7 +36,7 @@ export const MarkdownOutput: React.FC<MarkdownOutputProps> = ({ content }) => {
     <div className="prose prose-slate dark:prose-invert max-w-none break-words text-sm leading-relaxed">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeRaw, rehypeSanitize]}
+        rehypePlugins={[rehypeSanitize]}
         components={{
           code({ inline, className, children, ...props }: CodeProps) {
             return !inline ? (
@@ -78,7 +91,7 @@ export const MarkdownOutput: React.FC<MarkdownOutputProps> = ({ content }) => {
           },
         }}
       >
-        {content}
+        {normalizeMarkdownForRender(content)}
       </ReactMarkdown>
     </div>
   );
