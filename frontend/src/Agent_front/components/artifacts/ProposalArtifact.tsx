@@ -331,6 +331,7 @@ function buildProposalRenderItems(
               workflow: proposal.params?.workflow,
               confirmation: proposal.confirmation,
               affectedEntities: proposal.affectedEntities,
+              preview: proposal.preview,
               semanticInput,
               viewModel,
             }

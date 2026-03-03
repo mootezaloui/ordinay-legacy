@@ -973,6 +973,55 @@ function _buildBatchWorkflowProposal({ normalizedInput, executionContext = {} })
     if (lawsuitDisplay?.reference) scopeParts.push(`under ${lawsuitDisplay.reference}`);
     summary = `Create ${createTaskOps.length} tasks${scopeParts.length ? ` ${scopeParts.join(" ")}` : ""}`;
   }
+  const toPreviewItem = (step, index) => {
+    const stepParams =
+      step?.params && typeof step.params === "object" && !Array.isArray(step.params)
+        ? step.params
+        : {};
+    const payload =
+      stepParams?.payload && typeof stepParams.payload === "object" && !Array.isArray(stepParams.payload)
+        ? stepParams.payload
+        : {};
+    const changes =
+      stepParams?.changes && typeof stepParams.changes === "object" && !Array.isArray(stepParams.changes)
+        ? stepParams.changes
+        : {};
+    const entityType = String(stepParams?.entityType || "record").toLowerCase();
+    const fallbackLabel = `${String(step?.actionType || "change").replace(/_/g, " ").toLowerCase()} ${entityType.replace(/_/g, " ")}`.trim();
+    const title = String(
+      payload?.title ||
+      payload?.name ||
+      payload?.subject ||
+      payload?.reference ||
+      stepParams?.title ||
+      fallbackLabel,
+    ).trim();
+    const statusRaw =
+      payload?.status ??
+      stepParams?.status ??
+      (changes?.status && typeof changes.status === "object" ? changes.status.to : changes?.status);
+    const priorityRaw =
+      payload?.priority ??
+      stepParams?.priority ??
+      (changes?.priority && typeof changes.priority === "object" ? changes.priority.to : changes?.priority);
+    const links = [];
+    if (lawsuitDisplay?.reference) links.push(lawsuitDisplay.reference);
+    else if (lawsuitDisplay?.label) links.push(lawsuitDisplay.label);
+    if (dossierDisplay?.reference) links.push(dossierDisplay.reference);
+    else if (dossierDisplay?.label) links.push(dossierDisplay.label);
+    const parentLinks = links.length > 0 ? links : null;
+    return {
+      stepId: step?.stepId || `step_${index + 1}`,
+      index: index + 1,
+      entityType,
+      operation: String(step?.actionType || "").toLowerCase(),
+      title: title || null,
+      status: statusRaw == null ? null : String(statusRaw),
+      priority: priorityRaw == null ? null : String(priorityRaw),
+      parentLinks,
+    };
+  };
+  const previewItems = steps.map(toPreviewItem);
 
   return createActionProposal({
     proposalId,
@@ -980,6 +1029,11 @@ function _buildBatchWorkflowProposal({ normalizedInput, executionContext = {} })
     toolCategory: 'execute',
     params: {
       workflow,
+      preview: {
+        summaryTitle: summary,
+        items: previewItems,
+        warnings: [],
+      },
       idempotencyKey: normalizedInput.idempotencyKey,
       origin: normalizedInput.origin,
       risk: normalizedInput.risk,

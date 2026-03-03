@@ -878,6 +878,18 @@ export function mapSemanticAction(input: SemanticActionMappingInput): SemanticAc
     ...buildAffectedImpact(input),
     buildReversibilityImpact(input),
   ]);
+  const proposalPreview =
+    input?.context?.proposalPreview &&
+    Array.isArray(input.context.proposalPreview.items) &&
+    input.context.proposalPreview.items.length > 0
+      ? {
+          title: String(input.context.proposalPreview.title || "Planned changes").trim() || "Planned changes",
+          items: input.context.proposalPreview.items,
+          warnings: Array.isArray(input.context.proposalPreview.warnings)
+            ? input.context.proposalPreview.warnings.map((line) => String(line || "").trim()).filter(Boolean)
+            : [],
+        }
+      : undefined;
 
   const viewModel = sanitizeConfirmationViewModel({
     ...narrative,
@@ -889,6 +901,7 @@ export function mapSemanticAction(input: SemanticActionMappingInput): SemanticAc
       warningsLabel: hasLegalCreatePlannerPreview(input) ? "Suggested next steps" : "What this affects",
       reversibilityLabel: "Can this be undone?",
     },
+    preview: proposalPreview,
   });
 
   const validation = validateConfirmationViewModelCopy(viewModel);

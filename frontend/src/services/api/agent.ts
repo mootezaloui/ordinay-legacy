@@ -516,6 +516,19 @@ export interface ActionProposal {
     parentLinkage?: Record<string, unknown>;
     fields?: Record<string, unknown>;
   }>;
+  preview?: {
+    title?: string;
+    items?: Array<{
+      index?: number;
+      entityType?: string | null;
+      operation?: string | null;
+      title?: string | null;
+      status?: string | null;
+      priority?: string | null;
+      parentLinks?: string[] | null;
+    }>;
+    warnings?: string[];
+  };
   // Frontend-only persisted UI state (stored in chat session history)
   uiState?: {
     status: "pending" | "confirmed" | "cancelled" | "failed";

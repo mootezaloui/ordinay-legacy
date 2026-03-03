@@ -1,10 +1,9 @@
 "use strict";
 
-const {
-  detectReadIntent,
-  detectDraftIntent,
-} = require("../intent.classifier");
+const { detectDraftIntent } = require("../intent.classifier");
 const { ENTITY_TYPE_DOMAIN_MAP } = require("../tools/tool.firewall");
+const { requiresScope, isGlobalSafeIntent } = require("../read/intentExecution.contract");
+const { buildQueryIR } = require("../query/queryIR");
 
 const AUTOPICK_ENABLED =
   process.env.AGENT_CHAT_AMBIGUITY_AUTOPICK !== "false";
@@ -434,7 +433,11 @@ function shouldRequireEntityForRead({
   if (!readIntent?.intent) return false;
   if (selectedHint) return true;
   const value = String(readIntent.intent || "").toUpperCase();
-  if (value.startsWith("LIST_")) {
+  if (
+    !requiresScope(value, {
+      aggregateSummary: Boolean(readIntent.aggregateSummary),
+    })
+  ) {
     return false;
   }
   const normalized = String(message || "").toLowerCase();
@@ -955,6 +958,35 @@ async function listRows({
   }
 }
 
+function hasSpecificRecordRequestForList({
+  message = "",
+  entityType = "",
+  readIntent = null,
+  ir = null,
+} = {}) {
+  if (!readIntent?.intent || !isListIntent(readIntent.intent)) return false;
+  const normalized = String(message || "").toLowerCase();
+  if (!normalized) return false;
+  const extractedHints = Array.isArray(ir?.hints?.extracted) ? ir.hints.extracted : [];
+  const strongBindingFromIR = extractedHints.some((hint) => {
+    if (!hint || hint.binding !== true) return false;
+    if (String(hint.classification || "").toLowerCase() === "scope_operator") return false;
+    const type = String(hint.type || "").toLowerCase();
+    if (type === "id" || type === "reference") return true;
+    if (type === "name" && Number(hint.confidence || 0) >= 0.9) return true;
+    return false;
+  });
+  if (strongBindingFromIR) return true;
+  if (/\b(exact|specific|single|only|just)\b/.test(normalized)) return true;
+
+  const hints = Array.isArray(readIntent?.entityHints) ? readIntent.entityHints : [];
+  const selected =
+    selectHint(hints, normalizeEntityType(entityType)) ||
+    extractHintFromMessage(normalizeEntityType(entityType), message);
+  if (!selected) return false;
+  return isLikelySingularMessage(message, normalizeEntityType(entityType));
+}
+
 async function resolveClientThenDossierScoped({
   engine,
   policy,
@@ -1080,6 +1112,7 @@ async function resolveChatAmbiguity({
   engine,
   message,
   policy,
+  queryIR = null,
   executionContext = {},
   exposedTools = [],
 }) {
@@ -1091,13 +1124,55 @@ async function resolveChatAmbiguity({
   const userMessage = String(message || "").trim();
   if (!userMessage) return { status: "skipped" };
 
-  const readIntent = detectReadIntent(userMessage, executionContext);
-  const draftIntent = detectDraftIntent(userMessage, executionContext);
-  if (readIntent && shouldDeferReadAmbiguityUntilAfterTools(readIntent)) {
+  const ir = queryIR || buildQueryIR({ message: userMessage, requestContext: executionContext });
+  const readIntent =
+    ir?.intent?.family === "LIST" ||
+    ir?.intent?.family === "READ" ||
+    ir?.intent?.family === "EXPLAIN" ||
+    ir?.intent?.family === "SUMMARIZE"
+      ? {
+          intent: ir?.intent?.name || null,
+          filters: ir?.filters || {},
+          entityHints: Array.isArray(ir?.entityHints) ? ir.entityHints : [],
+          aggregateSummary: ir?.intent?.family === "SUMMARIZE" && ir?.target === "collection",
+        }
+      : null;
+  const draftIntent =
+    ir?.intent?.family === "DRAFT" ? detectDraftIntent(userMessage, executionContext) : null;
+  const target =
+    readIntent && ir?.entityType
+      ? {
+          capability: "read",
+          entityType: ir.entityType,
+          originalIntent: String(readIntent.intent || "CHATBOT_AGENT_MODE"),
+        }
+      : deriveTarget(userMessage, readIntent, draftIntent);
+  if (!target?.entityType) {
     return { status: "skipped" };
   }
-  const target = deriveTarget(userMessage, readIntent, draftIntent);
-  if (!target?.entityType) {
+
+  const intentName = String(ir?.intent?.name || readIntent?.intent || "").toUpperCase();
+  const isGlobalSafe = isGlobalSafeIntent(intentName);
+  let allowListSpecificAmbiguity = false;
+  if (isGlobalSafe && isListIntent(intentName)) {
+    if (
+      !hasSpecificRecordRequestForList({
+        message: userMessage,
+        entityType: target.entityType,
+        readIntent,
+        ir,
+      })
+    ) {
+      return { status: "skipped", reason: "global_safe_list_without_specific_record" };
+    }
+    allowListSpecificAmbiguity = true;
+  } else if (isGlobalSafe) {
+    return { status: "skipped", reason: "global_safe_read_intent" };
+  }
+  if (readIntent && ir?.target === "collection" && !ir?.scope?.required && !allowListSpecificAmbiguity) {
+    return { status: "skipped", reason: "collection_scope_not_required" };
+  }
+  if (readIntent && shouldDeferReadAmbiguityUntilAfterTools(readIntent)) {
     return { status: "skipped" };
   }
 
@@ -1176,9 +1251,11 @@ async function resolveChatAmbiguity({
 
   const entityHints = Array.isArray(readIntent?.entityHints)
     ? readIntent.entityHints
-    : Array.isArray(draftIntent?.entityHints)
-      ? draftIntent.entityHints
-      : [];
+    : Array.isArray(ir?.hints?.binding)
+      ? ir.hints.binding
+      : Array.isArray(draftIntent?.entityHints)
+        ? draftIntent.entityHints
+        : [];
 
   if (entityType === "dossier") {
     const scopedHints = extractClientAndDossierHints(userMessage, entityHints);

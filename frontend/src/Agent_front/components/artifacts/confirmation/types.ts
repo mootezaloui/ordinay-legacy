@@ -68,6 +68,19 @@ export interface SemanticActionMappingInput {
     requiresRiskAck?: boolean;
     proposalSummary?: string;
     confirmationPreview?: ConfirmationPreview;
+    proposalPreview?: {
+      title?: string;
+      items: Array<{
+        index: number;
+        entityType: string | null;
+        operation: string | null;
+        title: string;
+        status?: string | null;
+        priority?: string | null;
+        parentLinks?: string[] | null;
+      }>;
+      warnings?: string[];
+    };
   };
 }
 
@@ -92,6 +105,17 @@ export interface SemanticActionViewModel {
     consequencesLabel: string;
     warningsLabel: string;
     reversibilityLabel: string;
+  };
+  preview?: {
+    title: string;
+    items: Array<{
+      index: number;
+      title: string;
+      status?: string | null;
+      priority?: string | null;
+      parentLinks?: string[] | null;
+    }>;
+    warnings: string[];
   };
 }
 

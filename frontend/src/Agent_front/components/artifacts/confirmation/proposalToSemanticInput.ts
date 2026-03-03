@@ -310,6 +310,85 @@ function buildWorkflowPreviewImpactHints(
   });
 }
 
+function buildCanonicalProposalPreview(proposal: ActionProposal) {
+  const explicitPreview =
+    proposal.preview && typeof proposal.preview === "object" && !Array.isArray(proposal.preview)
+      ? proposal.preview
+      : null;
+  const explicitItems = Array.isArray(explicitPreview?.items) ? explicitPreview.items : [];
+  if (explicitPreview && explicitItems.length > 0) {
+    return {
+      title: String(explicitPreview.title || proposal.humanReadableSummary || "Planned changes").trim(),
+      items: explicitItems
+        .map((row, idx) => {
+          const title = String(row?.title || "").trim();
+          if (!title) return null;
+          const parentLinks = Array.isArray(row?.parentLinks)
+            ? row.parentLinks.map((value) => String(value || "").trim()).filter(Boolean)
+            : [];
+          return {
+            index: Number.isFinite(Number(row?.index)) ? Number(row.index) : idx + 1,
+            entityType: String(row?.entityType || "").trim() || null,
+            operation: String(row?.operation || "").trim() || null,
+            title,
+            status: String(row?.status || "").trim() || null,
+            priority: String(row?.priority || "").trim() || null,
+            parentLinks: parentLinks.length > 0 ? parentLinks : null,
+          };
+        })
+        .filter((row): row is {
+          index: number;
+          entityType: string | null;
+          operation: string | null;
+          title: string;
+          status: string | null;
+          priority: string | null;
+          parentLinks: string[] | null;
+        } => Boolean(row)),
+      warnings: Array.isArray(explicitPreview?.warnings)
+        ? explicitPreview.warnings.map((value) => String(value || "").trim()).filter(Boolean)
+        : [],
+    };
+  }
+
+  const workflowItems = getWorkflowPreviewItems(proposal);
+  if (workflowItems.length === 0) return null;
+  return {
+    title:
+      String(proposal.workflowPreview?.summaryLine || proposal.humanReadableSummary || "Planned changes").trim() ||
+      "Planned changes",
+    items: workflowItems
+      .map((item, idx) => {
+        const title = String(item.title || "").trim();
+        if (!title) return null;
+        const parentLinks = [
+          String((item.parentLinkage as Record<string, unknown> | undefined)?.lawsuitReference || "").trim(),
+          String((item.parentLinkage as Record<string, unknown> | undefined)?.dossierReference || "").trim(),
+          String((item.parentLinkage as Record<string, unknown> | undefined)?.clientReference || "").trim(),
+        ].filter(Boolean);
+        return {
+          index: idx + 1,
+          entityType: String(item.entityType || "").trim() || null,
+          operation: String(item.operation || item.actionType || "").trim() || null,
+          title,
+          status: String(item.status || "").trim() || null,
+          priority: String(item.priority || "").trim() || null,
+          parentLinks: parentLinks.length ? parentLinks : null,
+        };
+      })
+      .filter((row): row is {
+        index: number;
+        entityType: string | null;
+        operation: string | null;
+        title: string;
+        status: string | null;
+        priority: string | null;
+        parentLinks: string[] | null;
+      } => Boolean(row)),
+    warnings: [],
+  };
+}
+
 function normalizeChangesObject(
   changes: Record<string, unknown> | undefined,
 ): Record<string, { from: unknown; to: unknown }> | undefined {
@@ -451,9 +530,12 @@ export function proposalToSemanticInput(
           .map((line) => String(line || "").trim())
           .filter(Boolean);
   const workflowImpactHints = confirmationPreview ? [] : buildWorkflowStepImpactHints(workflow, context);
+  const proposalPreview = buildCanonicalProposalPreview(proposal);
   const workflowPreviewImpactHints = confirmationPreview
     ? []
-    : buildWorkflowPreviewImpactHints(proposal, context);
+    : proposalPreview && proposalPreview.items.length > 0
+      ? []
+      : buildWorkflowPreviewImpactHints(proposal, context);
 
   const changes =
     actionType === "UPDATE_ENTITY"
@@ -495,6 +577,7 @@ export function proposalToSemanticInput(
       actionKind: deriveActionKind(proposal),
       requiresRiskAck: proposal.confirmation?.extraRiskAck === true,
       confirmationPreview: confirmationPreview,
+      proposalPreview: proposalPreview || undefined,
       proposalSummary:
         String(proposal.humanReadableSummary || "").trim() ||
         String(proposal.description || "").trim() ||

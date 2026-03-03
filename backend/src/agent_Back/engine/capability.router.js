@@ -5,11 +5,13 @@ const {
   detectDraftIntent,
   READ_INTENTS,
 } = require("../intent.classifier");
+const { buildQueryIR } = require("../query/queryIR");
 const {
   CAPABILITIES,
   buildRoutingResult,
   buildRoutingClarification,
 } = require("../contracts/capabilityRoute.contract");
+const { requiresScope } = require("../read/intentExecution.contract");
 
 const CONFIDENCE_THRESHOLD = 0.75;
 const ANALYZE_ENTITY_INTENT = "ANALYZE_ENTITY";
@@ -155,8 +157,21 @@ function routeCapability({ message, context, resumeContext = null } = {}) {
     });
   }
 
+  const queryIR = buildQueryIR({ message, requestContext: context || {} });
   const draftIntent = detectDraftIntent(message, context);
-  const readIntent = draftIntent ? null : detectReadIntent(message, context);
+  const readIntent =
+    queryIR?.intent?.family &&
+    ["LIST", "READ", "SUMMARIZE", "EXPLAIN", "SEARCH"].includes(queryIR.intent.family)
+      ? {
+          intent: queryIR.intent.name,
+          filters: queryIR.filters || {},
+          entityHints: Array.isArray(queryIR.entityHints) ? queryIR.entityHints : [],
+          aggregateSummary:
+            queryIR.intent.family === "SUMMARIZE" && queryIR.target === "collection",
+        }
+      : draftIntent
+        ? null
+        : detectReadIntent(message, context);
   const analyzeSignals = detectAnalyzeSignals(message, context);
   const dossierPriorityAnalysis = detectDossierPriorityAnalysis(message, context);
   const candidates = [];
@@ -214,7 +229,13 @@ function routeCapability({ message, context, resumeContext = null } = {}) {
     });
   }
 
-  if (detectCaseScopeAmbiguity(message) && readIntent) {
+  if (
+    detectCaseScopeAmbiguity(message) &&
+    readIntent &&
+    requiresScope(readIntent.intent, {
+      aggregateSummary: Boolean(readIntent.aggregateSummary),
+    })
+  ) {
     const summarizeMatch = /\b(summary|summarize|overview|recap)\b/i.test(
       String(message || ""),
     );

@@ -23,7 +23,13 @@ const {
 } = require("./chat.mutationIntentLogging");
 const { resolveAdaptiveMutationRemediation } = require("../engine/agentMutationConstraintResolver");
 const { planEntityCreation } = require("../mutations/entityCreationPlanner");
-const { detectDraftIntent, isSlashCommand, parseSlashCommand } = require("../intent.classifier");
+const {
+  detectReadIntent,
+  detectDraftIntent,
+  isSlashCommand,
+  parseSlashCommand,
+} = require("../intent.classifier");
+const { requiresScope, isGlobalSafeIntent } = require("../read/intentExecution.contract");
 const { detectDocumentGenerationIntent } = require("../documentGeneration.intent");
 const { toProposalArtifact } = require("../proposals/proposalArtifact");
 const operatorsService = require("../../services/operators.service");
@@ -750,7 +756,17 @@ class ChatAgentService {
     requestContext,
     exposedTools,
     draftIntent,
+    queryIR = null,
   }) {
+    const readIntentName = String(
+      queryIR?.intent?.name || detectReadIntent(String(userMessage || ""), requestContext || {})?.intent || "",
+    ).toUpperCase();
+    const readAggregateSummary =
+      queryIR?.intent?.family === "SUMMARIZE" && queryIR?.target === "collection";
+    const readRequiresScope = requiresScope(readIntentName, {
+      aggregateSummary: Boolean(readAggregateSummary),
+    });
+    const readGlobalSafe = isGlobalSafeIntent(readIntentName);
     const systemInstruction = {
       mode: "CHATBOT_AGENT_MODE",
       requirements: [
@@ -758,7 +774,16 @@ class ChatAgentService {
         "Use only exposed tools when needed; do not invent tools.",
         "Validate facts with tool results before answering.",
         "Never expose internal numeric IDs in user-facing text. Use names, titles, and references.",
-        "For entity-specific legal work, call getEntityGraph first to ground parent/child context before synthesis.",
+        ...(readRequiresScope
+          ? [
+              "For entity-specific legal work, call getEntityGraph first to ground parent/child context before synthesis.",
+            ]
+          : []),
+        ...(readGlobalSafe
+          ? [
+              "For global list intents with no active scope, use direct list tools first before asking for context.",
+            ]
+          : []),
         "Do not expose internal mutation commands or command syntax in chat responses.",
         "If a requested capability is unavailable, explain constraint briefly.",
         "You are not allowed to fabricate legal references or leave placeholders. If information is missing, ask.",
@@ -799,6 +824,11 @@ class ChatAgentService {
             }
           : null,
       conversationMode: requestContext?._conversationMode || "informational",
+      readIntentPolicy: {
+        intent: readIntentName || null,
+        scopeRequired: readRequiresScope,
+        globalSafe: readGlobalSafe,
+      },
       currentScope:
         llmHistory?.conversationScope?.activeScope &&
         Number(llmHistory?.conversationScope?.activeScope?.entityId || 0) > 0

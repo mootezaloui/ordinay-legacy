@@ -32,4 +32,9 @@ test("bulk create task workflow proposal summary is task-specific", async () => 
   assert.match(proposal.humanReadableSummary, /^Create 2 tasks/);
   assert.equal(proposal.params.workflow.steps.length, 2);
   assert.equal(proposal.params.workflow.steps[0].params.status, "todo");
+  assert.ok(proposal.params.preview && typeof proposal.params.preview === "object");
+  assert.equal(proposal.params.preview.items.length, 2);
+  assert.equal(proposal.params.preview.items[0].title, "Task one");
+  assert.equal(proposal.params.preview.items[0].status, "todo");
+  assert.ok(!("entityId" in proposal.params.preview.items[0]));
 });

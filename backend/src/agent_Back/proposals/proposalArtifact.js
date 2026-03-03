@@ -96,10 +96,12 @@ function _extractKeyFields(stepParams = {}, stepActionType = "", scope = {}) {
     null;
   const status =
     payload?.status ||
+    stepParams?.status ||
     (changes?.status && typeof changes.status === "object" ? changes.status.to : changes?.status) ||
     null;
   const priority =
     payload?.priority ||
+    stepParams?.priority ||
     (changes?.priority && typeof changes.priority === "object" ? changes.priority.to : changes?.priority) ||
     null;
 
@@ -215,6 +217,63 @@ function _buildWorkflowPreview(workflow = null, affectedEntities = [], fallbackS
   };
 }
 
+function _normalizeDisplayValue(value) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  return text || null;
+}
+
+function _buildProposalPreview({
+  proposal = null,
+  workflowPreview = null,
+} = {}) {
+  const confirmation =
+    proposal?.confirmation && typeof proposal.confirmation === "object" && !Array.isArray(proposal.confirmation)
+      ? proposal.confirmation
+      : {};
+  const warnings = Array.isArray(confirmation?.warnings)
+    ? confirmation.warnings.map((w) => _normalizeDisplayValue(w)).filter(Boolean)
+    : [];
+  const previewItems = Array.isArray(workflowPreview?.previewItems) ? workflowPreview.previewItems : [];
+  if (!previewItems.length) {
+    return {
+      title: _normalizeDisplayValue(proposal?.humanReadableSummary) || "Pending change preview",
+      items: [],
+      warnings,
+    };
+  }
+
+  const items = previewItems.map((row, index) => {
+    const parentLinkage =
+      row?.parentLinkage && typeof row.parentLinkage === "object" && !Array.isArray(row.parentLinkage)
+        ? row.parentLinkage
+        : {};
+    const links = [
+      _normalizeDisplayValue(parentLinkage?.lawsuitReference),
+      _normalizeDisplayValue(parentLinkage?.dossierReference),
+      _normalizeDisplayValue(parentLinkage?.clientReference),
+    ].filter(Boolean);
+    const entityType = _normalizeDisplayValue(row?.entityType);
+    return {
+      index: index + 1,
+      entityType,
+      operation: _normalizeDisplayValue(row?.operation) || _normalizeDisplayValue(row?.actionType),
+      title:
+        _normalizeDisplayValue(row?.title) ||
+        _normalizeDisplayValue(row?.label) ||
+        (entityType ? `${entityType.replace(/_/g, " ")}` : "Planned change"),
+      status: _normalizeDisplayValue(row?.status),
+      priority: _normalizeDisplayValue(row?.priority),
+      parentLinks: links.length ? links : null,
+    };
+  });
+
+  return {
+    title: _normalizeDisplayValue(workflowPreview?.summaryLine) || _normalizeDisplayValue(proposal?.humanReadableSummary) || "Pending change preview",
+    items,
+    warnings,
+  };
+}
+
 function toProposalArtifact(proposal, sessionId) {
   const rawParams =
     proposal?.params && typeof proposal.params === "object" && !Array.isArray(proposal.params)
@@ -260,6 +319,10 @@ function toProposalArtifact(proposal, sessionId) {
       : null;
   const displaySummary =
     workflowPreview?.detailedSummary || displayProposal?.humanReadableSummary || "";
+  const proposalPreview = _buildProposalPreview({
+    proposal: displayProposal,
+    workflowPreview,
+  });
 
   const artifact = {
     type: "proposal",
@@ -290,6 +353,7 @@ function toProposalArtifact(proposal, sessionId) {
           displayProposal?.params && typeof displayProposal.params === "object"
             ? displayProposal.params
             : {},
+        preview: proposalPreview,
         workflowPreview,
         previewItems: Array.isArray(workflowPreview?.previewItems) ? workflowPreview.previewItems : [],
       },
@@ -322,10 +386,31 @@ function toProposalArtifact(proposal, sessionId) {
         confirmation: first.confirmation || null,
         affectedEntities: first.affectedEntities || [],
         workflow: first.params?.workflow || null,
+        preview: first.preview || null,
         params: first.params || null,
       });
     }
   } catch (_) {}
+
+  if (PROPOSAL_DEBUG_ENABLED) {
+    try {
+      const first = artifact.proposals?.[0] || {};
+      const workflowSteps = Array.isArray(first?.params?.workflow?.steps) ? first.params.workflow.steps : [];
+      const previewItems = Array.isArray(first?.preview?.items) ? first.preview.items : [];
+      console.warn("[PROPOSAL_PREVIEW_DEBUG][backend]", {
+        proposalId: first?.proposalId || null,
+        actionType: first?.actionType || null,
+        workflowStepCount: workflowSteps.length,
+        workflowFirstStep: workflowSteps[0] || null,
+        previewShape: {
+          title: first?.preview?.title || null,
+          itemCount: previewItems.length,
+          firstItem: previewItems[0] || null,
+          warningCount: Array.isArray(first?.preview?.warnings) ? first.preview.warnings.length : 0,
+        },
+      });
+    } catch (_) {}
+  }
 
   return artifact;
 }

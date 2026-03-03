@@ -27,6 +27,8 @@ test("single task creation artifact keeps standard summary", () => {
   assert.match(item.humanReadableSummary, /Create/i);
   assert.equal(item.workflowPreview, null);
   assert.deepEqual(item.previewItems, []);
+  assert.ok(item.preview && typeof item.preview === "object");
+  assert.deepEqual(item.preview.items, []);
 });
 
 test("batch task workflow artifact contains grouped preview and title bullets", () => {
@@ -65,6 +67,13 @@ test("batch task workflow artifact contains grouped preview and title bullets", 
   assert.equal(item.workflowPreview.groups.length, 1);
   assert.match(item.workflowPreview.summaryLine, /^Create 3 tasks in PRO-2026-001/);
   assert.equal(item.previewItems.length, 3);
+  assert.equal(item.preview.items.length, 3);
+  assert.equal(item.preview.items[0].title, "Review dossier facts");
+  assert.equal(item.preview.items[0].status, "todo");
+  assert.equal(item.preview.items[0].priority, "high");
+  assert.ok(Array.isArray(item.preview.items[0].parentLinks));
+  assert.ok(!("dossierId" in (item.preview.items[0] || {})));
+  assert.ok(!("lawsuitId" in (item.preview.items[0] || {})));
   assert.match(item.humanReadableSummary, /^Create 3 tasks in PRO-2026-001/);
   assert.match(item.humanReadableSummary, /- Review dossier facts/);
   assert.match(item.humanReadableSummary, /- Collect children documents/);
@@ -103,8 +112,8 @@ test("mixed workflow artifact renders sections per entity type", () => {
   assert.equal(item.workflowPreview.groupedMode, "mixed_entity_types");
   assert.equal(item.workflowPreview.groups.length, 3);
   assert.equal(item.previewItems.length, 3);
+  assert.equal(item.preview.items.length, 3);
   assert.match(item.humanReadableSummary, /Create 1 task in DOS-2026-001/);
   assert.match(item.humanReadableSummary, /Create 1 session in DOS-2026-001/);
   assert.match(item.humanReadableSummary, /Create 1 mission in DOS-2026-001/);
 });
-

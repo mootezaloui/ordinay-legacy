@@ -6,6 +6,11 @@ const { resolveChatAmbiguity } = require("../chat/chat.ambiguity.resolver");
 const { filterToolsForState } = require("../chat/chat.tool.exposure");
 const { detectDraftIntent, detectReadIntent } = require("../intent.classifier");
 const { buildReadPlan } = require("../read/readPlan.builder");
+const { buildQueryIR } = require("../query/queryIR");
+const {
+  getIntentExecutionPolicy,
+  isGlobalSafeIntent,
+} = require("../read/intentExecution.contract");
 const { toProposalArtifact } = require("../proposals/proposalArtifact");
 const { buildDocumentContext } = require("./document.context.builder");
 const { buildDocumentSafeContext } = require("./document.exposure.firewall");
@@ -85,32 +90,80 @@ const DOCUMENT_ARTIFACT_AUTH_REASON = Object.freeze({
 });
 
 const DETERMINISTIC_LIST_INTENTS = new Set([
+  "LIST_CLIENTS",
   "LIST_DOSSIERS",
   "LIST_LAWSUITS",
   "LIST_TASKS",
+  "LIST_PERSONAL_TASKS",
   "LIST_OVERDUE_TASKS",
   "LIST_MISSIONS",
   "LIST_SESSIONS",
   "LIST_UPCOMING_SESSIONS",
+  "LIST_OFFICERS",
   "LIST_DOCUMENTS",
+  "LIST_NOTIFICATIONS",
+  "LIST_HISTORY_EVENTS",
+  "LIST_FINANCIAL_ENTRIES",
 ]);
 
 const LIST_CATEGORY_LABELS = Object.freeze({
+  clients: "clients",
   dossiers: "dossiers",
   lawsuits: "lawsuits",
   tasks: "tasks",
+  personal_tasks: "personal tasks",
   missions: "missions",
   sessions: "sessions",
+  officers: "officers",
   documents: "documents",
+  notifications: "notifications",
+  history: "history events",
+  financial_entries: "financial entries",
 });
 
 const LIST_CATEGORY_ENTITY_TYPE = Object.freeze({
+  clients: "client",
   dossiers: "dossier",
   lawsuits: "lawsuit",
   tasks: "task",
+  personal_tasks: "personal_task",
   missions: "mission",
   sessions: "session",
+  officers: "officer",
   documents: "document",
+  notifications: "notification",
+  history: "history_event",
+  financial_entries: "financial_entry",
+});
+
+const LIST_CATEGORY_RESULT_KEY = Object.freeze({
+  clients: "clients",
+  dossiers: "dossiers",
+  lawsuits: "lawsuits",
+  tasks: "tasks",
+  personal_tasks: "personalTasks",
+  missions: "missions",
+  sessions: "sessions",
+  officers: "officers",
+  documents: "documents",
+  notifications: "notifications",
+  history: "historyEvents",
+  financial_entries: "financialEntries",
+});
+
+const LIST_CATEGORY_NARROWING_HINTS = Object.freeze({
+  clients: "client name or reference",
+  dossiers: "client, dossier title, or reference",
+  lawsuits: "client, dossier, or lawsuit reference",
+  tasks: "status, priority, or text query",
+  personal_tasks: "status or text query",
+  missions: "status or mission reference",
+  sessions: "timeframe, status, or text query",
+  officers: "name or reference",
+  documents: "title, type, or text query",
+  notifications: "status or text query",
+  history: "activity type, direction, or text query",
+  financial_entries: "payment status, date, or text query",
 });
 
 const STRUCTURED_DRAFT_TYPE_BY_ENTITY = Object.freeze({
@@ -193,6 +246,25 @@ class ChatOrchestrator {
       ...(details && typeof details === "object" ? details : {}),
       timestamp: new Date().toISOString(),
     });
+  }
+
+  _summarizeHintDiagnostics(queryIR = null) {
+    const extracted = Array.isArray(queryIR?.hints?.extracted) ? queryIR.hints.extracted : [];
+    const bindingCount = Array.isArray(queryIR?.hints?.binding) ? queryIR.hints.binding.length : 0;
+    const nonBindingCount = Array.isArray(queryIR?.hints?.nonBinding) ? queryIR.hints.nonBinding.length : 0;
+    return {
+      bindingCount,
+      nonBindingCount,
+      hints: extracted.slice(0, 5).map((hint) => ({
+        type: hint?.type || null,
+        value: hint?.value ?? null,
+        entityType: hint?.entityType || null,
+        confidence: Number.isFinite(Number(hint?.confidence)) ? Number(hint.confidence) : null,
+        binding: Boolean(hint?.binding),
+        classification: hint?.classification || null,
+        reasonCode: hint?.reasonCode || null,
+      })),
+    };
   }
 
   _resolveOutputContractExecutionPolicy(currentPolicy = null) {
@@ -1425,17 +1497,35 @@ class ChatOrchestrator {
     return `- ${label}`;
   }
 
-  _renderDeterministicReadList({ graphResult = {}, listCategory = "" } = {}) {
-    const rows = Array.isArray(graphResult?.children?.[listCategory])
-      ? graphResult.children[listCategory]
-      : [];
+  _extractDirectListRows(result = {}, listCategory = "") {
+    const key = LIST_CATEGORY_RESULT_KEY[listCategory] || null;
+    if (!key) return [];
+    const rows = Array.isArray(result?.[key]) ? result[key] : [];
+    return rows;
+  }
+
+  _renderDeterministicReadList({
+    result = {},
+    listCategory = "",
+    executionMode = "graph",
+  } = {}) {
+    const rows =
+      executionMode === "direct"
+        ? this._extractDirectListRows(result, listCategory)
+        : Array.isArray(result?.children?.[listCategory])
+          ? result.children[listCategory]
+          : [];
     const categoryLabel = LIST_CATEGORY_LABELS[listCategory] || listCategory || "items";
     const rootLabel =
-      String(graphResult?.root?.title || graphResult?.root?.name || "").trim() || null;
+      executionMode === "graph"
+        ? String(result?.root?.title || result?.root?.name || "").trim() || null
+        : null;
 
     if (!rows.length) {
       if (rootLabel) return `No ${categoryLabel} found for ${rootLabel}.`;
-      return `No ${categoryLabel} found in the current scope.`;
+      return executionMode === "direct"
+        ? `No ${categoryLabel} found.`
+        : `No ${categoryLabel} found in the current scope.`;
     }
 
     const head = rootLabel
@@ -1445,11 +1535,24 @@ class ChatOrchestrator {
     if (rows.length > body.length) {
       body.push(`- and ${rows.length - body.length} more`);
     }
-    return [head, ...body].join("\n");
+    const narrowingHint = this._buildPostListNarrowingSuggestion({
+      listCategory,
+      rows,
+    });
+    return [head, ...body, ...(narrowingHint ? [narrowingHint] : [])].join("\n");
+  }
+
+  _buildPostListNarrowingSuggestion({ listCategory = "", rows = [] } = {}) {
+    const hints = LIST_CATEGORY_NARROWING_HINTS[listCategory];
+    if (!hints) return null;
+    if (!Array.isArray(rows) || rows.length < 2) return null;
+    return `You can narrow this list by ${hints}.`;
   }
 
   async _tryRunDeterministicReadList({
     userMessage = "",
+    queryIR = null,
+    readIntent: preResolvedReadIntent = null,
     requestContext = {},
     executionContext = {},
     llmHistory = null,
@@ -1457,12 +1560,24 @@ class ChatOrchestrator {
     posture = "ASSISTANT",
     state = CHAT_STATES.RETRIEVE,
   } = {}) {
-    const readIntent = detectReadIntent(String(userMessage || ""), requestContext || {});
+    const readIntent =
+      preResolvedReadIntent ||
+      (queryIR?.intent?.name
+        ? {
+            intent: queryIR.intent.name,
+            filters: queryIR.filters || {},
+            entityHints: Array.isArray(queryIR.entityHints) ? queryIR.entityHints : [],
+            aggregateSummary:
+              queryIR?.intent?.family === "SUMMARIZE" && queryIR?.target === "collection",
+          }
+        : detectReadIntent(String(userMessage || ""), requestContext || {}));
     if (!this._isDeterministicListIntent(readIntent)) return null;
+    const intentPolicy = getIntentExecutionPolicy(readIntent?.intent || "");
 
     const activeScope = this._resolveActiveEntityScope(requestContext, llmHistory);
     const plan = buildReadPlan({
       intent: readIntent,
+      queryIR,
       requestContext,
       activeScope,
     });
@@ -1472,12 +1587,17 @@ class ChatOrchestrator {
       intent: readIntent.intent,
       toolName: plan.toolName,
       toolInput: plan.toolInput,
+      executionMode: plan.executionMode || "graph",
+      intentPolicy: {
+        scopeRequired: Boolean(intentPolicy.scopeRequired),
+        globalSafe: Boolean(intentPolicy.globalSafe),
+      },
     });
 
-    let graphResult = null;
+    let toolResult = null;
     let toolError = null;
     try {
-      graphResult = await this.engine._callReadTool(
+      toolResult = await this.engine._callReadTool(
         plan.toolName,
         plan.toolInput,
         policy,
@@ -1490,7 +1610,7 @@ class ChatOrchestrator {
       toolName: plan.toolName,
       args: plan.toolInput,
       ok: !toolError,
-      result: graphResult,
+      result: toolResult,
       error: toolError
         ? {
             code: String(toolError?.code || "TOOL_EXECUTION_FAILED"),
@@ -1502,19 +1622,28 @@ class ChatOrchestrator {
             ok: false,
             error: String(toolError?.message || "Tool execution failed."),
           }
-        : graphResult,
+        : toolResult,
     };
 
     const listCategory = String(plan?.renderHint?.listCategory || "").trim();
-    const resolvedFromGraph = inferLastResolvedFromGraphResult(graphResult, listCategory);
+    const executionMode = String(plan?.executionMode || "graph").toLowerCase();
+    const resolvedFromGraph =
+      executionMode === "graph"
+        ? inferLastResolvedFromGraphResult(toolResult, listCategory)
+        : null;
     if (resolvedFromGraph) {
       updateChatOrchestratorState(this.engine, requestContext, {
         lastResolvedEntity: resolvedFromGraph,
       });
     }
-    const listedRows = !toolError && Array.isArray(graphResult?.children?.[listCategory])
-      ? graphResult.children[listCategory]
-      : [];
+    const listedRows =
+      !toolError && executionMode === "graph"
+        ? Array.isArray(toolResult?.children?.[listCategory])
+          ? toolResult.children[listCategory]
+          : []
+        : !toolError
+          ? this._extractDirectListRows(toolResult, listCategory)
+          : [];
     let autoPinnedScope = null;
     if (!toolError && listedRows.length === 1) {
       const targetEntityType = LIST_CATEGORY_ENTITY_TYPE[listCategory] || null;
@@ -1534,8 +1663,9 @@ class ChatOrchestrator {
     const finalMessage = toolError
       ? `I could not retrieve ${LIST_CATEGORY_LABELS[listCategory] || "the list"} right now.`
       : this._renderDeterministicReadList({
-          graphResult,
+          result: toolResult,
           listCategory,
+          executionMode,
         });
 
     updateChatOrchestratorState(this.engine, requestContext, {
@@ -1571,6 +1701,7 @@ class ChatOrchestrator {
             toolName: plan.toolName,
             toolInput: plan.toolInput,
             renderHint: plan.renderHint,
+            executionMode,
           },
           autoPinnedScope,
         },
@@ -2580,13 +2711,24 @@ class ChatOrchestrator {
             },
           }
         : clarificationAnswerMatcher(pendingClarification, userMessage);
+      const freshQueryIR = buildQueryIR({
+        message: String(userMessage || ""),
+        requestContext,
+      });
+      const hasFreshCompleteIntent = Boolean(freshQueryIR?.intent?.name);
       const shouldClearForFreshTurn =
-        !resolvedSelection && (ttlExpired || turnBudgetExceeded || !matcherResult.isAnswer);
+        !resolvedSelection &&
+        (ttlExpired ||
+          turnBudgetExceeded ||
+          !matcherResult.isAnswer ||
+          (hasFreshCompleteIntent && matcherResult?.resolved?.kind !== "selection"));
       if (pendingClarification && shouldClearForFreshTurn) {
         const clearReason = ttlExpired
           ? "expired_ttl"
           : turnBudgetExceeded
             ? "expired_turn_budget"
+            : hasFreshCompleteIntent
+              ? "fresh_complete_intent_override"
             : matcherResult.reason || "not_a_clarification_answer";
         updateChatOrchestratorState(this.engine, requestContext, {
           pendingClarification: null,
@@ -2609,6 +2751,7 @@ class ChatOrchestrator {
           cleared: true,
           reason: clearReason,
           branchTaken: "normal",
+          clarificationClearedByFreshIntent: hasFreshCompleteIntent,
         });
         state = pendingClarification?.resumeState || CHAT_STATES.RETRIEVE;
       }
@@ -3488,6 +3631,65 @@ class ChatOrchestrator {
       });
     }
 
+    const queryIR = buildQueryIR({
+      message: String(effectiveUserMessage || ""),
+      requestContext,
+    });
+    this._traceExecutionStep(requestContext, "query_ir_produced", {
+      rawMessage: String(effectiveUserMessage || ""),
+      queryIR,
+      hintDiagnostics: this._summarizeHintDiagnostics(queryIR),
+    });
+    const readIntent =
+      queryIR?.intent?.name &&
+      ["LIST", "READ", "SUMMARIZE", "EXPLAIN"].includes(String(queryIR?.intent?.family || ""))
+        ? {
+            intent: queryIR.intent.name,
+            filters: queryIR.filters || {},
+            entityHints: Array.isArray(queryIR.entityHints) ? queryIR.entityHints : [],
+            aggregateSummary:
+              queryIR?.intent?.family === "SUMMARIZE" && queryIR?.target === "collection",
+          }
+        : null;
+    const readIntentPolicy = getIntentExecutionPolicy(readIntent?.intent || queryIR?.intent?.name || "");
+    const globalSafeIntent = isGlobalSafeIntent(readIntent?.intent || queryIR?.intent?.name || "");
+    this._traceExecutionStep(requestContext, "intent_policy_evaluated", {
+      intent: readIntent?.intent || queryIR?.intent?.name || null,
+      intentPolicy: {
+        scopeRequired: Boolean(readIntentPolicy.scopeRequired),
+        globalSafe: Boolean(readIntentPolicy.globalSafe),
+        preferredExecutionPath: readIntentPolicy.preferredExecutionPath || null,
+        reasonCode: readIntentPolicy.reasonCode || null,
+      },
+      globalSafeIntent,
+    });
+    if (globalSafeIntent) {
+      const deterministicReadResult = await this._tryRunDeterministicReadList({
+        userMessage: effectiveUserMessage,
+        queryIR,
+        readIntent,
+        requestContext,
+        executionContext,
+        llmHistory,
+        policy,
+        posture,
+        state,
+      });
+      if (deterministicReadResult) {
+        this._traceExecutionStep(requestContext, "routing_execution_path", {
+          executionPath: "deterministic_direct",
+          intent: readIntent?.intent || null,
+          hintDiagnostics: this._summarizeHintDiagnostics(queryIR),
+          intentPolicy: {
+            scopeRequired: readIntentPolicy.scopeRequired,
+            globalSafe: readIntentPolicy.globalSafe,
+            reasonCode: readIntentPolicy.reasonCode || null,
+          },
+        });
+        return deterministicReadResult;
+      }
+    }
+
     const shouldSkipAmbiguityForUnscopedDraft =
       Boolean(draftIntent?.intent) &&
       (!Array.isArray(draftIntent?.entityHints) || draftIntent.entityHints.length === 0) &&
@@ -3497,6 +3699,7 @@ class ChatOrchestrator {
       : await resolveChatAmbiguity({
           engine: this.engine,
           message: effectiveUserMessage,
+          queryIR,
           policy,
           executionContext,
           exposedTools: [],
@@ -3513,6 +3716,13 @@ class ChatOrchestrator {
       reason: ambiguityResolution?.reason || null,
       mutationHintEntityType: futureCreateHint?.entityType || null,
       mutationHintOperation: futureCreateHint?.operation || null,
+      hintDiagnostics: this._summarizeHintDiagnostics(queryIR),
+      intentPolicy: {
+        scopeRequired: readIntentPolicy.scopeRequired,
+        globalSafe: readIntentPolicy.globalSafe,
+        reasonCode: readIntentPolicy.reasonCode || null,
+      },
+      executionPath: "ambiguity",
     });
     if (ambiguityResolution?.status === "resolved" && ambiguityResolution?.resolvedScope) {
       Object.assign(requestContext, ambiguityResolution.resolvedScope);
@@ -3600,6 +3810,8 @@ class ChatOrchestrator {
 
     const deterministicReadResult = await this._tryRunDeterministicReadList({
       userMessage: effectiveUserMessage,
+      queryIR,
+      readIntent,
       requestContext,
       executionContext,
       llmHistory,
@@ -3608,6 +3820,16 @@ class ChatOrchestrator {
       state,
     });
     if (deterministicReadResult) {
+      this._traceExecutionStep(requestContext, "routing_execution_path", {
+        executionPath: "deterministic_graph",
+        intent: readIntent?.intent || null,
+        hintDiagnostics: this._summarizeHintDiagnostics(queryIR),
+        intentPolicy: {
+          scopeRequired: readIntentPolicy.scopeRequired,
+          globalSafe: readIntentPolicy.globalSafe,
+          reasonCode: readIntentPolicy.reasonCode || null,
+        },
+      });
       return deterministicReadResult;
     }
 
@@ -3621,6 +3843,7 @@ class ChatOrchestrator {
       requestContext,
       exposedTools,
       draftIntent,
+      queryIR,
     });
     if (futureCreateHint) {
       messages.push({
@@ -3639,6 +3862,16 @@ class ChatOrchestrator {
       policy,
       executionContext,
       signal,
+    });
+    this._traceExecutionStep(requestContext, "routing_execution_path", {
+      executionPath: "llm_loop",
+      intent: readIntent?.intent || null,
+      hintDiagnostics: this._summarizeHintDiagnostics(queryIR),
+      intentPolicy: {
+        scopeRequired: readIntentPolicy.scopeRequired,
+        globalSafe: readIntentPolicy.globalSafe,
+        reasonCode: readIntentPolicy.reasonCode || null,
+      },
     });
     this._traceExecutionStep(requestContext, "output_contract_generation_completed", {
       rounds: loopResult?.rounds || 0,

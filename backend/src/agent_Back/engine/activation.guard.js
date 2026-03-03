@@ -1,6 +1,7 @@
 "use strict";
 
 const { READ_INTENTS } = require("../intent.classifier");
+const { requiresScope } = require("../read/intentExecution.contract");
 const {
   CAPABILITIES,
   buildActivationOk,
@@ -18,14 +19,9 @@ function normalizeQuery(searchIntent, message, context) {
 
 function requiresEntityForRead(readIntent) {
   if (!readIntent || !readIntent.intent) return false;
-  const normalized = String(readIntent.intent || "").toUpperCase();
-  if (normalized.startsWith("LIST_")) return false;
-  if (normalized.startsWith("READ_")) return true;
-  if (normalized.startsWith("EXPLAIN_")) return true;
-  if (normalized.startsWith("SUMMARIZE_")) {
-    return !readIntent.aggregateSummary;
-  }
-  return false;
+  return requiresScope(readIntent.intent, {
+    aggregateSummary: Boolean(readIntent.aggregateSummary),
+  });
 }
 
 function activationGuard({
