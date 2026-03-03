@@ -23,6 +23,8 @@ const {
   bindMutationScope,
   resolveBoundFromScopeLabels,
 } = require('../../mutations/mutationScopeBinder');
+const { validateAndPrepareFields } = require('../../mutations/fieldGovernance');
+const { applyHierarchicalScopeBinding } = require('../../mutations/hierarchicalScopeBinder');
 
 const OPERATION_TYPES = Object.freeze({
   CREATE_ENTITY: 'CREATE_ENTITY',
@@ -259,56 +261,97 @@ const inputSchema = {
 };
 
 const outputSchema = {
-  type: 'object',
-  description: 'Action proposal for confirmation',
-  properties: {
-    proposalId: { type: 'string', minLength: 1 },
-    actionType: { type: 'string', minLength: 1 },
-    toolCategory: { type: 'string' },
-    params: { type: 'object' },
-    reversible: { type: 'boolean' },
-    requiresConfirmation: { const: true },
-    humanReadableSummary: { type: 'string' },
-    affectedEntities: { type: 'array' },
-    status: { type: 'string' },
-    proposedAt: { type: 'string' },
-    version: { type: 'string' },
-    posture: { type: 'string' },
-    blockedReason: { anyOf: [{ type: 'string' }, { type: 'null' }] },
-    suggestedAlternative: { anyOf: [{ type: 'object' }, { type: 'null' }] },
-    userMessageDraft: { type: 'string' },
-    confirmation: { type: 'object' },
-    sessionId: { type: 'string' },
-    snapshot: {
-      anyOf: [
-        { type: 'null' },
-        {
-          type: 'object',
-          properties: {
-            scope: { type: 'string' },
-            scopeId: { anyOf: [{ type: 'integer' }, { type: 'string' }] },
-            hash: { type: 'string' },
-            timestamp: { type: 'string' },
-          },
-          required: ['scope', 'scopeId', 'hash', 'timestamp'],
-          additionalProperties: false,
+  anyOf: [
+    {
+      type: 'object',
+      description: 'Action proposal for confirmation',
+      properties: {
+        proposalId: { type: 'string', minLength: 1 },
+        actionType: { type: 'string', minLength: 1 },
+        toolCategory: { type: 'string' },
+        params: { type: 'object' },
+        reversible: { type: 'boolean' },
+        requiresConfirmation: { const: true },
+        humanReadableSummary: { type: 'string' },
+        affectedEntities: { type: 'array' },
+        status: { type: 'string' },
+        proposedAt: { type: 'string' },
+        version: { type: 'string' },
+        posture: { type: 'string' },
+        blockedReason: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+        suggestedAlternative: { anyOf: [{ type: 'object' }, { type: 'null' }] },
+        userMessageDraft: { type: 'string' },
+        confirmation: { type: 'object' },
+        sessionId: { type: 'string' },
+        snapshot: {
+          anyOf: [
+            { type: 'null' },
+            {
+              type: 'object',
+              properties: {
+                scope: { type: 'string' },
+                scopeId: { anyOf: [{ type: 'integer' }, { type: 'string' }] },
+                hash: { type: 'string' },
+                timestamp: { type: 'string' },
+              },
+              required: ['scope', 'scopeId', 'hash', 'timestamp'],
+              additionalProperties: false,
+            },
+          ],
         },
+      },
+      required: [
+        'proposalId',
+        'actionType',
+        'toolCategory',
+        'params',
+        'reversible',
+        'requiresConfirmation',
+        'humanReadableSummary',
+        'affectedEntities',
+        'status',
+        'proposedAt',
       ],
+      additionalProperties: false,
     },
-  },
-  required: [
-    'proposalId',
-    'actionType',
-    'toolCategory',
-    'params',
-    'reversible',
-    'requiresConfirmation',
-    'humanReadableSummary',
-    'affectedEntities',
-    'status',
-    'proposedAt',
+    {
+      type: 'object',
+      properties: {
+        type: { const: 'entity_creation_form' },
+        entityType: { type: 'string', minLength: 1 },
+        prefilled: { type: 'object' },
+        missingRequired: { type: 'array', items: { type: 'string', minLength: 1 } },
+        parentSelection: {
+          anyOf: [
+            { type: 'null' },
+            {
+              type: 'object',
+              properties: {
+                mode: { type: 'string' },
+                options: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      entityType: { type: 'string', minLength: 1 },
+                      id: { type: 'integer' },
+                      label: { type: 'string', minLength: 1 },
+                    },
+                    required: ['entityType', 'id', 'label'],
+                    additionalProperties: false,
+                  },
+                },
+              },
+              required: ['mode', 'options'],
+              additionalProperties: false,
+            },
+          ],
+        },
+      },
+      required: ['type', 'entityType', 'prefilled', 'missingRequired'],
+      additionalProperties: false,
+    },
   ],
-  additionalProperties: false,
 };
 
 function _hashIdempotencySeed(value) {
@@ -432,6 +475,27 @@ function _deriveEntityRefFromPayload(op) {
   return null;
 }
 
+function buildEntityCreationFormArtifact({
+  entityType,
+  prefilled = {},
+  missingRequired = [],
+  parentSelection = null,
+}) {
+  return {
+    type: 'entity_creation_form',
+    entityType: String(entityType || '').toLowerCase(),
+    prefilled:
+      prefilled && typeof prefilled === 'object' && !Array.isArray(prefilled)
+        ? prefilled
+        : {},
+    missingRequired: Array.isArray(missingRequired)
+      ? Array.from(new Set(missingRequired.map((field) => String(field || '').trim()).filter(Boolean)))
+      : [],
+    parentSelection:
+      parentSelection && typeof parentSelection === 'object' ? parentSelection : null,
+  };
+}
+
 /**
  * Universal mutation handler
  *
@@ -479,7 +543,25 @@ async function buildSingleOperationProposal(input, executionContext = {}) {
       });
       params.payload = scopeBinding.boundPayload;
       const boundLabels = resolveBoundFromScopeLabels(scopeBinding.boundFromScope);
-      if (Array.isArray(scopeBinding.missingRequired) && scopeBinding.missingRequired.length > 0) {
+      const hierarchicalBinding = applyHierarchicalScopeBinding({
+        entityType,
+        payload: params.payload,
+        activeScope: executionContext,
+      });
+      params.payload = hierarchicalBinding.preparedPayload;
+      if (hierarchicalBinding.status === 'needs_parent_input') {
+        return buildEntityCreationFormArtifact({
+          entityType,
+          prefilled: params.payload,
+          missingRequired: hierarchicalBinding.missingParentFields,
+          parentSelection: hierarchicalBinding.parentSelection,
+        });
+      }
+      if (
+        Array.isArray(scopeBinding.missingRequired) &&
+        scopeBinding.missingRequired.length > 0 &&
+        !['task', 'session', 'mission', 'financial_entry', 'lawsuit'].includes(String(entityType || '').toLowerCase())
+      ) {
         throw buildScopeBindingRequiredError({
           entityType,
           missingRequired: scopeBinding.missingRequired,
@@ -487,7 +569,23 @@ async function buildSingleOperationProposal(input, executionContext = {}) {
         });
       }
 
-      // Validate payload
+      const governance = validateAndPrepareFields({
+        entityType,
+        payload: params.payload,
+        activeScope: {
+          ...(executionContext && typeof executionContext === 'object' ? executionContext : {}),
+        },
+      });
+      params.payload = governance.preparedPayload;
+      if (governance.status === 'needs_input') {
+        return buildEntityCreationFormArtifact({
+          entityType,
+          prefilled: params.payload,
+          missingRequired: governance.missingCriticalFields,
+        });
+      }
+
+      // Validate payload after deterministic governance normalization.
       validatePayload(entityType, 'create', params.payload);
 
       // No snapshot needed for creation (entity doesn't exist yet)

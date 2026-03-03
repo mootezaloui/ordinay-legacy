@@ -11,6 +11,7 @@ interface AgentArtifactProps {
   onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
   onExampleClick?: (example: string) => void;
   onConfirmWebSearch?: (metadata: AgentRequestMetadata) => void;
+  onSubmitMessage?: (message: string) => void;
 }
 
 /**
@@ -21,7 +22,7 @@ interface AgentArtifactProps {
  *
  * This component just adds the shared footer (copy, retry).
  */
-export const AgentArtifact = memo(function AgentArtifact({ message, onFollowUpClick, onExampleClick, onConfirmWebSearch }: AgentArtifactProps) {
+export const AgentArtifact = memo(function AgentArtifact({ message, onFollowUpClick, onExampleClick, onConfirmWebSearch, onSubmitMessage }: AgentArtifactProps) {
   const isStreaming = message.status === "sending";
 
   return (
@@ -31,6 +32,7 @@ export const AgentArtifact = memo(function AgentArtifact({ message, onFollowUpCl
         onFollowUpClick={onFollowUpClick}
         onExampleClick={onExampleClick}
         onConfirmWebSearch={onConfirmWebSearch}
+        onSubmitMessage={onSubmitMessage}
       />
       {/* Footer actions — only visible on completed, non-streaming responses */}
       {!isStreaming && message.status !== undefined && (

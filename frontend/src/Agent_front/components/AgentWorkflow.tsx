@@ -41,6 +41,7 @@ import { WebSearchResultsArtifact } from "./artifacts/WebSearchResultsArtifact";
 import { DocumentGenerationPreviewArtifact } from "./artifacts/DocumentGenerationPreviewArtifact";
 import { RecoveryArtifact } from "./artifacts/RecoveryArtifact";
 import { ContextSuggestionRenderer } from "./artifacts/ContextSuggestionRenderer";
+import { EntityCreationFormArtifact } from "./artifacts/EntityCreationFormArtifact";
 import { ChatbotMutationStatus } from "./chatbot/ChatbotMutationStatus";
 import { MarkdownOutput } from "../../components/MarkdownOutput";
 import { useAgentSessions } from "../hooks/useAgentSessions";
@@ -83,6 +84,7 @@ interface AgentWorkflowProps {
   onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
   onExampleClick?: (example: string) => void;
   onConfirmWebSearch?: (metadata: AgentRequestMetadata) => void;
+  onSubmitMessage?: (message: string) => void;
 }
 
 /**
@@ -103,6 +105,7 @@ export function AgentWorkflow({
   onFollowUpClick,
   onExampleClick,
   onConfirmWebSearch,
+  onSubmitMessage,
 }: AgentWorkflowProps) {
   const { activeSessionId, activeSession, updateSessionMessages } =
     useAgentSessions();
@@ -294,6 +297,7 @@ export function AgentWorkflow({
           onFollowUpClick={onFollowUpClick}
           onExampleClick={onExampleClick}
           onConfirmWebSearch={onConfirmWebSearch}
+          onSubmitMessage={onSubmitMessage}
           activeSessionId={activeSessionId}
           activeSessionMessages={activeSession?.messages}
           updateSessionMessages={updateSessionMessages}
@@ -310,6 +314,7 @@ export function AgentWorkflow({
         onFollowUpClick={onFollowUpClick}
         onExampleClick={onExampleClick}
         onConfirmWebSearch={onConfirmWebSearch}
+        onSubmitMessage={onSubmitMessage}
         activeSessionId={activeSessionId}
         activeSessionMessages={activeSession?.messages}
         updateSessionMessages={updateSessionMessages}
@@ -1029,6 +1034,7 @@ function mapPriority(priority?: string): CollectionItem["priority"] {
 function isChatbotActionBlockType(dataType?: string): boolean {
   return (
     dataType === "proposal" ||
+    dataType === "entity_creation_form" ||
     dataType === "document_generation_preview" ||
     dataType === "document_generation_missing_fields" ||
     dataType === "context_suggestion" ||
@@ -1141,6 +1147,7 @@ function MinimalChatbotTurn(props: {
   onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
   onExampleClick?: (example: string) => void;
   onConfirmWebSearch?: (metadata: AgentRequestMetadata) => void;
+  onSubmitMessage?: (message: string) => void;
   activeSessionId?: string;
   activeSessionMessages?: AgentMessage[];
   updateSessionMessages?: (id: string, messages: AgentMessage[]) => void;
@@ -1200,6 +1207,7 @@ function ArtifactBody({
   onFollowUpClick,
   onExampleClick,
   onConfirmWebSearch,
+  onSubmitMessage,
   activeSessionId,
   activeSessionMessages,
   updateSessionMessages,
@@ -1208,6 +1216,7 @@ function ArtifactBody({
   onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
   onExampleClick?: (example: string) => void;
   onConfirmWebSearch?: (metadata: AgentRequestMetadata) => void;
+  onSubmitMessage?: (message: string) => void;
   activeSessionId?: string;
   activeSessionMessages?: AgentMessage[];
   updateSessionMessages?: (id: string, messages: AgentMessage[]) => void;
@@ -1507,6 +1516,14 @@ function ArtifactBody({
                 })
             : undefined
         }
+      />
+    );
+  }
+  if (dataType === "entity_creation_form" && message.data?.entityCreationForm) {
+    return (
+      <EntityCreationFormArtifact
+        data={message.data.entityCreationForm}
+        onSubmitMessage={onSubmitMessage}
       />
     );
   }

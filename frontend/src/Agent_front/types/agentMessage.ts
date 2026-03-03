@@ -108,7 +108,7 @@ export interface AgentMessage {
 }
 
 export interface AgentMessageData {
-  type: "explanation" | "risks" | "draft" | "document_draft" | "actions" | "clarification" | "collection" | "context_suggestion" | "proposal" | "document_generation_preview" | "document_generation_missing_fields" | "web_search_results" | "web_deep_search_results" | "chat_context_summary" | "recovery" | "error";
+  type: "explanation" | "risks" | "draft" | "document_draft" | "actions" | "clarification" | "collection" | "context_suggestion" | "proposal" | "entity_creation_form" | "document_generation_preview" | "document_generation_missing_fields" | "web_search_results" | "web_deep_search_results" | "chat_context_summary" | "recovery" | "error";
   explanation?: ExplanationOutput;
   risks?: RiskAnalysisOutput;
   draft?: DraftOutput;
@@ -119,6 +119,7 @@ export interface AgentMessageData {
   chatContextSummary?: ChatContextSummaryOutput;
   contextSuggestion?: import("../../services/api/agent").ContextSuggestionOutput;
   proposal?: ProposalOutput;
+  entityCreationForm?: import("../../services/api/agent").EntityCreationFormOutput;
   documentGenerationPreview?: DocumentGenerationPreviewOutput;
   documentGenerationMissingFields?: DocumentGenerationMissingFieldsOutput;
   webSearchResults?: WebSearchResultsOutput | WebDeepSearchResultsOutput;

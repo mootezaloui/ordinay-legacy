@@ -42,6 +42,7 @@ export default function CardActionMenu({ actions = [] }) {
         sideOffset={6}
         collisionPadding={16}
         className="min-w-[10rem] max-h-none overflow-y-visible"
+        onClick={(e) => e.stopPropagation()}
       >
         {normalActions.map((action, idx) => {
           const label = action.title || action.icon || "Action";
@@ -50,9 +51,7 @@ export default function CardActionMenu({ actions = [] }) {
           return (
             <DropdownMenuItem
               key={`${label}-${idx}`}
-              onSelect={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
+              onSelect={() => {
                 if (typeof action.onClick === "function") {
                   action.onClick({
                     stopPropagation: () => {},
@@ -78,9 +77,7 @@ export default function CardActionMenu({ actions = [] }) {
             <DropdownMenuItem
               key={`destructive-${label}-${idx}`}
               className="text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 focus:bg-red-50 dark:focus:bg-red-900/20"
-              onSelect={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
+              onSelect={() => {
                 if (typeof action.onClick === "function") {
                   action.onClick({
                     stopPropagation: () => {},

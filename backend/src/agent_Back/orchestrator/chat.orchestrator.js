@@ -10,6 +10,11 @@ const { toProposalArtifact } = require("../proposals/proposalArtifact");
 const { buildDocumentContext } = require("./document.context.builder");
 const { buildDocumentSafeContext } = require("./document.exposure.firewall");
 const { discoverScopedTarget } = require("../context/scopeDiscovery");
+const {
+  bindLastResolvedEntityToRequestContext,
+  inferLastResolvedFromGraphResult,
+  inferLastResolvedFromToolExecutions,
+} = require("../context/scopedEntityContext");
 const { CHAT_STATES, selectInitialState } = require("./chat.state.machine");
 const { parseFinalOutputContract } = require("./output.contract");
 const { parseJsonResponse } = require("../llm/llm.validation");
@@ -88,6 +93,15 @@ const LIST_CATEGORY_LABELS = Object.freeze({
   missions: "missions",
   sessions: "sessions",
   documents: "documents",
+});
+
+const LIST_CATEGORY_ENTITY_TYPE = Object.freeze({
+  dossiers: "dossier",
+  lawsuits: "lawsuit",
+  tasks: "task",
+  missions: "mission",
+  sessions: "session",
+  documents: "document",
 });
 
 function withStateOutput(result, state) {
@@ -565,6 +579,7 @@ class ChatOrchestrator {
   async _tryRunDeterministicReadList({
     userMessage = "",
     requestContext = {},
+    executionContext = {},
     llmHistory = null,
     policy = null,
     posture = "ASSISTANT",
@@ -619,6 +634,31 @@ class ChatOrchestrator {
     };
 
     const listCategory = String(plan?.renderHint?.listCategory || "").trim();
+    const resolvedFromGraph = inferLastResolvedFromGraphResult(graphResult, listCategory);
+    if (resolvedFromGraph) {
+      updateChatOrchestratorState(this.engine, requestContext, {
+        lastResolvedEntity: resolvedFromGraph,
+      });
+    }
+    const listedRows = !toolError && Array.isArray(graphResult?.children?.[listCategory])
+      ? graphResult.children[listCategory]
+      : [];
+    let autoPinnedScope = null;
+    if (!toolError && listedRows.length === 1) {
+      const targetEntityType = LIST_CATEGORY_ENTITY_TYPE[listCategory] || null;
+      const targetEntityId = validId(listedRows[0]?.id);
+      if (targetEntityType && targetEntityId) {
+        autoPinnedScope = this._pinEntityScopeBeforeContract({
+          requestContext,
+          executionContext,
+          resolvedEntity: {
+            entityType: targetEntityType,
+            entityId: targetEntityId,
+          },
+          source: "resolved",
+        });
+      }
+    }
     const finalMessage = toolError
       ? `I could not retrieve ${LIST_CATEGORY_LABELS[listCategory] || "the list"} right now.`
       : this._renderDeterministicReadList({
@@ -660,6 +700,7 @@ class ChatOrchestrator {
             toolInput: plan.toolInput,
             renderHint: plan.renderHint,
           },
+          autoPinnedScope,
         },
       },
       CHAT_STATES.FINAL,
@@ -1356,6 +1397,9 @@ class ChatOrchestrator {
       sourceRoute: "/agent/chat",
     });
     const proposal = v2Result?.result || null;
+    if (proposal && proposal.type === "entity_creation_form") {
+      return proposal;
+    }
     if (
       proposal &&
       proposal.proposalId &&
@@ -1428,6 +1472,30 @@ class ChatOrchestrator {
       policy,
       requestContext,
     });
+    const continuityBinding = bindLastResolvedEntityToRequestContext({
+      userMessage,
+      requestContext,
+      lastResolvedEntity: sessionState?.lastResolvedEntity || null,
+    });
+    if (continuityBinding.applied && continuityBinding.boundEntity) {
+      sessionState = updateChatOrchestratorState(this.engine, requestContext, {
+        activeScope: {
+          entityType: continuityBinding.boundEntity.type,
+          entityId: continuityBinding.boundEntity.id,
+          source: "scoped_entity_context",
+          confidence: 0.95,
+        },
+      });
+      this._traceExecutionStep(requestContext, "scoped_entity_context_bound", {
+        entityType: continuityBinding.boundEntity.type,
+        entityId: continuityBinding.boundEntity.id,
+        reason: continuityBinding.reason,
+      });
+    } else {
+      this._traceExecutionStep(requestContext, "scoped_entity_context_skipped", {
+        reason: continuityBinding.reason,
+      });
+    }
     const pendingClarification = sessionState?.pendingClarification || null;
     const pendingArtifact = pendingClarification?.artifact || null;
     const pendingSuggestions = Array.isArray(pendingArtifact?.suggestions)
@@ -1870,7 +1938,10 @@ class ChatOrchestrator {
         proposal = await this._buildMutationProposalFromOutputContract({
           contract: syntheticContract,
           policy,
-          executionContext,
+          executionContext: {
+            ...executionContext,
+            userMessage: effectiveUserMessage,
+          },
           requestContext,
         });
       } catch (error) {
@@ -1893,6 +1964,28 @@ class ChatOrchestrator {
           {
             message: finalMessage,
             outputArtifact: errorArtifact,
+            resolutionMeta: {
+              mutationGovernance,
+            },
+          },
+          CHAT_STATES.FINAL,
+        );
+      }
+      if (proposal?.type === "entity_creation_form") {
+        const finalMessage = "I need a few required identity fields before preparing this mutation.";
+        this.helper._recordTranscript({
+          requestContext,
+          userMessage: effectiveUserMessage,
+          finalMessage,
+          posture,
+          toolExecutions: [],
+          artifactType: "entity_creation_form",
+          artifact: proposal,
+        });
+        return withStateOutput(
+          {
+            message: finalMessage,
+            outputArtifact: proposal,
             resolutionMeta: {
               mutationGovernance,
             },
@@ -2067,6 +2160,7 @@ class ChatOrchestrator {
     const deterministicReadResult = await this._tryRunDeterministicReadList({
       userMessage: effectiveUserMessage,
       requestContext,
+      executionContext,
       llmHistory,
       policy,
       posture,
@@ -2109,6 +2203,16 @@ class ChatOrchestrator {
       rounds: loopResult?.rounds || 0,
       toolCalls: Array.isArray(loopResult?.toolExecutions) ? loopResult.toolExecutions.length : 0,
     });
+    const resolvedFromTools = inferLastResolvedFromToolExecutions(loopResult?.toolExecutions || []);
+    if (resolvedFromTools) {
+      updateChatOrchestratorState(this.engine, requestContext, {
+        lastResolvedEntity: resolvedFromTools,
+      });
+      this._traceExecutionStep(requestContext, "scoped_entity_context_updated_from_tools", {
+        entityType: resolvedFromTools.type,
+        entityId: resolvedFromTools.id,
+      });
+    }
     const parsedContract = parseFinalOutputContract(loopResult.finalMessage);
     if (!parsedContract.ok) {
       return this._buildOutputContractInvalidResult({
@@ -2361,7 +2465,10 @@ class ChatOrchestrator {
         proposal = await this._buildMutationProposalFromOutputContract({
           contract,
           policy,
-          executionContext,
+          executionContext: {
+            ...executionContext,
+            userMessage: effectiveUserMessage,
+          },
           requestContext,
         });
       } catch (error) {
@@ -2402,7 +2509,10 @@ class ChatOrchestrator {
         );
       }
 
-      if (proposal?.proposalId && proposal.requiresConfirmation === true) {
+      if (proposal?.type === "entity_creation_form") {
+        finalMessage = "I need a few required identity fields before preparing this mutation.";
+        outputArtifact = proposal;
+      } else if (proposal?.proposalId && proposal.requiresConfirmation === true) {
         const pendingProposal = {
           proposalId: proposal.proposalId,
           summary: proposal.humanReadableSummary || null,

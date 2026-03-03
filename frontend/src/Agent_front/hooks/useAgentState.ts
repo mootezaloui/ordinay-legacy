@@ -764,6 +764,12 @@ export function useAgentState() {
           } else if (output.type === "proposal") {
             agentData = { type: "proposal", proposal: output };
             streamedContent = "";
+          } else if (output.type === "entity_creation_form") {
+            agentData = {
+              type: "entity_creation_form",
+              entityCreationForm: output as import("../../services/api/agent").EntityCreationFormOutput,
+            };
+            streamedContent = "";
           } else if (output.type === "document_draft") {
             const proposalArtifact =
               (data as { mutationOutcome?: { proposalArtifact?: unknown } | null })?.mutationOutcome
@@ -1244,6 +1250,12 @@ export function useAgentState() {
             streamedContent = "";
           } else if (output.type === "proposal") {
             agentData = { type: "proposal", proposal: output };
+            streamedContent = "";
+          } else if (output.type === "entity_creation_form") {
+            agentData = {
+              type: "entity_creation_form",
+              entityCreationForm: output as import("../../services/api/agent").EntityCreationFormOutput,
+            };
             streamedContent = "";
           } else if (output.type === "document_draft") {
             const proposalArtifact =
@@ -1750,6 +1762,12 @@ export function useAgentState() {
             streamedContent = "";
           } else if (output.type === "proposal") {
             agentData = { type: "proposal", proposal: output };
+            streamedContent = "";
+          } else if (output.type === "entity_creation_form") {
+            agentData = {
+              type: "entity_creation_form",
+              entityCreationForm: output as import("../../services/api/agent").EntityCreationFormOutput,
+            };
             streamedContent = "";
           } else if (output.type === "document_draft") {
             const proposalArtifact =

@@ -65,6 +65,7 @@ export function AgentLayout({
     setDataAccess,
     startFollowUpIntent,
     confirmWebSearch,
+    startAgentStream,
   } = useAgentState();
 
   const {
@@ -97,6 +98,15 @@ export function AgentLayout({
       startFollowUpIntent?.(followUp);
     },
     [startFollowUpIntent],
+  );
+
+  const handleSubmitMessage = useCallback(
+    (message: string) => {
+      const text = String(message || "").trim();
+      if (!text) return;
+      startAgentStream(text);
+    },
+    [startAgentStream],
   );
 
   /* Shared props — avoids duplicating between desktop & mobile renders */
@@ -185,6 +195,7 @@ export function AgentLayout({
                 onFollowUpClick={handleFollowUpClick}
                 onExampleClick={handleExampleClick}
                 onConfirmWebSearch={confirmWebSearch}
+                onSubmitMessage={handleSubmitMessage}
               />
             )}
           </div>

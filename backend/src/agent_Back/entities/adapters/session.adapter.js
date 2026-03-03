@@ -37,9 +37,6 @@ function validate(operation, payload) {
     if (!payload.dossier_id && !payload.lawsuit_id) {
       throw new Error('Either dossier_id or lawsuit_id is required');
     }
-    if (payload.dossier_id && payload.lawsuit_id) {
-      throw new Error('Provide either dossier_id or lawsuit_id (exclusive)');
-    }
   }
 
   if (operation === 'update') {

@@ -18,6 +18,7 @@ interface AgentConversationProps {
   onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
   onExampleClick?: (example: string) => void;
   onConfirmWebSearch?: (metadata: AgentRequestMetadata) => void;
+  onSubmitMessage?: (message: string) => void;
 }
 
 /**
@@ -35,6 +36,7 @@ export const AgentConversation = memo(function AgentConversation({
   onFollowUpClick,
   onExampleClick,
   onConfirmWebSearch,
+  onSubmitMessage,
 }: AgentConversationProps) {
   // Group messages into interaction pairs: [user, agent?]
   const interactionPairs = useMemo(() => {
@@ -105,6 +107,7 @@ export const AgentConversation = memo(function AgentConversation({
                     onFollowUpClick={onFollowUpClick}
                     onExampleClick={onExampleClick}
                     onConfirmWebSearch={onConfirmWebSearch}
+                    onSubmitMessage={onSubmitMessage}
                   />
                 ))}
               </div>

@@ -570,6 +570,17 @@ export interface ProposalOutput {
   sessionId: string;
 }
 
+export interface EntityCreationFormOutput {
+  type: 'entity_creation_form';
+  entityType: string;
+  prefilled: Record<string, unknown>;
+  missingRequired: string[];
+  parentSelection?: {
+    mode: string;
+    options: Array<{ entityType: string; id: number; label: string }>;
+  } | null;
+}
+
 export interface RecoveryOption {
   label: string;
   action?: string;
@@ -763,6 +774,7 @@ export type AgentOutput =
   | CollectionOutput
   | ContextSuggestionOutput
   | ProposalOutput
+  | EntityCreationFormOutput
   | RecoveryOutput
   | WebSearchResultsOutput
   | WebDeepSearchResultsOutput
@@ -797,6 +809,7 @@ export interface ProcessedAgentResponse {
   collection?: CollectionOutput;
   contextSuggestion?: ContextSuggestionOutput;
   proposal?: ProposalOutput;
+  entityCreationForm?: EntityCreationFormOutput;
   recovery?: RecoveryOutput;
   documentGenerationPreview?: DocumentGenerationPreviewOutput;
   documentGenerationMissingFields?: DocumentGenerationMissingFieldsOutput;
@@ -897,6 +910,9 @@ export async function sendAgentMessage(
       processed.displayText = '';
     } else if (output.type === 'proposal') {
       processed.proposal = output as ProposalOutput;
+      processed.displayText = '';
+    } else if (output.type === 'entity_creation_form') {
+      processed.entityCreationForm = output as EntityCreationFormOutput;
       processed.displayText = '';
     } else if (output.type === 'recovery') {
       processed.recovery = output as RecoveryOutput;
