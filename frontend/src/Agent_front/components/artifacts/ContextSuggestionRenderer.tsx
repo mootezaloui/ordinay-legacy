@@ -104,13 +104,16 @@ export function ContextSuggestionRenderer({
 
         {/* Inline suggestion rows */}
         <div className="space-y-2">
-          {data.suggestions.map((suggestion) => {
+          {data.suggestions.map((suggestion, index) => {
             const friendlyMetadata = buildFriendlyMetadata(suggestion);
             const hasMetadata = friendlyMetadata.length > 0;
+            const rowKey = `${String(suggestion.id || "").trim() || "suggestion"}-${String(
+              suggestion.entityType || "",
+            )}-${Number(suggestion.entityId || 0)}-${index}`;
 
             return (
               <button
-                key={suggestion.id}
+                key={rowKey}
                 type="button"
                 onClick={() => onSelect(suggestion)}
                 className="agent-suggestion-row group"

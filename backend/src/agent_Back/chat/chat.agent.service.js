@@ -819,11 +819,8 @@ class ChatAgentService {
           "Respond directly and concisely.",
           "When performing analysis, retrieval, search, or generation tasks, begin with a short natural intent sentence (1-2 lines).",
           "Use clean markdown in a single message bubble.",
-          "Markdown must be readable: use paragraphs, bullet lists, and headings when useful.",
-          "Never place list items inline after a colon. Put each bullet on its own line.",
-          "For multi-section answers, use short section headings (for example: **Current Work**, **Next Steps**).",
+          "Let output structure be chosen freely based on what best serves the user's request.",
           "Do not output HTML tags; output markdown only.",
-          "Preferred structure for non-trivial tasks: optional italic intent line, main result paragraph(s) or bullets, optional '**What this means**' commentary.",
           "Do not restate the user's request.",
           "Do not restate the user's request verbatim.",
           "Do not use phrases like 'Got it', 'You're asking', 'Based on your request', or 'Here's what I found regarding'.",
@@ -833,7 +830,7 @@ class ChatAgentService {
           "After completing any tool calls, your FINAL assistant response must be only a JSON object matching the output contract described below.",
           "Intermediate tool-calling turns may use normal assistant tool-call messages, but the terminal response must be strict JSON only.",
           'Final output contract JSON schema: {"outputType":"message|document|mutation|research","title":"optional string","content":"required string","metadata":{}}',
-          'CRITICAL: The "content" field value must be markdown-formatted text following the formatting rules above. Apply headers (##), bullet lists (- item), numbered lists (1. item), and bold (**text**) inside the content string. Never write lists inline — each item must be on its own line.',
+          'CRITICAL: The "content" field value must be user-facing text and may use markdown when helpful.',
           'Use "message" for conversational/informational replies.',
           'Use "document" for standalone artifacts intended to be printed, signed, sent, filed, or stored. If unsure between message and document for a formal output, prefer "document".',
           'For outputType "document", metadata must include artifactKind and structureHints.',
@@ -4001,37 +3998,7 @@ class ChatAgentService {
       .replace(/\u00a0/g, " ")
       .trim();
     if (!text) return "";
-
-    // Normalize unicode dashes so downstream list heuristics are consistent.
-    text = text.replace(/[–—]/g, " - ");
-
-    // Fix common model formatting issues where list markers are emitted inline.
-    text = text.replace(/:\s+-\s+/g, ":\n- ");
-    text = text.replace(/([.!?])\s+-\s+/g, "$1\n- ");
-    text = text.replace(/:\s+(\d+\.\s+)/g, ":\n$1");
-    text = text.replace(/([.!?])\s+([A-Z][^:\n]{3,80})\s+(?=1\.\s)/g, "$1\n\n$2\n");
-    // Numbered steps: split only typical list ordinals (1-99), not years like 2026.
-    text = text.replace(/\s(?=\d{1,2}\.\s+[A-Z])/g, "\n");
-    // Handle "Heading - **Item**: ..." where only the first bullet remains inline.
-    text = text.replace(/([^\n])\s+-\s+(?=\*\*[^*\n]{1,120}\*\*\s*:)/g, "$1\n- ");
-
-    // If the model emitted many inline dash clauses, convert them to bullet lines.
-    // Use tolerant spacing so patterns like " - **Bold**" and non-breaking spaces are handled.
-    const inlineDashCount = (text.match(/[ \t]-[ \t]/g) || []).length;
-    if (inlineDashCount >= 2) {
-      text = text.replace(/[ \t]+-[ \t]+/g, "\n- ");
-    }
-
-    // Separate dense paragraphs from numbered lists when they are inline.
-    text = text.replace(/([^\n])\s+(?=1\.\s)/g, "$1\n");
-    text = text.replace(/(\n-\s[^\n]{2,220}\.)\s+(?=[A-Z])/g, "$1\n");
-    text = text.replace(/(\n\d{1,2}\.\s[^\n]{2,220}\.)\s+(?=[A-Z])/g, "$1\n");
-    text = text.replace(/([^\n])\s+(?=\d{1,2}\.\s+[A-Za-z])/g, "$1\n");
-    text = text.replace(/(^|\n)([A-Z][A-Za-z]*(?:\s+[A-Za-z]+){1,5})\s+By\b/g, "$1$2\nBy");
-
-    // Keep markdown spacing deterministic.
     text = text.replace(/[ \t]+\n/g, "\n");
-    text = text.replace(/-\s{2,}/g, "- ");
     text = text.replace(/\n{3,}/g, "\n\n");
     return text;
   }
@@ -4251,7 +4218,6 @@ class ChatAgentService {
 
     const prompt = [
       "Write one short user-facing operational commentary sentence.",
-      "No markdown. No bullets. No greetings.",
       "Do not mention internal systems, policies, permissions, or tokens.",
       "Focus on what this tool result adds for the user right now.",
       `User request: ${String(userMessage || "").trim()}`,

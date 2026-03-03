@@ -570,6 +570,30 @@ function normalizePlanInput(input = {}) {
   };
 }
 
+function normalizeInlineListMarkdown(value = "") {
+  let text = String(value || "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/\u00a0/g, " ")
+    .trim();
+  if (!text) return "";
+
+  // Normalize common inline list emission patterns from LLM output.
+  text = text.replace(/[–—]/g, " - ");
+  text = text.replace(/:\s+-\s+/g, ":\n- ");
+  text = text.replace(/([.!?])\s+-\s+/g, "$1\n- ");
+  text = text.replace(/([^\n])\s+-\s+(?=\*\*[^*\n]{1,120}\*\*\s*:)/g, "$1\n- ");
+
+  const inlineDashCount = (text.match(/[ \t]-[ \t]/g) || []).length;
+  if (inlineDashCount >= 2) {
+    text = text.replace(/[ \t]+-[ \t]+/g, "\n- ");
+  }
+
+  // Split inline numbered items like "1. A 2. B 3. C".
+  text = text.replace(/([^\n])\s+(?=\d{1,2}\.\s+[A-Za-z])/g, "$1\n");
+  text = text.replace(/\n{3,}/g, "\n\n");
+  return text;
+}
+
 async function planDocument(input = {}) {
   const normalized = normalizePlanInput(input);
   const entity = loadTargetEntity(normalized.target);
@@ -595,6 +619,9 @@ async function planDocument(input = {}) {
     envelope.content = envelope.content || {};
     envelope.content.markdown = markdown;
   }
+  markdown = normalizeInlineListMarkdown(markdown);
+  envelope.content = envelope.content || {};
+  envelope.content.markdown = markdown;
 
   const missingFields = [];
   const placeholderFindings = scanForPlaceholders(envelope.content, "content");

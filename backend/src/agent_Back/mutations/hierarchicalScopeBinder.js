@@ -22,12 +22,48 @@ function normalizeEntityType(value = "") {
   return String(value || "").trim().toLowerCase();
 }
 
+function resolveScopeFromEntity(entityType, entityId) {
+  const normalizedType = normalizeEntityType(entityType);
+  const id = toId(entityId);
+  if (!normalizedType || !id) return { lawsuitId: null, dossierId: null };
+
+  if (normalizedType === "lawsuit") {
+    return {
+      lawsuitId: id,
+      dossierId: resolveDossierIdForLawsuit(id),
+    };
+  }
+  if (normalizedType === "dossier") {
+    return {
+      lawsuitId: null,
+      dossierId: id,
+    };
+  }
+
+  const tableByType = {
+    task: "tasks",
+    session: "sessions",
+    mission: "missions",
+    financial_entry: "financial_entries",
+  };
+  const table = tableByType[normalizedType];
+  if (!table) return { lawsuitId: null, dossierId: null };
+
+  const row = db
+    .prepare(`SELECT lawsuit_id, dossier_id FROM ${table} WHERE id = ? LIMIT 1`)
+    .get(id);
+  const lawsuitId = toId(row?.lawsuit_id);
+  const dossierId = toId(row?.dossier_id) || (lawsuitId ? resolveDossierIdForLawsuit(lawsuitId) : null);
+  return { lawsuitId, dossierId };
+}
+
 function readScope(activeScope = {}) {
   const scope = activeScope && typeof activeScope === "object" ? activeScope : {};
   const resolvedType = normalizeEntityType(scope?.resolvedEntity?.type || scope?.activeScope?.entityType);
   const resolvedId = toId(scope?.resolvedEntity?.id || scope?.activeScope?.entityId);
-  const lawsuitId = toId(scope?.lawsuitId) || (resolvedType === "lawsuit" ? resolvedId : null);
-  const dossierId = toId(scope?.dossierId) || (resolvedType === "dossier" ? resolvedId : null);
+  const resolvedScope = resolveScopeFromEntity(resolvedType, resolvedId);
+  const lawsuitId = toId(scope?.lawsuitId) || resolvedScope.lawsuitId || null;
+  const dossierId = toId(scope?.dossierId) || resolvedScope.dossierId || null;
   return { lawsuitId, dossierId };
 }
 
@@ -38,6 +74,25 @@ function resolveDossierIdForLawsuit(lawsuitId) {
     .prepare("SELECT dossier_id FROM lawsuits WHERE id = ? LIMIT 1")
     .get(id);
   return toId(row?.dossier_id);
+}
+
+function listLawsuitsByDossier(dossierId) {
+  const id = toId(dossierId);
+  if (!id) return [];
+  return db
+    .prepare(
+      `SELECT id, COALESCE(title, '') AS title, COALESCE(reference, '') AS reference
+       FROM lawsuits
+       WHERE deleted_at IS NULL AND dossier_id = ?
+       ORDER BY COALESCE(updated_at, created_at, id) DESC`,
+    )
+    .all(id)
+    .map((row) => ({
+      id: Number(row.id),
+      title: String(row?.title || "").trim(),
+      reference: String(row?.reference || "").trim(),
+    }))
+    .filter((row) => Number.isInteger(row.id) && row.id > 0);
 }
 
 function buildParentSelectionOptions() {
@@ -69,6 +124,7 @@ function buildParentSelectionOptions() {
       entityType: "lawsuit",
       id: Number(row.id),
       label: label || `Lawsuit ${row.id}`,
+      reference: String(row?.reference || "").trim() || null,
     });
   }
   for (const row of dossierRows) {
@@ -79,6 +135,7 @@ function buildParentSelectionOptions() {
       entityType: "dossier",
       id: Number(row.id),
       label: label || `Dossier ${row.id}`,
+      reference: String(row?.reference || "").trim() || null,
     });
   }
   return options;
@@ -91,28 +148,56 @@ function bindTaskLikeParents(payload, scope) {
 
   if (explicitLawsuit) {
     prepared.lawsuit_id = explicitLawsuit;
-    const derivedDossier = explicitDossier || scope.dossierId || resolveDossierIdForLawsuit(explicitLawsuit);
-    if (derivedDossier) prepared.dossier_id = derivedDossier;
-    return { status: "ready", preparedPayload: prepared };
+    delete prepared.dossier_id;
+    return { status: "ready", preparedPayload: prepared, resolutionSource: "explicit_parent" };
   }
 
   if (explicitDossier) {
     prepared.dossier_id = explicitDossier;
     delete prepared.lawsuit_id;
-    return { status: "ready", preparedPayload: prepared };
+    return { status: "ready", preparedPayload: prepared, resolutionSource: "explicit_parent" };
   }
 
   if (scope.lawsuitId) {
     prepared.lawsuit_id = scope.lawsuitId;
-    const derivedDossier = scope.dossierId || resolveDossierIdForLawsuit(scope.lawsuitId);
-    if (derivedDossier) prepared.dossier_id = derivedDossier;
-    return { status: "ready", preparedPayload: prepared };
+    delete prepared.dossier_id;
+    return {
+      status: "ready",
+      preparedPayload: prepared,
+      resolutionSource: "active_lawsuit_scope",
+    };
   }
 
   if (scope.dossierId) {
+    const lawsuits = listLawsuitsByDossier(scope.dossierId);
+    if (lawsuits.length > 1) {
+      return {
+        status: "ambiguous_parent_selection",
+        preparedPayload: prepared,
+        missingParentFields: ["lawsuit_id"],
+        parentSelection: {
+          mode: "select_lawsuit",
+          options: lawsuits.map((row, index) => ({
+            id: `lawsuit-${row.id}-${index}`,
+            entityType: "lawsuit",
+            entityId: row.id,
+            reference: row.reference || null,
+            label:
+              [row.reference, row.title].filter(Boolean).join(" - ") ||
+              `Lawsuit #${row.id}`,
+            intent: "RESOLVE_CONTEXT_AND_CONTINUE",
+          })),
+        },
+        resolutionSource: "active_dossier_scope_ambiguous",
+      };
+    }
     prepared.dossier_id = scope.dossierId;
     delete prepared.lawsuit_id;
-    return { status: "ready", preparedPayload: prepared };
+    return {
+      status: "ready",
+      preparedPayload: prepared,
+      resolutionSource: "active_dossier_scope",
+    };
   }
 
   return {
@@ -123,6 +208,7 @@ function bindTaskLikeParents(payload, scope) {
       mode: "select_parent_record",
       options: buildParentSelectionOptions(),
     },
+    resolutionSource: "no_scope_parent",
   };
 }
 
@@ -131,7 +217,11 @@ function bindLawsuitParent(payload, scope) {
   const dossierId = toId(prepared?.dossier_id) || scope.dossierId;
   if (dossierId) {
     prepared.dossier_id = dossierId;
-    return { status: "ready", preparedPayload: prepared };
+    return {
+      status: "ready",
+      preparedPayload: prepared,
+      resolutionSource: "resolved_dossier_parent",
+    };
   }
   return {
     status: "needs_parent_input",
@@ -141,6 +231,7 @@ function bindLawsuitParent(payload, scope) {
       mode: "select_parent_record",
       options: buildParentSelectionOptions().filter((row) => row.entityType === "dossier"),
     },
+    resolutionSource: "no_dossier_parent",
   };
 }
 
@@ -159,6 +250,7 @@ function applyHierarchicalScopeBinding({ entityType, payload, activeScope } = {}
   return {
     status: "ready",
     preparedPayload,
+    resolutionSource: "not_applicable",
   };
 }
 

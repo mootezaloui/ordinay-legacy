@@ -172,7 +172,13 @@ function clarificationAnswerMatcher(pendingClarification, userMessage) {
     const matchedByRef = candidates.find((candidate) => {
       const candidateRef = _normalizeRef(candidate.reference || candidate.label || "");
       if (!candidateRef) return false;
-      return signals.refs.has(candidateRef);
+      for (const ref of signals.refs) {
+        if (!ref) continue;
+        if (ref === candidateRef) return true;
+        if (candidateRef.includes(ref)) return true;
+        if (ref.includes(candidateRef)) return true;
+      }
+      return false;
     });
     if (matchedByRef) {
       return {
@@ -219,4 +225,3 @@ function clarificationAnswerMatcher(pendingClarification, userMessage) {
 module.exports = {
   clarificationAnswerMatcher,
 };
-

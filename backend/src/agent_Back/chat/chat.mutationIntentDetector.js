@@ -1630,7 +1630,7 @@ function buildClarificationFromFailures({
       );
     }
     return buildClarification(
-      "Which specific entity do you want to update? Please provide the entity type and ID (for example: hearing 42).",
+      "Which specific entity do you want to update? Please provide the entity type and a reference/name (for example: session PRO-2026-001).",
       "entity_resolution_ambiguous",
       scores,
       candidate,

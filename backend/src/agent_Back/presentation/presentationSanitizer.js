@@ -324,12 +324,36 @@ function buildProposalDisplaySummary(proposal = {}) {
   const subjectLabel = subjectLabelRaw ? sanitizeDisplayText(String(subjectLabelRaw)) : null;
   const subject = subjectLabel || `selected ${entityTypeLabel}`;
 
+  const workflow =
+    params?.workflow && typeof params.workflow === "object" && !Array.isArray(params.workflow)
+      ? params.workflow
+      : null;
+
   if (actionType === "CREATE_ENTITY") return `Create ${subject}`;
   if (actionType === "UPDATE_ENTITY") return `Update ${subject}`;
   if (actionType === "DELETE_ENTITY") return `Delete ${subject}`;
   if (actionType === "LINK_ENTITIES") return `Update links for ${subject}`;
   if (actionType === "ATTACH_TO_ENTITY") return `Attach content to ${subject}`;
-  if (actionType === "EXECUTE_MUTATION_WORKFLOW") return `Apply workflow changes for ${subject}`;
+  if (actionType === "EXECUTE_MUTATION_WORKFLOW") {
+    const steps = Array.isArray(workflow?.steps) ? workflow.steps : [];
+    const createTaskCount = steps.filter((step) => {
+      const action = String(step?.actionType || "").toUpperCase();
+      const type = String(step?.params?.entityType || "").toLowerCase();
+      return action === "CREATE_ENTITY" && type === "task";
+    }).length;
+    if (createTaskCount > 0) {
+      const affectedEntities = Array.isArray(proposal?.affectedEntities) ? proposal.affectedEntities : [];
+      const dossier = affectedEntities.find((entry) => String(entry?.type || "").toLowerCase() === "dossier");
+      const lawsuit = affectedEntities.find((entry) => String(entry?.type || "").toLowerCase() === "lawsuit");
+      const scopeBits = [];
+      if (dossier?.reference) scopeBits.push(`linked to ${sanitizeDisplayText(String(dossier.reference))}`);
+      if (lawsuit?.reference) scopeBits.push(`under ${sanitizeDisplayText(String(lawsuit.reference))}`);
+      return `Create ${createTaskCount} tasks${scopeBits.length ? ` ${scopeBits.join(" ")}` : ""}`;
+    }
+    return sanitizeDisplayText(
+      String(proposal?.humanReadableSummary || `Apply workflow changes for ${subject}`),
+    );
+  }
   return sanitizeDisplayText(String(proposal?.humanReadableSummary || `Apply changes for ${subject}`));
 }
 

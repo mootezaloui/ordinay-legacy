@@ -187,6 +187,45 @@ async function maybeExecuteAdaptiveWorkflowFallback({
  */
 const proposalStore = new Map();
 
+function _sanitizeWorkflowFailureReason(message = "") {
+  const raw = String(message || "").trim();
+  if (!raw) return "validation failed";
+  if (/CHECK constraint failed:\s*status/i.test(raw)) return "invalid task status value";
+  if (/CHECK constraint failed:\s*priority/i.test(raw)) return "invalid task priority value";
+  if (/UNIQUE constraint failed/i.test(raw)) return "duplicate value conflict";
+  return raw.length > 180 ? `${raw.slice(0, 180).trim()}...` : raw;
+}
+
+function _buildWorkflowFailureSafeMessage(err, proposal) {
+  const failedSteps = Array.isArray(err?.workflowFailure?.failedSteps)
+    ? err.workflowFailure.failedSteps
+    : [];
+  if (!failedSteps.length) return null;
+
+  const workflow =
+    proposal?.params?.workflow &&
+    typeof proposal.params.workflow === "object" &&
+    !Array.isArray(proposal.params.workflow)
+      ? proposal.params.workflow
+      : null;
+  const steps = Array.isArray(workflow?.steps) ? workflow.steps : [];
+  const failedStepIds = new Set(failedSteps.map((step) => String(step?.stepId || "")).filter(Boolean));
+  const failedTitles = steps
+    .filter((step) => failedStepIds.has(String(step?.stepId || "")))
+    .map((step) => String(step?.params?.payload?.title || "").trim())
+    .filter(Boolean)
+    .slice(0, 5);
+  const firstReason = _sanitizeWorkflowFailureReason(failedSteps[0]?.message || err?.message || "");
+
+  if (/invalid task status value/i.test(firstReason)) {
+    return "Task creation failed because status value was invalid. Some tasks were not created.";
+  }
+  if (failedTitles.length > 0) {
+    return `Some tasks failed to create: ${failedTitles.join(", ")}. Reason: ${firstReason}.`;
+  }
+  return `Some workflow steps failed. Reason: ${firstReason}.`;
+}
+
 /**
  * Confirm and execute a proposal (V3 only)
  *
@@ -544,7 +583,26 @@ async function confirmProposal({ proposalId, sessionId, userId, ackRisk = false 
     clearPendingMutationProposal.call(this, {
       sessionId: sessionId || contextSnapshot?.sessionId || proposal?.sessionId || null,
       userId: userId || contextSnapshot?.userId || null,
+      clearStructuredDraft: contextSnapshot?.draftPromotion?.clearOnSuccess === true,
     });
+    if (contextSnapshot?.draftPromotion?.enabled === true) {
+      this.ledger.record({
+        type: "draft_promotion_executed",
+        proposalId,
+        entityType: result?.entityType || null,
+        itemCount: Number(contextSnapshot?.draftPromotion?.itemCount || 0) || null,
+        sessionId: sessionId || contextSnapshot?.sessionId || proposal?.sessionId || null,
+        timestamp: new Date().toISOString(),
+      });
+      this.ledger.record({
+        type: "promotion_success",
+        proposalId,
+        entityType: result?.entityType || null,
+        itemCount: Number(contextSnapshot?.draftPromotion?.itemCount || 0) || null,
+        sessionId: sessionId || contextSnapshot?.sessionId || proposal?.sessionId || null,
+        timestamp: new Date().toISOString(),
+      });
+    }
 
     invalidateSnapshotsAfterMutation.call(this, {
       proposal,
@@ -661,7 +719,26 @@ async function confirmProposal({ proposalId, sessionId, userId, ackRisk = false 
         clearPendingMutationProposal.call(this, {
           sessionId: sessionId || contextSnapshot?.sessionId || proposal?.sessionId || null,
           userId: userId || contextSnapshot?.userId || null,
+          clearStructuredDraft: contextSnapshot?.draftPromotion?.clearOnSuccess === true,
         });
+        if (contextSnapshot?.draftPromotion?.enabled === true) {
+          this.ledger.record({
+            type: "draft_promotion_executed",
+            proposalId,
+            entityType: upgraded?.result?.entityType || null,
+            itemCount: Number(contextSnapshot?.draftPromotion?.itemCount || 0) || null,
+            sessionId: sessionId || contextSnapshot?.sessionId || proposal?.sessionId || null,
+            timestamp: new Date().toISOString(),
+          });
+          this.ledger.record({
+            type: "promotion_success",
+            proposalId,
+            entityType: upgraded?.result?.entityType || null,
+            itemCount: Number(contextSnapshot?.draftPromotion?.itemCount || 0) || null,
+            sessionId: sessionId || contextSnapshot?.sessionId || proposal?.sessionId || null,
+            timestamp: new Date().toISOString(),
+          });
+        }
 
         invalidateSnapshotsAfterMutation.call(this, {
           proposal,
@@ -694,6 +771,16 @@ async function confirmProposal({ proposalId, sessionId, userId, ackRisk = false 
       message: err?.message || "Execution failed",
       stackTop: typeof err?.stack === "string" ? String(err.stack).split("\n").slice(0, 2).join(" | ") : null,
     });
+    if (contextSnapshot?.draftPromotion?.enabled === true) {
+      this.ledger.record({
+        type: "promotion_failed",
+        proposalId,
+        entityType: proposal?.params?.entityType || null,
+        reason: String(errorCode || "EXECUTION_ERROR"),
+        sessionId: sessionId || contextSnapshot?.sessionId || proposal?.sessionId || null,
+        timestamp: new Date().toISOString(),
+      });
+    }
     const safeMessageByCode = {
       PDF_RENDERER_UNAVAILABLE:
         "PDF generation is unavailable on this server. Install puppeteer dependencies and retry.",
@@ -715,7 +802,12 @@ async function confirmProposal({ proposalId, sessionId, userId, ackRisk = false 
               "",
           ).trim()
         : "";
+    const workflowSafeMessage =
+      errorCode === "WORKFLOW_ALL_STEPS_FAILED" || errorCode === "WORKFLOW_STEP_FAILED"
+        ? _buildWorkflowFailureSafeMessage(err, proposal)
+        : "";
     const finalSafeMessage =
+      workflowSafeMessage ||
       derivedDomainSafeMessage ||
       safeMessageByCode[errorCode] ||
       "The action could not be completed. Please try again.";
@@ -791,7 +883,7 @@ function invalidateSnapshotsAfterMutation({
   }
 }
 
-function clearPendingMutationProposal({ sessionId, userId }) {
+function clearPendingMutationProposal({ sessionId, userId, clearStructuredDraft = false }) {
   const operationalStore = this?.contextStore?._operationalStore;
   if (
     !operationalStore ||
@@ -805,7 +897,18 @@ function clearPendingMutationProposal({ sessionId, userId }) {
     : null;
   const nextOrchestratorState =
     current?.orchestratorState && typeof current.orchestratorState === "object"
-      ? { ...current.orchestratorState, pendingProposal: null }
+      ? {
+          ...current.orchestratorState,
+          pendingProposal: null,
+          ...(clearStructuredDraft
+            ? {
+                structuredDraft: null,
+                lastStructuredDraft: null,
+                lastDraftCapability: null,
+                lastDraftEntityType: null,
+              }
+            : {}),
+        }
       : current?.orchestratorState;
   operationalStore.update(userId || "default", sessionId, {
     pendingMutationProposal: null,

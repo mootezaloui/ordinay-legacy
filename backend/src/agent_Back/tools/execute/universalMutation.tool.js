@@ -25,6 +25,7 @@ const {
 } = require('../../mutations/mutationScopeBinder');
 const { validateAndPrepareFields } = require('../../mutations/fieldGovernance');
 const { applyHierarchicalScopeBinding } = require('../../mutations/hierarchicalScopeBinder');
+const { normalizeTaskMutationPayload } = require('../../../domain/taskMutationNormalization');
 
 const OPERATION_TYPES = Object.freeze({
   CREATE_ENTITY: 'CREATE_ENTITY',
@@ -391,14 +392,21 @@ function _normalizeSingleOperationPayload({ op, entityType, payload }) {
       ? JSON.parse(JSON.stringify(payload))
       : {};
   const normalizedEntityType = String(entityType || '').trim().toLowerCase();
+  const normalizedOp = String(op || '').trim().toUpperCase();
 
   if (
     normalizedEntityType &&
-    op !== OPERATION_TYPES.LINK_ENTITIES &&
-    op !== OPERATION_TYPES.ATTACH_TO_ENTITY &&
+    normalizedOp !== OPERATION_TYPES.LINK_ENTITIES &&
+    normalizedOp !== OPERATION_TYPES.ATTACH_TO_ENTITY &&
     !normalizedPayload.entityType
   ) {
     normalizedPayload.entityType = normalizedEntityType;
+  }
+
+  if (normalizedEntityType === 'task') {
+    return normalizeTaskMutationPayload(normalizedPayload, {
+      operation: normalizedOp === OPERATION_TYPES.CREATE_ENTITY ? "create" : "update",
+    });
   }
 
   return normalizedPayload;
@@ -892,6 +900,8 @@ function _buildBatchWorkflowProposal({ normalizedInput, executionContext = {} })
       idempotencyKey: normalizedInput.idempotencyKey,
       origin: normalizedInput.origin,
       risk: normalizedInput.risk,
+      tolerant: true,
+      partialSuccess: true,
     },
   };
 
@@ -906,7 +916,7 @@ function _buildBatchWorkflowProposal({ normalizedInput, executionContext = {} })
   }
 
   const proposalId = generateProposalId('EXECUTE_MUTATION_WORKFLOW', 'v3');
-  const affectedEntities = operations.map((op) => {
+  const rawAffectedEntities = operations.map((op) => {
     const ref = _deriveEntityRefFromPayload(op);
     return {
       type: String(op.entityType || '').toLowerCase(),
@@ -914,10 +924,55 @@ function _buildBatchWorkflowProposal({ normalizedInput, executionContext = {} })
       operation: String(op.op || '').toLowerCase(),
     };
   });
+  const createTaskOps = operations.filter(
+    (op) =>
+      String(op?.op || "").toUpperCase() === OPERATION_TYPES.CREATE_ENTITY &&
+      String(op?.entityType || "").toLowerCase() === "task",
+  );
+  const firstTaskPayload =
+    createTaskOps[0]?.payload && typeof createTaskOps[0].payload === "object"
+      ? createTaskOps[0].payload
+      : {};
+  const dossierRef = Number(firstTaskPayload?.dossier_id || 0) || null;
+  const lawsuitRef = Number(firstTaskPayload?.lawsuit_id || 0) || null;
+  const dossierDisplay = dossierRef ? resolveEntityDisplay("dossier", dossierRef) : null;
+  const lawsuitDisplay = lawsuitRef ? resolveEntityDisplay("lawsuit", lawsuitRef) : null;
 
-  const summary = `Execute ${operations.length} mutation steps (${operations
+  const affectedEntities = [...rawAffectedEntities];
+  if (createTaskOps.length > 0) {
+    affectedEntities.push({
+      type: "task_batch",
+      operation: "create",
+      count: createTaskOps.length,
+      label: `${createTaskOps.length} tasks`,
+    });
+    if (dossierDisplay) {
+      affectedEntities.push({
+        type: "dossier",
+        operation: "scope",
+        reference: dossierDisplay.reference || null,
+        label: dossierDisplay.label || null,
+      });
+    }
+    if (lawsuitDisplay) {
+      affectedEntities.push({
+        type: "lawsuit",
+        operation: "scope",
+        reference: lawsuitDisplay.reference || null,
+        label: lawsuitDisplay.label || null,
+      });
+    }
+  }
+
+  let summary = `Execute ${operations.length} mutation steps (${operations
     .map((op) => String(op.op || '').toLowerCase())
     .join(', ')})`;
+  if (createTaskOps.length > 0) {
+    const scopeParts = [];
+    if (dossierDisplay?.reference) scopeParts.push(`linked to ${dossierDisplay.reference}`);
+    if (lawsuitDisplay?.reference) scopeParts.push(`under ${lawsuitDisplay.reference}`);
+    summary = `Create ${createTaskOps.length} tasks${scopeParts.length ? ` ${scopeParts.join(" ")}` : ""}`;
+  }
 
   return createActionProposal({
     proposalId,

@@ -87,26 +87,41 @@ function formatFieldValue(value: unknown, field?: string): string {
   return toTitleCase(String(value));
 }
 
+function escapeRegex(value: string): string {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function textContainsKeyword(text: string, keyword: string): boolean {
+  const normalizedText = String(text || "").toLowerCase();
+  const normalizedKeyword = String(keyword || "").toLowerCase().trim();
+  if (!normalizedText || !normalizedKeyword) return false;
+  const pattern = new RegExp(
+    `(^|[^\\p{L}\\p{N}])${escapeRegex(normalizedKeyword)}([^\\p{L}\\p{N}]|$)`,
+    "iu",
+  );
+  return pattern.test(normalizedText);
+}
+
 function containsSensitiveContext(input: SemanticActionMappingInput): boolean {
   const hintText = `${input.context.reasonHint || ""}`.toLowerCase();
-  if (SENSITIVE_KEYWORDS.some((keyword) => hintText.includes(keyword))) return true;
+  if (SENSITIVE_KEYWORDS.some((keyword) => textContainsKeyword(hintText, keyword))) return true;
   const impactText = (input.context.impactHints || []).join(" ").toLowerCase();
-  if (SENSITIVE_KEYWORDS.some((keyword) => impactText.includes(keyword))) return true;
+  if (SENSITIVE_KEYWORDS.some((keyword) => textContainsKeyword(impactText, keyword))) return true;
   const utterance = `${input.context.userUtterance || ""}`.toLowerCase();
-  if (SENSITIVE_KEYWORDS.some((keyword) => utterance.includes(keyword))) return true;
+  if (SENSITIVE_KEYWORDS.some((keyword) => textContainsKeyword(utterance, keyword))) return true;
   const statusTo = String(input.changes?.status?.to || "").toLowerCase();
-  return SENSITIVE_KEYWORDS.some((keyword) => statusTo.includes(keyword));
+  return SENSITIVE_KEYWORDS.some((keyword) => textContainsKeyword(statusTo, keyword));
 }
 
 function containsBereavementContext(input: SemanticActionMappingInput): boolean {
   const hintText = `${input.context.reasonHint || ""}`.toLowerCase();
-  if (BEREAVEMENT_KEYWORDS.some((keyword) => hintText.includes(keyword))) return true;
+  if (BEREAVEMENT_KEYWORDS.some((keyword) => textContainsKeyword(hintText, keyword))) return true;
   const impactText = (input.context.impactHints || []).join(" ").toLowerCase();
-  if (BEREAVEMENT_KEYWORDS.some((keyword) => impactText.includes(keyword))) return true;
+  if (BEREAVEMENT_KEYWORDS.some((keyword) => textContainsKeyword(impactText, keyword))) return true;
   const utterance = `${input.context.userUtterance || ""}`.toLowerCase();
-  if (BEREAVEMENT_KEYWORDS.some((keyword) => utterance.includes(keyword))) return true;
+  if (BEREAVEMENT_KEYWORDS.some((keyword) => textContainsKeyword(utterance, keyword))) return true;
   const statusTo = String(input.changes?.status?.to || "").toLowerCase();
-  return BEREAVEMENT_KEYWORDS.some((keyword) => statusTo.includes(keyword));
+  return BEREAVEMENT_KEYWORDS.some((keyword) => textContainsKeyword(statusTo, keyword));
 }
 
 function classifyTone(input: SemanticActionMappingInput): SemanticToneVariant {
@@ -298,7 +313,7 @@ function buildHintImpact(input: SemanticActionMappingInput): SemanticImpactItem[
     .filter(Boolean);
   const items: SemanticImpactItem[] = [];
 
-  for (const hint of hints.slice(0, 5)) {
+  for (const hint of hints) {
     const lower = hint.toLowerCase();
     if (lower.includes("cannot be undone") || lower.includes("permanent")) {
       items.push({ kind: "warning", detail: "This is a permanent change and cannot be undone." });

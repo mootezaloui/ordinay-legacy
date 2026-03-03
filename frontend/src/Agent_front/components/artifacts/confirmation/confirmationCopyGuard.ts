@@ -8,6 +8,10 @@ const REPLACEMENTS: Array<{ pattern: RegExp; replacement: string }> = [
   { pattern: /\bexecute\b/gi, replacement: "apply" },
   { pattern: /\boperation\b/gi, replacement: "action" },
   { pattern: /\bproposal\b/gi, replacement: "confirmation" },
+  { pattern: /\bworkflow\b/gi, replacement: "step plan" },
+  { pattern: /\brecord\b/gi, replacement: "information" },
+  { pattern: /\bentity\b/gi, replacement: "information" },
+  { pattern: /\bitem\b/gi, replacement: "entry" },
 ];
 
 const FORBIDDEN_PATTERNS = [

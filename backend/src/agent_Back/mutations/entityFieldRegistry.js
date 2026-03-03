@@ -110,7 +110,7 @@ const entityFieldRegistry = Object.freeze({
       category: "structural",
       default: ({ entityType, activeScope }) => toTitleFromMessage(entityType, activeScope),
     },
-    status: { required: false, category: "structural", default: "pending" },
+    status: { required: false, category: "structural", default: "todo" },
     priority: { required: false, category: "structural", default: "medium" },
   }),
   personal_task: Object.freeze({
@@ -119,7 +119,7 @@ const entityFieldRegistry = Object.freeze({
       category: "structural",
       default: ({ entityType, activeScope }) => toTitleFromMessage(entityType, activeScope),
     },
-    status: { required: false, category: "structural", default: "pending" },
+    status: { required: false, category: "structural", default: "todo" },
     priority: { required: false, category: "structural", default: "medium" },
   }),
   mission: Object.freeze({

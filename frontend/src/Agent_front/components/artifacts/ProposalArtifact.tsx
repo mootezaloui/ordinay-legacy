@@ -403,12 +403,66 @@ function buildProposalRenderItems(
           error instanceof SemanticMappingError ? (error as SemanticMappingError & { meta?: unknown }).meta : undefined,
         error,
       });
-      throw error instanceof SemanticMappingError
-        ? error
-        : new SemanticMappingError("Failed to prepare semantic confirmation.", {
-            proposalId: proposal.proposalId,
-            actionType,
-          });
+      const fallbackSummary = (
+        String(proposal.humanReadableSummary || "").trim() ||
+        "review and apply the requested change"
+      )
+        .replace(/\bworkflow\b/gi, "step plan")
+        .replace(/\bmutation\b/gi, "change")
+        .replace(/\boperation\b/gi, "action")
+        .replace(/\bproposal\b/gi, "confirmation")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+      const fallbackTarget =
+        String(
+          proposal.params?.entityLabel ||
+            proposal.params?.title ||
+            proposal.params?.reference ||
+            proposal.params?.targetLabel ||
+            "",
+        ).trim() || "the selected information";
+      const fallbackViewModel: SemanticActionViewModel = {
+        assistantMessage: `I can ${fallbackSummary.toLowerCase()} for ${fallbackTarget}. Please confirm before I continue.`,
+        headline: `Confirm Change for ${fallbackTarget}`,
+        description: `This applies the requested change for ${fallbackTarget}.`,
+        impact: [
+          {
+            kind: "consequence",
+            title: "Planned change",
+            detail: `This will ${fallbackSummary.toLowerCase()}.`,
+          },
+          {
+            kind: "reversibility",
+            detail:
+              proposal.reversible === false
+                ? "Not reversible."
+                : "If needed, this can be changed later.",
+          },
+        ],
+        confirmLabel: "Confirm Change",
+        cancelLabel: "Keep Current Information",
+        toneVariant: proposal.reversible === false ? "destructive" : "neutral",
+        sections: {
+          changesLabel: "What changes",
+          consequencesLabel: "What this affects",
+          warningsLabel: "What this affects",
+          reversibilityLabel: "Can this be undone?",
+        },
+      };
+      return {
+        viewModel: fallbackViewModel,
+        debugPayload: includeDebugPayload
+          ? {
+              fallbackUsed: true,
+              proposalId: proposal.proposalId,
+              actionType,
+              originalError:
+                error instanceof Error
+                  ? { name: error.name, message: error.message }
+                  : { message: String(error) },
+            }
+          : undefined,
+      };
     }
   });
 }

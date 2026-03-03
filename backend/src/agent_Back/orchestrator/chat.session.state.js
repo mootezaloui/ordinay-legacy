@@ -5,6 +5,10 @@ const DEFAULT_STATE = Object.freeze({
   activeScope: null,
   pendingClarification: null,
   pendingProposal: null,
+  structuredDraft: null,
+  lastStructuredDraft: null,
+  lastDraftCapability: null,
+  lastDraftEntityType: null,
   turnCounter: 0,
 });
 

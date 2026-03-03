@@ -53,6 +53,17 @@ function buildFallbackMessage(mutationOutcome = null) {
   return "I couldn’t complete that request right now.";
 }
 
+function buildFallbackMessageFromOutput(output = null, mutationOutcome = null) {
+  if (output && typeof output === "object") {
+    const type = String(output.type || "").toLowerCase();
+    const message = String(output.message || "").trim();
+    if (message && ["error", "recovery", "context_suggestion", "entity_creation_form"].includes(type)) {
+      return sanitizeDisplayText(message);
+    }
+  }
+  return sanitizeDisplayText(buildFallbackMessage(mutationOutcome));
+}
+
 function redactProposalArtifact(output) {
   if (!output || typeof output !== "object") return sanitizeForDisplay(output);
   if (String(output.type || "").toLowerCase() !== "proposal") return sanitizeForDisplay(output);
@@ -99,7 +110,7 @@ function enforceUserSafeResponsePolicy({
 
   let safeText = normalizedText;
   if (matchedPatterns.length > 0 || !safeText) {
-    safeText = sanitizeDisplayText(buildFallbackMessage(mutationOutcome));
+    safeText = buildFallbackMessageFromOutput(sanitizedOutput, mutationOutcome);
     if (typeof logger === "function") {
       try {
         logger({
@@ -128,5 +139,6 @@ module.exports = {
     findForbiddenMatches,
     redactProposalArtifact,
     buildFallbackMessage,
+    buildFallbackMessageFromOutput,
   },
 };

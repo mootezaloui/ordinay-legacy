@@ -6,6 +6,10 @@ const {
   ensureXor,
   normalizeData,
 } = require("./_utils");
+const {
+  normalizeTaskStatus,
+  normalizeTaskPriority,
+} = require("../domain/taskMutationNormalization");
 const notesService = require('./notes.service');
 const { withTx } = require("../db/withTx");
 const auditMutations = require("./auditMutations.service");
@@ -66,8 +70,8 @@ function create(payload) {
     "Provide either dossier_id or lawsuit_id (exclusive)"
   );
   assert(insertData.title, "title is required");
-  if (!insertData.status) insertData.status = "todo";
-  if (!insertData.priority) insertData.priority = "medium";
+  insertData.status = normalizeTaskStatus(insertData.status, "todo");
+  insertData.priority = normalizeTaskPriority(insertData.priority, "medium");
 
   try {
     const stmt = db.prepare(
@@ -109,6 +113,12 @@ function create(payload) {
 
 function update(id, payload) {
   const data = normalizeData(filterPayload(payload, allowedFields));
+  if (Object.prototype.hasOwnProperty.call(data, "status")) {
+    data.status = normalizeTaskStatus(data.status, "todo");
+  }
+  if (Object.prototype.hasOwnProperty.call(data, "priority")) {
+    data.priority = normalizeTaskPriority(data.priority, "medium");
+  }
   if (data.dossier_id !== undefined || data.lawsuit_id !== undefined) {
     ensureXor(
       [data.dossier_id, data.lawsuit_id],

@@ -9,6 +9,7 @@ const {
   getCompatibleParentTypes,
   getPayloadFieldForParent,
 } = require("../context/scopeDomainRelations");
+const { applyHierarchicalScopeBinding } = require("../mutations/hierarchicalScopeBinder");
 
 const MUTATION_GOVERNANCE_CREATE_THRESHOLD = 0.72;
 const MUTATION_GOVERNANCE_UPDATE_THRESHOLD = 0.75;
@@ -106,6 +107,17 @@ function hasMutationVerbStructure(message) {
   return /\b(create|add|set|update|edit|change|mark|assign|schedule|delete|remove|rename|reschedule)\b/.test(
     text,
   );
+}
+
+function hasListPlanningIntent(message) {
+  const text = String(message || "").toLowerCase();
+  if (!text) return false;
+  if (/\b(create|make|build|prepare|give|show|suggest)\s+(me\s+)?(a\s+)?(list|checklist|plan)\b/.test(text)) {
+    return true;
+  }
+  if (/\bwhat\s+should\s+we\s+do\b/.test(text)) return true;
+  if (/\b(list|checklist|plan)\s+of\s+(tasks?|missions?|sessions?|steps?)\b/.test(text)) return true;
+  return false;
 }
 
 function hasStrongReadRequest(message, readIntent) {
@@ -311,23 +323,41 @@ async function evaluateMutationGovernance({
   const knownEntityTypes = Array.from(adaptersRegistry.keys()).map((v) =>
     normalizeEntityType(v),
   );
+  const promotionLockedEntityType = normalizeEntityType(
+    mergedContext?.promotionLockEntityType || "",
+  );
+  const hasPromotionEntityLock =
+    Boolean(promotionLockedEntityType) && knownEntityTypes.includes(promotionLockedEntityType);
   const previousMutationContext =
     requestContext?.previousMutationContext ||
     executionContext?.previousMutationContext ||
     null;
-  const entityTypeResolution = resolveEntityTypeFromMessage({
-    userMessage: text,
-    knownEntityTypes,
-    previousMutationContext,
-  });
+  const entityTypeResolution = hasPromotionEntityLock
+    ? {
+        status: "resolved",
+        entityType: promotionLockedEntityType,
+        source: String(mergedContext?.promotionLockReason || "promotion_lock"),
+        candidates: [promotionLockedEntityType],
+      }
+    : resolveEntityTypeFromMessage({
+        userMessage: text,
+        knownEntityTypes,
+        previousMutationContext,
+      });
   const futureSignal = hasFutureIntentStructure(text);
   const mutationSignal = hasMutationVerbStructure(text);
+  const listPlanningIntent = hasListPlanningIntent(text);
   const strongRead = hasStrongReadRequest(text, readIntent);
-  const strongMutation = mutationSignal || futureSignal;
+  const strongMutation = (mutationSignal || futureSignal) && !listPlanningIntent;
   const effectiveStrongRead = strongRead && !strongMutation;
   const hasDeterministicEntityType =
     String(entityTypeResolution?.status || "").toLowerCase() === "resolved";
-  if (draftIntent?.intent && !strongMutation && !hasDeterministicEntityType) {
+  if (
+    draftIntent?.intent &&
+    !strongMutation &&
+    !hasDeterministicEntityType &&
+    !hasPromotionEntityLock
+  ) {
     return {
       intent: "draft_document",
       entityType: null,
@@ -356,18 +386,22 @@ async function evaluateMutationGovernance({
     String(entityTypeResolution?.status || "").toLowerCase() === "resolved"
       ? normalizeEntityType(entityTypeResolution.entityType)
       : "";
-  let confidence = 0.2;
+  let confidence = hasPromotionEntityLock ? 0.95 : 0.2;
+
+  if (hasPromotionEntityLock) {
+    routedIntent = "create";
+  }
 
   const explicitUpdate = /\b(update|edit|change|set|mark|assign|reschedule|rename)\b/i.test(text);
   const explicitCreate = /\b(create|add|open|new)\b/i.test(text);
   const ambiguousEntityType =
     String(entityTypeResolution?.status || "").toLowerCase() === "ambiguous";
 
-  if (!effectiveStrongRead && ambiguousEntityType && strongMutation) {
+  if (!hasPromotionEntityLock && !effectiveStrongRead && ambiguousEntityType && strongMutation) {
     routedIntent = "create";
     routedEntityType = null;
     confidence = 0.78;
-  } else if (!effectiveStrongRead && routedEntityType) {
+  } else if (!hasPromotionEntityLock && !effectiveStrongRead && routedEntityType) {
     if (
       explicitCreate ||
       futureSignal
@@ -387,6 +421,7 @@ async function evaluateMutationGovernance({
   }
 
   if (
+    !hasPromotionEntityLock &&
     !routedEntityType &&
     !effectiveStrongRead &&
     strongMutation &&
@@ -404,7 +439,10 @@ async function evaluateMutationGovernance({
     }
   }
 
-  if (!routedEntityType || (!ENTITY_SCOPE_KEY_BY_TYPE[routedEntityType] && !knownEntityTypes.includes(routedEntityType))) {
+  if (
+    !hasPromotionEntityLock &&
+    (!routedEntityType || (!ENTITY_SCOPE_KEY_BY_TYPE[routedEntityType] && !knownEntityTypes.includes(routedEntityType)))
+  ) {
     if (readIntent?.intent && !(ambiguousEntityType && strongMutation)) routedIntent = "read";
     if (!readIntent?.intent && strongMutation) {
       routedIntent = "create";
@@ -414,20 +452,24 @@ async function evaluateMutationGovernance({
     }
   }
 
-  if (effectiveStrongRead && routedIntent !== "update") {
+  if (!hasPromotionEntityLock && effectiveStrongRead && routedIntent !== "update") {
     routedIntent = "read";
     confidence = 0.88;
   }
 
   const deterministicFields = extractDeterministicFields(text, routedEntityType || "");
   let llmFields = {};
-  if ((routedIntent === "create" || routedIntent === "update") && routedEntityType) {
+  if ((routedIntent === "create" || routedIntent === "update") && routedEntityType && !hasPromotionEntityLock) {
     llmFields = await extractFieldsWithLLM({
       llmExtractor,
       userMessage: text,
       entityType: routedEntityType,
     });
-  } else if ((routedIntent === "create" || routedIntent === "update") && !routedEntityType) {
+  } else if (
+    (routedIntent === "create" || routedIntent === "update") &&
+    !routedEntityType &&
+    !hasPromotionEntityLock
+  ) {
     const inferred = await inferEntityAndFieldsWithLLM({
       llmExtractor,
       userMessage: text,
@@ -455,10 +497,32 @@ async function evaluateMutationGovernance({
           ...scopeBoundFields,
         }
       : null;
+  let parentResolution = null;
+  let preparedCreatePayload = createPayload;
+  if (routedIntent === "create" && routedEntityType && createPayload) {
+    const hierarchical = applyHierarchicalScopeBinding({
+      entityType: routedEntityType,
+      payload: createPayload,
+      activeScope: mergedContext,
+    });
+    preparedCreatePayload = hierarchical?.preparedPayload || createPayload;
+    parentResolution = {
+      status: String(hierarchical?.status || "ready"),
+      source: String(hierarchical?.resolutionSource || "unknown"),
+      missingParentFields: Array.isArray(hierarchical?.missingParentFields)
+        ? hierarchical.missingParentFields
+        : [],
+      parentSelection:
+        hierarchical?.parentSelection &&
+        typeof hierarchical.parentSelection === "object"
+          ? hierarchical.parentSelection
+          : null,
+    };
+  }
   const missingRequiredFields =
     routedIntent === "create"
       ? routedEntityType
-        ? computeMissingRequiredFields(routedEntityType, createPayload)
+        ? computeMissingRequiredFields(routedEntityType, preparedCreatePayload)
         : ["entity_type"]
       : [];
 
@@ -488,13 +552,17 @@ async function evaluateMutationGovernance({
           : null,
       scopeBoundFields,
     },
-    extractedFields: createPayload || extractedFields,
+    extractedFields: preparedCreatePayload || extractedFields,
+    parentResolution,
+    parentSelection: parentResolution?.parentSelection || null,
     missingRequiredFields,
     dedupeQuery,
     signals: {
       futureSignal,
       mutationSignal,
       strongRead: effectiveStrongRead,
+      promotionEntityLock: hasPromotionEntityLock,
+      listPlanningIntent,
     },
     entityTypeResolution: {
       status: entityTypeResolution?.status || "none",
@@ -504,6 +572,7 @@ async function evaluateMutationGovernance({
         : [],
     },
     shouldBypassReadResolution:
+      hasPromotionEntityLock ||
       (routedIntent === "create" && confidence >= MUTATION_GOVERNANCE_CREATE_THRESHOLD) ||
       (routedIntent === "update" && confidence >= MUTATION_GOVERNANCE_UPDATE_THRESHOLD),
   };

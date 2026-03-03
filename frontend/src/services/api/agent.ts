@@ -466,6 +466,56 @@ export interface ActionProposal {
   reversible?: boolean;
   humanReadableSummary?: string;
   affectedEntities?: Array<{ type: string; id: number; reference?: string }>;
+  workflowPreview?: {
+    totalSteps: number;
+    groupedMode: 'single_entity_type' | 'mixed_entity_types' | string;
+    summaryLine: string;
+    detailedSummary?: string;
+    previewItems: Array<{
+      stepId: string;
+      index: number;
+      actionType: string;
+      operation: string;
+      entityType: string;
+      title?: string | null;
+      status?: string | null;
+      priority?: string | null;
+      parentLinkage?: {
+        dossierId?: number | string | null;
+        lawsuitId?: number | string | null;
+        clientId?: number | string | null;
+        dossierReference?: string | null;
+        lawsuitReference?: string | null;
+        clientReference?: string | null;
+      };
+      fields?: Record<string, unknown>;
+    }>;
+    groups?: Array<{
+      entityType: string;
+      operation: string;
+      count: number;
+      header: string;
+      items: Array<{
+        stepId: string;
+        index: number;
+        title?: string | null;
+        status?: string | null;
+        priority?: string | null;
+      }>;
+    }>;
+  };
+  previewItems?: Array<{
+    stepId: string;
+    index: number;
+    actionType: string;
+    operation: string;
+    entityType: string;
+    title?: string | null;
+    status?: string | null;
+    priority?: string | null;
+    parentLinkage?: Record<string, unknown>;
+    fields?: Record<string, unknown>;
+  }>;
   // Frontend-only persisted UI state (stored in chat session history)
   uiState?: {
     status: "pending" | "confirmed" | "cancelled" | "failed";

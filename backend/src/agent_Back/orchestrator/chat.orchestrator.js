@@ -19,6 +19,7 @@ const { CHAT_STATES, selectInitialState } = require("./chat.state.machine");
 const { parseFinalOutputContract } = require("./output.contract");
 const { parseJsonResponse } = require("../llm/llm.validation");
 const { evaluateMutationGovernance } = require("../mutation/mutation.governance");
+const { applyHierarchicalScopeBinding } = require("../mutations/hierarchicalScopeBinder");
 const {
   getChatOrchestratorState,
   updateChatOrchestratorState,
@@ -112,6 +113,22 @@ const LIST_CATEGORY_ENTITY_TYPE = Object.freeze({
   documents: "document",
 });
 
+const STRUCTURED_DRAFT_TYPE_BY_ENTITY = Object.freeze({
+  task: "task_list",
+  mission: "mission_list",
+  session: "session_list",
+  financial_entry: "financial_entry_list",
+  document: "document_draft_list",
+});
+
+const STRUCTURED_DRAFT_ENTITY_BY_TYPE = Object.freeze({
+  task_list: "task",
+  mission_list: "mission",
+  session_list: "session",
+  financial_entry_list: "financial_entry",
+  document_draft_list: "document",
+});
+
 function withStateOutput(result, state) {
   return {
     intent: "CHATBOT_AGENT_MODE",
@@ -192,6 +209,54 @@ class ChatOrchestrator {
     return currentPolicy;
   }
 
+  _buildPersistedActiveScope({
+    entityType = "",
+    entityId = null,
+    scope = {},
+    source = "resolved",
+    confidence = 1,
+  } = {}) {
+    const normalizedType = String(entityType || "").toLowerCase().trim();
+    const normalizedId = validId(entityId);
+    if (!normalizedType || !normalizedId) return null;
+    const rawScope = scope && typeof scope === "object" && !Array.isArray(scope) ? scope : {};
+    const activeScope = {
+      entityType: normalizedType,
+      entityId: normalizedId,
+      source: String(source || "resolved"),
+      confidence: Number.isFinite(Number(confidence)) ? Number(confidence) : 1,
+      taskId: validId(rawScope.taskId),
+      sessionId: validId(rawScope.sessionId),
+      missionId: validId(rawScope.missionId),
+      financialEntryId: validId(rawScope.financialEntryId),
+      lawsuitId: validId(rawScope.lawsuitId),
+      dossierId: validId(rawScope.dossierId),
+      clientId: validId(rawScope.clientId),
+    };
+    const scopeKey = this._scopeKeyForEntityType(normalizedType);
+    if (scopeKey && !activeScope[scopeKey]) {
+      activeScope[scopeKey] = normalizedId;
+    }
+    return activeScope;
+  }
+
+  _persistActiveScope({
+    requestContext = {},
+    activeScope = null,
+    reason = "resolved_scope",
+  } = {}) {
+    if (!activeScope || typeof activeScope !== "object") return null;
+    updateChatOrchestratorState(this.engine, requestContext, { activeScope });
+    this._traceExecutionStep(requestContext, "scope_persisted", {
+      reason,
+      entityType: String(activeScope?.entityType || "").toLowerCase() || null,
+      entityId: Number(activeScope?.entityId || 0) || null,
+      dossierId: Number(activeScope?.dossierId || 0) || null,
+      lawsuitId: Number(activeScope?.lawsuitId || 0) || null,
+    });
+    return activeScope;
+  }
+
   _buildScopeSnapshotForStorage({ requestContext = {}, activeScope = null } = {}) {
     const snapshot = {
       taskId: null,
@@ -252,8 +317,55 @@ class ChatOrchestrator {
     const missing = Array.isArray(governance?.missingRequiredFields)
       ? governance.missingRequiredFields.filter(Boolean)
       : [];
-    const fieldLabel = missing.length > 0 ? missing.join(", ") : "required fields";
-    const friendlyPrompt = buildMissingFieldPrompt(missing);
+    const parentResolutionStatus = String(governance?.parentResolution?.status || "").toLowerCase();
+    const parentSelection =
+      governance?.parentSelection && typeof governance.parentSelection === "object"
+        ? governance.parentSelection
+        : null;
+    const selectionOptions = Array.isArray(parentSelection?.options)
+      ? parentSelection.options
+      : [];
+    const suggestions = selectionOptions
+      .map((row, index) => {
+        const option = row && typeof row === "object" ? row : {};
+        const entityTypeValue = String(option.entityType || "").toLowerCase();
+        const entityIdValue = Number(option.entityId || option.id || 0);
+        if (!entityTypeValue || !Number.isInteger(entityIdValue) || entityIdValue <= 0) return null;
+        const stableOptionId = String(option.id || "").trim();
+        const suggestionId = `${entityTypeValue}-${entityIdValue}-${stableOptionId || index}`;
+        return {
+          id: suggestionId,
+          entityType: entityTypeValue,
+          entityId: entityIdValue,
+          label:
+            String(option.label || "").trim() || `${entityTypeValue} #${entityIdValue}`,
+          subtitle:
+            typeof option.subtitle === "string" && option.subtitle.trim()
+              ? option.subtitle.trim()
+              : null,
+          reference:
+            typeof option.reference === "string" && option.reference.trim()
+              ? option.reference.trim()
+              : null,
+          scope:
+            option.scope && typeof option.scope === "object" && !Array.isArray(option.scope)
+              ? option.scope
+              : {},
+          metadata: {},
+          intent:
+            typeof option.intent === "string" && option.intent.trim()
+              ? option.intent.trim()
+              : "RESOLVE_CONTEXT_AND_CONTINUE",
+        };
+      })
+      .filter(Boolean);
+    const needsParentSelection =
+      (parentResolutionStatus === "ambiguous_parent_selection" ||
+        parentResolutionStatus === "needs_parent_input") &&
+      suggestions.length > 0;
+    const friendlyPrompt = needsParentSelection
+      ? "Select the parent record to continue with creation."
+      : buildMissingFieldPrompt(missing);
     return {
       type: "context_suggestion",
       message: friendlyPrompt,
@@ -261,7 +373,7 @@ class ChatOrchestrator {
       reason: "missing_context",
       originalIntent: "CHATBOT_AGENT_MODE",
       originalMessage: String(userMessage || "").trim() || null,
-      suggestions: [],
+      suggestions,
       timestamp: nowIso(),
       confidence: Number.isFinite(Number(governance?.confidence))
         ? Number(governance.confidence)
@@ -273,11 +385,12 @@ class ChatOrchestrator {
         intent: governance?.intent || null,
         entityType: governance?.entityType || null,
         missingRequiredFields: missing,
+        parentResolution: governance?.parentResolution || null,
       },
     };
   }
 
-  _buildMutationOperationsFromGovernance(governance = {}, requestContext = {}) {
+  _buildMutationOperationsFromGovernance(governance = {}, requestContext = {}, options = {}) {
     const intent = String(governance?.intent || "").toLowerCase();
     const entityType = String(governance?.entityType || "").toLowerCase();
     const extracted =
@@ -286,15 +399,112 @@ class ChatOrchestrator {
       !Array.isArray(governance.extractedFields)
         ? governance.extractedFields
         : {};
+    const promotedLinkedScope =
+      options?.promotedLinkedScope &&
+      typeof options.promotedLinkedScope === "object" &&
+      !Array.isArray(options.promotedLinkedScope)
+        ? options.promotedLinkedScope
+        : {};
+    const scopeContext =
+      options?.activeScopeContext &&
+      typeof options.activeScopeContext === "object" &&
+      !Array.isArray(options.activeScopeContext)
+        ? { ...requestContext, ...options.activeScopeContext }
+        : { ...requestContext };
+    const linkedLawsuitId = validId(promotedLinkedScope?.lawsuitId);
+    const linkedDossierId = validId(promotedLinkedScope?.dossierId);
+    if (!validId(scopeContext?.lawsuitId) && linkedLawsuitId) {
+      scopeContext.lawsuitId = linkedLawsuitId;
+    }
+    if (!validId(scopeContext?.dossierId) && linkedDossierId) {
+      scopeContext.dossierId = linkedDossierId;
+    }
+    const resolvedScopeType = String(scopeContext?.resolvedEntity?.type || "").toLowerCase();
+    const resolvedScopeId = validId(scopeContext?.resolvedEntity?.id);
+    if (!linkedLawsuitId && !linkedDossierId && resolvedScopeId) {
+      if (resolvedScopeType === "lawsuit" && !validId(scopeContext?.lawsuitId)) {
+        scopeContext.lawsuitId = resolvedScopeId;
+      }
+      if (resolvedScopeType === "dossier" && !validId(scopeContext?.dossierId)) {
+        scopeContext.dossierId = resolvedScopeId;
+      }
+    }
+    const bindPayloadToResolvedScope = (payload = {}) => {
+      const safePayload =
+        payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {};
+      const hierarchical = applyHierarchicalScopeBinding({
+        entityType,
+        payload: safePayload,
+        activeScope: scopeContext,
+      });
+      return hierarchical?.preparedPayload &&
+        typeof hierarchical.preparedPayload === "object" &&
+        !Array.isArray(hierarchical.preparedPayload)
+        ? hierarchical.preparedPayload
+        : safePayload;
+    };
     if (!intent || !entityType) return [];
     if (intent === "create") {
+      const promotedItems = Array.isArray(options?.promotedItems)
+        ? options.promotedItems.filter((item) => item && typeof item === "object")
+        : [];
+      if (promotedItems.length > 0) {
+        const basePayload =
+          extracted && typeof extracted === "object" && !Array.isArray(extracted)
+            ? { ...extracted }
+            : {};
+        if (
+          !Number(basePayload?.lawsuit_id || 0) &&
+          Number(promotedLinkedScope?.lawsuitId || 0) > 0
+        ) {
+          basePayload.lawsuit_id = Number(promotedLinkedScope.lawsuitId);
+        }
+        if (
+          !Number(basePayload?.dossier_id || 0) &&
+          Number(promotedLinkedScope?.dossierId || 0) > 0
+        ) {
+          basePayload.dossier_id = Number(promotedLinkedScope.dossierId);
+        }
+        return promotedItems
+          .map((item, index) => {
+            const payload = { ...basePayload };
+            for (const [key, value] of Object.entries(item || {})) {
+              if (value === null || value === undefined) continue;
+              if (typeof value === "string") {
+                const trimmed = value.trim();
+                if (!trimmed) continue;
+                if (!String(payload?.[key] || "").trim()) {
+                  payload[key] = trimmed;
+                }
+                continue;
+              }
+              if (payload[key] === undefined || payload[key] === null) {
+                payload[key] = value;
+              }
+            }
+            const boundPayload = bindPayloadToResolvedScope(payload);
+            return {
+              op: "CREATE_ENTITY",
+              entityType,
+              payload: {
+                entityType,
+                payload: boundPayload,
+              },
+              reason: `User requested creating ${entityType} item ${index + 1} from retained draft.`,
+            };
+          })
+          .filter((op) => {
+            const payload = op?.payload?.payload;
+            return payload && typeof payload === "object" && Object.keys(payload).length > 0;
+          });
+      }
       return [
         {
           op: "CREATE_ENTITY",
           entityType,
           payload: {
             entityType,
-            payload: extracted,
+            payload: bindPayloadToResolvedScope(extracted),
           },
           reason: `User requested creating a ${entityType} in chat.`,
         },
@@ -325,6 +535,660 @@ class ChatOrchestrator {
       ];
     }
     return [];
+  }
+
+  _resolveStructuredDraftScope({ requestContext = {}, llmHistory = null } = {}) {
+    const activeScope = this._resolveActiveEntityScope(requestContext, llmHistory);
+    const lawsuitId =
+      Number(requestContext?.lawsuitId || 0) > 0
+        ? Number(requestContext.lawsuitId)
+        : String(activeScope?.entityType || "").toLowerCase() === "lawsuit" &&
+            Number(activeScope?.entityId || 0) > 0
+          ? Number(activeScope.entityId)
+          : null;
+    const dossierId =
+      Number(requestContext?.dossierId || 0) > 0
+        ? Number(requestContext.dossierId)
+        : String(activeScope?.entityType || "").toLowerCase() === "dossier" &&
+            Number(activeScope?.entityId || 0) > 0
+          ? Number(activeScope.entityId)
+          : null;
+    return {
+      dossierId: Number.isInteger(dossierId) && dossierId > 0 ? dossierId : null,
+      lawsuitId: Number.isInteger(lawsuitId) && lawsuitId > 0 ? lawsuitId : null,
+    };
+  }
+
+  _deriveEntityTypeFromStructuredDraft(structuredDraft = null) {
+    const draftType = String(structuredDraft?.type || "").trim().toLowerCase();
+    if (STRUCTURED_DRAFT_ENTITY_BY_TYPE[draftType]) {
+      return STRUCTURED_DRAFT_ENTITY_BY_TYPE[draftType];
+    }
+    const hintType = String(structuredDraft?.entityType || "").trim().toLowerCase();
+    return STRUCTURED_DRAFT_TYPE_BY_ENTITY[hintType] ? hintType : null;
+  }
+
+  _isExecutionPromotionIntent(userMessage = "") {
+    const text = String(userMessage || "").trim().toLowerCase();
+    if (!text) return false;
+    const executionVerb =
+      /\b(add|create|insert|save|apply|post|record|schedule|open|generate|make|log|submit)\b/.test(
+        text,
+      );
+    if (!executionVerb) return false;
+    const continuationReference =
+      /\b(them|these|those|it|this|all|the list|that list|checklist|draft|drafts|items)\b/.test(
+        text,
+      );
+    const explicitLets = /\blet'?s\b/.test(text);
+    return continuationReference || explicitLets;
+  }
+
+  _deriveEntityTypeHintFromMessage(userMessage = "") {
+    const text = String(userMessage || "").toLowerCase();
+    if (!text) return null;
+    if (/\b(tasks?|to do|todo|checklist)\b/.test(text)) return "task";
+    if (/\bmissions?\b/.test(text)) return "mission";
+    if (/\b(sessions?|hearings?)\b/.test(text)) return "session";
+    if (/\b(financial entries|financial entry|invoices?|payments?)\b/.test(text)) {
+      return "financial_entry";
+    }
+    if (/\b(document drafts?|draft documents?)\b/.test(text)) return "document";
+    return null;
+  }
+
+  _extractStructuredDraftItemsFromText(content = "") {
+    const lines = String(content || "").split(/\r?\n/);
+    const items = [];
+    for (const rawLine of lines) {
+      const line = String(rawLine || "").trim();
+      if (!line) continue;
+      const bulletMatch = line.match(/^(?:[-*+]|\d+[.)])\s+(.+)$/);
+      if (!bulletMatch) continue;
+      const body = String(bulletMatch[1] || "").trim();
+      if (!body) continue;
+      const boldMatch = body.match(/^\*\*(.+?)\*\*\s*:?\s*(.*)$/);
+      if (boldMatch) {
+        const title = String(boldMatch[1] || "").trim();
+        const description = String(boldMatch[2] || "").trim();
+        if (title) {
+          items.push({ title, description: description || "" });
+          continue;
+        }
+      }
+      const colonIndex = body.indexOf(":");
+      if (colonIndex > 0 && colonIndex < 120) {
+        const title = String(body.slice(0, colonIndex)).trim();
+        const description = String(body.slice(colonIndex + 1)).trim();
+        if (title) {
+          items.push({ title, description: description || "" });
+          continue;
+        }
+      }
+      items.push({ title: body, description: "" });
+    }
+    const bulletItems = items.filter((item) => String(item?.title || "").trim());
+    if (bulletItems.length > 0) return bulletItems;
+
+    const plainLines = lines
+      .map((line) => String(line || "").trim())
+      .filter(Boolean);
+    if (plainLines.length < 3) return [];
+    const candidateLines = plainLines.filter(
+      (line, index) =>
+        index > 0 &&
+        !/^(suggested|plan|today|what this means)/i.test(line) &&
+        line.length > 20 &&
+        line.length < 240,
+    );
+    if (candidateLines.length < 3) return [];
+    return candidateLines.map((title) => ({ title, description: "" }));
+  }
+
+  _inferStructuredDraftType({ metadata = {}, content = "" } = {}) {
+    const explicitType = String(metadata?.structuredDraft?.type || metadata?.draftType || "")
+      .trim()
+      .toLowerCase();
+    if (STRUCTURED_DRAFT_ENTITY_BY_TYPE[explicitType]) return explicitType;
+    const text = String(content || "").toLowerCase();
+    if (/\b(tasks?|checklist|actions?|activities|suggested plan|to do|todo)\b/.test(text)) {
+      return "task_list";
+    }
+    if (/\b(financial entries|financial entry|invoices?|payments?|accounting entries)\b/.test(text)) {
+      return "financial_entry_list";
+    }
+    if (/\b(document drafts?|draft documents?)\b/.test(text)) {
+      return "document_draft_list";
+    }
+    if (/\bmissions?\b/.test(text)) return "mission_list";
+    if (/\b(sessions?|hearings?)\b/.test(text)) return "session_list";
+    if (
+      /\b(review|gather|prepare|draft|assign|schedule|confirm)\b/.test(text) &&
+      /\b(plan|today|dossier|lawsuit|case)\b/.test(text)
+    ) {
+      return "task_list";
+    }
+    const entityType = String(metadata?.entityType || "").trim().toLowerCase();
+    if (STRUCTURED_DRAFT_TYPE_BY_ENTITY[entityType]) {
+      return STRUCTURED_DRAFT_TYPE_BY_ENTITY[entityType];
+    }
+    return null;
+  }
+
+  _buildStructuredDraftFromContract({
+    contract = null,
+    routedOutputType = "message",
+    requestContext = {},
+    llmHistory = null,
+  } = {}) {
+    const outputType = String(routedOutputType || "").toLowerCase();
+    if (outputType !== "message" && outputType !== "research" && outputType !== "document") {
+      return null;
+    }
+    const content = String(contract?.content || "").trim();
+    const metadata =
+      contract?.metadata && typeof contract.metadata === "object" && !Array.isArray(contract.metadata)
+        ? contract.metadata
+        : {};
+    if (!content && !Array.isArray(metadata?.structuredDraft?.items)) return null;
+    const type = this._inferStructuredDraftType({ metadata, content });
+    if (!type) return null;
+    const explicitItems = Array.isArray(metadata?.structuredDraft?.items)
+      ? metadata.structuredDraft.items
+          .map((item) => {
+            if (!item || typeof item !== "object") return null;
+            const normalized = {};
+            for (const [key, value] of Object.entries(item)) {
+              if (value === null || value === undefined) continue;
+              if (typeof value === "string") {
+                const trimmed = value.trim();
+                if (!trimmed) continue;
+                normalized[key] = trimmed;
+              } else {
+                normalized[key] = value;
+              }
+            }
+            return Object.keys(normalized).length > 0 ? normalized : null;
+          })
+          .filter(Boolean)
+      : [];
+    const items = explicitItems.length > 0
+      ? explicitItems
+      : this._extractStructuredDraftItemsFromText(content);
+    if (!items.length) return null;
+    const linkedScope = this._resolveStructuredDraftScope({ requestContext, llmHistory });
+    const entityType = STRUCTURED_DRAFT_ENTITY_BY_TYPE[type] || null;
+    return {
+      type,
+      entityType,
+      items,
+      linkedScope,
+      createdAt: nowIso(),
+    };
+  }
+
+  _resolveDraftPromotion({
+    mutationGovernance = null,
+    sessionState = null,
+  } = {}) {
+    const intent = String(mutationGovernance?.intent || "").toLowerCase();
+    const entityType = String(mutationGovernance?.entityType || "").toLowerCase();
+    if (intent !== "create") return null;
+    const structuredDraft =
+      sessionState?.lastStructuredDraft &&
+      typeof sessionState.lastStructuredDraft === "object" &&
+      !Array.isArray(sessionState.lastStructuredDraft)
+        ? sessionState.lastStructuredDraft
+        : sessionState?.structuredDraft &&
+            typeof sessionState.structuredDraft === "object" &&
+            !Array.isArray(sessionState.structuredDraft)
+          ? sessionState.structuredDraft
+        : null;
+    if (!structuredDraft) return null;
+    const lockedEntityType =
+      String(entityType || "").toLowerCase() ||
+      String(sessionState?.lastDraftEntityType || "").toLowerCase() ||
+      this._deriveEntityTypeFromStructuredDraft(structuredDraft) ||
+      "";
+    if (!lockedEntityType) return null;
+    const items = Array.isArray(structuredDraft?.items)
+      ? structuredDraft.items.filter((item) => item && typeof item === "object")
+      : [];
+    if (!items.length) return null;
+    return {
+      structuredDraft,
+      entityType: lockedEntityType,
+      items,
+      linkedScope:
+        structuredDraft?.linkedScope &&
+        typeof structuredDraft.linkedScope === "object" &&
+        !Array.isArray(structuredDraft.linkedScope)
+          ? structuredDraft.linkedScope
+          : null,
+    };
+  }
+
+  _buildContinuityPromotionGovernance({
+    entityType = "",
+    continuityStructuredDraft = null,
+    activeScopeContext = {},
+  } = {}) {
+    const normalizedEntityType = String(entityType || "").trim().toLowerCase();
+    if (!normalizedEntityType) return null;
+    const linkedScope =
+      continuityStructuredDraft?.linkedScope &&
+      typeof continuityStructuredDraft.linkedScope === "object" &&
+      !Array.isArray(continuityStructuredDraft.linkedScope)
+        ? continuityStructuredDraft.linkedScope
+        : {};
+    const extractedFields = {};
+    const linkedLawsuitId = Number(linkedScope?.lawsuitId || 0);
+    const linkedDossierId = Number(linkedScope?.dossierId || 0);
+    const scopedLawsuitId = Number(activeScopeContext?.lawsuitId || 0);
+    const scopedDossierId = Number(activeScopeContext?.dossierId || 0);
+    if (linkedLawsuitId > 0 || scopedLawsuitId > 0) {
+      extractedFields.lawsuit_id = linkedLawsuitId > 0 ? linkedLawsuitId : scopedLawsuitId;
+    }
+    if (linkedDossierId > 0 || scopedDossierId > 0) {
+      extractedFields.dossier_id = linkedDossierId > 0 ? linkedDossierId : scopedDossierId;
+    }
+    const hierarchical = applyHierarchicalScopeBinding({
+      entityType: normalizedEntityType,
+      payload: extractedFields,
+      activeScope: activeScopeContext,
+    });
+    const preparedPayload = hierarchical?.preparedPayload || extractedFields;
+    const parentResolution = {
+      status: String(hierarchical?.status || "ready"),
+      source: String(hierarchical?.resolutionSource || "continuity_promotion"),
+      missingParentFields: Array.isArray(hierarchical?.missingParentFields)
+        ? hierarchical.missingParentFields
+        : [],
+      parentSelection:
+        hierarchical?.parentSelection &&
+        typeof hierarchical.parentSelection === "object" &&
+        !Array.isArray(hierarchical.parentSelection)
+          ? hierarchical.parentSelection
+          : null,
+    };
+    return {
+      intent: "create",
+      entityType: normalizedEntityType,
+      confidence: 0.99,
+      scopeHints: {
+        deepestScope: null,
+        activeEntity:
+          activeScopeContext?.resolvedEntity?.type && Number(activeScopeContext?.resolvedEntity?.id || 0) > 0
+            ? {
+                entityType: String(activeScopeContext.resolvedEntity.type).toLowerCase(),
+                entityId: Number(activeScopeContext.resolvedEntity.id),
+              }
+            : null,
+        scopeBoundFields: preparedPayload,
+      },
+      extractedFields: preparedPayload,
+      parentResolution,
+      parentSelection: parentResolution.parentSelection,
+      missingRequiredFields: [],
+      dedupeQuery: {
+        entityType: normalizedEntityType,
+        query: null,
+        scope: null,
+      },
+      signals: {
+        futureSignal: false,
+        mutationSignal: true,
+        strongRead: false,
+        promotionEntityLock: true,
+        promotionForced: true,
+      },
+      entityTypeResolution: {
+        status: "resolved",
+        source: "continuity_forced",
+        candidates: [normalizedEntityType],
+      },
+      shouldBypassReadResolution: true,
+    };
+  }
+
+  _resolveMissingFieldsAfterDraftPromotion(missingFields = [], operations = []) {
+    const normalizedMissing = Array.isArray(missingFields)
+      ? missingFields.filter(Boolean)
+      : [];
+    if (!normalizedMissing.length || !Array.isArray(operations) || !operations.length) {
+      return normalizedMissing;
+    }
+    return normalizedMissing.filter((field) => {
+      const providedInEveryOperation = operations.every((operation) => {
+        const value = operation?.payload?.payload?.[field];
+        if (value === null || value === undefined) return false;
+        if (typeof value === "string") return Boolean(value.trim());
+        return true;
+      });
+      return !providedInEveryOperation;
+    });
+  }
+
+  _isDeterministicBulkTaskConfirmationIntent(userMessage = "") {
+    const text = String(userMessage || "").trim().toLowerCase();
+    if (!text) return false;
+    if (/\b(cancel|stop|nevermind|never mind|don't|do not|edit|modify|change)\b/.test(text)) {
+      return false;
+    }
+    if (/^(yes|yep|yeah|ok|okay|sure|please|go ahead|do it)\b/.test(text)) return true;
+    if (/\b(add|create|make|insert|save|apply|record)\b/.test(text) && /\b(them|these|tasks|all)\b/.test(text)) {
+      return true;
+    }
+    if (/\bcreate all tasks\b/.test(text)) return true;
+    return false;
+  }
+
+  _extractDeterministicTaskTitlesFromDraft(structuredDraft = null) {
+    const items = Array.isArray(structuredDraft?.items) ? structuredDraft.items : [];
+    const titles = [];
+    for (const item of items) {
+      const rawTitle =
+        typeof item === "string"
+          ? item
+          : typeof item?.title === "string"
+            ? item.title
+            : typeof item?.label === "string"
+              ? item.label
+              : "";
+      const title = String(rawTitle || "")
+        .replace(/\s+/g, " ")
+        .replace(/^[\-\*\d\.\)\s]+/, "")
+        .trim();
+      if (!title) continue;
+      titles.push(title);
+    }
+    return titles;
+  }
+
+  _buildDeterministicBulkTaskOperations({
+    structuredDraft = null,
+    scopeContext = {},
+  } = {}) {
+    const normalizedScope =
+      scopeContext && typeof scopeContext === "object" && !Array.isArray(scopeContext)
+        ? scopeContext
+        : {};
+    let dossierId = validId(normalizedScope?.dossierId);
+    let lawsuitId = validId(normalizedScope?.lawsuitId);
+    const resolvedType = String(normalizedScope?.resolvedEntity?.type || "")
+      .trim()
+      .toLowerCase();
+    const resolvedId = validId(normalizedScope?.resolvedEntity?.id);
+    if (!dossierId && resolvedType === "dossier" && resolvedId) {
+      dossierId = resolvedId;
+    }
+    if (!lawsuitId && resolvedType === "lawsuit" && resolvedId) {
+      lawsuitId = resolvedId;
+    }
+    if (!dossierId && validId(structuredDraft?.linkedScope?.dossierId)) {
+      dossierId = validId(structuredDraft.linkedScope.dossierId);
+    }
+    if (!lawsuitId && validId(structuredDraft?.linkedScope?.lawsuitId)) {
+      lawsuitId = validId(structuredDraft.linkedScope.lawsuitId);
+    }
+    const titles = this._extractDeterministicTaskTitlesFromDraft(structuredDraft);
+    const operations = [];
+    const skipped = [];
+    for (const title of titles) {
+      const normalizedTitle = String(title || "").trim();
+      if (!normalizedTitle || normalizedTitle.length < 3) {
+        skipped.push({ title: normalizedTitle || null, reason: "invalid_title" });
+        continue;
+      }
+      const payload = {
+        title: normalizedTitle,
+        status: "todo",
+      };
+      if (lawsuitId) {
+        payload.lawsuit_id = lawsuitId;
+      } else if (dossierId) {
+        payload.dossier_id = dossierId;
+      }
+      operations.push({
+        op: "CREATE_ENTITY",
+        entityType: "task",
+        payload: {
+          entityType: "task",
+          payload,
+        },
+        reason: "Create task from deterministic structured task list confirmation.",
+      });
+    }
+    return { operations, skipped, dossierId, lawsuitId };
+  }
+
+  async _buildMutationProposalFromOperations({
+    operations = [],
+    policy = null,
+    executionContext = {},
+    requestContext = {},
+    risk = "medium",
+    draftPromotion = null,
+  } = {}) {
+    if (!Array.isArray(operations) || operations.length === 0) {
+      const err = new Error("Mutation operations are required.");
+      err.code = "MUTATION_OPERATIONS_REQUIRED";
+      throw err;
+    }
+    const mutationInput = {
+      operations,
+      idempotencyKey: `mutation_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      origin: "chat",
+      risk: ["low", "medium", "high"].includes(String(risk || "").toLowerCase())
+        ? String(risk).toLowerCase()
+        : "medium",
+    };
+    const executionPolicy = this._resolveOutputContractExecutionPolicy(policy);
+    const v2Result = await this.engine.executeToolV2("universalMutation", mutationInput, executionPolicy, {
+      ...executionContext,
+      posture: "WORK",
+      confirmed: true,
+      sourceRoute: "/agent/chat",
+    });
+    const proposal = v2Result?.result || null;
+    if (
+      proposal &&
+      proposal.proposalId &&
+      proposal.requiresConfirmation === true &&
+      typeof this.engine.storeProposal === "function"
+    ) {
+      this.engine.storeProposal(proposal, {
+        sourceRoute: "/agent/chat",
+        proposalKind: "entity_mutation",
+        origin: "strong_mutation_intent",
+        strongMutationIntent: true,
+        explicitMutationCommand: false,
+        requiresExtraConfirmation: String(mutationInput.risk || "medium") === "high",
+        riskLevel: String(mutationInput.risk || "medium"),
+        conversationId: requestContext?.conversationId || null,
+        sessionId: executionContext?.sessionId || null,
+        userId: executionContext?.userId || null,
+        tenantId: executionContext?.tenantId || null,
+        draftPromotion:
+          draftPromotion && typeof draftPromotion === "object" && !Array.isArray(draftPromotion)
+            ? draftPromotion
+            : null,
+      });
+    }
+    return proposal;
+  }
+
+  async _tryDeterministicBulkTaskCreation({
+    userMessage = "",
+    requestContext = {},
+    executionContext = {},
+    policy = null,
+    posture = "WORK",
+    sessionState = null,
+  } = {}) {
+    if (!this._isDeterministicBulkTaskConfirmationIntent(userMessage)) return null;
+    const structuredDraft =
+      sessionState?.lastStructuredDraft &&
+      typeof sessionState.lastStructuredDraft === "object" &&
+      !Array.isArray(sessionState.lastStructuredDraft)
+        ? sessionState.lastStructuredDraft
+        : sessionState?.structuredDraft &&
+            typeof sessionState.structuredDraft === "object" &&
+            !Array.isArray(sessionState.structuredDraft)
+          ? sessionState.structuredDraft
+          : null;
+    const draftEntityType = this._deriveEntityTypeFromStructuredDraft(structuredDraft);
+    if (!structuredDraft || draftEntityType !== "task") return null;
+    const deterministicOps = this._buildDeterministicBulkTaskOperations({
+      structuredDraft,
+      scopeContext: requestContext,
+    });
+    this._traceExecutionStep(requestContext, "operations_generated_count", {
+      count: Array.isArray(deterministicOps.operations) ? deterministicOps.operations.length : 0,
+      skippedCount: Array.isArray(deterministicOps.skipped) ? deterministicOps.skipped.length : 0,
+      entityType: "task",
+      source: "deterministic_bulk_task_mode",
+    });
+    this._traceExecutionStep(requestContext, "scope_bound", {
+      dossierId: deterministicOps.dossierId || null,
+      lawsuitId: deterministicOps.lawsuitId || null,
+      source: "deterministic_bulk_task_mode",
+    });
+    if (!deterministicOps.dossierId && !deterministicOps.lawsuitId) return null;
+    if (!deterministicOps.operations.length) {
+      this._traceExecutionStep(requestContext, "validation_failed", {
+        reason: "no_valid_task_entries",
+        skippedCount: Array.isArray(deterministicOps.skipped) ? deterministicOps.skipped.length : 0,
+      });
+      const finalMessage = "I couldn't find valid task titles in the list to create.";
+      return withStateOutput(
+        {
+          message: finalMessage,
+          outputArtifact: {
+            type: "error",
+            code: "BULK_TASK_LIST_EMPTY",
+            message: finalMessage,
+          },
+        },
+        CHAT_STATES.FINAL,
+      );
+    }
+    this._traceExecutionStep(requestContext, "validation_passed", {
+      operationsCount: deterministicOps.operations.length,
+      skippedCount: Array.isArray(deterministicOps.skipped) ? deterministicOps.skipped.length : 0,
+      source: "deterministic_bulk_task_mode",
+    });
+    this._traceExecutionStep(requestContext, "deterministic_bulk_task_mode", {
+      detected: true,
+      operationCount: deterministicOps.operations.length,
+      skippedCount: deterministicOps.skipped.length,
+      dossierId: deterministicOps.dossierId || null,
+      lawsuitId: deterministicOps.lawsuitId || null,
+    });
+    let proposal = null;
+    try {
+      proposal = await this._buildMutationProposalFromOperations({
+        operations: deterministicOps.operations,
+        policy,
+        executionContext,
+        requestContext,
+        risk: "medium",
+        draftPromotion: {
+          enabled: true,
+          draftType: structuredDraft?.type || "task_list",
+          itemCount: deterministicOps.operations.length,
+          clearOnSuccess: true,
+        },
+      });
+    } catch (error) {
+      this._traceExecutionStep(requestContext, "mutation_proposal_build_failed_reason", {
+        errorCode: String(error?.code || "DETERMINISTIC_BULK_TASK_PROPOSAL_FAILED"),
+        message: String(error?.message || ""),
+        operationCount: deterministicOps.operations.length,
+      });
+      this._traceExecutionStep(requestContext, "proposal_failed", {
+        reason: String(error?.code || "DETERMINISTIC_BULK_TASK_PROPOSAL_FAILED"),
+        message: String(error?.message || ""),
+        operationsCount: deterministicOps.operations.length,
+        source: "deterministic_bulk_task_mode",
+      });
+      const finalMessage = "I could not prepare the requested mutation proposal.";
+      this.helper._recordTranscript({
+        requestContext,
+        userMessage,
+        finalMessage,
+        posture,
+        toolExecutions: [],
+        artifactType: "error",
+        artifact: {
+          type: "error",
+          code: String(error?.code || "DETERMINISTIC_BULK_TASK_PROPOSAL_FAILED"),
+          message: String(error?.message || "Deterministic bulk task proposal failed."),
+        },
+      });
+      return withStateOutput(
+        {
+          message: finalMessage,
+          outputArtifact: {
+            type: "error",
+            code: String(error?.code || "DETERMINISTIC_BULK_TASK_PROPOSAL_FAILED"),
+            message: String(error?.message || "Deterministic bulk task proposal failed."),
+          },
+        },
+        CHAT_STATES.FINAL,
+      );
+    }
+    if (!proposal?.proposalId || proposal.requiresConfirmation !== true) return null;
+    this._traceExecutionStep(requestContext, "proposal_created", {
+      proposalId: proposal?.proposalId || null,
+      actionType: proposal?.actionType || null,
+      operationsCount: deterministicOps.operations.length,
+      source: "deterministic_bulk_task_mode",
+    });
+    const proposalArtifact = toProposalArtifact(proposal, executionContext?.sessionId || null);
+    proposalArtifact.operations = deterministicOps.operations;
+    proposalArtifact.bulkSummary = {
+      createdCandidateCount: deterministicOps.operations.length,
+      skippedCount: deterministicOps.skipped.length,
+      skipped: deterministicOps.skipped,
+    };
+    const pendingProposal = {
+      proposalId: proposal.proposalId,
+      summary: proposal.humanReadableSummary || null,
+      riskLevel: proposal?.confirmation?.extraRiskAck === true ? "high" : "normal",
+      createdAt: nowIso(),
+      expiresAt: new Date(Date.now() + 300000).toISOString(),
+      artifact: proposalArtifact,
+    };
+    updateChatOrchestratorState(this.engine, requestContext, {
+      activeState: CHAT_STATES.EXECUTE,
+      pendingProposal,
+      pendingClarification: null,
+    });
+    const skippedText =
+      deterministicOps.skipped.length > 0 ? ` (${deterministicOps.skipped.length} skipped)` : "";
+    const finalMessage = `I prepared ${deterministicOps.operations.length} task creations${skippedText}. Please confirm to apply them.`;
+    this.helper._recordTranscript({
+      requestContext,
+      userMessage,
+      finalMessage,
+      posture,
+      toolExecutions: [],
+      artifactType: "proposal",
+      artifact: proposalArtifact,
+    });
+    return withStateOutput(
+      {
+        message: finalMessage,
+        outputArtifact: proposalArtifact,
+        mutationOutcome: {
+          status: "PROPOSED",
+          proposalId: proposal.proposalId,
+          proposalArtifact,
+        },
+      },
+      CHAT_STATES.EXECUTE,
+    );
   }
 
   _createPreviewArtifactFromDocumentContract({
@@ -1231,13 +2095,24 @@ class ChatOrchestrator {
     requestContext.resolvedEntity = { type, id };
     executionContext.resolvedEntity = { type, id };
 
-    updateChatOrchestratorState(this.engine, requestContext, {
-      activeScope: {
-        entityType: type,
-        entityId: id,
-        source,
-        confidence: 1,
-      },
+    const persistedActiveScope = this._buildPersistedActiveScope({
+      entityType: type,
+      entityId: id,
+      scope: requestContext,
+      source,
+      confidence: 1,
+    });
+    this._persistActiveScope({
+      requestContext,
+      activeScope: persistedActiveScope,
+      reason: "pin_entity_scope_before_contract",
+    });
+    this._traceExecutionStep(requestContext, "scope_resolved", {
+      source,
+      entityType: type,
+      entityId: id,
+      dossierId: Number(requestContext?.dossierId || 0) || null,
+      lawsuitId: Number(requestContext?.lawsuitId || 0) || null,
     });
     if (this.helper?.scopeManager && typeof this.helper.scopeManager.applyEvent === "function") {
       this.helper.scopeManager.applyEvent(requestContext, {
@@ -1440,6 +2315,18 @@ class ChatOrchestrator {
     return "I can discuss this as guidance, but I cannot generate a document artifact for this request.";
   }
 
+  _sanitizeUserFacingIdRequest(message = "") {
+    const text = String(message || "").trim();
+    if (!text) return text;
+    const mentionsInternalId =
+      /\b(internal|database|db|numeric)\b.{0,24}\bid\b/i.test(text) ||
+      /\bneed\b.{0,32}\bid\b.{0,32}\b(retrieve|lookup|find|locate)\b/i.test(text) ||
+      /\bprovide\b.{0,20}\b(id|identifier)\b/i.test(text);
+    const referencesRecordType = /\b(lawsuit|dossier|task|session|mission|case|record|entity)\b/i.test(text);
+    if (!mentionsInternalId || !referencesRecordType) return text;
+    return "I can resolve this using the reference or name, without internal IDs. Please share the reference (for example PRO-2026-001 or DOS-2026-001), or select the record from the suggestions.";
+  }
+
   async _buildMutationProposalFromOutputContract({
     contract,
     policy,
@@ -1499,6 +2386,12 @@ class ChatOrchestrator {
         sessionId: executionContext?.sessionId || null,
         userId: executionContext?.userId || null,
         tenantId: executionContext?.tenantId || null,
+        draftPromotion:
+          metadata?.draftPromotion &&
+          typeof metadata.draftPromotion === "object" &&
+          !Array.isArray(metadata.draftPromotion)
+            ? metadata.draftPromotion
+            : null,
       });
     }
     return proposal;
@@ -1546,6 +2439,59 @@ class ChatOrchestrator {
     sessionState = updateChatOrchestratorState(this.engine, requestContext, {
       turnCounter,
     });
+    const persistedScope =
+      sessionState?.activeScope &&
+      typeof sessionState.activeScope === "object" &&
+      !Array.isArray(sessionState.activeScope)
+        ? sessionState.activeScope
+        : null;
+    if (persistedScope) {
+      const hasExplicitResolvedEntity =
+        Boolean(requestContext?.resolvedEntity?.type) &&
+        Number(requestContext?.resolvedEntity?.id || 0) > 0;
+      const persistedEntityType = String(persistedScope?.entityType || "").toLowerCase();
+      const persistedEntityId = Number(persistedScope?.entityId || 0);
+      let resolvedEntityHydrated = false;
+      if (
+        !hasExplicitResolvedEntity &&
+        persistedEntityType &&
+        Number.isInteger(persistedEntityId) &&
+        persistedEntityId > 0
+      ) {
+        requestContext.resolvedEntity = { type: persistedEntityType, id: persistedEntityId };
+        const persistedScopeKey = this._scopeKeyForEntityType(persistedEntityType);
+        if (persistedScopeKey && !Number(requestContext?.[persistedScopeKey] || 0)) {
+          requestContext[persistedScopeKey] = persistedEntityId;
+        }
+        resolvedEntityHydrated = true;
+      }
+      const scopeKeys = [
+        "taskId",
+        "sessionId",
+        "missionId",
+        "financialEntryId",
+        "lawsuitId",
+        "dossierId",
+        "clientId",
+      ];
+      const hydratedKeys = [];
+      for (const key of scopeKeys) {
+        if (!Number(requestContext?.[key] || 0) && Number(persistedScope?.[key] || 0) > 0) {
+          requestContext[key] = Number(persistedScope[key]);
+          hydratedKeys.push(key);
+        }
+      }
+      if (resolvedEntityHydrated || hydratedKeys.length > 0) {
+        this._traceExecutionStep(requestContext, "scope_loaded_for_mutation", {
+          source: "session.activeScope",
+          entityType: persistedEntityType || null,
+          entityId: persistedEntityId || null,
+          hydratedKeys,
+          dossierId: Number(requestContext?.dossierId || 0) || null,
+          lawsuitId: Number(requestContext?.lawsuitId || 0) || null,
+        });
+      }
+    }
     let state = selectInitialState({
       followUpIntent,
       sessionState,
@@ -1558,13 +2504,22 @@ class ChatOrchestrator {
       lastResolvedEntity: sessionState?.lastResolvedEntity || null,
     });
     if (continuityBinding.applied && continuityBinding.boundEntity) {
+      const persistedActiveScope = this._buildPersistedActiveScope({
+        entityType: continuityBinding.boundEntity.type,
+        entityId: continuityBinding.boundEntity.id,
+        scope: requestContext,
+        source: "scoped_entity_context",
+        confidence: 0.95,
+      });
       sessionState = updateChatOrchestratorState(this.engine, requestContext, {
-        activeScope: {
-          entityType: continuityBinding.boundEntity.type,
-          entityId: continuityBinding.boundEntity.id,
-          source: "scoped_entity_context",
-          confidence: 0.95,
-        },
+        activeScope: persistedActiveScope,
+      });
+      this._traceExecutionStep(requestContext, "scope_persisted", {
+        reason: "continuity_binding",
+        entityType: continuityBinding.boundEntity.type,
+        entityId: continuityBinding.boundEntity.id,
+        dossierId: Number(requestContext?.dossierId || 0) || null,
+        lawsuitId: Number(requestContext?.lawsuitId || 0) || null,
       });
       this._traceExecutionStep(requestContext, "scoped_entity_context_bound", {
         entityType: continuityBinding.boundEntity.type,
@@ -1675,15 +2630,31 @@ class ChatOrchestrator {
       }
       if (resolvedSelection) {
         Object.assign(requestContext, resolvedSelection.scope || {});
+        const persistedActiveScope = this._buildPersistedActiveScope({
+          entityType: resolvedSelection.entityType,
+          entityId: resolvedSelection.entityId,
+          scope: requestContext,
+          source: "explicit_selection",
+          confidence: 1,
+        });
         updateChatOrchestratorState(this.engine, requestContext, {
-          activeScope: {
-            entityType: resolvedSelection.entityType,
-            entityId: resolvedSelection.entityId,
-            source: "explicit_selection",
-            confidence: 1,
-          },
+          activeScope: persistedActiveScope,
           pendingClarification: null,
           activeState: pendingClarification?.resumeState || CHAT_STATES.RETRIEVE,
+        });
+        this._traceExecutionStep(requestContext, "scope_resolved", {
+          source: "clarification_selection",
+          entityType: resolvedSelection.entityType,
+          entityId: resolvedSelection.entityId,
+          dossierId: Number(requestContext?.dossierId || 0) || null,
+          lawsuitId: Number(requestContext?.lawsuitId || 0) || null,
+        });
+        this._traceExecutionStep(requestContext, "scope_persisted", {
+          reason: "clarification_selection",
+          entityType: resolvedSelection.entityType,
+          entityId: resolvedSelection.entityId,
+          dossierId: Number(requestContext?.dossierId || 0) || null,
+          lawsuitId: Number(requestContext?.lawsuitId || 0) || null,
         });
         this._traceExecutionStep(requestContext, "clarification_pending_cleared", {
           cleared: true,
@@ -1761,9 +2732,46 @@ class ChatOrchestrator {
       );
     }
 
-    const effectiveUserMessage = resolvedSelection
-      ? `show ${resolvedSelection.entityType} ${resolvedSelection.label || resolvedSelection.entityId}`
-      : userMessage;
+    const pendingClarificationOriginalMessage =
+      resolvedSelection &&
+      pendingClarification?.artifact &&
+      typeof pendingClarification.artifact === "object"
+        ? String(pendingClarification.artifact.originalMessage || "").trim() || null
+        : null;
+    const continuationOriginalMessage =
+      String(followUpIntent?.originalMessage || "").trim() ||
+      pendingClarificationOriginalMessage ||
+      null;
+    const continuationIntentSource =
+      String(followUpIntent?.intent || "").toUpperCase() === "RESOLVE_CONTEXT_AND_CONTINUE"
+        ? "follow_up_intent"
+        : pendingClarificationOriginalMessage
+          ? "pending_clarification_artifact"
+          : null;
+    const shouldResumeOriginalIntent =
+      Boolean(resolvedSelection) &&
+      Boolean(continuationIntentSource) &&
+      Boolean(continuationOriginalMessage);
+    const effectiveUserMessage = shouldResumeOriginalIntent
+      ? continuationOriginalMessage
+      : resolvedSelection
+        ? `show ${resolvedSelection.entityType} ${resolvedSelection.label || resolvedSelection.entityId}`
+        : userMessage;
+    if (shouldResumeOriginalIntent) {
+      this._traceExecutionStep(requestContext, "context_resolution_resumed", {
+        resumedFrom: continuationIntentSource,
+        originalIntent: String(followUpIntent?.originalIntent || "").trim() || null,
+        entityType: resolvedSelection?.entityType || null,
+        entityId: Number(resolvedSelection?.entityId || 0) || null,
+      });
+    } else if (resolvedSelection) {
+      this._traceExecutionStep(requestContext, "context_resolution_resumed", {
+        resumedFrom: "fallback_show_entity",
+        originalIntent: String(followUpIntent?.originalIntent || "").trim() || null,
+        entityType: resolvedSelection?.entityType || null,
+        entityId: Number(resolvedSelection?.entityId || 0) || null,
+      });
+    }
     const posture = await this.helper._resolvePosture({
       message: effectiveUserMessage,
       context: requestContext,
@@ -1791,13 +2799,29 @@ class ChatOrchestrator {
         id: resolvedSelection.entityId,
         label: resolvedSelection.label,
       };
+      const persistedActiveScope = this._buildPersistedActiveScope({
+        entityType: resolvedSelection.entityType,
+        entityId: resolvedSelection.entityId,
+        scope: requestContext,
+        source: "explicit_selection",
+        confidence: 1,
+      });
       updateChatOrchestratorState(this.engine, requestContext, {
-        activeScope: {
-          entityType: resolvedSelection.entityType,
-          entityId: resolvedSelection.entityId,
-          source: "explicit_selection",
-          confidence: 1,
-        },
+        activeScope: persistedActiveScope,
+      });
+      this._traceExecutionStep(requestContext, "scope_resolved", {
+        source: "follow_up_selection",
+        entityType: resolvedSelection.entityType,
+        entityId: resolvedSelection.entityId,
+        dossierId: Number(requestContext?.dossierId || 0) || null,
+        lawsuitId: Number(requestContext?.lawsuitId || 0) || null,
+      });
+      this._traceExecutionStep(requestContext, "scope_persisted", {
+        reason: "follow_up_selection",
+        entityType: resolvedSelection.entityType,
+        entityId: resolvedSelection.entityId,
+        dossierId: Number(requestContext?.dossierId || 0) || null,
+        lawsuitId: Number(requestContext?.lawsuitId || 0) || null,
       });
       this._pinEntityScopeBeforeContract({
         requestContext,
@@ -1897,6 +2921,13 @@ class ChatOrchestrator {
         : null;
     const governanceActiveScope =
       llmActiveScope || this._resolveActiveEntityScope(requestContext, llmHistory);
+    this._traceExecutionStep(requestContext, "scope_loaded_for_mutation", {
+      source: llmActiveScope ? "llm_history.activeScope" : "request_or_session_scope",
+      entityType: governanceActiveScope?.entityType || null,
+      entityId: Number(governanceActiveScope?.entityId || 0) || null,
+      dossierId: Number(requestContext?.dossierId || 0) || null,
+      lawsuitId: Number(requestContext?.lawsuitId || 0) || null,
+    });
     const governanceExecutionContext = { ...executionContext };
     if (
       governanceActiveScope?.entityType &&
@@ -1913,13 +2944,118 @@ class ChatOrchestrator {
         id: Number(governanceActiveScope.entityId),
       };
     }
+    const continuityStructuredDraft =
+      sessionState?.lastStructuredDraft &&
+      typeof sessionState.lastStructuredDraft === "object" &&
+      !Array.isArray(sessionState.lastStructuredDraft)
+        ? sessionState.lastStructuredDraft
+        : sessionState?.structuredDraft &&
+            typeof sessionState.structuredDraft === "object" &&
+            !Array.isArray(sessionState.structuredDraft)
+          ? sessionState.structuredDraft
+          : null;
+    if (continuityStructuredDraft) {
+      this._traceExecutionStep(requestContext, "structured_draft_detected", {
+        source:
+          sessionState?.lastStructuredDraft &&
+          typeof sessionState.lastStructuredDraft === "object" &&
+          !Array.isArray(sessionState.lastStructuredDraft)
+            ? "lastStructuredDraft"
+            : "structuredDraft",
+        draftType: continuityStructuredDraft?.type || null,
+        draftEntityType:
+          this._deriveEntityTypeFromStructuredDraft(continuityStructuredDraft) || null,
+        itemCount: Array.isArray(continuityStructuredDraft?.items)
+          ? continuityStructuredDraft.items.length
+          : 0,
+      });
+    }
+    const shouldPromoteFromContinuity =
+      Boolean(continuityStructuredDraft) &&
+      this._isExecutionPromotionIntent(effectiveUserMessage);
+    if (Boolean(continuityStructuredDraft)) {
+      this._traceExecutionStep(requestContext, "promotion_attempted", {
+        source: "continuity_pre_governance",
+        executionIntentDetected: shouldPromoteFromContinuity,
+      });
+    } else {
+      this._traceExecutionStep(requestContext, "promotion_skipped_reason", {
+        reason: "no_structured_draft_in_session",
+      });
+    }
+    if (shouldPromoteFromContinuity) {
+      const explicitEntityHint = this._deriveEntityTypeHintFromMessage(effectiveUserMessage);
+      const continuityEntityType =
+        String(explicitEntityHint || "").toLowerCase() ||
+        String(sessionState?.lastDraftEntityType || "").toLowerCase() ||
+        this._deriveEntityTypeFromStructuredDraft(continuityStructuredDraft) ||
+        null;
+      if (continuityEntityType) {
+        governanceExecutionContext.promotionLockEntityType = continuityEntityType;
+        governanceExecutionContext.promotionLockReason = "structured_draft_continuity";
+        this._traceExecutionStep(requestContext, "promotion_detected", {
+          entityType: continuityEntityType,
+          draftType: continuityStructuredDraft?.type || null,
+          itemCount: Array.isArray(continuityStructuredDraft?.items)
+            ? continuityStructuredDraft.items.length
+            : 0,
+        });
+        this._traceExecutionStep(requestContext, "promotion_entity_type_locked", {
+          entityType: continuityEntityType,
+          source: "lastDraftEntityType_or_structuredDraft",
+        });
+      } else {
+        this._traceExecutionStep(requestContext, "promotion_skipped_reason", {
+          reason: "continuity_entity_type_unresolved",
+          explicitEntityHint: explicitEntityHint || null,
+          lastDraftEntityType: sessionState?.lastDraftEntityType || null,
+          draftType: continuityStructuredDraft?.type || null,
+        });
+      }
+    } else if (continuityStructuredDraft) {
+      this._traceExecutionStep(requestContext, "promotion_skipped_reason", {
+        reason: "execution_intent_not_detected",
+      });
+    }
 
-    const mutationGovernance = await evaluateMutationGovernance({
+    const deterministicBulkTaskOutcome = await this._tryDeterministicBulkTaskCreation({
       userMessage: effectiveUserMessage,
       requestContext,
-      executionContext: governanceExecutionContext,
-      llmExtractor: this.helper?.mutationIntentExtractor,
+      executionContext,
+      policy,
+      posture,
+      sessionState,
     });
+    if (deterministicBulkTaskOutcome) {
+      return deterministicBulkTaskOutcome;
+    }
+
+    const continuityGovernance =
+      shouldPromoteFromContinuity && governanceExecutionContext?.promotionLockEntityType
+        ? this._buildContinuityPromotionGovernance({
+            entityType: governanceExecutionContext.promotionLockEntityType,
+            continuityStructuredDraft,
+            activeScopeContext: governanceExecutionContext,
+          })
+        : null;
+    const mutationGovernance = continuityGovernance
+      ? continuityGovernance
+      : await evaluateMutationGovernance({
+          userMessage: effectiveUserMessage,
+          requestContext,
+          executionContext: governanceExecutionContext,
+          llmExtractor: this.helper?.mutationIntentExtractor,
+        });
+    if (mutationGovernance?.shouldBypassReadResolution) {
+      this._traceExecutionStep(requestContext, "mutation_intent_detected", {
+        intent: mutationGovernance?.intent || null,
+        entityType: mutationGovernance?.entityType || null,
+        source: continuityGovernance ? "continuity_governance" : "mutation_governance",
+        confidence: Number.isFinite(Number(mutationGovernance?.confidence))
+          ? Number(mutationGovernance.confidence)
+          : null,
+      });
+    }
     this._traceExecutionStep(requestContext, "mutation_governance_evaluated", {
       intent: mutationGovernance?.intent || null,
       entityType: mutationGovernance?.entityType || null,
@@ -1936,17 +3072,175 @@ class ChatOrchestrator {
         : [],
       bypassReadResolution: Boolean(mutationGovernance?.shouldBypassReadResolution),
     });
+    const parentResolutionStatus = String(mutationGovernance?.parentResolution?.status || "").toLowerCase();
+    if (parentResolutionStatus === "ready") {
+      const resolutionSource = String(mutationGovernance?.parentResolution?.source || "").toLowerCase();
+      if (resolutionSource.includes("scope")) {
+        this._traceExecutionStep(requestContext, "parent_resolution_inferred_from_scope", {
+          entityType: mutationGovernance?.entityType || null,
+          source: mutationGovernance?.parentResolution?.source || null,
+        });
+      } else {
+        this._traceExecutionStep(requestContext, "parent_resolution_success", {
+          entityType: mutationGovernance?.entityType || null,
+          source: mutationGovernance?.parentResolution?.source || null,
+        });
+      }
+    } else if (parentResolutionStatus === "ambiguous_parent_selection") {
+      this._traceExecutionStep(requestContext, "parent_resolution_ambiguous", {
+        entityType: mutationGovernance?.entityType || null,
+        optionsCount: Array.isArray(mutationGovernance?.parentSelection?.options)
+          ? mutationGovernance.parentSelection.options.length
+          : 0,
+      });
+    } else if (parentResolutionStatus === "needs_parent_input") {
+      this._traceExecutionStep(requestContext, "parent_resolution_failed", {
+        entityType: mutationGovernance?.entityType || null,
+        source: mutationGovernance?.parentResolution?.source || null,
+      });
+    }
     if (mutationGovernance?.shouldBypassReadResolution) {
+      if (
+        parentResolutionStatus === "needs_parent_input" ||
+        parentResolutionStatus === "ambiguous_parent_selection"
+      ) {
+        const parentMissing = Array.isArray(mutationGovernance?.parentResolution?.missingParentFields)
+          ? mutationGovernance.parentResolution.missingParentFields.filter(Boolean)
+          : [];
+        const clarifyArtifact = this._buildMutationGovernanceClarificationArtifact({
+          governance: {
+            ...mutationGovernance,
+            missingRequiredFields: parentMissing,
+          },
+          userMessage: effectiveUserMessage,
+        });
+        updateChatOrchestratorState(this.engine, requestContext, {
+          activeState: CHAT_STATES.CLARIFY,
+          pendingClarification: {
+            entityType: mutationGovernance?.entityType || null,
+            resumeState: state,
+            artifact: clarifyArtifact,
+            resolutionMeta: {
+              status: "missing",
+              entityType: mutationGovernance?.entityType || null,
+              candidatesCount: Array.isArray(mutationGovernance?.parentSelection?.options)
+                ? mutationGovernance.parentSelection.options.length
+                : 0,
+              autoPicked: false,
+              chosenId: null,
+            },
+            createdAt: nowIso(),
+            expiresAt: new Date(Date.now() + PENDING_CLARIFICATION_TTL_MS).toISOString(),
+            turnsRemaining: PENDING_CLARIFICATION_MAX_TURNS,
+          },
+        });
+        const finalMessage =
+          String(clarifyArtifact.message || "").trim() ||
+          "Select the parent record to continue with creation.";
+        this.helper._recordTranscript({
+          requestContext,
+          userMessage,
+          finalMessage,
+          posture,
+          toolExecutions: [],
+          artifactType: "context_suggestion",
+          artifact: clarifyArtifact,
+        });
+        return withStateOutput(
+          {
+            message: finalMessage,
+            outputArtifact: clarifyArtifact,
+            ambiguityArtifact: clarifyArtifact,
+            resolutionMeta: {
+              mutationGovernance,
+            },
+          },
+          CHAT_STATES.FINAL,
+        );
+      }
+      const draftPromotion = this._resolveDraftPromotion({
+        mutationGovernance,
+        sessionState,
+      });
+      if (!draftPromotion) {
+        this._traceExecutionStep(requestContext, "promotion_skipped_reason", {
+          reason: "draft_promotion_unavailable_after_governance",
+          governanceIntent: mutationGovernance?.intent || null,
+          governanceEntityType: mutationGovernance?.entityType || null,
+        });
+      }
+      if (draftPromotion) {
+        this._traceExecutionStep(requestContext, "promotion_detected", {
+          entityType: mutationGovernance?.entityType || draftPromotion?.entityType || null,
+          draftType: draftPromotion?.structuredDraft?.type || null,
+          itemCount: Array.isArray(draftPromotion?.items) ? draftPromotion.items.length : 0,
+        });
+        this._traceExecutionStep(requestContext, "draft_promotion_detected", {
+          entityType: mutationGovernance?.entityType || null,
+          draftType: draftPromotion?.structuredDraft?.type || null,
+          itemCount: Array.isArray(draftPromotion?.items) ? draftPromotion.items.length : 0,
+        });
+      }
       const operations = this._buildMutationOperationsFromGovernance(
         mutationGovernance,
         requestContext,
+        {
+          promotedItems: draftPromotion?.items || [],
+          promotedLinkedScope: draftPromotion?.linkedScope || null,
+          activeScopeContext: governanceExecutionContext,
+        },
       );
+      this._traceExecutionStep(requestContext, "operations_generated_count", {
+        count: Array.isArray(operations) ? operations.length : 0,
+        entityType: mutationGovernance?.entityType || null,
+        intent: mutationGovernance?.intent || null,
+      });
+      this._traceExecutionStep(requestContext, "scope_bound", {
+        dossierId: Number(governanceExecutionContext?.dossierId || 0) || null,
+        lawsuitId: Number(governanceExecutionContext?.lawsuitId || 0) || null,
+      });
       const missingRequiredFields = Array.isArray(mutationGovernance?.missingRequiredFields)
         ? mutationGovernance.missingRequiredFields.filter(Boolean)
         : [];
-      if (missingRequiredFields.length > 0 || operations.length === 0) {
+      const effectiveMissingRequiredFields = draftPromotion
+        ? this._resolveMissingFieldsAfterDraftPromotion(missingRequiredFields, operations)
+        : missingRequiredFields;
+      if (draftPromotion) {
+        this._traceExecutionStep(requestContext, "promotion_operations_built", {
+          entityType: mutationGovernance?.entityType || draftPromotion?.entityType || null,
+          operationCount: Array.isArray(operations) ? operations.length : 0,
+          missingRequiredFields: effectiveMissingRequiredFields,
+        });
+        this._traceExecutionStep(requestContext, "draft_promotion_operations_built", {
+          entityType: mutationGovernance?.entityType || null,
+          operationCount: Array.isArray(operations) ? operations.length : 0,
+          missingRequiredFields: effectiveMissingRequiredFields,
+        });
+      }
+      if (effectiveMissingRequiredFields.length > 0 || operations.length === 0) {
+        this._traceExecutionStep(requestContext, "validation_failed", {
+          reason:
+            effectiveMissingRequiredFields.length > 0
+              ? "missing_required_fields"
+              : "no_operations_generated",
+          missingRequiredFields: effectiveMissingRequiredFields,
+          operationsCount: Array.isArray(operations) ? operations.length : 0,
+        });
+        if (draftPromotion) {
+          this._traceExecutionStep(requestContext, "promotion_failed", {
+            entityType: mutationGovernance?.entityType || draftPromotion?.entityType || null,
+            reason:
+              effectiveMissingRequiredFields.length > 0
+                ? "missing_required_fields"
+                : "no_operations_built",
+            missingRequiredFields: effectiveMissingRequiredFields,
+          });
+        }
         const clarifyArtifact = this._buildMutationGovernanceClarificationArtifact({
-          governance: mutationGovernance,
+          governance: {
+            ...mutationGovernance,
+            missingRequiredFields: effectiveMissingRequiredFields,
+          },
           userMessage: effectiveUserMessage,
         });
         updateChatOrchestratorState(this.engine, requestContext, {
@@ -1991,6 +3285,9 @@ class ChatOrchestrator {
           CHAT_STATES.FINAL,
         );
       }
+      this._traceExecutionStep(requestContext, "validation_passed", {
+        operationsCount: Array.isArray(operations) ? operations.length : 0,
+      });
 
       const activeScope = this._resolveActiveEntityScope(requestContext, llmHistory);
       const targetScopeBinding = this._buildScopeSnapshotForStorage({
@@ -2011,6 +3308,18 @@ class ChatOrchestrator {
             confidence: mutationGovernance.confidence,
             dedupeQuery: mutationGovernance.dedupeQuery || null,
           },
+          ...(draftPromotion
+            ? {
+                draftPromotion: {
+                  enabled: true,
+                  draftType: draftPromotion?.structuredDraft?.type || null,
+                  itemCount: Array.isArray(draftPromotion?.items)
+                    ? draftPromotion.items.length
+                    : 0,
+                  clearOnSuccess: true,
+                },
+              }
+            : {}),
         },
       };
       let proposal = null;
@@ -2025,6 +3334,20 @@ class ChatOrchestrator {
           requestContext,
         });
       } catch (error) {
+        this._traceExecutionStep(requestContext, "mutation_proposal_build_failed_reason", {
+          errorCode: String(error?.code || "MUTATION_GOVERNANCE_PROPOSAL_FAILED"),
+          message: String(error?.message || ""),
+          mutationIntent: mutationGovernance?.intent || null,
+          mutationEntityType: mutationGovernance?.entityType || null,
+          operationsCount: Array.isArray(operations) ? operations.length : 0,
+          promoted: Boolean(draftPromotion),
+        });
+        if (draftPromotion) {
+          this._traceExecutionStep(requestContext, "promotion_failed", {
+            entityType: mutationGovernance?.entityType || draftPromotion?.entityType || null,
+            reason: String(error?.code || "proposal_build_failed"),
+          });
+        }
         const errorArtifact = {
           type: "error",
           code: String(error?.code || "MUTATION_GOVERNANCE_PROPOSAL_FAILED"),
@@ -2052,6 +3375,12 @@ class ChatOrchestrator {
         );
       }
       if (proposal?.type === "entity_creation_form") {
+        if (draftPromotion) {
+          this._traceExecutionStep(requestContext, "promotion_failed", {
+            entityType: mutationGovernance?.entityType || draftPromotion?.entityType || null,
+            reason: "entity_creation_form_required",
+          });
+        }
         const finalMessage = "I need a few required identity fields before preparing this mutation.";
         this.helper._recordTranscript({
           requestContext,
@@ -2074,6 +3403,11 @@ class ChatOrchestrator {
         );
       }
       if (proposal?.proposalId && proposal.requiresConfirmation === true) {
+        this._traceExecutionStep(requestContext, "proposal_created", {
+          proposalId: proposal?.proposalId || null,
+          actionType: proposal?.actionType || null,
+          operationsCount: Array.isArray(operations) ? operations.length : 0,
+        });
         const proposalArtifact = toProposalArtifact(proposal, executionContext?.sessionId || null);
         proposalArtifact.targetScope = targetScopeBinding;
         proposalArtifact.operations = operations;
@@ -2098,6 +3432,18 @@ class ChatOrchestrator {
         const finalMessage =
           syntheticContract.content ||
           "I prepared a mutation proposal. Please review and confirm before execution.";
+        if (draftPromotion) {
+          this._traceExecutionStep(requestContext, "promotion_success", {
+            proposalId: proposal?.proposalId || null,
+            entityType: mutationGovernance?.entityType || draftPromotion?.entityType || null,
+            itemCount: Array.isArray(draftPromotion?.items) ? draftPromotion.items.length : 0,
+          });
+          this._traceExecutionStep(requestContext, "draft_promotion_executed", {
+            proposalId: proposal?.proposalId || null,
+            entityType: mutationGovernance?.entityType || null,
+            itemCount: Array.isArray(draftPromotion?.items) ? draftPromotion.items.length : 0,
+          });
+        }
         this.helper._recordTranscript({
           requestContext,
           userMessage: effectiveUserMessage,
@@ -2125,6 +3471,21 @@ class ChatOrchestrator {
           CHAT_STATES.EXECUTE,
         );
       }
+      this._traceExecutionStep(requestContext, "proposal_failed", {
+        reason: "proposal_not_returned_or_not_confirmable",
+        actionType: proposal?.actionType || null,
+        hasProposalId: Boolean(proposal?.proposalId),
+      });
+    }
+    if (!mutationGovernance?.shouldBypassReadResolution) {
+      this._traceExecutionStep(requestContext, "promotion_skipped_reason", {
+        reason: "mutation_governance_bypass_false",
+        governanceIntent: mutationGovernance?.intent || null,
+        governanceEntityType: mutationGovernance?.entityType || null,
+        confidence: Number.isFinite(Number(mutationGovernance?.confidence))
+          ? Number(mutationGovernance.confidence)
+          : null,
+      });
     }
 
     const shouldSkipAmbiguityForUnscopedDraft =
@@ -2673,6 +4034,36 @@ class ChatOrchestrator {
       content: finalMessage,
       outputType: routedOutputType,
     });
+    finalMessage = this._sanitizeUserFacingIdRequest(finalMessage);
+
+    const structuredDraft = this._buildStructuredDraftFromContract({
+      contract,
+      routedOutputType,
+      requestContext,
+      llmHistory,
+    });
+    if (structuredDraft) {
+      const draftEntityType =
+        this._deriveEntityTypeFromStructuredDraft(structuredDraft) || structuredDraft.entityType || null;
+      updateChatOrchestratorState(this.engine, requestContext, {
+        structuredDraft,
+        lastStructuredDraft: structuredDraft,
+        lastDraftCapability: "structured_draft",
+        lastDraftEntityType: draftEntityType,
+      });
+      this._traceExecutionStep(requestContext, "structured_draft_retained", {
+        draftType: structuredDraft.type,
+        entityType: draftEntityType,
+        itemCount: Array.isArray(structuredDraft.items) ? structuredDraft.items.length : 0,
+        linkedScope: structuredDraft.linkedScope || null,
+      });
+      this._traceExecutionStep(requestContext, "structured_draft_detected", {
+        source: "retained_from_contract",
+        draftType: structuredDraft.type,
+        draftEntityType: draftEntityType,
+        itemCount: Array.isArray(structuredDraft.items) ? structuredDraft.items.length : 0,
+      });
+    }
 
     if (nextState !== CHAT_STATES.EXECUTE) {
       updateChatOrchestratorState(this.engine, requestContext, {

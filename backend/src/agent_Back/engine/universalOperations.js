@@ -627,6 +627,11 @@ async function executeMutationWorkflow(params, context) {
       ? workflow.blockedTerminalStep
       : null;
   const canReachRequestedGoal = workflow.canReachRequestedGoal !== false;
+  const tolerantMode = Boolean(
+    workflow?.facts &&
+      typeof workflow.facts === 'object' &&
+      (workflow.facts.tolerant === true || workflow.facts.partialSuccess === true),
+  );
 
   const isUniversalBatch = workflowType === 'UNIVERSAL_MUTATION_BATCH';
   if (
@@ -646,6 +651,7 @@ async function executeMutationWorkflow(params, context) {
 
   const stepResults = [];
   let stepsSucceeded = 0;
+  const failedSteps = [];
   for (const step of steps) {
     const actionType = String(step?.actionType || '').toUpperCase();
     try {
@@ -682,6 +688,28 @@ async function executeMutationWorkflow(params, context) {
       });
       stepsSucceeded += 1;
     } catch (error) {
+      if (tolerantMode) {
+        const code = error?.code || 'WORKFLOW_STEP_FAILED';
+        const safeMessage = error?.message || 'Workflow step failed';
+        failedSteps.push({
+          stepId: step.stepId || null,
+          actionType,
+          code,
+          message: safeMessage,
+        });
+        stepResults.push({
+          stepId: step.stepId || null,
+          actionType,
+          ok: false,
+          error: {
+            code,
+            message: safeMessage,
+          },
+          risk: step.risk || null,
+          reason: step.reason || null,
+        });
+        continue;
+      }
       const code = error?.code || 'WORKFLOW_STEP_FAILED';
       const err = new Error(error?.message || 'Workflow step failed');
       err.code = code;
@@ -696,7 +724,20 @@ async function executeMutationWorkflow(params, context) {
     }
   }
 
-  let goalReached = Boolean(canReachRequestedGoal);
+  if (tolerantMode && stepsSucceeded === 0) {
+    const err = new Error('All workflow steps failed');
+    err.code = 'WORKFLOW_ALL_STEPS_FAILED';
+    err.workflowFailure = {
+      workflowType,
+      stepsSucceeded,
+      stepResults,
+      failedSteps,
+      tolerantMode: true,
+    };
+    throw err;
+  }
+
+  let goalReached = tolerantMode ? stepsSucceeded > 0 : Boolean(canReachRequestedGoal);
   if (
     rootEntity &&
     requestedGoal &&
@@ -719,6 +760,10 @@ async function executeMutationWorkflow(params, context) {
   const message = goalReached
     ? 'Workflow completed and requested goal reached.'
     : blockedTerminalStep?.message || 'Workflow completed, but the requested final change remains blocked.';
+  const partialSuccess = tolerantMode && failedSteps.length > 0;
+  const summaryMessage = partialSuccess
+    ? `Workflow completed with partial success (${stepsSucceeded}/${steps.length} steps succeeded).`
+    : message;
 
   return {
     ok: true,
@@ -733,6 +778,9 @@ async function executeMutationWorkflow(params, context) {
     stepsSucceeded,
     stepsFailed: steps.length - stepsSucceeded,
     stepResults,
+    failedSteps,
+    tolerantMode,
+    partialSuccess,
     goalReached,
     finalStateSummary: {
       canReachRequestedGoal: Boolean(canReachRequestedGoal),
@@ -740,7 +788,7 @@ async function executeMutationWorkflow(params, context) {
       requestedGoal,
       facts: workflow.facts || null,
     },
-    message,
+    message: summaryMessage,
   };
 }
 

@@ -1749,6 +1749,36 @@ function ArtifactBody({
       />
     );
   }
+  if (hasContent && onSubmitMessage && shouldShowStructuredTaskActions(message.content, dataType)) {
+    return (
+      <div className="space-y-3">
+        <ChatArtifact content={message.content} />
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="px-3 py-1.5 text-sm font-medium rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200"
+            onClick={() => onSubmitMessage("Create all tasks from this list.")}
+          >
+            Create All Tasks
+          </button>
+          <button
+            type="button"
+            className="px-3 py-1.5 text-sm font-medium rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            onClick={() => onSubmitMessage("Edit this task list before creating tasks.")}
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            className="px-3 py-1.5 text-sm font-medium rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            onClick={() => onSubmitMessage("Cancel this task list. Do not create tasks.")}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
   if (hasContent) {
     return <ChatArtifact content={message.content} />;
   }
@@ -1823,6 +1853,21 @@ function getAcknowledgment(intent?: string): string {
   if (n === "GENERAL_CHAT") return "Preparing response...";
 
   return "Processing request...";
+}
+
+function shouldShowStructuredTaskActions(content?: string, dataType?: string): boolean {
+  if (dataType && dataType !== "chat") return false;
+  const text = String(content || "").trim();
+  if (!text) return false;
+  if (!/\b(tasks?|checklist|suggested plan|focus for today|plan for today)\b/i.test(text)) {
+    return false;
+  }
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const bulletCount = lines.filter((line) => /^([-*+]|\d+[.)])\s+/.test(line)).length;
+  return bulletCount >= 3;
 }
 
 /**

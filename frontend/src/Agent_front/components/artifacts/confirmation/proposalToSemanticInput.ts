@@ -211,6 +211,105 @@ function buildWorkflowStepImpactHints(
   return hints;
 }
 
+function getWorkflowPreviewItems(proposal: ActionProposal): Array<Record<string, unknown>> {
+  const fromTopLevel = Array.isArray(proposal.workflowPreview?.previewItems)
+    ? (proposal.workflowPreview?.previewItems as Array<Record<string, unknown>>)
+    : [];
+  if (fromTopLevel.length > 0) return fromTopLevel;
+
+  const fromLegacyTopLevel = Array.isArray(proposal.previewItems)
+    ? (proposal.previewItems as Array<Record<string, unknown>>)
+    : [];
+  if (fromLegacyTopLevel.length > 0) return fromLegacyTopLevel;
+
+  const params = proposal.params || {};
+  const workflow =
+    params.workflow && typeof params.workflow === "object" && !Array.isArray(params.workflow)
+      ? (params.workflow as Record<string, unknown>)
+      : undefined;
+  return Array.isArray(workflow?.previewItems)
+    ? (workflow.previewItems as Array<Record<string, unknown>>)
+    : [];
+}
+
+function normalizeStatusValue(value: unknown): string | null {
+  const normalized = String(value || "").trim();
+  if (!normalized) return null;
+  return toTitleCase(normalized);
+}
+
+function normalizePriorityValue(value: unknown): string | null {
+  const normalized = String(value || "").trim();
+  if (!normalized) return null;
+  return toTitleCase(normalized);
+}
+
+function resolveParentLabel(
+  parentLinkage: Record<string, unknown> | undefined,
+  context: DataContextLike,
+): string | null {
+  if (!parentLinkage || typeof parentLinkage !== "object") return null;
+
+  const lawsuitReference = String(parentLinkage.lawsuitReference || "").trim();
+  if (lawsuitReference) return lawsuitReference;
+  const dossierReference = String(parentLinkage.dossierReference || "").trim();
+  if (dossierReference) return dossierReference;
+  const clientReference = String(parentLinkage.clientReference || "").trim();
+  if (clientReference) return clientReference;
+
+  const lawsuitId = Number(parentLinkage.lawsuitId);
+  if (Number.isFinite(lawsuitId) && lawsuitId > 0) {
+    const label = resolveEntityLabel("lawsuit", lawsuitId, context);
+    if (label) return label;
+  }
+
+  const dossierId = Number(parentLinkage.dossierId);
+  if (Number.isFinite(dossierId) && dossierId > 0) {
+    const label = resolveEntityLabel("dossier", dossierId, context);
+    if (label) return label;
+  }
+
+  const clientId = Number(parentLinkage.clientId);
+  if (Number.isFinite(clientId) && clientId > 0) {
+    const label = resolveEntityLabel("client", clientId, context);
+    if (label) return label;
+  }
+
+  return null;
+}
+
+function buildWorkflowPreviewImpactHints(
+  proposal: ActionProposal,
+  context: DataContextLike,
+): string[] {
+  const items = getWorkflowPreviewItems(proposal);
+  if (items.length === 0) return [];
+
+  return items.map((item, idx) => {
+    const entityType = String(item.entityType || "record").trim().toLowerCase();
+    const operation = String(item.operation || item.actionType || "change").trim().toLowerCase();
+    const title = String(item.title || "").trim();
+    const status = normalizeStatusValue(item.status);
+    const priority = normalizePriorityValue(item.priority);
+    const parentLabel = resolveParentLabel(
+      item.parentLinkage && typeof item.parentLinkage === "object"
+        ? (item.parentLinkage as Record<string, unknown>)
+        : undefined,
+      context,
+    );
+    const baseLabel = title
+      ? `${toTitleCase(entityType)}: ${title}`
+      : `${toTitleCase(operation)} ${toTitleCase(entityType)} #${idx + 1}`;
+    const metaParts = [
+      status ? `status ${status}` : null,
+      priority ? `priority ${priority}` : null,
+      parentLabel ? `linked to ${parentLabel}` : null,
+    ].filter(Boolean);
+    if (metaParts.length === 0) return baseLabel;
+    return `${baseLabel} (${metaParts.join(", ")})`;
+  });
+}
+
 function normalizeChangesObject(
   changes: Record<string, unknown> | undefined,
 ): Record<string, { from: unknown; to: unknown }> | undefined {
@@ -352,6 +451,9 @@ export function proposalToSemanticInput(
           .map((line) => String(line || "").trim())
           .filter(Boolean);
   const workflowImpactHints = confirmationPreview ? [] : buildWorkflowStepImpactHints(workflow, context);
+  const workflowPreviewImpactHints = confirmationPreview
+    ? []
+    : buildWorkflowPreviewImpactHints(proposal, context);
 
   const changes =
     actionType === "UPDATE_ENTITY"
@@ -388,7 +490,7 @@ export function proposalToSemanticInput(
       reversible: typeof proposal.reversible === "boolean" ? proposal.reversible : null,
       riskLevel: inferRiskLevel(proposal),
       reasonHint: buildReasonHint(proposal),
-      impactHints: [...impactHints, ...workflowImpactHints],
+      impactHints: [...impactHints, ...workflowPreviewImpactHints, ...workflowImpactHints],
       pendingFieldNames,
       actionKind: deriveActionKind(proposal),
       requiresRiskAck: proposal.confirmation?.extraRiskAck === true,
