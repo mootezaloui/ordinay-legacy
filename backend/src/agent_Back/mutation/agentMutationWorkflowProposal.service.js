@@ -5,7 +5,7 @@ const {
   generateProposalId,
   ACTION_STATUS,
 } = require("../contracts/actionProposal.contract");
-const { computeSnapshotHash, validatePayload, getAllowedFields } = require("./entityAdapters");
+const { computeSnapshotHash, validatePayload, getAllowedFields } = require("../engine/entityAdapters");
 
 const clientsService = require("../../services/clients.service");
 const dossiersService = require("../../services/dossiers.service");

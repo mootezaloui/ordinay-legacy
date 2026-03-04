@@ -21,8 +21,8 @@ const {
   logMutationIntentActionAttempted,
   logMutationIntentActionOutcome,
 } = require("./chat.mutationIntentLogging");
-const { resolveAdaptiveMutationRemediation } = require("../engine/agentMutationConstraintResolver");
-const { planEntityCreation } = require("../mutations/entityCreationPlanner");
+const { resolveAdaptiveMutationRemediation } = require("../mutation/agentMutationConstraintResolver");
+const { planEntityCreation } = require("../mutation/entityCreationPlanner");
 const {
   detectReadIntent,
   detectDraftIntent,

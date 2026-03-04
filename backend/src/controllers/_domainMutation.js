@@ -1,4 +1,4 @@
-const { assertDomainMutationAllowed } = require("../agent_Back/engine/agentDomainMutationRules");
+const { assertDomainMutationAllowed } = require("../agent_Back/mutation/agentDomainMutationRules");
 
 function enforceDomainMutation({ entityType, operation, entityId = null, payload = {}, service }) {
   const existing =

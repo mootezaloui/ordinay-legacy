@@ -10,7 +10,7 @@ const {
   getAllowedFields,
   computeSnapshotHash,
   getReversibilityRules,
-} = require("./entityAdapters");
+} = require("../engine/entityAdapters");
 const { evaluateMutationConstraints } = require("./agentDomainConstraintEvaluator");
 const { assertDomainMutationAllowed } = require("./agentDomainMutationRules");
 const { ENTITY_TYPE_DOMAIN_MAP } = require("../tools/tool.firewall");

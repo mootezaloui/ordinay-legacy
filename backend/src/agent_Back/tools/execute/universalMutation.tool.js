@@ -22,9 +22,9 @@ const { createActionProposal, generateProposalId, ACTION_STATUS } = require('../
 const {
   bindMutationScope,
   resolveBoundFromScopeLabels,
-} = require('../../mutations/mutationScopeBinder');
-const { validateAndPrepareFields } = require('../../mutations/fieldGovernance');
-const { applyHierarchicalScopeBinding } = require('../../mutations/hierarchicalScopeBinder');
+} = require('../../mutation/mutationScopeBinder');
+const { validateAndPrepareFields } = require('../../mutation/fieldGovernance');
+const { applyHierarchicalScopeBinding } = require('../../mutation/hierarchicalScopeBinder');
 const { normalizeTaskMutationPayload } = require('../../../domain/taskMutationNormalization');
 
 const OPERATION_TYPES = Object.freeze({

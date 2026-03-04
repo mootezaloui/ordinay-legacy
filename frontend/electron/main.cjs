@@ -291,8 +291,13 @@ async function startBackend() {
     fs.unlinkSync(backendPipePath);
   }
 
-  // Set a fixed port for HTTP streaming (localhost only, won't trigger firewall)
-  backendPort = 3000;
+  // Pick a port for HTTP streaming (localhost only, won't trigger firewall).
+  // Allow explicit override via env, otherwise choose a free local port to avoid EADDRINUSE.
+  const configuredPortRaw = process.env.ORDINAY_STREAM_HTTP_PORT;
+  const configuredPort = configuredPortRaw ? Number.parseInt(configuredPortRaw, 10) : NaN;
+  backendPort = Number.isInteger(configuredPort) && configuredPort > 0
+    ? configuredPort
+    : await findAvailablePort();
 
   const backendPath = getBackendPath();
   const serverScript = path.join(backendPath, "src", "server.js");

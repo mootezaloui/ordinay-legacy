@@ -1473,14 +1473,28 @@ router.post("/agent/run", async (req, res, next) => {
       });
     }
 
-    const result = await agentEngine.run({
+    const chatResult = await chatOrchestrator.runChatTurn({
       message: effectiveMessage,
       context: requestContext,
-      agentVersion,
-      reasoner,
+      agentVersion: agentVersion || "v3",
       followUpIntent,
-      documentContext,
+      sessionId,
+      metadata,
+      userId: req.user?.id || null,
+      tenantId: req.user?.tenantId || requestContext?.tenantId || null,
     });
+    const _runSearchArtifact = Array.isArray(chatResult?.toolExecutions)
+      ? chatResult.toolExecutions
+          .filter((e) => e?.ok === true)
+          .map((e) => normalizeChatSearchArtifact(e))
+          .find(Boolean) || null
+      : null;
+    const result = {
+      intent: chatResult?.intent || "CHATBOT_AGENT_MODE",
+      output: chatResult?.outputArtifact || chatResult?.ambiguityArtifact || _runSearchArtifact || { type: "chat", message: chatResult?.message || "" },
+      agentVersion: agentVersion || "v3",
+      reasoner: reasoner || "chat",
+    };
     const contextLifecycle =
       typeof agentEngine.contextStore?.consumeLifecycleEvent === "function"
         ? agentEngine.contextStore.consumeLifecycleEvent(requestContext)
@@ -2741,21 +2755,32 @@ router.post("/agent/stream", async (req, res) => {
       }
     }
 
-    const runResult = await agentEngine.run({
+    const chatResult = await chatOrchestrator.runChatTurn({
       message: effectiveMessage,
       context: requestContext,
-      agentVersion,
-      reasoner,
+      agentVersion: agentVersion || "v3",
       followUpIntent,
-      documentContext,
+      sessionId,
+      metadata,
+      userId: req.user?.id || null,
+      tenantId: req.user?.tenantId || requestContext?.tenantId || null,
+      signal: abortController.signal,
     });
+    const _streamSearchArtifact = Array.isArray(chatResult?.toolExecutions)
+      ? chatResult.toolExecutions
+          .filter((e) => e?.ok === true)
+          .map((e) => normalizeChatSearchArtifact(e))
+          .find(Boolean) || null
+      : null;
     const contextLifecycle =
       typeof agentEngine.contextStore?.consumeLifecycleEvent === "function"
         ? agentEngine.contextStore.consumeLifecycleEvent(requestContext)
         : null;
-    const unifiedResult = contextLifecycle
-      ? { ...runResult, contextLifecycle }
-      : runResult;
+    const unifiedResult = {
+      intent: chatResult?.intent || "CHATBOT_AGENT_MODE",
+      output: chatResult?.outputArtifact || chatResult?.ambiguityArtifact || _streamSearchArtifact || { type: "chat", message: chatResult?.message || "" },
+      contextLifecycle,
+    };
     const artifactOutput = unifiedResult?.output;
     const interactionMode = resolveInteractionMode({
       output: artifactOutput,

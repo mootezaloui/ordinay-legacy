@@ -22,7 +22,7 @@ const {
 } = require("../engine/entityAdapters");
 const {
   normalizeEntityType: normalizeProposalEntityType,
-} = require("../engine/agentMutationProposal.service");
+} = require("../mutation/agentMutationProposal.service");
 
 const ALLOWED_ENTITY_TYPES = new Set([
   "client",

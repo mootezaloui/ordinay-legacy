@@ -9,7 +9,7 @@ const {
   getCompatibleParentTypes,
   getPayloadFieldForParent,
 } = require("../context/scopeDomainRelations");
-const { applyHierarchicalScopeBinding } = require("../mutations/hierarchicalScopeBinder");
+const { applyHierarchicalScopeBinding } = require("./hierarchicalScopeBinder");
 
 const MUTATION_GOVERNANCE_CREATE_THRESHOLD = 0.72;
 const MUTATION_GOVERNANCE_UPDATE_THRESHOLD = 0.75;

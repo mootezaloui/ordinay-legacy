@@ -2,7 +2,7 @@
 
 const actionProposalSchema = require("../../schemas/actionProposal.schema.json");
 const { TOOL_CATEGORIES } = require("../tool.registry");
-const agentMutationProposalService = require("../../engine/agentMutationProposal.service");
+const agentMutationProposalService = require("../../mutation/agentMutationProposal.service");
 
 const inputSchema = {
   type: "object",

@@ -68,12 +68,6 @@ const TOOL_DOMAIN_MAP = Object.freeze({
   listHistoryEvents: "history",
   getHistoryEvent: "history",
 
-  // ANALYSIS tools
-  detectOverdueTasks: "tasks",
-  computeDossierStatus: "dossiers",
-  findBlockingDependencies: "dossiers",
-  scanOperationalRisks: "dossiers",
-
   // DRAFT tools (require underlying data access)
   draftInvitation: "sessions",
   draftClientEmail: "clients",
@@ -87,13 +81,6 @@ const TOOL_DOMAIN_MAP = Object.freeze({
   propose_entity_mutation: null, // Multi-domain proposal tool (explicit command only)
   propose_mutation_workflow: null, // Multi-domain proposal tool (strong-intent adaptive workflows)
   universalMutation: null, // Multi-domain — domain resolved per operation params
-  createTask: "tasks",
-  updateTask: "tasks",
-  addNote: null, // Multi-entity — domain resolved per params
-  createDocumentDraft: "documents",
-  updateDocumentMetadata: "documents",
-  scheduleReminder: "tasks",
-  prepareClientNotification: "clients",
 });
 
 /**
@@ -494,14 +481,6 @@ class ToolFirewall {
     const alternatives = {
       universalMutation: "listDossiers",
       propose_entity_mutation: "listDossiers",
-      createTask: "listTasks",
-      updateTask: "getTask",
-      addNote: "getDossier",
-      createDocumentDraft: "getDossier",
-      updateDocumentMetadata: "getDossier",
-      scheduleReminder: "listReminders",
-      prepareClientNotification: "getClient",
-      updateDossierStatus: "getDossier",
     };
 
     const alternative = alternatives[toolName];

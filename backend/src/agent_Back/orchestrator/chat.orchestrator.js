@@ -24,7 +24,7 @@ const { CHAT_STATES, selectInitialState } = require("./chat.state.machine");
 const { parseFinalOutputContract } = require("./output.contract");
 const { parseJsonResponse } = require("../llm/llm.validation");
 const { evaluateMutationGovernance } = require("../mutation/mutation.governance");
-const { applyHierarchicalScopeBinding } = require("../mutations/hierarchicalScopeBinder");
+const { applyHierarchicalScopeBinding } = require("../mutation/hierarchicalScopeBinder");
 const {
   getChatOrchestratorState,
   updateChatOrchestratorState,
