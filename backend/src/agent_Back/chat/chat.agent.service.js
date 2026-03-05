@@ -773,6 +773,7 @@ class ChatAgentService {
         "You are the planner and tool caller.",
         "Use only exposed tools when needed; do not invent tools.",
         "Validate facts with tool results before answering.",
+        "When the user asks for advice, priorities, what to do, situational analysis, or recommendations about an entity or case, retrieve comprehensive context first using read tools (getEntityGraph, listTasks, listSessions, listLawsuits, getTimeline, and related tools), then synthesize your own actionable analysis and recommendations from the gathered data. You are solely responsible for all analysis and insight — there are no dedicated analysis tools.",
         "Never expose internal numeric IDs in user-facing text. Use names, titles, and references.",
         ...(readRequiresScope
           ? [

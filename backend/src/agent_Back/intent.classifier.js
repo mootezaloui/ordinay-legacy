@@ -2304,3 +2304,75 @@ module.exports.detectFilterModifier = detectFilterModifier;
 module.exports.hasExplicitEntityMention = hasExplicitEntityMention;
 module.exports.detectEntityType = detectEntityType;
 module.exports.getIntentSignals = getIntentSignals;
+
+/**
+ * Detect composite intent — primary read/draft kind plus secondary intents (ADVICE, DRAFT, etc.).
+ *
+ * Uses a small LLM classification prompt to detect advisory secondaries without
+ * hardcoded phrase matching. Falls back to no secondaries if LLM is unavailable.
+ *
+ * @param {string} message
+ * @returns {Promise<{primary: {kind: string, entity: string|null}, secondaries: string[], signals: object}>}
+ */
+const _COMPOSITE_LLM_BASE_URL = process.env.LLM_BASE_URL || "http://127.0.0.1:11434";
+const _COMPOSITE_LLM_MODEL = process.env.LLM_MODEL || "gpt-oss:120b-cloud";
+const _COMPOSITE_INTENT_TIMEOUT = 5000;
+
+async function detectCompositeIntent(message = "") {
+  const msg = String(message || "");
+
+  const readIntent = detectReadIntent(msg, {});
+  const draftIntent = detectDraftIntent(msg);
+  const signals = getIntentSignals(msg, {});
+
+  const primary = readIntent?.intent
+    ? { kind: readIntent.intent, entity: readIntent.filters?.entityType || null }
+    : draftIntent?.intent
+      ? { kind: draftIntent.intent, entity: null }
+      : { kind: "GENERAL", entity: null };
+
+  let secondaries = [];
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), _COMPOSITE_INTENT_TIMEOUT);
+  try {
+    const prompt =
+      `Does this message ask for advice, recommendations, or next steps beyond just retrieving data?\n` +
+      `Message: "${msg.slice(0, 200)}"\n` +
+      `Answer with exactly one word: ADVICE or NONE\nAnswer:`;
+    const response = await fetch(`${_COMPOSITE_LLM_BASE_URL}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: _COMPOSITE_LLM_MODEL,
+        prompt,
+        stream: false,
+        options: { temperature: 0, num_predict: 10 },
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (response.ok) {
+      const data = await response.json();
+      const answer = String(data.response || "").trim().toUpperCase();
+      if (answer === "ADVICE" || answer.startsWith("ADVICE")) {
+        secondaries = ["ADVICE"];
+      }
+    }
+  } catch (_) {
+    clearTimeout(timeoutId);
+  }
+
+  // Keyword fallback: only when LLM call failed or timed out.
+  if (secondaries.length === 0) {
+    const lower = msg.toLowerCase();
+    const ADVICE_PHRASES = [
+      "what do you think", "what should", "what would you", "should we", "should i",
+      "recommend", "suggestion", "advice", "priority", "priorities", "next step",
+      "what to do", "how to proceed", "best approach",
+    ];
+    if (ADVICE_PHRASES.some((p) => lower.includes(p))) secondaries = ["ADVICE"];
+  }
+
+  return { primary, secondaries, signals };
+}
+module.exports.detectCompositeIntent = detectCompositeIntent;

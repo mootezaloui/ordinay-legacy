@@ -1,339 +1,230 @@
-# Agent Tools — Phase B Implementation
+# Agent Tools
 
-**Status**: ✅ Complete
-**Safety Level**: CRITICAL
-**Last Updated**: 2026-01-13
-
----
-
-## Overview
-
-This directory contains the **Tool Registry, Safety Firewall, and Tool Implementations** for the Ordinay Agent.
-
-### ⚠️ CRITICAL SAFETY PRINCIPLES
-
-1. **Tools are owned by the Agent Engine, NOT the LLM**
-2. **LLMs never execute tools directly**
-3. **LLMs never select tools directly**
-4. **All tools must be declared in the registry**
-5. **Undeclared tools are BLOCKED**
-6. **Execute tools are BLOCKED in v1 and v2**
+**Last Updated**: 2026-03-05 (Responder layer added)
+**Status**: Production
 
 ---
 
-## Architecture
+## Core Principle
 
-```
-agent/tools/
-├── tool.registry.js          # Central tool registry
-├── tool.firewall.js          # Safety gates and execution control
-├── tool.firewall.test.js     # Comprehensive test harness
-├── index.js                  # Tool loader and initialization
-├── read/                     # READ tools (safe, no side effects)
+**The LLM is the analyst. Tools are data providers.**
+
+Tools never generate analysis, summaries, recommendations, or decisions. They fetch raw structured data. The LLM synthesizes everything from that data. This is a hard constraint — any tool that generates narrative text violates the architecture.
+
+---
+
+## Directory Structure
+
+```text
+tools/
+├── tool.registry.js              # Central tool registry
+├── tool.firewall.js              # Security gates (7 gates)
+├── index.js                      # Tool loader and registry initialization
+├── read/                         # READ tools — raw data retrieval (35 tools)
 │   ├── getClient.tool.js
+│   ├── listClients.tool.js
+│   ├── searchClientsByName.tool.js
 │   ├── getDossier.tool.js
+│   ├── getDossierByReference.tool.js
+│   ├── listDossiers.tool.js
+│   ├── listDossiersForClient.tool.js
+│   ├── getClientDossierSummary.tool.js
+│   ├── getDossierWorkSummary.tool.js
 │   ├── getLawsuit.tool.js
+│   ├── listLawsuits.tool.js
 │   ├── getSession.tool.js
+│   ├── listSessions.tool.js
 │   ├── listTasks.tool.js
-│   └── getTimeline.tool.js
-├── analysis/                 # ANALYSIS tools (pure computation)
-│   ├── computeDossierStatus.tool.js
-│   ├── detectOverdueTasks.tool.js
-│   ├── findBlockingDependencies.tool.js
-│   └── scanOperationalRisks.tool.js
-├── draft/                    # DRAFT tools (output only)
-│   ├── draftInvitation.tool.js
-│   ├── draftClientEmail.tool.js
-│   └── draftHearingSummary.tool.js
-└── execute/                  # EXECUTE tools (STUBS, blocked in v1/v2)
-    ├── createTask.tool.js
-    ├── scheduleReminder.tool.js
-    └── prepareClientNotification.tool.js
+│   ├── getTask.tool.js
+│   ├── listPersonalTasks.tool.js
+│   ├── getPersonalTask.tool.js
+│   ├── listMissions.tool.js
+│   ├── getMission.tool.js
+│   ├── listOfficers.tool.js
+│   ├── getOfficer.tool.js
+│   ├── listFinancialEntries.tool.js
+│   ├── getFinancialEntry.tool.js
+│   ├── findClientsWithOverdueInvoices.tool.js
+│   ├── listNotifications.tool.js
+│   ├── getNotification.tool.js
+│   ├── listDocuments.tool.js
+│   ├── getDocument.tool.js
+│   ├── listHistoryEvents.tool.js
+│   ├── getHistoryEvent.tool.js
+│   ├── getTimeline.tool.js
+│   ├── getEntityGraph.tool.js    # Primary graph traversal tool
+│   ├── mcpWebSearch.tool.js
+│   ├── mcpLegalSearch.tool.js
+│   └── mcpDeepSearch.tool.js
+├── draft/                        # DRAFT tools — content generation (2 tools)
+│   ├── genericDraft.tool.js
+│   └── planGeneratedDocument.tool.js
+├── plan/                         # PLAN tools — mutation proposals (2 tools)
+│   ├── proposeEntityMutation.tool.js
+│   └── proposeMutationWorkflow.tool.js
+├── research/                     # RESEARCH tools — deep research (1 tool)
+│   └── compileDossierResearch.tool.js
+└── execute/                      # EXECUTE tools — mutations (1 tool)
+    └── universalMutation.tool.js
 ```
 
 ---
 
 ## Tool Categories
 
-### 1️⃣ READ (Safe)
+### READ — Raw Data Retrieval
 
-**Purpose**: Read-only access to Ordinay data
 **Allowed in**: v1, v2, v3
 **Side effects**: None
-**Reversibility**: Yes (read operations don't modify data)
 
-**Examples**:
-- `getClient(clientId)` — Retrieve client record
-- `getDossier(dossierId)` — Retrieve dossier with client info
-- `getLawsuit(lawsuitId)` — Retrieve lawsuit with dossier info
-- `getSession(sessionId)` — Retrieve session details
-- `listTasks(filters)` — List tasks with filters
-- `getTimeline(entityType, entityId)` — Get activity timeline
+READ tools fetch raw entity data from the database. They do not compute, aggregate, score, or interpret. `getEntityGraph` is the primary tool for deep context — it traverses entity relationships up to a configurable depth.
 
-**Rules**:
-- Return raw structured data only
-- No computations
-- No decisions
-- No aggregations beyond basic listing
+Rules:
+
+- Return raw structured records only
+- No computation beyond basic SQL filtering
+- No text generation
+- No analysis of any kind
 
 ---
 
-### 2️⃣ ANALYSIS (Safe, Derived)
+### DRAFT — Content Generation
 
-**Purpose**: Pure computation over read data
 **Allowed in**: v1, v2, v3
 **Side effects**: None
-**Reversibility**: Yes (deterministic computations)
 
-**Examples**:
-- `computeDossierStatus(dossierId)` — Compute derived status metrics
-- `detectOverdueTasks(filters)` — Find overdue tasks with analysis
-- `findBlockingDependencies(dossierId)` — Identify blockers
-- `scanOperationalRisks(entityType, entityId)` — Calculate risk score
+DRAFT tools generate document content (letters, structured outputs) grounded in entity data. Output is never persisted or sent automatically.
 
-**Rules**:
-- Must be deterministic (same input → same output)
-- No side effects
-- Output must be explainable
-- No legal advice
-- No predictions
+Rules:
+
+- Output only — no state mutation
+- Must include `requiresValidation: true` in metadata
+- Never persist or send automatically
 
 ---
 
-### 3️⃣ DRAFT (Safe, Output Only)
+### PLAN — Mutation Proposals
 
-**Purpose**: Create draft content, never persist automatically
-**Allowed in**: v1, v2, v3
-**Side effects**: None
-**Reversibility**: Yes (drafts don't mutate state)
+**Allowed in**: v3 only (explicit command or strong mutation intent)
+**Side effects**: No (proposal only, not execution)
 
-**Examples**:
-- `draftInvitation(sessionId, language, tone)` — Draft session invitation
-- `draftClientEmail(dossierId, purpose, language)` — Draft client email
-- `draftHearingSummary(sessionId, language)` — Draft hearing summary
+PLAN tools build structured mutation proposals that go through the confirmation workflow before any execution. They do not execute mutations directly.
 
-**Rules**:
-- Output only
-- Must include metadata:
-  - `source: "agent_draft_tool"`
-  - `status: "draft"`
-  - `requiresValidation: true`
-  - `generatedAt: ISO8601`
-- Never save automatically
-- Never send automatically
+- `proposeEntityMutation` — single-entity change proposal
+- `proposeMutationWorkflow` — multi-step adaptive workflow proposal
+
+Rules:
+
+- Only reachable via `/mutate` slash command or strong mutation intent flag
+- Output is a proposal contract, not an executed change
+- Execution requires explicit user confirmation
 
 ---
 
-### 4️⃣ EXECUTE (Dangerous — BLOCKED in v1/v2)
+### RESEARCH — Deep Research
 
-**Purpose**: Perform operations with side effects
-**Allowed in**: v3 ONLY (with confirmation)
-**Side effects**: YES
-**Reversibility**: Varies by tool
+**Allowed in**: v2, v3
+**Side effects**: None
 
-**Examples** (STUBS):
-- `createTask(...)` — Create new task (NOT IMPLEMENTED)
-- `scheduleReminder(...)` — Schedule reminder (NOT IMPLEMENTED)
-- `prepareClientNotification(...)` — Queue notification (NOT IMPLEMENTED)
+Research tools perform deep multi-source research and return structured findings. The LLM synthesizes findings into its response.
 
-**Rules**:
-- ALL execute tools are STUBS in Phase B
-- BLOCKED in v1 and v2 (no exceptions)
-- Require explicit confirmation in v3
-- Must declare `reversibility` and `confirmationRequired`
+---
+
+### EXECUTE — Mutation Execution
+
+**Allowed in**: v3 only, with confirmation
+**Side effects**: Yes
+
+`universalMutation` is the single canonical mutation surface. It handles all entity create/update/delete operations across all entity types via a unified operation schema. All legacy per-entity execute wrappers have been removed.
+
+Rules:
+
+- v3 only, never callable in v1/v2
+- Requires explicit confirmation (`context.confirmed = true`)
+- All mutations pass through domain constraint evaluation before execution
+
+---
+
+## Responder Layer
+
+The **Turn Responder** (`responders/turn.responder.js`) sits after the Resolution Phase in every turn.
+
+It synthesizes the `finalMessage` the user reads from the resolved artifact and composite intent context.
+
+### Response Modes
+
+| Mode    | Triggered when                                    | LLM synthesis     |
+|---------|---------------------------------------------------|-------------------|
+| REPORT  | Primary READ, no secondaries                      | Yes / silent      |
+| ADVISE  | `secondaries` includes `"ADVICE"`                 | Yes, never silent |
+| CLARIFY | Ambiguous artifact or `context_suggestion` type   | Yes               |
+| DRAFT   | Artifact type is `draft` or `research_contract`   | Yes               |
+| RECOVER | Artifact type is `error`                          | Yes               |
+
+### Silent Policy
+
+`[silent]` is only permitted in REPORT mode when the artifact already contains a rich summary message. In all other modes, `finalMessage` is always non-empty.
+
+### LLM Loop Passthrough
+
+When the LLM tool-calling loop already produced a synthesized `finalMessage` (via `contract.content`), the responder receives it as `context.existingMessage` and returns it as-is. No extra LLM call is made for LLM loop paths.
+
+### Composite Intent Detection
+
+`detectCompositeIntent(message)` in `intent.classifier.js` uses a small LLM prompt to detect secondary intents (`ADVICE`, etc.) without hardcoded phrase matching. Result is passed to the responder as `context.secondaries`.
+
+---
+
+## What Was Removed (and Why)
+
+### ANALYSIS category — removed entirely
+
+The analysis category (`computeDossierStatus`, `detectOverdueTasks`, `findBlockingDependencies`, `scanOperationalRisks`) was removed because:
+
+1. These tools were entity-biased — they hardcoded logic for 1-3 entity types out of 13 in the system
+2. They duplicated what the LLM can derive from raw READ tool results
+3. Some generated hardcoded description strings, violating the LLM-only analysis constraint
+
+The LLM now gathers comprehensive context via READ tools (`getEntityGraph`, `listTasks`, `listSessions`, etc.) and synthesizes analysis itself.
+
+### Legacy execute tools — removed
+
+Per-entity wrappers (`createTask`, `updateTask`, `addNote`, `createDocumentDraft`, `updateDocumentMetadata`) were already disabled by env flag and fully superseded by `universalMutation`.
+
+### Stub tools — removed
+
+`scheduleReminder` and `prepareClientNotification` threw "not implemented" and never executed.
+
+### Plan analysis tools — removed
+
+`buildActionPlan`, `analyzeEntityState`, `detectPrioritySignals`, `summarizeEntityProgress` generated hardcoded template analysis text. This violated the constraint that the LLM is the sole source of analysis and recommendations.
 
 ---
 
 ## Safety Firewall
 
-The **Tool Firewall** implements mandatory security gates.
+All tool calls pass through `tool.firewall.js` before execution. Gates run in order:
 
-### Gate Checks (in order)
+1. **REGISTRY_CHECK** — tool must be declared
+2. **VERSION_CHECK** — tool must be allowed for agent version
+3. **CATEGORY_CHECK** — category must be allowed by policy
+4. **EXTERNAL_CHECK** — external tools are blocked (MCP category)
+5. **EXECUTION_CHECK** — execute tools require `allowExecution=true`
+6. **POSTURE_CHECK** — execute tools require matching posture
+7. **CONFIRMATION_CHECK** — side-effect tools require `context.confirmed=true`
 
-1. **REGISTRY_CHECK**: Tool must exist in registry
-2. **VERSION_CHECK**: Tool must be allowed for agent version
-3. **CATEGORY_CHECK**: Tool category must be allowed by policy
-4. **EXECUTION_CHECK**: Execute tools require `allowExecution=true`
-5. **CONFIRMATION_CHECK**: Side-effect tools require explicit confirmation
+Firewall also resolves domain access per `TOOL_DOMAIN_MAP` and blocks DELETE operations on entity types where `adapter.allowedDelete === false`.
 
-### Rejection Handling
-
-If ANY gate fails:
-- Execution is BLOCKED
-- Explicit error is thrown
-- Reason is logged to ledger
-- Suggested alternative may be provided
-- NO silent fallback
+Any gate failure: execution blocked, error thrown, reason logged to ledger. No silent fallbacks.
 
 ---
 
-## Agent Engine Integration
+## Adding a New Tool
 
-### Methods
-
-#### `proposeAction(toolName, params, policy, context)`
-Checks if a tool call would be permitted WITHOUT executing it.
-
-**Returns**:
-```javascript
-{
-  proposed: true,
-  permitted: boolean,
-  toolName: string,
-  params: object,
-  reason?: string,        // if blocked
-  message?: string,       // if blocked
-  suggestedAlternative?: object
-}
-```
-
-#### `executeAction(toolName, params, policy, context)`
-Executes a tool after permission check.
-
-**Throws** if:
-- Tool not permitted
-- Tool not found
-- Execution fails
-
-#### `callTool(toolName, params, policy, context)`
-Convenience method: proposes + executes.
-
----
-
-## Ledger Integration
-
-All tool operations are logged:
-
-### Tool Permission Check
-```javascript
-{
-  type: 'tool_permission_check',
-  toolName: string,
-  permitted: boolean,
-  reason: string,
-  policyVersion: string,
-  toolCategory: string,
-  checks: Array<{ gate, passed, message }>,
-  timestamp: ISO8601
-}
-```
-
-### Tool Execution
-```javascript
-{
-  type: 'tool_execution',
-  toolName: string,
-  params: object,
-  result?: object,      // if success
-  error?: string,       // if failure
-  success: boolean,
-  policyVersion: string,
-  timestamp: ISO8601
-}
-```
-
----
-
-## Testing
-
-### Run Test Harness
-
-```bash
-cd backend
-node src/agent/tools/tool.firewall.test.js
-```
-
-### Tests Performed
-
-1. ✅ Execute tool blocked in v1
-2. ✅ Undeclared tool blocked
-3. ✅ Analysis tool allowed in v1
-4. ✅ Draft tool allowed in v1
-5. ✅ Read tool allowed in v1
-6. ✅ Execute tool blocked in v2
-7. ✅ Execute tool blocked in v3 without confirmation
-8. ✅ Registry integrity verified
-9. ✅ Ledger logs permission checks
-10. ✅ All READ tools have no side effects
-11. ✅ All ANALYSIS tools have no side effects
-12. ✅ All EXECUTE tools have side effects
-
-**Result**: 12/12 tests passed ✅
-
----
-
-## Usage Examples
-
-### Example 1: Safely read client data (v1)
+### Step 1: Create the tool file
 
 ```javascript
-const engine = new AgentEngine();
-const policy = engine.policies.v1;
-
-const result = await engine.callTool('getClient', { clientId: 42 }, policy);
-// ✅ Allowed: READ tool in v1
-```
-
-### Example 2: Analyze dossier status (v1)
-
-```javascript
-const result = await engine.callTool(
-  'computeDossierStatus',
-  { dossierId: 10 },
-  policy
-);
-// ✅ Allowed: ANALYSIS tool in v1
-```
-
-### Example 3: Draft client email (v1)
-
-```javascript
-const result = await engine.callTool(
-  'draftClientEmail',
-  {
-    dossierId: 10,
-    purpose: 'update',
-    language: 'fr'
-  },
-  policy
-);
-// ✅ Allowed: DRAFT tool in v1
-// Output includes metadata with requiresValidation: true
-```
-
-### Example 4: Attempt to create task (v1) — BLOCKED
-
-```javascript
-try {
-  await engine.callTool('createTask', { title: 'New task' }, policy);
-} catch (error) {
-  console.log(error.reason); // "VERSION_NOT_ALLOWED"
-  console.log(error.message); // "Tool 'createTask' is not allowed for agent version v1..."
-  // ✅ Correctly blocked
-}
-```
-
-### Example 5: Check permission before proposing to user
-
-```javascript
-const proposal = engine.proposeAction('createTask', { title: 'Task' }, policy);
-
-if (!proposal.permitted) {
-  console.log(`Cannot execute: ${proposal.message}`);
-  if (proposal.suggestedAlternative) {
-    console.log(`Try: ${proposal.suggestedAlternative.toolName}`);
-  }
-}
-```
-
----
-
-## Adding New Tools
-
-### Step 1: Create Tool File
-
-```javascript
-// backend/src/agent/tools/read/getMyEntity.tool.js
+// tools/read/getMyEntity.tool.js
 'use strict';
 
 const db = require('../../../db/connection');
@@ -342,32 +233,24 @@ const { TOOL_CATEGORIES } = require('../tool.registry');
 const inputSchema = {
   type: 'object',
   properties: {
-    entityId: { type: 'integer', minimum: 1 }
+    entityId: { type: 'integer', minimum: 1 },
   },
   required: ['entityId'],
   additionalProperties: false,
 };
 
-const outputSchema = {
-  type: 'object',
-  properties: {
-    entity: { type: ['object', 'null'] }
-  },
-  required: ['entity'],
-  additionalProperties: false,
-};
-
 async function handler({ entityId }) {
-  const entity = db.prepare('SELECT * FROM my_entity WHERE id = ?').get(entityId);
+  const entity = db.prepare(
+    'SELECT * FROM my_entity WHERE id = ? AND deleted_at IS NULL'
+  ).get(entityId);
   return { entity: entity || null };
 }
 
 module.exports = {
   name: 'getMyEntity',
   category: TOOL_CATEGORIES.READ,
-  description: 'Retrieve an entity by ID',
+  description: 'Retrieve a my_entity record by ID',
   inputSchema,
-  outputSchema,
   reversibility: true,
   sideEffects: false,
   allowedAgentVersions: ['v1', 'v2', 'v3'],
@@ -375,10 +258,9 @@ module.exports = {
 };
 ```
 
-### Step 2: Register in index.js
+### Step 2: Register in `index.js`
 
 ```javascript
-// backend/src/agent/tools/index.js
 const getMyEntityTool = require('./read/getMyEntity.tool');
 
 function initializeToolRegistry() {
@@ -389,45 +271,32 @@ function initializeToolRegistry() {
 }
 ```
 
-### Step 3: Test
+### Step 3: Add domain mapping in `tool.firewall.js`
 
-Add a test case to `tool.firewall.test.js` and verify with:
+```javascript
+const TOOL_DOMAIN_MAP = Object.freeze({
+  // ... existing entries
+  getMyEntity: 'myEntities',
+});
+```
+
+### Step 4: Verify
+
 ```bash
-node src/agent/tools/tool.firewall.test.js
+node -e "require('./src/agent_Back/tools/index')" && echo OK
 ```
 
 ---
 
-## Security Audit Checklist
+## Security Checklist
 
-- [ ] All tools are declared in registry
-- [ ] All READ tools have `sideEffects: false`
-- [ ] All ANALYSIS tools have `sideEffects: false`
-- [ ] All DRAFT tools have `sideEffects: false`
-- [ ] All EXECUTE tools have `sideEffects: true`
-- [ ] All EXECUTE tools are only in `allowedAgentVersions: ['v3']`
-- [ ] All EXECUTE tools have `confirmationRequired: true`
-- [ ] Tool Firewall blocks v1/v2 from calling EXECUTE tools
+- [ ] All tools declared in registry
+- [ ] All READ tools: `sideEffects: false`
+- [ ] All DRAFT tools: `sideEffects: false`
+- [ ] All READ/DRAFT tools: no text generation, no analysis
+- [ ] EXECUTE tools: `sideEffects: true`, v3 only, `confirmationRequired: true`
+- [ ] PLAN tools: only reachable via explicit mutation intent gate
+- [ ] No tool generates narrative text, analysis conclusions, or recommendations
+- [ ] Tool Firewall blocks v1/v2 from EXECUTE
 - [ ] Tool Firewall blocks undeclared tools
 - [ ] Ledger logs all permission checks
-- [ ] Test harness passes 100%
-
----
-
-## Next Steps (Phase C)
-
-Phase B is complete. Phase C will implement:
-
-1. **LLM Integration** — Allow v3 to use external LLM reasoners
-2. **EXECUTE Implementation** — Real implementations for execute tools
-3. **Confirmation Flow** — User approval for side effects
-4. **Rollback Mechanisms** — Undo for reversible operations
-5. **External Search** — Integration with external data sources
-
----
-
-## Contact
-
-For questions or security concerns, contact the system architect.
-
-**Remember**: If something is unsafe, BLOCK IT. No exceptions.

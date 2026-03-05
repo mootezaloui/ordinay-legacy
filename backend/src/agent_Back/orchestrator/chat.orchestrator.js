@@ -4,7 +4,8 @@ const documentGenerationPreviewService = require("../../services/documentGenerat
 const { ChatAgentService } = require("../chat/chat.agent.service");
 const { resolveChatAmbiguity } = require("../chat/chat.ambiguity.resolver");
 const { filterToolsForState } = require("../chat/chat.tool.exposure");
-const { detectDraftIntent, detectReadIntent } = require("../intent.classifier");
+const { detectDraftIntent, detectReadIntent, detectCompositeIntent } = require("../intent.classifier");
+const { buildTurnResponse } = require("../responders/turn.responder");
 const { buildReadPlan } = require("../read/readPlan.builder");
 const { buildQueryIR } = require("../query/queryIR");
 const {
@@ -3663,6 +3664,8 @@ class ChatOrchestrator {
       },
       globalSafeIntent,
     });
+    const compositeIntent = await detectCompositeIntent(effectiveUserMessage);
+    const secondaries = compositeIntent.secondaries;
     if (globalSafeIntent) {
       const deterministicReadResult = await this._tryRunDeterministicReadList({
         userMessage: effectiveUserMessage,
@@ -3686,7 +3689,33 @@ class ChatOrchestrator {
             reasonCode: readIntentPolicy.reasonCode || null,
           },
         });
-        return deterministicReadResult;
+        const responderResult = await buildTurnResponse({
+          userMessage: effectiveUserMessage,
+          artifact: deterministicReadResult.outputArtifact,
+          context: { secondaries },
+        });
+        console.log("[AGENT_TURN]", JSON.stringify({
+          intent: readIntent?.intent || null,
+          artifactType: deterministicReadResult?.outputArtifact?.type || "chat",
+          responseMode: responderResult.responseMode,
+          messageLength: (responderResult.finalMessage || "").length,
+          branch: "deterministic_direct",
+        }));
+        const _tsDirect = this.engine.contextStore?._transcriptStore;
+        if (_tsDirect && typeof _tsDirect.updateOrAddTurn === "function" && sessionId) {
+          _tsDirect.updateOrAddTurn(String(sessionId), userId || "default", {
+            userMessage: effectiveUserMessage,
+            agentIntent: readIntent?.intent || "CHATBOT_AGENT_MODE",
+            agentOutput: {
+              type: deterministicReadResult.outputArtifact?.type || "chat",
+              message: responderResult.finalMessage || deterministicReadResult.message,
+              posture: "ASSISTANT",
+              toolCalls: 0,
+            },
+            artifactType: deterministicReadResult.outputArtifact?.type || "chat",
+          });
+        }
+        return { ...deterministicReadResult, message: responderResult.finalMessage || deterministicReadResult.message };
       }
     }
 
@@ -3830,7 +3859,33 @@ class ChatOrchestrator {
           reasonCode: readIntentPolicy.reasonCode || null,
         },
       });
-      return deterministicReadResult;
+      const responderResult = await buildTurnResponse({
+        userMessage: effectiveUserMessage,
+        artifact: deterministicReadResult.outputArtifact,
+        context: { secondaries },
+      });
+      console.log("[AGENT_TURN]", JSON.stringify({
+        intent: readIntent?.intent || queryIR?.intent?.name || null,
+        artifactType: deterministicReadResult?.outputArtifact?.type || "chat",
+        responseMode: responderResult.responseMode,
+        messageLength: (responderResult.finalMessage || "").length,
+        branch: "deterministic_graph",
+      }));
+      const _tsGraph = this.engine.contextStore?._transcriptStore;
+      if (_tsGraph && typeof _tsGraph.updateOrAddTurn === "function" && sessionId) {
+        _tsGraph.updateOrAddTurn(String(sessionId), userId || "default", {
+          userMessage: effectiveUserMessage,
+          agentIntent: readIntent?.intent || queryIR?.intent?.name || "CHATBOT_AGENT_MODE",
+          agentOutput: {
+            type: deterministicReadResult.outputArtifact?.type || "chat",
+            message: responderResult.finalMessage || deterministicReadResult.message,
+            posture: "ASSISTANT",
+            toolCalls: 0,
+          },
+          artifactType: deterministicReadResult.outputArtifact?.type || "chat",
+        });
+      }
+      return { ...deterministicReadResult, message: responderResult.finalMessage || deterministicReadResult.message };
     }
 
     const stateForTools = state === CHAT_STATES.RETRIEVE ? CHAT_STATES.RETRIEVE : CHAT_STATES.PLAN_DRAFT;
@@ -4351,9 +4406,23 @@ class ChatOrchestrator {
       // Debug logging only
     }
 
+    const llmLoopResponder = await buildTurnResponse({
+      userMessage: effectiveUserMessage,
+      artifact: outputArtifact || { type: "chat", message: finalMessage },
+      context: { secondaries, existingMessage: finalMessage },
+    });
+    const effectiveFinalMessage = llmLoopResponder.finalMessage || finalMessage;
+    console.log("[AGENT_TURN]", JSON.stringify({
+      intent: routedOutputType || "llm_loop",
+      artifactType: outputArtifact?.type || "chat",
+      responseMode: llmLoopResponder.responseMode,
+      messageLength: (effectiveFinalMessage || "").length,
+      branch: "llm_loop",
+    }));
+
     return withStateOutput(
       {
-        message: finalMessage,
+        message: effectiveFinalMessage,
         toolExecutions: loopResult.toolExecutions,
         stepCommentaries: loopResult.stepCommentaries,
         rounds: loopResult.rounds,
