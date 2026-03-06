@@ -489,6 +489,28 @@ export interface ActionProposal {
         clientReference?: string | null;
       };
       fields?: Record<string, unknown>;
+      explicitFields?: string[];
+      defaultedFields?: string[];
+      inheritedFields?: string[];
+      inferredFields?: Array<{
+        field?: string;
+        value?: unknown;
+        origin?: string;
+        confidence?: number;
+        strategyId?: string;
+      }>;
+      correctedFields?: Array<{
+        field?: string;
+        from?: unknown;
+        to?: unknown;
+        ruleId?: string;
+      }>;
+      fieldDecisionMap?: Record<string, unknown>;
+      inferenceSummary?: {
+        countsByOrigin?: Record<string, number>;
+        warningCount?: number;
+      };
+      warnings?: string[];
     }>;
     groups?: Array<{
       entityType: string;
@@ -526,6 +548,28 @@ export interface ActionProposal {
       status?: string | null;
       priority?: string | null;
       parentLinks?: string[] | null;
+      explicitFields?: string[];
+      defaultedFields?: string[];
+      inheritedFields?: string[];
+      inferredFields?: Array<{
+        field?: string;
+        value?: unknown;
+        origin?: string;
+        confidence?: number;
+        strategyId?: string;
+      }>;
+      correctedFields?: Array<{
+        field?: string;
+        from?: unknown;
+        to?: unknown;
+        ruleId?: string;
+      }>;
+      fieldDecisionMap?: Record<string, unknown>;
+      inferenceSummary?: {
+        countsByOrigin?: Record<string, number>;
+        warningCount?: number;
+      };
+      warnings?: string[];
     }>;
     warnings?: string[];
   };
@@ -1320,6 +1364,25 @@ const SUPPRESSED_AUXILIARY_STREAM_EVENTS = new Set<string>([
   'commentary_chunk',
 ]);
 
+const CHROMIUM_UNSAFE_PORTS = new Set<number>([
+  1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 69, 77, 79,
+  87, 95, 101, 102, 103, 104, 109, 110, 111, 113, 115, 117, 119, 123, 135, 137,
+  139, 143, 161, 179, 389, 427, 465, 512, 513, 514, 515, 526, 530, 531, 532,
+  540, 548, 554, 556, 563, 587, 601, 636, 989, 990, 993, 995, 1719, 1720, 1723,
+  2049, 3659, 4045, 5060, 5061, 6000, 6566, 6665, 6666, 6667, 6668, 6669, 6697,
+  10080,
+]);
+
+function isUnsafeBrowserPortFromBase(apiBase: string): boolean {
+  try {
+    const parsed = new URL(apiBase);
+    const port = Number.parseInt(parsed.port || "", 10);
+    return Number.isInteger(port) && CHROMIUM_UNSAFE_PORTS.has(port);
+  } catch {
+    return false;
+  }
+}
+
 function buildLocalRecoveryOutput(
   message: string,
   severity: 'blocking' | 'partial' | 'temporary' = 'temporary',
@@ -1395,6 +1458,38 @@ export function streamAgentMessage(
   // Start streaming in background
   (async () => {
     try {
+      const fallbackToNonStreaming = async (reason: string) => {
+        callbacks.onStart?.({
+          intent: 'PENDING',
+          agentVersion: request.agentVersion || 'v1',
+        });
+
+        const response = await apiClient.post<AgentResponse>('/agent/run', request);
+        if (response.status !== 'ok' || !response.data) {
+          callbacks.onResult?.({
+            output: buildLocalRecoveryOutput(reason, 'temporary'),
+            intent: 'RECOVERY',
+            visibility: 'visible',
+            interactionMode: 'operational',
+          });
+          callbacks.onDone?.({ timestamp: new Date().toISOString() });
+          return;
+        }
+
+        callbacks.onResult?.({
+          output: response.data.output,
+          intent: response.data.intent,
+          contextLifecycle: response.data.contextLifecycle || null,
+          visibility: 'visible',
+          interactionMode: 'operational',
+          mutationOutcome: response.data.mutationOutcome || null,
+        });
+        callbacks.onDone?.({
+          timestamp: new Date().toISOString(),
+          mutationOutcome: response.data.mutationOutcome || null,
+        });
+      };
+
       // SSE streaming requires a direct HTTP connection; it cannot be proxied
       // through Electron IPC. In Electron mode, we use the HTTP URL directly.
       let apiBase = getApiBase();
@@ -1410,6 +1505,13 @@ export function streamAgentMessage(
           callbacks.onError?.('Agent streaming requires HTTP connection. Backend not accessible via HTTP.');
           return;
         }
+      }
+
+      if (isUnsafeBrowserPortFromBase(apiBase)) {
+        await fallbackToNonStreaming(
+          `Streaming endpoint ${apiBase} uses a browser-blocked port. Switched to non-streaming mode.`,
+        );
+        return;
       }
       
       const response = await fetch(`${apiBase}/agent/chat`, {
@@ -1769,6 +1871,26 @@ export function streamAgentMessage(
       if ((err as Error).name === 'AbortError') {
         callbacks.onCancelled?.();
       } else {
+        try {
+          const response = await apiClient.post<AgentResponse>('/agent/run', request);
+          if (response.status === 'ok' && response.data) {
+            callbacks.onResult?.({
+              output: response.data.output,
+              intent: response.data.intent,
+              contextLifecycle: response.data.contextLifecycle || null,
+              visibility: 'visible',
+              interactionMode: 'operational',
+              mutationOutcome: response.data.mutationOutcome || null,
+            });
+            callbacks.onDone?.({
+              timestamp: new Date().toISOString(),
+              mutationOutcome: response.data.mutationOutcome || null,
+            });
+            return;
+          }
+        } catch {
+          // Fall through to local recovery below
+        }
         callbacks.onResult?.({
           output: buildLocalRecoveryOutput(
             (err as Error).message || 'Stream error',

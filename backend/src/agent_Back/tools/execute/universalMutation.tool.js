@@ -23,9 +23,9 @@ const {
   bindMutationScope,
   resolveBoundFromScopeLabels,
 } = require('../../mutation/mutationScopeBinder');
-const { validateAndPrepareFields } = require('../../mutation/fieldGovernance');
 const { applyHierarchicalScopeBinding } = require('../../mutation/hierarchicalScopeBinder');
 const { normalizeTaskMutationPayload } = require('../../../domain/taskMutationNormalization');
+const { enrichStepPayload, applyBatchInference } = require('../../mutation/uis');
 
 const OPERATION_TYPES = Object.freeze({
   CREATE_ENTITY: 'CREATE_ENTITY',
@@ -543,6 +543,7 @@ async function buildSingleOperationProposal(input, executionContext = {}) {
       if (!entityType || !payload) {
         throw new Error('CREATE_ENTITY requires entityType and payload');
       }
+      const explicitPayload = payload && typeof payload === "object" && !Array.isArray(payload) ? JSON.parse(JSON.stringify(payload)) : {};
 
       const scopeBinding = bindMutationScope({
         entityType,
@@ -577,24 +578,33 @@ async function buildSingleOperationProposal(input, executionContext = {}) {
         });
       }
 
-      const governance = validateAndPrepareFields({
+      const inferred = enrichStepPayload({
+        operation: OPERATION_TYPES.CREATE_ENTITY,
         entityType,
         payload: params.payload,
+        explicitPayload,
         activeScope: {
           ...(executionContext && typeof executionContext === 'object' ? executionContext : {}),
+          boundFromScope: scopeBinding.boundFromScope,
         },
       });
-      params.payload = governance.preparedPayload;
-      if (governance.status === 'needs_input') {
+      params.payload = inferred.payload;
+      if (inferred.governance?.status === 'needs_input') {
         return buildEntityCreationFormArtifact({
           entityType,
           prefilled: params.payload,
-          missingRequired: governance.missingCriticalFields,
+          missingRequired:
+            inferred.governance.missingRequiredFields ||
+            inferred.governance.missingCriticalFields ||
+            [],
         });
       }
 
       // Validate payload after deterministic governance normalization.
       validatePayload(entityType, 'create', params.payload);
+      params.uis = {
+        trace: inferred.trace,
+      };
 
       // No snapshot needed for creation (entity doesn't exist yet)
       snapshot = null;
@@ -619,9 +629,20 @@ async function buildSingleOperationProposal(input, executionContext = {}) {
       if (!entityType || !entityId || !changes) {
         throw new Error('UPDATE_ENTITY requires entityType, entityId, and changes');
       }
+      const inferred = enrichStepPayload({
+        operation: OPERATION_TYPES.UPDATE_ENTITY,
+        entityType,
+        payload: changes,
+        explicitPayload: changes,
+        activeScope: executionContext,
+      });
+      params.changes = inferred.payload;
+      params.uis = {
+        trace: inferred.trace,
+      };
 
       // Validate changes
-      validatePayload(entityType, 'update', changes);
+      validatePayload(entityType, 'update', params.changes);
 
       // Compute snapshot hash before update
       const hash = computeSnapshotHash(entityType, entityId);
@@ -633,7 +654,7 @@ async function buildSingleOperationProposal(input, executionContext = {}) {
       };
 
       const display = resolveEntityDisplay(entityType, entityId);
-      actionSummary = `Update ${display?.label || `selected ${toDisplayEntityName(entityType)}`}${summarizeMutationFields(changes)}`;
+      actionSummary = `Update ${display?.label || `selected ${toDisplayEntityName(entityType)}`}${summarizeMutationFields(params.changes)}`;
 
       const rules = getReversibilityRules(entityType);
       reversible = rules.update.reversible;
@@ -874,7 +895,7 @@ function _buildBatchWorkflowProposal({ normalizedInput, executionContext = {} })
     throw new Error('Batch workflow proposal requires at least 2 operations');
   }
 
-  const steps = operations.map((op, index) => ({
+  const rawSteps = operations.map((op, index) => ({
     stepId: `step_${index + 1}`,
     actionType: String(op.op || '').toUpperCase(),
     params: _normalizeSingleOperationPayload({
@@ -885,6 +906,27 @@ function _buildBatchWorkflowProposal({ normalizedInput, executionContext = {} })
     risk: normalizedInput.risk || 'medium',
     reason: String(op.reason || '').trim(),
   }));
+  const batchInference = applyBatchInference({
+    steps: rawSteps,
+    activeScope: executionContext,
+  });
+  const steps = batchInference.steps;
+  const contractWarnings = [];
+  for (const step of steps) {
+    const actionType = String(step?.actionType || "").toUpperCase();
+    const entityType = String(step?.params?.entityType || "").toLowerCase();
+    try {
+      if (actionType === OPERATION_TYPES.CREATE_ENTITY) {
+        validatePayload(entityType, "create", step?.params?.payload || {});
+      } else if (actionType === OPERATION_TYPES.UPDATE_ENTITY) {
+        validatePayload(entityType, "update", step?.params?.changes || {});
+      }
+    } catch (error) {
+      contractWarnings.push(
+        `Step ${step?.stepId || "?"}: ${String(error?.message || "validation_failed")}`,
+      );
+    }
+  }
 
   const rootRef = operations.map(_deriveEntityRefFromPayload).find(Boolean) || null;
   const workflow = {
@@ -1005,11 +1047,23 @@ function _buildBatchWorkflowProposal({ normalizedInput, executionContext = {} })
       stepParams?.priority ??
       (changes?.priority && typeof changes.priority === "object" ? changes.priority.to : changes?.priority);
     const links = [];
-    if (lawsuitDisplay?.reference) links.push(lawsuitDisplay.reference);
+    const payloadLawsuitId = Number(payload?.lawsuit_id || 0) || lawsuitRef;
+    const payloadDossierId = Number(payload?.dossier_id || 0) || dossierRef;
+    const stepLawsuitDisplay = payloadLawsuitId ? resolveEntityDisplay("lawsuit", payloadLawsuitId) : null;
+    const stepDossierDisplay = payloadDossierId ? resolveEntityDisplay("dossier", payloadDossierId) : null;
+    if (stepLawsuitDisplay?.reference) links.push(stepLawsuitDisplay.reference);
+    else if (stepLawsuitDisplay?.label) links.push(stepLawsuitDisplay.label);
+    else if (lawsuitDisplay?.reference) links.push(lawsuitDisplay.reference);
     else if (lawsuitDisplay?.label) links.push(lawsuitDisplay.label);
-    if (dossierDisplay?.reference) links.push(dossierDisplay.reference);
+    if (stepDossierDisplay?.reference) links.push(stepDossierDisplay.reference);
+    else if (stepDossierDisplay?.label) links.push(stepDossierDisplay.label);
+    else if (dossierDisplay?.reference) links.push(dossierDisplay.reference);
     else if (dossierDisplay?.label) links.push(dossierDisplay.label);
     const parentLinks = links.length > 0 ? links : null;
+    const trace =
+      step?.uis?.trace && typeof step.uis.trace === "object" && !Array.isArray(step.uis.trace)
+        ? step.uis.trace
+        : {};
     return {
       stepId: step?.stepId || `step_${index + 1}`,
       index: index + 1,
@@ -1019,9 +1073,25 @@ function _buildBatchWorkflowProposal({ normalizedInput, executionContext = {} })
       status: statusRaw == null ? null : String(statusRaw),
       priority: priorityRaw == null ? null : String(priorityRaw),
       parentLinks,
+      explicitFields: Array.isArray(trace?.explicitFields) ? trace.explicitFields : [],
+      defaultedFields: Array.isArray(trace?.defaultedFields)
+        ? trace.defaultedFields.map((entry) => (typeof entry === "string" ? entry : entry?.field)).filter(Boolean)
+        : [],
+      inheritedFields: Array.isArray(trace?.inheritedFields)
+        ? trace.inheritedFields.map((entry) => entry?.field).filter(Boolean)
+        : [],
+      inferredFields: Array.isArray(trace?.inferredFields) ? trace.inferredFields : [],
+      correctedFields: Array.isArray(trace?.correctedFields) ? trace.correctedFields : [],
+      warnings: Array.isArray(trace?.warnings) ? trace.warnings : [],
+      fieldDecisionMap: trace?.fieldDecisionMap && typeof trace.fieldDecisionMap === "object" ? trace.fieldDecisionMap : {},
+      inferenceSummary: trace?.inferenceSummary && typeof trace.inferenceSummary === "object" ? trace.inferenceSummary : {},
     };
   };
   const previewItems = steps.map(toPreviewItem);
+  const previewWarnings = [
+    ...(Array.isArray(batchInference.batchWarnings) ? batchInference.batchWarnings : []),
+    ...contractWarnings,
+  ];
 
   return createActionProposal({
     proposalId,
@@ -1032,7 +1102,7 @@ function _buildBatchWorkflowProposal({ normalizedInput, executionContext = {} })
       preview: {
         summaryTitle: summary,
         items: previewItems,
-        warnings: [],
+        warnings: previewWarnings,
       },
       idempotencyKey: normalizedInput.idempotencyKey,
       origin: normalizedInput.origin,
@@ -1089,14 +1159,23 @@ async function handler(input, executionContext = {}) {
   }
 
   const single = operations[0];
+  const singleOp = String(single.op || '').toUpperCase();
+  const normalizedSinglePayload = _normalizeSingleOperationPayload({
+    op: singleOp,
+    entityType: single.entityType,
+    payload: single.payload,
+  });
+  let singleParams = normalizedSinglePayload;
+  if (singleOp === OPERATION_TYPES.CREATE_ENTITY) {
+    singleParams = {
+      entityType: String(single.entityType || '').toLowerCase(),
+      payload: normalizedSinglePayload,
+    };
+  }
   return buildSingleOperationProposal(
     {
-      operation: String(single.op || '').toUpperCase(),
-      params: _normalizeSingleOperationPayload({
-        op: String(single.op || '').toUpperCase(),
-        entityType: single.entityType,
-        payload: single.payload,
-      }),
+      operation: singleOp,
+      params: singleParams,
     },
     executionContext,
   );

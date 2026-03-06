@@ -1,6 +1,6 @@
 # Tool System Architecture
 
-**Last Updated**: 2026-03-05
+**Last Updated**: 2026-03-06
 
 ---
 
@@ -217,8 +217,9 @@ User confirms proposal
 universalMutation.tool.js
       │
       ├── mutationScopeBinder         — resolve parent/child scope
-      ├── fieldGovernance             — validate allowed fields
       ├── hierarchicalScopeBinder     — bind hierarchical relationships
+      ├── UIS enrichStepPayload       — deterministic completion + inference
+      ├── fieldGovernance             — required-field completion/validation
       │
       ▼
 mutation/ (consolidated module)
@@ -232,10 +233,60 @@ mutation/ (consolidated module)
       ├── fieldGovernance.js                       — field-level rules
       ├── hierarchicalScopeBinder.js               — scope inheritance
       ├── mutation.governance.js                   — governance layer
-      └── mutation.entityTypeResolver.js           — entity type resolution
+      ├── mutation.entityTypeResolver.js           — entity type resolution
+      └── uis/                                     — deterministic inference system
+            ├── index.js                           — orchestrator + batch coordinator
+            ├── inferenceProfileRegistry.js        — per-entity profiles
+            └── strategyLibrary.js                 — reusable inference strategies
 ```
 
 Domain constraints checked before any proposal is created — blocking on open child dependencies, closed parent entities, etc.
+
+### Universal Inference System (UIS)
+
+UIS runs only on mutation paths. It does not participate in READ tools.
+
+Responsibilities:
+
+1. Structural completion of missing fields with deterministic defaults
+2. Context inheritance from active scope and resolved parent entities
+3. Deterministic semantic/temporal inference where confidence thresholds permit
+4. Deterministic correction of invalid-but-fixable values
+5. Preview trace generation for confirmation UI
+6. Execution-time revalidation before DB write
+
+The important change is that UIS now covers both:
+
+- backend-required fields needed for adapter/database validity
+- frontend-mandatory fields needed for stable app behavior
+
+If UIS cannot safely satisfy a required field, the mutation path returns `entity_creation_form` with `missingRequired` rather than creating a partially usable record.
+
+### UIS Execution Order
+
+```text
+CREATE_ENTITY / workflow step
+      │
+      ├── structural defaults
+      ├── contextual inheritance
+      ├── semantic inference (confidence-gated)
+      ├── temporal inference (confidence-gated)
+      ├── deterministic corrections
+      ├── adapter validation
+      └── preview trace emission
+```
+
+For confirmation execution, the engine reruns the guard and validates the final payload again before write.
+
+### Batch Behavior
+
+Batch mutation workflows are inferred as a coordinated set, not isolated inserts:
+
+- shared active-scope context
+- duplicate title detection in-scope
+- deterministic duplicate correction in preview
+- per-step inference traces
+- batch-level warnings carried into confirmation preview
 
 ---
 

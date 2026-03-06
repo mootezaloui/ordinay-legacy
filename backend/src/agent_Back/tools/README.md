@@ -1,6 +1,6 @@
 # Agent Tools
 
-**Last Updated**: 2026-03-05 (Responder layer added)
+**Last Updated**: 2026-03-06 (UIS mutation inference added)
 **Status**: Production
 
 ---
@@ -142,6 +142,21 @@ Rules:
 - v3 only, never callable in v1/v2
 - Requires explicit confirmation (`context.confirmed = true`)
 - All mutations pass through domain constraint evaluation before execution
+- All create/update mutation payloads pass through UIS before preview/execution
+
+### UIS on Mutation Paths
+
+The Universal Inference System (UIS) is deterministic and rule-driven. It enriches mutation payloads before preview generation and revalidates them again before execution.
+
+UIS covers:
+
+- structural defaults
+- contextual inheritance
+- semantic and temporal inference with deterministic confidence gating
+- deterministic corrections
+- preview trace generation for confirmation UI
+
+UIS now fills not only adapter/database-required fields, but also frontend-mandatory fields needed for stable rendering and downstream app behavior. If a required field cannot be safely inferred, mutation flow returns `entity_creation_form` with `missingRequired` instead of executing an incomplete create.
 
 ---
 

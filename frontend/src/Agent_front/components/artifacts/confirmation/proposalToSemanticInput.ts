@@ -334,17 +334,39 @@ function buildCanonicalProposalPreview(proposal: ActionProposal) {
             status: String(row?.status || "").trim() || null,
             priority: String(row?.priority || "").trim() || null,
             parentLinks: parentLinks.length > 0 ? parentLinks : null,
+            explicitFields: Array.isArray(row?.explicitFields) ? row.explicitFields : [],
+            defaultedFields: Array.isArray(row?.defaultedFields) ? row.defaultedFields : [],
+            inheritedFields: Array.isArray(row?.inheritedFields) ? row.inheritedFields : [],
+            inferredFields: Array.isArray(row?.inferredFields) ? row.inferredFields : [],
+            correctedFields: Array.isArray(row?.correctedFields) ? row.correctedFields : [],
+            fieldDecisionMap:
+              row?.fieldDecisionMap && typeof row.fieldDecisionMap === "object" && !Array.isArray(row.fieldDecisionMap)
+                ? row.fieldDecisionMap
+                : {},
+            inferenceSummary:
+              row?.inferenceSummary && typeof row.inferenceSummary === "object" && !Array.isArray(row.inferenceSummary)
+                ? row.inferenceSummary
+                : {},
+            warnings: Array.isArray(row?.warnings) ? row.warnings : [],
           };
         })
-        .filter((row): row is {
-          index: number;
-          entityType: string | null;
-          operation: string | null;
-          title: string;
-          status: string | null;
-          priority: string | null;
-          parentLinks: string[] | null;
-        } => Boolean(row)),
+        .filter(Boolean) as Array<{
+        index: number;
+        entityType: string | null;
+        operation: string | null;
+        title: string;
+        status: string | null;
+        priority: string | null;
+        parentLinks: string[] | null;
+        explicitFields: string[];
+        defaultedFields: string[];
+        inheritedFields: string[];
+        inferredFields: Array<Record<string, unknown>>;
+        correctedFields: Array<Record<string, unknown>>;
+        fieldDecisionMap: Record<string, unknown>;
+        inferenceSummary: Record<string, unknown>;
+        warnings: string[];
+      }>,
       warnings: Array.isArray(explicitPreview?.warnings)
         ? explicitPreview.warnings.map((value) => String(value || "").trim()).filter(Boolean)
         : [],
@@ -374,17 +396,39 @@ function buildCanonicalProposalPreview(proposal: ActionProposal) {
           status: String(item.status || "").trim() || null,
           priority: String(item.priority || "").trim() || null,
           parentLinks: parentLinks.length ? parentLinks : null,
+          explicitFields: Array.isArray(item?.explicitFields) ? item.explicitFields : [],
+          defaultedFields: Array.isArray(item?.defaultedFields) ? item.defaultedFields : [],
+          inheritedFields: Array.isArray(item?.inheritedFields) ? item.inheritedFields : [],
+          inferredFields: Array.isArray(item?.inferredFields) ? item.inferredFields : [],
+          correctedFields: Array.isArray(item?.correctedFields) ? item.correctedFields : [],
+          fieldDecisionMap:
+            item?.fieldDecisionMap && typeof item.fieldDecisionMap === "object" && !Array.isArray(item.fieldDecisionMap)
+              ? item.fieldDecisionMap
+              : {},
+          inferenceSummary:
+            item?.inferenceSummary && typeof item.inferenceSummary === "object" && !Array.isArray(item.inferenceSummary)
+              ? item.inferenceSummary
+              : {},
+          warnings: Array.isArray(item?.warnings) ? item.warnings : [],
         };
       })
-      .filter((row): row is {
-        index: number;
-        entityType: string | null;
-        operation: string | null;
-        title: string;
-        status: string | null;
-        priority: string | null;
-        parentLinks: string[] | null;
-      } => Boolean(row)),
+      .filter(Boolean) as Array<{
+      index: number;
+      entityType: string | null;
+      operation: string | null;
+      title: string;
+      status: string | null;
+      priority: string | null;
+      parentLinks: string[] | null;
+      explicitFields: string[];
+      defaultedFields: string[];
+      inheritedFields: string[];
+      inferredFields: Array<Record<string, unknown>>;
+      correctedFields: Array<Record<string, unknown>>;
+      fieldDecisionMap: Record<string, unknown>;
+      inferenceSummary: Record<string, unknown>;
+      warnings: string[];
+    }>,
     warnings: [],
   };
 }

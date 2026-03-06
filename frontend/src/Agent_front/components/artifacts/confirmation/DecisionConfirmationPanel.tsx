@@ -206,6 +206,7 @@ function PreviewRows({
               <th className="px-2.5 py-2 font-medium">Status</th>
               <th className="px-2.5 py-2 font-medium">Priority</th>
               <th className="px-2.5 py-2 font-medium">Linked to</th>
+              <th className="px-2.5 py-2 font-medium">Inference</th>
             </tr>
           </thead>
           <tbody>
@@ -218,6 +219,40 @@ function PreviewRows({
                   {Array.isArray(row.parentLinks) && row.parentLinks.length > 0
                     ? row.parentLinks.join(" / ")
                     : "-"}
+                </td>
+                <td className="px-2.5 py-2 align-top">
+                  <div className="flex flex-wrap gap-1.5">
+                    {Array.isArray(row.explicitFields) && row.explicitFields.length > 0 ? (
+                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                        explicit {row.explicitFields.length}
+                      </span>
+                    ) : null}
+                    {Array.isArray(row.defaultedFields) && row.defaultedFields.length > 0 ? (
+                      <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-200">
+                        defaults {row.defaultedFields.length}
+                      </span>
+                    ) : null}
+                    {Array.isArray(row.inheritedFields) && row.inheritedFields.length > 0 ? (
+                      <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-blue-700 dark:bg-blue-950/40 dark:text-blue-200">
+                        inherited {row.inheritedFields.length}
+                      </span>
+                    ) : null}
+                    {Array.isArray(row.inferredFields) && row.inferredFields.length > 0 ? (
+                      <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200">
+                        inferred {row.inferredFields.length}
+                      </span>
+                    ) : null}
+                    {Array.isArray(row.correctedFields) && row.correctedFields.length > 0 ? (
+                      <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                        corrected {row.correctedFields.length}
+                      </span>
+                    ) : null}
+                    {Array.isArray(row.warnings) && row.warnings.length > 0 ? (
+                      <span className="rounded bg-rose-50 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-rose-700 dark:bg-rose-950/30 dark:text-rose-200">
+                        warnings {row.warnings.length}
+                      </span>
+                    ) : null}
+                  </div>
                 </td>
               </tr>
             ))}

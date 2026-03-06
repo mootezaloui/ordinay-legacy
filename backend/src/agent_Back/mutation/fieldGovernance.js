@@ -75,6 +75,8 @@ function validateAndPrepareFields({ entityType, payload, activeScope } = {}) {
   };
 
   const missingCriticalFields = [];
+  const missingRequiredFields = [];
+  const appliedDefaults = [];
   const entries = Object.entries(schema);
 
   for (const [fieldName, rule] of entries) {
@@ -89,22 +91,27 @@ function validateAndPrepareFields({ entityType, payload, activeScope } = {}) {
       const resolved = resolveDefaultValue(rule || {}, context);
       if (hasValue(resolved)) {
         preparedPayload[fieldName] = resolved;
+        appliedDefaults.push({
+          field: fieldName,
+          value: resolved,
+        });
       }
     }
 
-    if (
-      rule?.required === true &&
-      isCritical &&
-      !hasValue(preparedPayload[fieldName])
-    ) {
-      missingCriticalFields.push(fieldName);
+    if (rule?.required === true && !hasValue(preparedPayload[fieldName])) {
+      missingRequiredFields.push(fieldName);
+      if (isCritical) {
+        missingCriticalFields.push(fieldName);
+      }
     }
   }
 
   return {
-    status: missingCriticalFields.length > 0 ? "needs_input" : "ready",
+    status: missingRequiredFields.length > 0 ? "needs_input" : "ready",
     preparedPayload,
     missingCriticalFields,
+    missingRequiredFields,
+    appliedDefaults,
   };
 }
 

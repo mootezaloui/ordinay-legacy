@@ -107,6 +107,20 @@ let updateState = {
 let updateStatusBeforeCheck = null;
 let lastUpdateAction = null;
 
+const CHROMIUM_UNSAFE_PORTS = new Set([
+  1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 69, 77,
+  79, 87, 95, 101, 102, 103, 104, 109, 110, 111, 113, 115, 117, 119, 123,
+  135, 137, 139, 143, 161, 179, 389, 427, 465, 512, 513, 514, 515, 526, 530,
+  531, 532, 540, 548, 554, 556, 563, 587, 601, 636, 989, 990, 993, 995, 1719,
+  1720, 1723, 2049, 3659, 4045, 5060, 5061, 6000, 6566, 6665, 6666, 6667,
+  6668, 6669, 6697, 10080,
+]);
+
+function isBrowserUnsafePort(port) {
+  const parsed = Number.parseInt(String(port || ""), 10);
+  return Number.isInteger(parsed) && CHROMIUM_UNSAFE_PORTS.has(parsed);
+}
+
 // ============================================================
 // UTILITY FUNCTIONS
 // ============================================================
@@ -295,9 +309,18 @@ async function startBackend() {
   // Allow explicit override via env, otherwise choose a free local port to avoid EADDRINUSE.
   const configuredPortRaw = process.env.ORDINAY_STREAM_HTTP_PORT;
   const configuredPort = configuredPortRaw ? Number.parseInt(configuredPortRaw, 10) : NaN;
-  backendPort = Number.isInteger(configuredPort) && configuredPort > 0
-    ? configuredPort
-    : await findAvailablePort();
+  if (Number.isInteger(configuredPort) && configuredPort > 0) {
+    if (isBrowserUnsafePort(configuredPort)) {
+      backendPort = await findAvailablePort();
+      console.warn(
+        `[Electron] ORDINAY_STREAM_HTTP_PORT=${configuredPort} is blocked by Chromium (unsafe port). Using ${backendPort} instead.`,
+      );
+    } else {
+      backendPort = configuredPort;
+    }
+  } else {
+    backendPort = await findAvailablePort();
+  }
 
   const backendPath = getBackendPath();
   const serverScript = path.join(backendPath, "src", "server.js");

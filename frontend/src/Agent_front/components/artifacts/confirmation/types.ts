@@ -78,6 +78,28 @@ export interface SemanticActionMappingInput {
         status?: string | null;
         priority?: string | null;
         parentLinks?: string[] | null;
+        explicitFields?: string[];
+        defaultedFields?: string[];
+        inheritedFields?: string[];
+        inferredFields?: Array<{
+          field?: string;
+          value?: unknown;
+          origin?: string;
+          confidence?: number;
+          strategyId?: string;
+        }>;
+        correctedFields?: Array<{
+          field?: string;
+          from?: unknown;
+          to?: unknown;
+          ruleId?: string;
+        }>;
+        fieldDecisionMap?: Record<string, unknown>;
+        inferenceSummary?: {
+          countsByOrigin?: Record<string, number>;
+          warningCount?: number;
+        };
+        warnings?: string[];
       }>;
       warnings?: string[];
     };
@@ -114,6 +136,28 @@ export interface SemanticActionViewModel {
       status?: string | null;
       priority?: string | null;
       parentLinks?: string[] | null;
+      explicitFields?: string[];
+      defaultedFields?: string[];
+      inheritedFields?: string[];
+      inferredFields?: Array<{
+        field?: string;
+        value?: unknown;
+        origin?: string;
+        confidence?: number;
+        strategyId?: string;
+      }>;
+      correctedFields?: Array<{
+        field?: string;
+        from?: unknown;
+        to?: unknown;
+        ruleId?: string;
+      }>;
+      fieldDecisionMap?: Record<string, unknown>;
+      inferenceSummary?: {
+        countsByOrigin?: Record<string, number>;
+        warningCount?: number;
+      };
+      warnings?: string[];
     }>;
     warnings: string[];
   };

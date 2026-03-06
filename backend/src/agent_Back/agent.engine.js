@@ -28,6 +28,7 @@ const AgentLedgerService = require("./ledger/agent.ledger.service");
 const { initializeToolRegistry } = require("./tools/index");
 const { ToolFirewall } = require("./tools/tool.firewall");
 const { executeToolV2 } = require("./engine/toolRuntime");
+const { enforceExecutionGuard } = require("./mutation/uis");
 
 const agentV1Policy = require("./policies/agent.v1.policy");
 const agentV2Policy = require("./policies/agent.v2.policy");
@@ -218,8 +219,18 @@ class AgentEngine {
             step.params?.payload && typeof step.params.payload === "object" && !Array.isArray(step.params.payload)
               ? step.params.payload
               : step.params;
+          const guard = enforceExecutionGuard({
+            actionType: stepOp,
+            entityType,
+            payload: stepPayload,
+            activeScope: {
+              ...(metadata?.activeScope && typeof metadata.activeScope === "object" ? metadata.activeScope : {}),
+              sessionId: sessionId || proposal.sessionId || metadata?.sessionId || null,
+            },
+          });
+          const guardedPayload = guard?.payload && typeof guard.payload === "object" ? guard.payload : stepPayload;
           console.error("[WORKFLOW_CONFIRM_DEBUG]", { stepId: step.stepId, entityType, stepPayload: JSON.stringify(stepPayload) });
-          const entity = svc.create(stepPayload);
+          const entity = svc.create(guardedPayload);
           created.push({ stepId: step.stepId || null, entityType, id: entity?.id || null });
           stepResults.push({
             stepId: step?.stepId || null,
@@ -233,6 +244,9 @@ class AgentEngine {
               operation: "create",
               id: entity?.id || null,
               createdRow: entity || null,
+              uis: {
+                trace: guard?.trace || null,
+              },
             },
           });
         } catch (stepErr) {

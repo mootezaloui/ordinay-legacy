@@ -10,6 +10,7 @@ const {
   getPayloadFieldForParent,
 } = require("../context/scopeDomainRelations");
 const { applyHierarchicalScopeBinding } = require("./hierarchicalScopeBinder");
+const { getRequiredFields } = require("./entityFieldRegistry");
 
 const MUTATION_GOVERNANCE_CREATE_THRESHOLD = 0.72;
 const MUTATION_GOVERNANCE_UPDATE_THRESHOLD = 0.75;
@@ -283,6 +284,19 @@ function computeMissingRequiredFields(entityType, payload = {}) {
   } catch (_) {
     return missing;
   }
+
+  const governanceRequired = getRequiredFields(entityType);
+  if (Array.isArray(governanceRequired) && governanceRequired.length > 0) {
+    missing.push(
+      ...governanceRequired.filter((field) => {
+        const value = payload?.[field];
+        if (value === null || value === undefined) return true;
+        if (typeof value === "string" && !value.trim()) return true;
+        return false;
+      }),
+    );
+  }
+
   // Generic parent-linking requirement (e.g., task/session/mission need dossier_id or lawsuit_id).
   const compatibleParentTypes = getCompatibleParentTypes({
     childEntityType: entityType,

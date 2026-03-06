@@ -385,7 +385,7 @@ function buildProposalRenderItems(
           previewRoot,
           previewKeys:
             confirmationPreview && typeof confirmationPreview === "object"
-              ? Object.keys(confirmationPreview as Record<string, unknown>)
+              ? Object.keys(confirmationPreview as unknown as Record<string, unknown>)
               : [],
           previewPrimaryChangeCount:
             Array.isArray((confirmationPreview as { primaryChanges?: unknown[] } | undefined)?.primaryChanges)

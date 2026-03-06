@@ -128,31 +128,60 @@ function _extractKeyFields(stepParams = {}, stepActionType = "", scope = {}) {
   };
 }
 
-function _buildWorkflowPreview(workflow = null, affectedEntities = [], fallbackSummary = "") {
+function _buildWorkflowPreview(workflow = null, affectedEntities = [], fallbackSummary = "", explicitPreview = null) {
+  const explicitItems = Array.isArray(explicitPreview?.items) ? explicitPreview.items : [];
+  const explicitWarnings = Array.isArray(explicitPreview?.warnings)
+    ? explicitPreview.warnings.map((w) => _normalizeDisplayValue(w)).filter(Boolean)
+    : [];
   const steps = Array.isArray(workflow?.steps) ? workflow.steps : [];
-  if (!steps.length) return null;
+  if (!steps.length && !explicitItems.length) return null;
 
   const scope = _extractWorkflowScope(affectedEntities);
-  const previewItems = steps.map((step, index) => {
+  const previewItems = (explicitItems.length > 0 ? explicitItems : steps).map((step, index) => {
+    const isExplicitPreviewRow = explicitItems.length > 0;
     const actionType = String(step?.actionType || "").toUpperCase();
     const params =
       step?.params && typeof step.params === "object" && !Array.isArray(step.params)
         ? step.params
         : {};
-    const entityType = String(params?.entityType || "").trim().toLowerCase() || "record";
-    const operation = _toOperationLabel(actionType);
-    const keyFields = _extractKeyFields(params, actionType, scope);
+    const entityType = String(
+      isExplicitPreviewRow ? (step?.entityType || "record") : (params?.entityType || "record"),
+    )
+      .trim()
+      .toLowerCase();
+    const operation = isExplicitPreviewRow
+      ? String(step?.operation || "").trim().toLowerCase() || _toOperationLabel(actionType)
+      : _toOperationLabel(actionType);
+    const keyFields = isExplicitPreviewRow ? {} : _extractKeyFields(params, actionType, scope);
+    const inferredFields = Array.isArray(step?.inferredFields) ? step.inferredFields : [];
+    const correctedFields = Array.isArray(step?.correctedFields) ? step.correctedFields : [];
+    const warnings = Array.isArray(step?.warnings) ? step.warnings : [];
     return {
       stepId: step?.stepId || `step_${index + 1}`,
       index: index + 1,
       actionType,
       operation,
       entityType,
-      title: keyFields.title || null,
-      status: keyFields.status || null,
-      priority: keyFields.priority || null,
-      parentLinkage: keyFields.parentLinkage,
-      fields: keyFields.fields,
+      title: _normalizeDisplayValue(step?.title) || keyFields.title || null,
+      status: _normalizeDisplayValue(step?.status) || keyFields.status || null,
+      priority: _normalizeDisplayValue(step?.priority) || keyFields.priority || null,
+      parentLinkage: isExplicitPreviewRow ? null : keyFields.parentLinkage,
+      parentLinks: Array.isArray(step?.parentLinks) ? step.parentLinks : null,
+      fields: isExplicitPreviewRow ? {} : keyFields.fields,
+      explicitFields: Array.isArray(step?.explicitFields) ? step.explicitFields : [],
+      defaultedFields: Array.isArray(step?.defaultedFields) ? step.defaultedFields : [],
+      inheritedFields: Array.isArray(step?.inheritedFields) ? step.inheritedFields : [],
+      inferredFields,
+      correctedFields,
+      warnings,
+      fieldDecisionMap:
+        step?.fieldDecisionMap && typeof step.fieldDecisionMap === "object" && !Array.isArray(step.fieldDecisionMap)
+          ? step.fieldDecisionMap
+          : {},
+      inferenceSummary:
+        step?.inferenceSummary && typeof step.inferenceSummary === "object" && !Array.isArray(step.inferenceSummary)
+          ? step.inferenceSummary
+          : {},
     };
   });
 
@@ -214,6 +243,7 @@ function _buildWorkflowPreview(workflow = null, affectedEntities = [], fallbackS
     detailedSummary,
     previewItems,
     groups,
+    warnings: explicitWarnings,
   };
 }
 
@@ -233,12 +263,15 @@ function _buildProposalPreview({
   const warnings = Array.isArray(confirmation?.warnings)
     ? confirmation.warnings.map((w) => _normalizeDisplayValue(w)).filter(Boolean)
     : [];
+  const workflowWarnings = Array.isArray(workflowPreview?.warnings)
+    ? workflowPreview.warnings.map((w) => _normalizeDisplayValue(w)).filter(Boolean)
+    : [];
   const previewItems = Array.isArray(workflowPreview?.previewItems) ? workflowPreview.previewItems : [];
   if (!previewItems.length) {
     return {
       title: _normalizeDisplayValue(proposal?.humanReadableSummary) || "Pending change preview",
       items: [],
-      warnings,
+      warnings: [...warnings, ...workflowWarnings],
     };
   }
 
@@ -247,11 +280,15 @@ function _buildProposalPreview({
       row?.parentLinkage && typeof row.parentLinkage === "object" && !Array.isArray(row.parentLinkage)
         ? row.parentLinkage
         : {};
-    const links = [
+    const fallbackLinks = [
       _normalizeDisplayValue(parentLinkage?.lawsuitReference),
       _normalizeDisplayValue(parentLinkage?.dossierReference),
       _normalizeDisplayValue(parentLinkage?.clientReference),
     ].filter(Boolean);
+    const links =
+      Array.isArray(row?.parentLinks) && row.parentLinks.length > 0
+        ? row.parentLinks.map((entry) => _normalizeDisplayValue(entry)).filter(Boolean)
+        : fallbackLinks;
     const entityType = _normalizeDisplayValue(row?.entityType);
     return {
       index: index + 1,
@@ -264,13 +301,27 @@ function _buildProposalPreview({
       status: _normalizeDisplayValue(row?.status),
       priority: _normalizeDisplayValue(row?.priority),
       parentLinks: links.length ? links : null,
+      explicitFields: Array.isArray(row?.explicitFields) ? row.explicitFields : [],
+      defaultedFields: Array.isArray(row?.defaultedFields) ? row.defaultedFields : [],
+      inheritedFields: Array.isArray(row?.inheritedFields) ? row.inheritedFields : [],
+      inferredFields: Array.isArray(row?.inferredFields) ? row.inferredFields : [],
+      correctedFields: Array.isArray(row?.correctedFields) ? row.correctedFields : [],
+      fieldDecisionMap:
+        row?.fieldDecisionMap && typeof row.fieldDecisionMap === "object" && !Array.isArray(row.fieldDecisionMap)
+          ? row.fieldDecisionMap
+          : {},
+      inferenceSummary:
+        row?.inferenceSummary && typeof row.inferenceSummary === "object" && !Array.isArray(row.inferenceSummary)
+          ? row.inferenceSummary
+          : {},
+      warnings: Array.isArray(row?.warnings) ? row.warnings : [],
     };
   });
 
   return {
     title: _normalizeDisplayValue(workflowPreview?.summaryLine) || _normalizeDisplayValue(proposal?.humanReadableSummary) || "Pending change preview",
     items,
-    warnings,
+    warnings: [...warnings, ...workflowWarnings],
   };
 }
 
@@ -315,6 +366,7 @@ function toProposalArtifact(proposal, sessionId) {
           workflow,
           Array.isArray(displayProposal?.affectedEntities) ? displayProposal.affectedEntities : [],
           String(displayProposal?.humanReadableSummary || "").trim(),
+          rawParams?.preview && typeof rawParams.preview === "object" ? rawParams.preview : null,
         )
       : null;
   const displaySummary =

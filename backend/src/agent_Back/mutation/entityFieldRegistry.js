@@ -4,6 +4,16 @@ function normalizeText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+function isoDate(value = new Date()) {
+  return new Date(value).toISOString().slice(0, 10);
+}
+
+function isoDatePlusDays(days = 0) {
+  const base = new Date();
+  base.setUTCDate(base.getUTCDate() + Number(days || 0));
+  return isoDate(base);
+}
+
 function toTitleFromMessage(entityType, activeScope = {}) {
   const raw =
     activeScope?.userMessage ||
@@ -45,6 +55,12 @@ function resolveScopeId(activeScope = {}, scopeKey = "", resolvedType = null) {
   return null;
 }
 
+function toDescriptionFromTitle(payload = {}, entityType = "entity") {
+  const title = normalizeText(payload?.title || "");
+  if (title) return `Details: ${title}`;
+  return `${String(entityType || "entity").replace(/_/g, " ")} details`;
+}
+
 const SHARED_FIELDS = Object.freeze({
   status: { required: false, category: "structural" },
   priority: { required: false, category: "structural" },
@@ -54,9 +70,10 @@ const entityFieldRegistry = Object.freeze({
   client: Object.freeze({
     name: { required: true, category: "critical" },
     cin: { required: true, category: "critical" },
-    email: { required: false, category: "critical" },
+    email: { required: true, category: "critical" },
+    phone: { required: true, category: "critical" },
     tax_id: { required: false, category: "critical" },
-    status: { required: false, category: "structural", default: "active" },
+    status: { required: true, category: "structural", default: "active" },
     priority: { required: false, category: "structural", default: "medium" },
   }),
   dossier: Object.freeze({
@@ -70,9 +87,16 @@ const entityFieldRegistry = Object.freeze({
       category: "structural",
       default: ({ entityType, activeScope }) => toTitleFromMessage(entityType, activeScope),
     },
-    status: { required: false, category: "structural", default: "open" },
-    priority: { required: false, category: "structural", default: "medium" },
-    phase: { required: false, category: "structural", default: "initiation" },
+    description: {
+      required: true,
+      category: "structural",
+      default: ({ payload, entityType }) => toDescriptionFromTitle(payload, entityType),
+    },
+    category: { required: true, category: "structural", default: "General" },
+    status: { required: true, category: "structural", default: "open" },
+    priority: { required: true, category: "structural", default: "medium" },
+    phase: { required: true, category: "structural", default: "Investigation" },
+    opened_at: { required: true, category: "structural", default: () => isoDate() },
   }),
   lawsuit: Object.freeze({
     dossier_id: {
@@ -85,7 +109,9 @@ const entityFieldRegistry = Object.freeze({
       category: "structural",
       default: ({ entityType, activeScope }) => toTitleFromMessage(entityType, activeScope),
     },
-    status: { required: false, category: "structural", default: "open" },
+    court: { required: true, category: "structural", default: "Court of First Instance" },
+    filing_date: { required: true, category: "structural", default: () => isoDate() },
+    status: { required: true, category: "structural", default: "in progress" },
     priority: { required: false, category: "structural", default: "medium" },
   }),
   task: Object.freeze({
@@ -110,8 +136,10 @@ const entityFieldRegistry = Object.freeze({
       category: "structural",
       default: ({ entityType, activeScope }) => toTitleFromMessage(entityType, activeScope),
     },
-    status: { required: false, category: "structural", default: "todo" },
-    priority: { required: false, category: "structural", default: "medium" },
+    assigned_to: { required: true, category: "structural", default: "Myself" },
+    due_date: { required: true, category: "structural", default: () => isoDatePlusDays(3) },
+    status: { required: true, category: "structural", default: "todo" },
+    priority: { required: true, category: "structural", default: "medium" },
   }),
   personal_task: Object.freeze({
     title: {
@@ -119,8 +147,10 @@ const entityFieldRegistry = Object.freeze({
       category: "structural",
       default: ({ entityType, activeScope }) => toTitleFromMessage(entityType, activeScope),
     },
-    status: { required: false, category: "structural", default: "todo" },
-    priority: { required: false, category: "structural", default: "medium" },
+    category: { required: true, category: "structural", default: "Administrative" },
+    due_date: { required: true, category: "structural", default: () => isoDatePlusDays(3) },
+    status: { required: true, category: "structural", default: "todo" },
+    priority: { required: true, category: "structural", default: "medium" },
   }),
   mission: Object.freeze({
     dossier_id: {
@@ -144,8 +174,21 @@ const entityFieldRegistry = Object.freeze({
       category: "structural",
       default: ({ entityType, activeScope }) => toTitleFromMessage(entityType, activeScope),
     },
-    status: { required: false, category: "structural", default: "planned" },
-    priority: { required: false, category: "structural", default: "medium" },
+    officer_id: {
+      required: true,
+      category: "critical",
+      default: ({ activeScope }) => resolveScopeId(activeScope, "officerId", "officer"),
+    },
+    mission_type: { required: true, category: "structural", default: "Service" },
+    assign_date: { required: true, category: "structural", default: () => isoDate() },
+    due_date: { required: true, category: "structural", default: () => isoDatePlusDays(3) },
+    description: {
+      required: true,
+      category: "structural",
+      default: ({ payload, entityType }) => toDescriptionFromTitle(payload, entityType),
+    },
+    status: { required: true, category: "structural", default: "planned" },
+    priority: { required: true, category: "structural", default: "medium" },
   }),
   session: Object.freeze({
     dossier_id: {
@@ -164,8 +207,16 @@ const entityFieldRegistry = Object.freeze({
           ? null
           : resolveScopeId(activeScope, "lawsuitId", "lawsuit"),
     },
-    scheduled_at: { required: true, category: "critical" },
-    status: { required: false, category: "structural", default: "scheduled" },
+    title: {
+      required: true,
+      category: "structural",
+      default: ({ entityType, activeScope }) => toTitleFromMessage(entityType, activeScope),
+    },
+    session_type: { required: true, category: "structural", default: "Audience" },
+    scheduled_at: { required: true, category: "critical", default: () => `${isoDate()}T09:00:00.000Z` },
+    duration: { required: true, category: "structural", default: "01:00" },
+    location: { required: true, category: "structural", default: "Court" },
+    status: { required: true, category: "structural", default: "scheduled" },
     priority: { required: false, category: "structural", default: "medium" },
   }),
   document: Object.freeze({
@@ -177,8 +228,17 @@ const entityFieldRegistry = Object.freeze({
     file_path: { required: true, category: "critical" },
   }),
   financial_entry: Object.freeze({
-    entry_type: { required: true, category: "critical" },
+    scope: { required: true, category: "structural", default: "client" },
+    entry_type: { required: true, category: "structural", default: "expense" },
+    category: { required: true, category: "structural", default: "other" },
     amount: { required: true, category: "critical" },
+    due_date: { required: true, category: "structural", default: () => isoDate() },
+    status: { required: true, category: "structural", default: "confirmed" },
+    title: {
+      required: true,
+      category: "structural",
+      default: ({ entityType, activeScope }) => toTitleFromMessage(entityType, activeScope),
+    },
     priority: { required: false, category: "structural", default: "medium" },
   }),
   officer: Object.freeze({
@@ -205,8 +265,16 @@ function getEntityFieldSchema(entityType = "") {
   return entityFieldRegistry[normalized] || {};
 }
 
+function getRequiredFields(entityType = "") {
+  const schema = getEntityFieldSchema(entityType);
+  return Object.entries(schema)
+    .filter(([, rule]) => rule?.required === true)
+    .map(([field]) => field);
+}
+
 module.exports = {
   entityFieldRegistry,
   getEntityFieldSchema,
+  getRequiredFields,
   SHARED_FIELDS,
 };
