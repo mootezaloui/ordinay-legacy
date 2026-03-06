@@ -161,6 +161,154 @@ class AgentEngine {
 
     const policy = this._resolvePolicy(proposal.version || "v3");
 
+    if (String(proposal.actionType || "").toUpperCase() === "EXECUTE_MUTATION_WORKFLOW") {
+      const executedAt = new Date().toISOString();
+      const workflowSteps = Array.isArray(proposal?.params?.workflow?.steps) ? proposal.params.workflow.steps : [];
+      const tolerant = proposal?.params?.workflow?.facts?.partialSuccess === true;
+      const svcMap = {
+        task: require("../services/tasks.service"),
+        client: require("../services/clients.service"),
+        dossier: require("../services/dossiers.service"),
+        lawsuit: require("../services/lawsuits.service"),
+        session: require("../services/sessions.service"),
+        mission: require("../services/missions.service"),
+        personal_task: require("../services/personalTasks.service"),
+        financial_entry: require("../services/financial.service"),
+        officer: require("../services/officers.service"),
+      };
+      const created = [];
+      const errors = [];
+      const stepResults = [];
+      for (const step of workflowSteps) {
+        const stepOp = String(step?.actionType || "").toUpperCase();
+        if (stepOp !== "CREATE_ENTITY") {
+          stepResults.push({
+            stepId: step?.stepId || null,
+            actionType: stepOp || null,
+            ok: false,
+            params: step?.params || {},
+            result: {
+              ok: false,
+              code: "UNSUPPORTED_WORKFLOW_STEP",
+              message: `Unsupported workflow step actionType: ${stepOp || "UNKNOWN"}`,
+            },
+          });
+          continue;
+        }
+        const entityType = String(step?.params?.entityType || "").toLowerCase();
+        const svc = svcMap[entityType];
+        if (!svc || typeof svc.create !== "function") {
+          const stepError = { stepId: step.stepId || null, code: "UNSUPPORTED_ENTITY_TYPE", entityType };
+          errors.push(stepError);
+          stepResults.push({
+            stepId: step?.stepId || null,
+            actionType: stepOp,
+            ok: false,
+            params: step?.params || {},
+            result: {
+              ok: false,
+              code: "UNSUPPORTED_ENTITY_TYPE",
+              entityType,
+            },
+          });
+          continue;
+        }
+        try {
+          const stepPayload =
+            step.params?.payload && typeof step.params.payload === "object" && !Array.isArray(step.params.payload)
+              ? step.params.payload
+              : step.params;
+          console.error("[WORKFLOW_CONFIRM_DEBUG]", { stepId: step.stepId, entityType, stepPayload: JSON.stringify(stepPayload) });
+          const entity = svc.create(stepPayload);
+          created.push({ stepId: step.stepId || null, entityType, id: entity?.id || null });
+          stepResults.push({
+            stepId: step?.stepId || null,
+            actionType: stepOp,
+            ok: true,
+            params: step?.params || {},
+            result: {
+              ok: true,
+              entityType,
+              entityId: entity?.id || null,
+              operation: "create",
+              id: entity?.id || null,
+              createdRow: entity || null,
+            },
+          });
+        } catch (stepErr) {
+          const stepError = {
+            stepId: step.stepId || null,
+            code: stepErr.code || "STEP_FAILED",
+            message: stepErr.message,
+          };
+          stepResults.push({
+            stepId: step?.stepId || null,
+            actionType: stepOp,
+            ok: false,
+            params: step?.params || {},
+            result: {
+              ok: false,
+              code: stepError.code,
+              message: stepError.message,
+            },
+          });
+          if (tolerant) {
+            errors.push(stepError);
+          } else {
+            throw stepErr;
+          }
+        }
+      }
+      this._proposals.delete(proposalId);
+      this.ledger.record({
+        type: "proposal_confirmed",
+        proposalId,
+        actionType: proposal.actionType,
+        sessionId: sessionId || null,
+        userId: userId || null,
+        timestamp: new Date().toISOString(),
+      });
+      const succeeded = errors.length === 0 || created.length > 0;
+      const workflowResult = {
+        ok: succeeded,
+        entityType: "mutation_workflow",
+        operation: "workflow",
+        createdCount: created.length,
+        errorCount: errors.length,
+        created,
+        errors,
+        stepResults,
+      };
+      return {
+        type: "execution_result",
+        proposalId,
+        status: succeeded ? "success" : "failed",
+        executedActions: [
+          {
+            actionType: proposal.actionType,
+            result: workflowResult,
+            executedAt,
+          },
+        ],
+        ...(succeeded
+          ? {}
+          : {
+              error: {
+                code: "MUTATION_WORKFLOW_FAILED",
+                message: "Workflow execution failed.",
+                safeMessage: "I could not apply that change. Please try again.",
+                requiresReproposal: false,
+              },
+            }),
+        audit: {
+          userId: userId || null,
+          sessionId: sessionId || proposal.sessionId || metadata?.sessionId || null,
+          executedAt,
+        },
+        trace: null,
+      };
+    }
+
     const { result, trace } = await executeToolV2.call(this, proposal.actionType, proposal.params, policy, {
       confirmed: true,
       sessionId: sessionId || proposal.sessionId || metadata?.sessionId || null,

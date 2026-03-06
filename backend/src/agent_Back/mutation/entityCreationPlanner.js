@@ -19,6 +19,7 @@ const ENTITY_CREATION_SPECS = Object.freeze({
     blockingFields: ["name"],
     inferableFields: ["status", "priority"],
     optionalFields: ["email", "phone", "address"],
+    requiresParentScope: false,
   },
   dossier: {
     defaults: { status: "open", priority: "medium", phase: "initiation" },
@@ -26,6 +27,7 @@ const ENTITY_CREATION_SPECS = Object.freeze({
     blockingFields: ["client_id"],
     inferableFields: ["category", "title", "phase", "priority", "status", "description"],
     optionalFields: ["opposing_party", "jurisdiction", "court", "notes"],
+    requiresParentScope: false,
   },
   lawsuit: {
     defaults: { status: "open", priority: "medium" },
@@ -33,6 +35,7 @@ const ENTITY_CREATION_SPECS = Object.freeze({
     blockingFields: ["dossier_id"],
     inferableFields: ["title", "status", "priority"],
     optionalFields: ["court", "hearing_date", "opposing_party"],
+    requiresParentScope: true,
   },
   task: {
     defaults: { status: "pending", priority: "medium" },
@@ -40,6 +43,7 @@ const ENTITY_CREATION_SPECS = Object.freeze({
     blockingFields: [],
     inferableFields: ["title", "status", "priority"],
     optionalFields: ["due_date", "assigned_to", "description"],
+    requiresParentScope: true,
   },
   personal_task: {
     defaults: { status: "pending", priority: "medium" },
@@ -47,6 +51,7 @@ const ENTITY_CREATION_SPECS = Object.freeze({
     blockingFields: [],
     inferableFields: ["title", "status", "priority"],
     optionalFields: ["due_date", "description"],
+    requiresParentScope: false,
   },
   mission: {
     defaults: { status: "planned", priority: "medium" },
@@ -54,6 +59,7 @@ const ENTITY_CREATION_SPECS = Object.freeze({
     blockingFields: [],
     inferableFields: ["title", "status", "priority"],
     optionalFields: ["description"],
+    requiresParentScope: true,
   },
   session: {
     defaults: { status: "scheduled", priority: "medium" },
@@ -61,6 +67,7 @@ const ENTITY_CREATION_SPECS = Object.freeze({
     blockingFields: [],
     inferableFields: ["title", "status", "priority"],
     optionalFields: ["scheduled_at", "location", "description"],
+    requiresParentScope: true,
   },
   financial_entry: {
     defaults: { priority: "medium" },
@@ -68,6 +75,7 @@ const ENTITY_CREATION_SPECS = Object.freeze({
     blockingFields: [],
     inferableFields: ["title", "priority"],
     optionalFields: ["amount", "description"],
+    requiresParentScope: false,
   },
   document: {
     defaults: {},
@@ -75,6 +83,7 @@ const ENTITY_CREATION_SPECS = Object.freeze({
     blockingFields: [],
     inferableFields: ["title", "description"],
     optionalFields: ["status", "reference"],
+    requiresParentScope: false,
   },
   note: {
     defaults: {},
@@ -82,6 +91,7 @@ const ENTITY_CREATION_SPECS = Object.freeze({
     blockingFields: [],
     inferableFields: ["content", "title"],
     optionalFields: [],
+    requiresParentScope: false,
   },
 });
 
@@ -897,6 +907,7 @@ module.exports = {
   buildPlannerPrompt,
   coercePlannerOutput,
   isPlaceholderText,
+  ENTITY_CREATION_SPECS,
   _internal: {
     filterPayloadToAllowed,
     containsPlaceholderDeep,

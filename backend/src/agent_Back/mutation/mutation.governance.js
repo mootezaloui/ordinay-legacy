@@ -580,6 +580,7 @@ async function evaluateMutationGovernance({
 
 module.exports = {
   evaluateMutationGovernance,
+  inferEntityAndFieldsWithLLM,
   MUTATION_GOVERNANCE_CREATE_THRESHOLD,
   MUTATION_GOVERNANCE_UPDATE_THRESHOLD,
 };

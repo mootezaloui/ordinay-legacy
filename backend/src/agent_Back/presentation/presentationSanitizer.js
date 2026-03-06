@@ -87,6 +87,10 @@ function buildFieldPrompt(field) {
   const normalized = String(field || "").trim();
   if (!normalized) return "Please provide the missing information so I can continue.";
   if (FIELD_PROMPT_TEMPLATES[normalized]) return FIELD_PROMPT_TEMPLATES[normalized];
+  if (!/_id$/i.test(normalized)) {
+    const fieldLabel = toTitleCase(normalized).toLowerCase() || "value";
+    return `Please provide the ${fieldLabel} for this change.`;
+  }
   const entity = normalizeEntityTokenFromField(normalized);
   const entityLabel = FK_ENTITY_LABELS[entity] || toTitleCase(entity).toLowerCase() || "record";
   return `Please select the ${entityLabel} for this change.`;

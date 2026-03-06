@@ -24,7 +24,10 @@ const {
 const { CHAT_STATES, selectInitialState } = require("./chat.state.machine");
 const { parseFinalOutputContract } = require("./output.contract");
 const { parseJsonResponse } = require("../llm/llm.validation");
-const { evaluateMutationGovernance } = require("../mutation/mutation.governance");
+const { evaluateMutationGovernance, inferEntityAndFieldsWithLLM } = require("../mutation/mutation.governance");
+const { resolveEntityTypeFromMessage } = require("../mutation/mutation.entityTypeResolver");
+const { ENTITY_CREATION_SPECS } = require("../mutation/entityCreationPlanner");
+const _adaptersRegistry = require("../entities/adapters");
 const { applyHierarchicalScopeBinding } = require("../mutation/hierarchicalScopeBinder");
 const {
   getChatOrchestratorState,
@@ -167,21 +170,6 @@ const LIST_CATEGORY_NARROWING_HINTS = Object.freeze({
   financial_entries: "payment status, date, or text query",
 });
 
-const STRUCTURED_DRAFT_TYPE_BY_ENTITY = Object.freeze({
-  task: "task_list",
-  mission: "mission_list",
-  session: "session_list",
-  financial_entry: "financial_entry_list",
-  document: "document_draft_list",
-});
-
-const STRUCTURED_DRAFT_ENTITY_BY_TYPE = Object.freeze({
-  task_list: "task",
-  mission_list: "mission",
-  session_list: "session",
-  financial_entry_list: "financial_entry",
-  document_draft_list: "document",
-});
 
 function withStateOutput(result, state) {
   return {
@@ -633,12 +621,13 @@ class ChatOrchestrator {
   }
 
   _deriveEntityTypeFromStructuredDraft(structuredDraft = null) {
-    const draftType = String(structuredDraft?.type || "").trim().toLowerCase();
-    if (STRUCTURED_DRAFT_ENTITY_BY_TYPE[draftType]) {
-      return STRUCTURED_DRAFT_ENTITY_BY_TYPE[draftType];
-    }
     const hintType = String(structuredDraft?.entityType || "").trim().toLowerCase();
-    return STRUCTURED_DRAFT_TYPE_BY_ENTITY[hintType] ? hintType : null;
+    if (hintType && _adaptersRegistry.has(hintType)) return hintType;
+    const draftType = String(structuredDraft?.type || "").trim().toLowerCase();
+    // strip trailing _list suffix to recover entity type (e.g. "task_list" -> "task")
+    const stripped = draftType.replace(/_list$/, "").replace(/_draft_list$/, "");
+    if (stripped && _adaptersRegistry.has(stripped)) return stripped;
+    return null;
   }
 
   _isExecutionPromotionIntent(userMessage = "") {
@@ -660,14 +649,9 @@ class ChatOrchestrator {
   _deriveEntityTypeHintFromMessage(userMessage = "") {
     const text = String(userMessage || "").toLowerCase();
     if (!text) return null;
-    if (/\b(tasks?|to do|todo|checklist)\b/.test(text)) return "task";
-    if (/\bmissions?\b/.test(text)) return "mission";
-    if (/\b(sessions?|hearings?)\b/.test(text)) return "session";
-    if (/\b(financial entries|financial entry|invoices?|payments?)\b/.test(text)) {
-      return "financial_entry";
-    }
-    if (/\b(document drafts?|draft documents?)\b/.test(text)) return "document";
-    return null;
+    const knownEntityTypes = Array.from(_adaptersRegistry.keys());
+    const result = resolveEntityTypeFromMessage({ userMessage: text, knownEntityTypes });
+    return result?.status === "resolved" ? result.entityType : null;
   }
 
   _extractStructuredDraftItemsFromText(content = "") {
@@ -718,37 +702,40 @@ class ChatOrchestrator {
     return candidateLines.map((title) => ({ title, description: "" }));
   }
 
-  _inferStructuredDraftType({ metadata = {}, content = "" } = {}) {
-    const explicitType = String(metadata?.structuredDraft?.type || metadata?.draftType || "")
+  async _inferStructuredDraftType({ metadata = {}, content = "" } = {}) {
+    // Check for explicit type hint in metadata first
+    const explicitEntityType = String(metadata?.structuredDraft?.entityType || metadata?.entityType || "")
       .trim()
       .toLowerCase();
-    if (STRUCTURED_DRAFT_ENTITY_BY_TYPE[explicitType]) return explicitType;
-    const text = String(content || "").toLowerCase();
-    if (/\b(tasks?|checklist|actions?|activities|suggested plan|to do|todo)\b/.test(text)) {
-      return "task_list";
+    if (explicitEntityType && _adaptersRegistry.has(explicitEntityType)) return explicitEntityType;
+    const knownEntityTypes = Array.from(_adaptersRegistry.keys());
+    // Fast: extract from first-line list header pattern e.g. "Task List for..." or "List of Tasks"
+    const firstLine = String(content || "").split(/\r?\n/)[0] || "";
+    const listHeaderMatch = firstLine.match(/\b(\w+(?:\s+\w+)?)\s+list\b/i) || firstLine.match(/\blist\s+of\s+(\w+(?:\s+\w+)?)\b/i);
+    if (listHeaderMatch?.[1]) {
+      const fastResult = resolveEntityTypeFromMessage({ userMessage: String(listHeaderMatch[1]).trim(), knownEntityTypes });
+      if (fastResult?.status === "resolved" && _adaptersRegistry.has(fastResult.entityType)) {
+        return fastResult.entityType;
+      }
     }
-    if (/\b(financial entries|financial entry|invoices?|payments?|accounting entries)\b/.test(text)) {
-      return "financial_entry_list";
-    }
-    if (/\b(document drafts?|draft documents?)\b/.test(text)) {
-      return "document_draft_list";
-    }
-    if (/\bmissions?\b/.test(text)) return "mission_list";
-    if (/\b(sessions?|hearings?)\b/.test(text)) return "session_list";
-    if (
-      /\b(review|gather|prepare|draft|assign|schedule|confirm)\b/.test(text) &&
-      /\b(plan|today|dossier|lawsuit|case)\b/.test(text)
-    ) {
-      return "task_list";
-    }
-    const entityType = String(metadata?.entityType || "").trim().toLowerCase();
-    if (STRUCTURED_DRAFT_TYPE_BY_ENTITY[entityType]) {
-      return STRUCTURED_DRAFT_TYPE_BY_ENTITY[entityType];
+    // LLM fallback: use only the first 300 chars (title/header section) to reduce noise
+    try {
+      const llmExtractor = this.helper?.mutationIntentExtractor ?? null;
+      const result = await inferEntityAndFieldsWithLLM({
+        llmExtractor,
+        userMessage: String(content || "").slice(0, 300),
+        knownEntityTypes,
+      });
+      if (result?.entityType && _adaptersRegistry.has(result.entityType)) {
+        return result.entityType;
+      }
+    } catch (_err) {
+      // fall through to null
     }
     return null;
   }
 
-  _buildStructuredDraftFromContract({
+  async _buildStructuredDraftFromContract({
     contract = null,
     routedOutputType = "message",
     requestContext = {},
@@ -764,8 +751,9 @@ class ChatOrchestrator {
         ? contract.metadata
         : {};
     if (!content && !Array.isArray(metadata?.structuredDraft?.items)) return null;
-    const type = this._inferStructuredDraftType({ metadata, content });
-    if (!type) return null;
+    const entityType = await this._inferStructuredDraftType({ metadata, content });
+    if (!entityType) return null;
+    const type = `${entityType}_list`;
     const explicitItems = Array.isArray(metadata?.structuredDraft?.items)
       ? metadata.structuredDraft.items
           .map((item) => {
@@ -790,7 +778,6 @@ class ChatOrchestrator {
       : this._extractStructuredDraftItemsFromText(content);
     if (!items.length) return null;
     const linkedScope = this._resolveStructuredDraftScope({ requestContext, llmHistory });
-    const entityType = STRUCTURED_DRAFT_ENTITY_BY_TYPE[type] || null;
     return {
       type,
       entityType,
@@ -949,10 +936,9 @@ class ChatOrchestrator {
       return false;
     }
     if (/^(yes|yep|yeah|ok|okay|sure|please|go ahead|do it)\b/.test(text)) return true;
-    if (/\b(add|create|make|insert|save|apply|record)\b/.test(text) && /\b(them|these|tasks|all)\b/.test(text)) {
+    if (/\b(add|create|make|insert|save|apply|record)\b/.test(text) && /\b(them|these|all)\b/.test(text)) {
       return true;
     }
-    if (/\bcreate all tasks\b/.test(text)) return true;
     return false;
   }
 
@@ -978,9 +964,48 @@ class ChatOrchestrator {
     return titles;
   }
 
-  _buildDeterministicBulkTaskOperations({
+  async _recoverStructuredDraftFromRecentTranscript({
+    requestContext = {},
+    expectedEntityType = "task",
+  } = {}) {
+    const conversationId = String(requestContext?.conversationId || "").trim();
+    const transcriptStore = this.engine?.contextStore?._transcriptStore;
+    if (!conversationId || !transcriptStore || typeof transcriptStore.getRecentTurns !== "function") {
+      return null;
+    }
+
+    const recentTurns = transcriptStore.getRecentTurns(conversationId, 8);
+    if (!Array.isArray(recentTurns) || recentTurns.length === 0) return null;
+
+    // Walk backwards and pick the most recent assistant message that looks like a list.
+    for (let i = recentTurns.length - 1; i >= 0; i -= 1) {
+      const turn = recentTurns[i];
+      const message = String(turn?.agentOutput?.message || "").trim();
+      if (!message) continue;
+      const items = this._extractStructuredDraftItemsFromText(message);
+      if (!Array.isArray(items) || items.length < 2) continue;
+      const inferredType = await this._inferStructuredDraftType({ metadata: {}, content: message });
+      const entityType = String(inferredType || expectedEntityType || "").trim().toLowerCase();
+      if (!entityType || !_adaptersRegistry.has(entityType)) continue;
+      if (String(expectedEntityType || "").trim().toLowerCase() && entityType !== String(expectedEntityType).toLowerCase()) {
+        continue;
+      }
+      return {
+        type: `${entityType}_list`,
+        entityType,
+        items,
+        linkedScope: this._resolveStructuredDraftScope({ requestContext, llmHistory: null }),
+        createdAt: nowIso(),
+      };
+    }
+
+    return null;
+  }
+
+  _buildDeterministicBulkEntityOperations({
     structuredDraft = null,
     scopeContext = {},
+    entityType = "task",
   } = {}) {
     const normalizedScope =
       scopeContext && typeof scopeContext === "object" && !Array.isArray(scopeContext)
@@ -1013,6 +1038,10 @@ class ChatOrchestrator {
         skipped.push({ title: normalizedTitle || null, reason: "invalid_title" });
         continue;
       }
+      if (operations.length >= 10) {
+        skipped.push({ title: normalizedTitle, reason: "batch_limit_reached" });
+        continue;
+      }
       const payload = {
         title: normalizedTitle,
         status: "todo",
@@ -1024,12 +1053,12 @@ class ChatOrchestrator {
       }
       operations.push({
         op: "CREATE_ENTITY",
-        entityType: "task",
+        entityType,
         payload: {
-          entityType: "task",
+          entityType,
           payload,
         },
-        reason: "Create task from deterministic structured task list confirmation.",
+        reason: `Create ${entityType} from deterministic structured list confirmation.`,
       });
     }
     return { operations, skipped, dossierId, lawsuitId };
@@ -1100,7 +1129,7 @@ class ChatOrchestrator {
     sessionState = null,
   } = {}) {
     if (!this._isDeterministicBulkTaskConfirmationIntent(userMessage)) return null;
-    const structuredDraft =
+    let structuredDraft =
       sessionState?.lastStructuredDraft &&
       typeof sessionState.lastStructuredDraft === "object" &&
       !Array.isArray(sessionState.lastStructuredDraft)
@@ -1110,16 +1139,30 @@ class ChatOrchestrator {
             !Array.isArray(sessionState.structuredDraft)
           ? sessionState.structuredDraft
           : null;
+    if (!structuredDraft) {
+      structuredDraft = await this._recoverStructuredDraftFromRecentTranscript({
+        requestContext,
+        expectedEntityType: "task",
+      });
+      if (structuredDraft) {
+        updateChatOrchestratorState(this.engine, requestContext, {
+          structuredDraft,
+          lastStructuredDraft: structuredDraft,
+          lastDraftEntityType: "task",
+        });
+      }
+    }
     const draftEntityType = this._deriveEntityTypeFromStructuredDraft(structuredDraft);
-    if (!structuredDraft || draftEntityType !== "task") return null;
-    const deterministicOps = this._buildDeterministicBulkTaskOperations({
+    if (!structuredDraft || !draftEntityType || !_adaptersRegistry.has(draftEntityType)) return null;
+    const deterministicOps = this._buildDeterministicBulkEntityOperations({
       structuredDraft,
       scopeContext: requestContext,
+      entityType: draftEntityType,
     });
     this._traceExecutionStep(requestContext, "operations_generated_count", {
       count: Array.isArray(deterministicOps.operations) ? deterministicOps.operations.length : 0,
       skippedCount: Array.isArray(deterministicOps.skipped) ? deterministicOps.skipped.length : 0,
-      entityType: "task",
+      entityType: draftEntityType,
       source: "deterministic_bulk_task_mode",
     });
     this._traceExecutionStep(requestContext, "scope_bound", {
@@ -1127,7 +1170,8 @@ class ChatOrchestrator {
       lawsuitId: deterministicOps.lawsuitId || null,
       source: "deterministic_bulk_task_mode",
     });
-    if (!deterministicOps.dossierId && !deterministicOps.lawsuitId) return null;
+    const _entitySpec = ENTITY_CREATION_SPECS[draftEntityType];
+    if (_entitySpec?.requiresParentScope !== false && !deterministicOps.dossierId && !deterministicOps.lawsuitId) return null;
     if (!deterministicOps.operations.length) {
       this._traceExecutionStep(requestContext, "validation_failed", {
         reason: "no_valid_task_entries",
@@ -1185,7 +1229,7 @@ class ChatOrchestrator {
         operationsCount: deterministicOps.operations.length,
         source: "deterministic_bulk_task_mode",
       });
-      const finalMessage = "I could not prepare the requested mutation proposal.";
+      const finalMessage = `I could not prepare the requested mutation proposal. [${String(error?.code || error?.message || "unknown")}]`;
       this.helper._recordTranscript({
         requestContext,
         userMessage,
@@ -3715,6 +3759,23 @@ class ChatOrchestrator {
             artifactType: deterministicReadResult.outputArtifact?.type || "chat",
           });
         }
+        if (responderResult.finalMessage && this._extractStructuredDraftItemsFromText(responderResult.finalMessage).length >= 2) {
+          const _dDirect = await this._buildStructuredDraftFromContract({
+            contract: { content: responderResult.finalMessage, metadata: {} },
+            routedOutputType: "message",
+            requestContext,
+            llmHistory,
+          });
+          if (_dDirect) {
+            const _dDirectEntityType = this._deriveEntityTypeFromStructuredDraft(_dDirect) || _dDirect.entityType || null;
+            updateChatOrchestratorState(this.engine, requestContext, {
+              structuredDraft: _dDirect,
+              lastStructuredDraft: _dDirect,
+              lastDraftCapability: "structured_draft",
+              lastDraftEntityType: _dDirectEntityType,
+            });
+          }
+        }
         return { ...deterministicReadResult, message: responderResult.finalMessage || deterministicReadResult.message };
       }
     }
@@ -3884,6 +3945,23 @@ class ChatOrchestrator {
           },
           artifactType: deterministicReadResult.outputArtifact?.type || "chat",
         });
+      }
+      if (responderResult.finalMessage && this._extractStructuredDraftItemsFromText(responderResult.finalMessage).length >= 2) {
+        const _dGraph = await this._buildStructuredDraftFromContract({
+          contract: { content: responderResult.finalMessage, metadata: {} },
+          routedOutputType: "message",
+          requestContext,
+          llmHistory,
+        });
+        if (_dGraph) {
+          const _dGraphEntityType = this._deriveEntityTypeFromStructuredDraft(_dGraph) || _dGraph.entityType || null;
+          updateChatOrchestratorState(this.engine, requestContext, {
+            structuredDraft: _dGraph,
+            lastStructuredDraft: _dGraph,
+            lastDraftCapability: "structured_draft",
+            lastDraftEntityType: _dGraphEntityType,
+          });
+        }
       }
       return { ...deterministicReadResult, message: responderResult.finalMessage || deterministicReadResult.message };
     }
@@ -4324,7 +4402,7 @@ class ChatOrchestrator {
     });
     finalMessage = this._sanitizeUserFacingIdRequest(finalMessage);
 
-    const structuredDraft = this._buildStructuredDraftFromContract({
+    const structuredDraft = await this._buildStructuredDraftFromContract({
       contract,
       routedOutputType,
       requestContext,
