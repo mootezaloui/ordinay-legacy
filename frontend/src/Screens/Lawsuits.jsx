@@ -121,6 +121,7 @@ export default function Lawsuits() {
       id: "nextHearing",
       label: t("table.columns.nextHearing"),
       sortable: true,
+      mobileRole: "detail",
       render: (lawsuitItem) => {
         const hearing = lawsuitItem.computedNextHearing;
         if (!hearing) return <span className="text-slate-400 italic">{t("table.nextHearing.none")}</span>;

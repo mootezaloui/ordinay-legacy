@@ -181,12 +181,12 @@ export function AgentSessionItem({
                 collisionPadding={8}
                 className="w-40 max-h-none overflow-y-visible bg-white/95 dark:bg-[#1e293b]/95 border border-black/[0.06] dark:border-white/[0.06] shadow-xl rounded-2xl z-50"
               >
-                <DropdownMenuItem onClick={handleStartEdit}>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleStartEdit(); }}>
                   <Edit2 className="w-3.5 h-3.5 mr-2" />
                   Rename
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => setShowDeleteDialog(true)}
+                  onClick={(e) => { e.stopPropagation(); setShowDeleteDialog(true); }}
                   className="text-red-600 dark:text-red-400 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/20"
                 >
                   <Trash2 className="w-3.5 h-3.5 mr-2" />

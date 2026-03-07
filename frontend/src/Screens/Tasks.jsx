@@ -152,6 +152,7 @@ export default function Tasks() {
             </div>
           );
         }
+        if (!task.dossier) return null;
         return (
           <div className="flex items-center gap-1">
             <i className="fas fa-folder-open text-blue-500 dark:text-blue-400 text-xs"></i>
@@ -186,7 +187,7 @@ export default function Tasks() {
             {
               value: "Not Started",
               label: statusLabelMap["Not Started"],
-              icon: "fas fa-circle",
+              icon: "far fa-circle",
               color: "slate"
             },
             {
@@ -224,6 +225,7 @@ export default function Tasks() {
       id: "priority",
       label: t("table.columns.priority"),
       sortable: true,
+      mobileRole: "detail",
       render: (task) => (
         <InlinePrioritySelector
           value={task.priority}

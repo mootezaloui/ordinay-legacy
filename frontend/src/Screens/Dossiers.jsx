@@ -148,12 +148,14 @@ export default function Dossiers() {
       id: "openDate",
       label: t("table.columns.openDate"),
       sortable: true,
+      mobileRole: "detail",
       render: (dossier) => formatDate(dossier.openDate),
     },
     {
       id: "priority",
       label: t("table.columns.priority"),
       sortable: true,
+      mobileRole: "detail",
       render: (dossier) => (
         <InlinePrioritySelector
           value={dossier.priority}

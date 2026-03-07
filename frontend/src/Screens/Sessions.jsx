@@ -146,6 +146,7 @@ export default function Sessions() {
       id: "time",
       label: t("table.columns.time"),
       sortable: true,
+      mobileRole: "detail",
       render: (session) => session.time,
     },
     {

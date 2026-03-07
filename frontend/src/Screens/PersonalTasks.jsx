@@ -590,6 +590,7 @@ export default function PersonalTasks() {
       id: "priority",
       label: t("table.columns.priority"),
       sortable: true,
+      mobileRole: "detail",
       render: (task) => (
         <PriorityDropdown
           task={task}

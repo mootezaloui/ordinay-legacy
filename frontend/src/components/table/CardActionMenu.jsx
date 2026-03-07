@@ -24,7 +24,7 @@ export default function CardActionMenu({ actions = [] }) {
   );
 
   return (
-    <DropdownMenu>
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <button
           type="button"

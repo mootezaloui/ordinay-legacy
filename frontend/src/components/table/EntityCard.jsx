@@ -34,7 +34,7 @@ const EntityCard = memo(function EntityCard({
   const metaCell = visibleCells.find((cell) => cell.role === "meta");
 
   const detailCells = visibleCells
-    .filter((cell) => !["primary", "status", "meta"].includes(cell.role))
+    .filter((cell) => !["primary", "status", "meta"].includes(cell.role) && cell.content != null)
     .sort((a, b) => a.priority - b.priority)
     .slice(0, 4);
 
@@ -48,7 +48,7 @@ const EntityCard = memo(function EntityCard({
           onClick();
         }
       }}
-      className={`w-full rounded-2xl border border-slate-300/80 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900 shadow-sm transition-all duration-200 hover:shadow-lg overflow-hidden relative ${cursorClass} ${emphasisClass} ${className}`}
+      className={`w-full rounded-2xl border border-slate-300/80 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900 shadow-sm transition-all duration-200 hover:shadow-lg overflow-hidden relative flex flex-col ${cursorClass} ${emphasisClass} ${className}`}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
     >
@@ -59,7 +59,7 @@ const EntityCard = memo(function EntityCard({
       )}
 
       {/* Primary section with better hierarchy */}
-      <div className="p-5 sm:p-6 pb-4 bg-white dark:bg-transparent">
+      <div className="p-5 sm:p-6 pb-4 bg-white dark:bg-transparent flex-1">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex-1 overflow-hidden">
             {/* Larger, more prominent title */}
@@ -96,7 +96,7 @@ const EntityCard = memo(function EntityCard({
               className="flex items-start gap-4"
             >
               {/* Quieter, sentence-case labels */}
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400 shrink-0">
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400 shrink-0 w-20">
                 {cell.label}
               </span>
               {/* Emphasized values */}
