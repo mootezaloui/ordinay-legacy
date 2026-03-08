@@ -33,7 +33,7 @@ export const MarkdownOutput: React.FC<MarkdownOutputProps> = ({ content }) => {
   };
 
   return (
-    <div className="prose prose-slate dark:prose-invert max-w-none break-words text-sm leading-relaxed">
+    <div className="prose prose-slate dark:prose-invert max-w-none break-words text-[inherit] leading-[inherit] font-[inherit]">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeSanitize]}
@@ -47,7 +47,7 @@ export const MarkdownOutput: React.FC<MarkdownOutputProps> = ({ content }) => {
               </pre>
             ) : (
               <code
-                className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono"
+                className="bg-muted px-1.5 py-0.5 rounded text-[inherit] font-[inherit]"
                 {...props}
               >
                 {children}

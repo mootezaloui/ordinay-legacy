@@ -1153,18 +1153,29 @@ td[data-column-id="actions"] [data-table-action-button] {
     linear-gradient(180deg, #0f172a 0%, #0f172a 100%);
 }
 
-.agent-chat-text {
+.agent-chat-text,
+.agent-ui-text {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
   letter-spacing: 0.01em;
 }
 
-.agent-ui-text {
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-}
-
 .agent-chat-text .prose {
+  font-family: inherit;
   font-size: 1rem;
   line-height: 1.8;
+}
+
+.agent-chat-text .prose code,
+.agent-chat-text .prose pre,
+.agent-chat-text .prose kbd,
+.agent-chat-text .prose samp {
+  font-family: inherit;
+}
+
+.agent-chat-text .prose em,
+.agent-chat-text .prose i {
+  font-family: inherit;
+  font-style: normal;
 }
 
 .agent-chat-text .prose h1,
