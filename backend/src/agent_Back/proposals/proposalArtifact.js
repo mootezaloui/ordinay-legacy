@@ -325,6 +325,357 @@ function _buildProposalPreview({
   };
 }
 
+function _toTitleCase(value = "") {
+  return String(value || "")
+    .replace(/[_-]+/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+    .trim();
+}
+
+function _humanizeFieldLabel(key = "") {
+  const normalized = String(key || "").trim();
+  if (!normalized) return "Field";
+  const map = {
+    client: "Client",
+    client_id: "Client",
+    dossier: "Dossier",
+    dossier_id: "Dossier",
+    lawsuit: "Lawsuit",
+    lawsuit_id: "Lawsuit",
+    type: "Type",
+    status: "Status",
+    priority: "Priority",
+    title: "Title",
+    subject: "Subject",
+    date: "Date",
+    hearing_date: "Hearing Date",
+    due_date: "Due Date",
+    description: "Description",
+    notes: "Notes",
+    content: "Content",
+    body: "Body",
+    reference: "Reference",
+    amount: "Amount",
+  };
+  return map[normalized.toLowerCase()] || _toTitleCase(normalized);
+}
+
+function _normalizeStructuredText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim() || null;
+}
+
+function _stringifyStructuredValue(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "number") return String(value);
+  if (typeof value === "string") return _normalizeStructuredText(value);
+  if (Array.isArray(value)) {
+    const parts = value.map((entry) => _stringifyStructuredValue(entry)).filter(Boolean);
+    return parts.length ? parts.join(", ") : null;
+  }
+  if (typeof value === "object") {
+    if (typeof value.label === "string" && value.label.trim()) return _normalizeStructuredText(value.label);
+    if (typeof value.reference === "string" && value.reference.trim()) return _normalizeStructuredText(value.reference);
+    if (typeof value.name === "string" && value.name.trim()) return _normalizeStructuredText(value.name);
+    if (typeof value.title === "string" && value.title.trim()) return _normalizeStructuredText(value.title);
+    if (typeof value.text === "string" && value.text.trim()) return _normalizeStructuredText(value.text);
+    if ("to" in value || "from" in value) return _stringifyStructuredValue(value.to);
+  }
+  return _normalizeStructuredText(String(value));
+}
+
+function _pickStructuredEntityType(proposal = {}, params = {}, workflow = null, affectedEntities = []) {
+  const actionType = String(proposal?.actionType || "").toUpperCase();
+  if (actionType === "EXECUTE_MUTATION_WORKFLOW") {
+    const requestedGoalEntity =
+      workflow?.requestedGoal && typeof workflow.requestedGoal === "object"
+        ? String(workflow.requestedGoal.entityType || "").trim().toLowerCase()
+        : "";
+    if (requestedGoalEntity) return requestedGoalEntity;
+    const rootEntity =
+      workflow?.rootEntity && typeof workflow.rootEntity === "object"
+        ? String(workflow.rootEntity.type || "").trim().toLowerCase()
+        : "";
+    if (rootEntity) return rootEntity;
+  }
+  const direct = String(
+    params?.entityType ||
+      params?.target?.type ||
+      params?.targetType ||
+      params?.sourceType ||
+      affectedEntities?.[0]?.type ||
+      ""
+  )
+    .trim()
+    .toLowerCase();
+  return direct || "record";
+}
+
+function _deriveStructuredTitle({
+  proposal = null,
+  workflowPreview = null,
+  previewItems = [],
+  entityType = "record",
+  payload = {},
+  changes = {},
+} = {}) {
+  const planner = proposal?.confirmation?.preview?.planner;
+  const plannerSummary = _normalizeStructuredText(planner?.legalSummary);
+  if (plannerSummary) return plannerSummary;
+
+  const structuredPreviewTitle = _normalizeStructuredText(proposal?.preview?.title);
+  if (structuredPreviewTitle && structuredPreviewTitle.toLowerCase() !== "pending change preview") {
+    return structuredPreviewTitle;
+  }
+
+  const firstPreviewTitle = previewItems
+    .map((item) => _normalizeStructuredText(item?.title))
+    .find(Boolean);
+  if (firstPreviewTitle) return firstPreviewTitle;
+
+  const directTitle = [
+    payload?.title,
+    payload?.subject,
+    payload?.name,
+    payload?.reference,
+    proposal?.params?.title,
+    proposal?.params?.reference,
+  ]
+    .map(_normalizeStructuredText)
+    .find(Boolean);
+  if (directTitle) return directTitle;
+
+  const updatedFields = Object.keys(changes || {}).map(_humanizeFieldLabel);
+  const summary = _normalizeStructuredText(workflowPreview?.summaryLine || proposal?.humanReadableSummary);
+  if (summary) return summary;
+  if (updatedFields.length > 0) {
+    return `${_toActionVerb(_toOperationLabel(proposal?.actionType))} ${updatedFields.slice(0, 2).join(" and ")} for ${_toTitleCase(entityType)}`;
+  }
+  return `${_toActionVerb(_toOperationLabel(proposal?.actionType))} ${_toTitleCase(entityType)}`;
+}
+
+function _deriveStructuredSubtitle({
+  proposal = null,
+  entityType = "record",
+  payload = {},
+  changes = {},
+  affectedEntities = [],
+  previewItems = [],
+} = {}) {
+  const action = _toActionVerb(_toOperationLabel(proposal?.actionType));
+  const entityLabel = _toTitleCase(entityType) || "record";
+  const primaryParent = affectedEntities.find((entry) =>
+    ["dossier", "lawsuit", "client"].includes(String(entry?.type || "").toLowerCase()),
+  );
+  const parentLabel = _normalizeStructuredText(primaryParent?.reference || primaryParent?.label);
+  const plannerSummary = _normalizeStructuredText(
+    proposal?.confirmation?.preview?.planner?.semanticProfile?.summary,
+  );
+  if (plannerSummary) return plannerSummary;
+  if (action.toLowerCase() === "create" && parentLabel) {
+    return `A new ${entityLabel.toLowerCase()} will be attached to ${parentLabel}.`;
+  }
+  if (action.toLowerCase() === "delete") {
+    return `This will permanently remove the selected ${entityLabel.toLowerCase()}.`;
+  }
+  const changeKeys = Object.keys(changes || {}).map(_humanizeFieldLabel);
+  if (changeKeys.length > 0) {
+    return `This updates ${changeKeys.slice(0, 3).join(", ").toLowerCase()} for the selected ${entityLabel.toLowerCase()}.`;
+  }
+  if (previewItems.length > 1) {
+    return `This applies ${previewItems.length} related changes before the request is completed.`;
+  }
+  const status = _stringifyStructuredValue(payload?.status || changes?.status?.to);
+  if (status) {
+    return `This sets the ${entityLabel.toLowerCase()} status to ${status}.`;
+  }
+  return `${action} this ${entityLabel.toLowerCase()} after you confirm.`;
+}
+
+function _pushStructuredField(fields, key, label, value) {
+  const normalizedValue = _stringifyStructuredValue(value);
+  if (!normalizedValue) return;
+  if (fields.some((entry) => entry.key === key || entry.value === normalizedValue)) return;
+  fields.push({
+    key,
+    label: label || _humanizeFieldLabel(key),
+    value: normalizedValue,
+  });
+}
+
+function _buildStructuredFields({
+  proposal = null,
+  params = {},
+  entityType = "record",
+  payload = {},
+  changes = {},
+  affectedEntities = [],
+  previewItems = [],
+} = {}) {
+  const fields = [];
+  _pushStructuredField(fields, "type", "Type", _toTitleCase(entityType));
+
+  const affectedByType = new Map();
+  for (const entry of Array.isArray(affectedEntities) ? affectedEntities : []) {
+    const type = String(entry?.type || "").trim().toLowerCase();
+    if (!type || affectedByType.has(type)) continue;
+    affectedByType.set(type, entry);
+  }
+
+  const clientEntry = affectedByType.get("client");
+  const dossierEntry = affectedByType.get("dossier");
+  const lawsuitEntry = affectedByType.get("lawsuit");
+  _pushStructuredField(fields, "client", "Client", clientEntry?.label || clientEntry?.reference || payload?.client || params?.client);
+  _pushStructuredField(fields, "dossier", "Dossier", dossierEntry?.label || dossierEntry?.reference || payload?.dossier || params?.dossier);
+  _pushStructuredField(fields, "lawsuit", "Lawsuit", lawsuitEntry?.label || lawsuitEntry?.reference || payload?.lawsuit || params?.lawsuit);
+
+  const explicitFieldOrder = ["status", "priority", "date", "hearing_date", "due_date", "reference", "title"];
+  for (const key of explicitFieldOrder) {
+    const nextValue =
+      payload?.[key] ??
+      payload?.[key.replace(/_([a-z])/g, (_, char) => char.toUpperCase())] ??
+      params?.[key] ??
+      changes?.[key]?.to ??
+      null;
+    _pushStructuredField(fields, key, _humanizeFieldLabel(key), nextValue);
+  }
+
+  const previewFieldSource = previewItems?.[0]?.fields && typeof previewItems[0].fields === "object"
+    ? previewItems[0].fields
+    : {};
+  for (const [key, value] of Object.entries(previewFieldSource)) {
+    if (/(_id$|^id$)/i.test(key)) continue;
+    _pushStructuredField(fields, key, _humanizeFieldLabel(key), value);
+  }
+
+  for (const [key, diff] of Object.entries(changes || {})) {
+    if (/(_id$|^id$|^body$|^content$|^description$|^notes?$|^text$)/i.test(key)) continue;
+    const nextValue = diff && typeof diff === "object" && "to" in diff ? diff.to : diff;
+    _pushStructuredField(fields, key, _humanizeFieldLabel(key), nextValue);
+  }
+
+  for (const [key, value] of Object.entries(payload || {})) {
+    if (/(_id$|^id$|^body$|^content$|^description$|^notes?$|^text$|^entityType$)/i.test(key)) continue;
+    _pushStructuredField(fields, key, _humanizeFieldLabel(key), value);
+  }
+
+  if (fields.length === 1) {
+    const fallbackId = params?.entityId || params?.target?.id || affectedEntities?.[0]?.id || null;
+    if (fallbackId) {
+      _pushStructuredField(fields, "reference", "Reference", `#${fallbackId}`);
+    }
+  }
+
+  return fields.slice(0, 8);
+}
+
+function _buildStructuredContentPreview({ payload = {}, changes = {}, previewItems = [], proposal = null } = {}) {
+  const candidates = [
+    ["Note Content", payload?.body],
+    ["Note Content", payload?.content],
+    ["Note Content", payload?.description],
+    ["Note Content", payload?.note],
+    ["Note Content", payload?.notes],
+    ["Note Content", payload?.text],
+    ["Note Content", changes?.body?.to],
+    ["Note Content", changes?.content?.to],
+    ["Note Content", changes?.description?.to],
+    ["Note Content", changes?.note?.to],
+    ["Note Content", changes?.notes?.to],
+    ["Note Content", changes?.text?.to],
+    ["Note Content", proposal?.confirmation?.preview?.planner?.legalSummary],
+  ];
+  for (const [label, value] of candidates) {
+    const text = _normalizeStructuredText(value);
+    if (text) return { label, text };
+  }
+  const previewTitle = _normalizeStructuredText(previewItems?.[0]?.title);
+  if (previewTitle) return { label: "Summary", text: previewTitle };
+  return null;
+}
+
+function _buildStructuredResultTarget({ entityType = "record", params = {}, affectedEntities = [], rawAffectedEntities = [] } = {}) {
+  const targetCandidates = [
+    params?.target && typeof params.target === "object" ? params.target : null,
+    rawAffectedEntities.find((entry) => String(entry?.type || "").toLowerCase() === "dossier") || null,
+    rawAffectedEntities.find((entry) => String(entry?.type || "").toLowerCase() === "lawsuit") || null,
+    rawAffectedEntities.find((entry) => String(entry?.type || "").toLowerCase() === "client") || null,
+    rawAffectedEntities.find((entry) => String(entry?.type || "").toLowerCase() === entityType) || null,
+    affectedEntities.find((entry) => String(entry?.type || "").toLowerCase() === "dossier") || null,
+    affectedEntities.find((entry) => String(entry?.type || "").toLowerCase() === "lawsuit") || null,
+    affectedEntities.find((entry) => String(entry?.type || "").toLowerCase() === "client") || null,
+    affectedEntities.find((entry) => String(entry?.type || "").toLowerCase() === entityType) || null,
+  ].filter(Boolean);
+
+  const match = targetCandidates.find((entry) => {
+    const id = Number(entry?.id);
+    return (Number.isInteger(id) && id > 0) || String(entry?.label || entry?.reference || "").trim();
+  });
+  if (!match) return null;
+  return {
+    type: String(match.type || entityType || "record").trim().toLowerCase(),
+    ...(match.id !== undefined && match.id !== null ? { id: match.id } : {}),
+    label: _normalizeStructuredText(match.label || match.reference || `${_toTitleCase(match.type || entityType)}`),
+  };
+}
+
+function _buildStructuredProposal({ proposal = null, displayProposal = null, workflowPreview = null } = {}) {
+  const params =
+    displayProposal?.params && typeof displayProposal.params === "object" && !Array.isArray(displayProposal.params)
+      ? displayProposal.params
+      : {};
+  const payload =
+    params?.payload && typeof params.payload === "object" && !Array.isArray(params.payload)
+      ? params.payload
+      : {};
+  const changes =
+    params?.changes && typeof params.changes === "object" && !Array.isArray(params.changes)
+      ? params.changes
+      : {};
+  const affectedEntities = Array.isArray(displayProposal?.affectedEntities) ? displayProposal.affectedEntities : [];
+  const rawAffectedEntities = Array.isArray(proposal?.affectedEntities) ? proposal.affectedEntities : [];
+  const previewItems = Array.isArray(workflowPreview?.previewItems) ? workflowPreview.previewItems : [];
+  const workflow =
+    params?.workflow && typeof params.workflow === "object" && !Array.isArray(params.workflow)
+      ? params.workflow
+      : null;
+  const entityType = _pickStructuredEntityType(proposal, params, workflow, affectedEntities);
+  const title = _deriveStructuredTitle({
+    proposal: displayProposal,
+    workflowPreview,
+    previewItems,
+    entityType,
+    payload,
+    changes,
+  });
+  return {
+    verb: _toOperationLabel(proposal?.actionType),
+    entityType,
+    reversible: typeof proposal?.reversible === "boolean" ? proposal.reversible : null,
+    title,
+    subtitle: _deriveStructuredSubtitle({
+      proposal: displayProposal,
+      entityType,
+      payload,
+      changes,
+      affectedEntities,
+      previewItems,
+    }),
+    fields: _buildStructuredFields({
+      proposal: displayProposal,
+      params,
+      entityType,
+      payload,
+      changes,
+      affectedEntities,
+      previewItems,
+    }),
+    contentPreview: _buildStructuredContentPreview({ payload, changes, previewItems, proposal: displayProposal }) || undefined,
+    resultTarget: _buildStructuredResultTarget({ entityType, params, affectedEntities, rawAffectedEntities }) || undefined,
+  };
+}
+
 function toProposalArtifact(proposal, sessionId) {
   const rawParams =
     proposal?.params && typeof proposal.params === "object" && !Array.isArray(proposal.params)
@@ -375,6 +726,11 @@ function toProposalArtifact(proposal, sessionId) {
     proposal: displayProposal,
     workflowPreview,
   });
+  const structured = _buildStructuredProposal({
+    proposal,
+    displayProposal,
+    workflowPreview,
+  });
 
   const artifact = {
     type: "proposal",
@@ -406,6 +762,7 @@ function toProposalArtifact(proposal, sessionId) {
             ? displayProposal.params
             : {},
         preview: proposalPreview,
+        structured,
         workflowPreview,
         previewItems: Array.isArray(workflowPreview?.previewItems) ? workflowPreview.previewItems : [],
       },

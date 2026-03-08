@@ -21,6 +21,7 @@ const {
   inferLastResolvedFromGraphResult,
   inferLastResolvedFromToolExecutions,
 } = require("../context/scopedEntityContext");
+const { groundCurrentMatter } = require("../context/liveMatterGrounding");
 const { CHAT_STATES, selectInitialState } = require("./chat.state.machine");
 const { parseFinalOutputContract } = require("./output.contract");
 const { parseJsonResponse } = require("../llm/llm.validation");
@@ -650,6 +651,79 @@ class ChatOrchestrator {
       manualInputHint: prompt,
       cognitiveDecision: decision,
     };
+  }
+
+  _buildGroundingClarificationArtifact({
+    grounding = null,
+    decision = null,
+    userMessage = "",
+  } = {}) {
+    const suggestions = (Array.isArray(grounding?.candidates) ? grounding.candidates : [])
+      .map((candidate, index) => {
+        const entityType = String(candidate?.entityType || "").toLowerCase();
+        const entityId = validId(candidate?.entityId);
+        if (!entityType || !entityId) return null;
+        return {
+          id: `grounded-scope-${entityType}-${entityId}-${index}`,
+          entityType,
+          entityId,
+          label: String(candidate?.label || `${entityType} #${entityId}`),
+          subtitle: candidate?.reference ? `Reference: ${String(candidate.reference)}` : null,
+          metadata: {
+            source: "live_grounding",
+          },
+          intent: "RESOLVE_CONTEXT_AND_CONTINUE",
+          scope: {
+            [this._scopeKeyForEntityType(entityType) || "entityId"]: entityId,
+          },
+          resolveContext: {
+            originalIntent: "CHATBOT_AGENT_MODE",
+          },
+        };
+      })
+      .filter(Boolean);
+    const targetEntityType =
+      String(
+        grounding?.entityType || grounding?.groundedScope?.entityType || decision?.goal?.targetEntityType || "record",
+      ).toLowerCase() || "record";
+    const prompt =
+      String(grounding?.message || "").trim() ||
+      `What ${targetEntityType || "matter"} should I use to continue?`;
+    return {
+      type: "context_suggestion",
+      message: prompt,
+      entityType: targetEntityType || "dossier",
+      reason: "live_grounding_clarification",
+      originalIntent: "CHATBOT_AGENT_MODE",
+      originalMessage: String(userMessage || "").trim() || null,
+      suggestions,
+      timestamp: nowIso(),
+      confidence: Number.isFinite(Number(decision?.primaryRoute?.confidence))
+        ? Number(decision.primaryRoute.confidence)
+        : 0.76,
+      source: "live_grounding",
+      allowManualInput: true,
+      manualInputHint: prompt,
+      cognitiveDecision: decision,
+      groundedScope: grounding?.parentScope || grounding?.groundedScope || null,
+    };
+  }
+
+  async _groundCurrentMatterForDecision({
+    decision = null,
+    requestContext = {},
+    executionContext = {},
+    policy = null,
+  } = {}) {
+    return groundCurrentMatter({
+      requestContext: {
+        ...(requestContext || {}),
+        ...(executionContext || {}),
+      },
+      decision,
+      readTool: async (toolName, input) =>
+        this.engine._callReadTool(toolName, input, policy),
+    });
   }
 
   _buildCognitiveSuggestionArtifact({
@@ -3482,32 +3556,128 @@ class ChatOrchestrator {
       lastAssistantArtifact,
       llmExtractor: this.helper?.mutationIntentExtractor,
     });
-    this._traceExecutionStep(requestContext, "cognitive_turn_decomposed", {
-      hasRetrievalIntent: Boolean(cognitiveDecision?.turnDecomposition?.hasRetrievalIntent),
-      hasProgressionIntent: Boolean(cognitiveDecision?.turnDecomposition?.hasProgressionIntent),
-      hasAdvisoryIntent: Boolean(cognitiveDecision?.turnDecomposition?.hasAdvisoryIntent),
-      hasMixedIntent: Boolean(cognitiveDecision?.turnDecomposition?.hasMixedIntent),
-      primaryRoute: cognitiveDecision?.primaryRoute?.mode || null,
-      goalType: cognitiveDecision?.goal?.goalType || null,
-      targetEntityType: cognitiveDecision?.goal?.targetEntityType || null,
+    const groundedMatter = await this._groundCurrentMatterForDecision({
+      decision: cognitiveDecision,
+      requestContext,
+      executionContext: governanceExecutionContext,
+      policy,
     });
-    this._recordCognitiveDecision(requestContext, cognitiveDecision);
+    if (groundedMatter?.status === "resolved_single" && groundedMatter?.groundedScope?.entityType) {
+      const groundedScope = groundedMatter.groundedScope;
+      this._traceExecutionStep(requestContext, "live_scope_grounded", {
+        status: groundedMatter.status,
+        entityType: groundedScope.entityType,
+        entityId: Number(groundedScope.entityId || 0) || null,
+        resolvedFrom: groundedScope.resolvedFrom || null,
+      });
+      if (validId(groundedScope.clientId)) {
+        requestContext.clientId = groundedScope.clientId;
+        governanceExecutionContext.clientId = groundedScope.clientId;
+      }
+      if (validId(groundedScope.dossierId)) {
+        requestContext.dossierId = groundedScope.dossierId;
+        governanceExecutionContext.dossierId = groundedScope.dossierId;
+      }
+      if (validId(groundedScope.lawsuitId)) {
+        requestContext.lawsuitId = groundedScope.lawsuitId;
+        governanceExecutionContext.lawsuitId = groundedScope.lawsuitId;
+      }
+      this._pinEntityScopeBeforeContract({
+        requestContext,
+        executionContext: governanceExecutionContext,
+        resolvedEntity: groundedScope,
+        source: "live_grounding",
+      });
+    }
+    const cognitiveDecisionEffective =
+      groundedMatter?.status === "resolved_single"
+        ? await resolveCognitiveGoalIntent({
+            userMessage: effectiveUserMessage,
+            requestContext: governanceExecutionContext,
+            sessionState,
+            lastAssistantArtifact,
+            llmExtractor: this.helper?.mutationIntentExtractor,
+          })
+        : cognitiveDecision;
+    this._traceExecutionStep(requestContext, "cognitive_turn_decomposed", {
+      hasRetrievalIntent: Boolean(cognitiveDecisionEffective?.turnDecomposition?.hasRetrievalIntent),
+      hasProgressionIntent: Boolean(cognitiveDecisionEffective?.turnDecomposition?.hasProgressionIntent),
+      hasAdvisoryIntent: Boolean(cognitiveDecisionEffective?.turnDecomposition?.hasAdvisoryIntent),
+      hasMixedIntent: Boolean(cognitiveDecisionEffective?.turnDecomposition?.hasMixedIntent),
+      primaryRoute: cognitiveDecisionEffective?.primaryRoute?.mode || null,
+      goalType: cognitiveDecisionEffective?.goal?.goalType || null,
+      targetEntityType: cognitiveDecisionEffective?.goal?.targetEntityType || null,
+    });
+    this._recordCognitiveDecision(requestContext, cognitiveDecisionEffective);
     sessionState = updateChatOrchestratorState(this.engine, requestContext, {
-      lastCognitiveDecision: cognitiveDecision,
-      lastPrimaryRoute: cognitiveDecision?.primaryRoute?.mode || null,
-      lastGoalType: cognitiveDecision?.goal?.goalType || null,
-      lastLegalPhase: cognitiveDecision?.goal?.legalPhase || null,
-      lastSecondaryOpportunities: Array.isArray(cognitiveDecision?.secondaryOpportunities)
-        ? cognitiveDecision.secondaryOpportunities
+      lastCognitiveDecision: cognitiveDecisionEffective,
+      lastPrimaryRoute: cognitiveDecisionEffective?.primaryRoute?.mode || null,
+      lastGoalType: cognitiveDecisionEffective?.goal?.goalType || null,
+      lastLegalPhase: cognitiveDecisionEffective?.goal?.legalPhase || null,
+      lastSecondaryOpportunities: Array.isArray(cognitiveDecisionEffective?.secondaryOpportunities)
+        ? cognitiveDecisionEffective.secondaryOpportunities
         : [],
     });
-    if (cognitiveDecision?.primaryRoute?.mode === PRIMARY_ROUTES.CLARIFY) {
+    if (
+      groundedMatter?.status === "resolved_multiple" ||
+      groundedMatter?.status === "resolved_none"
+    ) {
+      const clarifyArtifact = this._buildGroundingClarificationArtifact({
+        grounding: groundedMatter,
+        decision: cognitiveDecisionEffective,
+        userMessage: effectiveUserMessage,
+      });
+      updateChatOrchestratorState(this.engine, requestContext, {
+        activeState: CHAT_STATES.CLARIFY,
+        pendingClarification: {
+          entityType: clarifyArtifact.entityType || null,
+          resumeState: state,
+          artifact: clarifyArtifact,
+          resolutionMeta: {
+            status: groundedMatter.status === "resolved_multiple" ? "ambiguous" : "missing",
+            entityType: clarifyArtifact.entityType || null,
+            candidatesCount: Array.isArray(clarifyArtifact.suggestions)
+              ? clarifyArtifact.suggestions.length
+              : 0,
+            autoPicked: false,
+            chosenId: null,
+          },
+          createdAt: nowIso(),
+          expiresAt: new Date(Date.now() + PENDING_CLARIFICATION_TTL_MS).toISOString(),
+          turnsRemaining: PENDING_CLARIFICATION_MAX_TURNS,
+        },
+      });
+      const finalMessage =
+        String(clarifyArtifact.message || "").trim() || "I need one more detail to continue.";
+      this.helper._recordTranscript({
+        requestContext,
+        userMessage,
+        finalMessage,
+        posture,
+        toolExecutions: [],
+        artifactType: "context_suggestion",
+        artifact: clarifyArtifact,
+      });
+      return withStateOutput(
+        {
+          message: finalMessage,
+          outputArtifact: clarifyArtifact,
+          ambiguityArtifact: clarifyArtifact,
+          resolutionMeta: {
+            cognitiveDecision: cognitiveDecisionEffective,
+            groundedMatter,
+          },
+        },
+        CHAT_STATES.FINAL,
+      );
+    }
+    if (cognitiveDecisionEffective?.primaryRoute?.mode === PRIMARY_ROUTES.CLARIFY) {
       const clarifyArtifact = this._buildCognitiveClarificationArtifact({
-        decision: cognitiveDecision,
+        decision: cognitiveDecisionEffective,
         userMessage: effectiveUserMessage,
       });
       const artifactComposition = this._buildComposedArtifacts({
-        decision: cognitiveDecision,
+        decision: cognitiveDecisionEffective,
         assistantMode: "CLARIFY",
         clarificationArtifact: clarifyArtifact,
       });
@@ -3555,7 +3725,7 @@ class ChatOrchestrator {
           outputArtifact: clarifyArtifact,
           ambiguityArtifact: clarifyArtifact,
           resolutionMeta: {
-            cognitiveDecision,
+            cognitiveDecision: cognitiveDecisionEffective,
           },
           artifactComposition,
           composedArtifacts: [clarifyArtifact],
@@ -3564,29 +3734,29 @@ class ChatOrchestrator {
       );
     }
     const minimalSupportingReadExecutions =
-      cognitiveDecision?.primaryRoute?.mode === PRIMARY_ROUTES.GOAL_FIRST
+      cognitiveDecisionEffective?.primaryRoute?.mode === PRIMARY_ROUTES.GOAL_FIRST
         ? await this._runMinimalSupportingReads({
-            decision: cognitiveDecision,
+            decision: cognitiveDecisionEffective,
             requestContext: governanceExecutionContext,
             policy,
           })
         : [];
     const minimalReadSummary = this._summarizeMinimalReadFindings(minimalSupportingReadExecutions);
     if (
-      cognitiveDecision?.primaryRoute?.mode === PRIMARY_ROUTES.GOAL_FIRST &&
-      cognitiveDecision?.contextRequirements?.proposalSatisfied !== true
+      cognitiveDecisionEffective?.primaryRoute?.mode === PRIMARY_ROUTES.GOAL_FIRST &&
+      cognitiveDecisionEffective?.contextRequirements?.proposalSatisfied !== true
     ) {
       const suggestionArtifact = this._buildCognitiveSuggestionArtifact({
-        decision: cognitiveDecision,
+        decision: cognitiveDecisionEffective,
         userMessage: effectiveUserMessage,
         minimalReadSummary,
       });
       const assistantMessage = this._buildGoalFirstAssistantMessage({
-        decision: cognitiveDecision,
+        decision: cognitiveDecisionEffective,
         minimalReadSummary,
       });
       const artifactComposition = this._buildComposedArtifacts({
-        decision: cognitiveDecision,
+        decision: cognitiveDecisionEffective,
         assistantMode: "ADVISE",
         suggestions: suggestionArtifact.suggestions,
       });
@@ -3621,7 +3791,7 @@ class ChatOrchestrator {
           outputArtifact: suggestionArtifact,
           toolExecutions: minimalSupportingReadExecutions,
           resolutionMeta: {
-            cognitiveDecision,
+            cognitiveDecision: cognitiveDecisionEffective,
             minimalReadSummary,
           },
           artifactComposition,
@@ -3717,13 +3887,13 @@ class ChatOrchestrator {
     }
 
     const governanceUserMessage =
-      cognitiveDecision?.primaryRoute?.mode === PRIMARY_ROUTES.GOAL_FIRST &&
-      cognitiveDecision?.goal?.targetEntityType &&
-      cognitiveDecision?.goal?.intendedOperation &&
+      cognitiveDecisionEffective?.primaryRoute?.mode === PRIMARY_ROUTES.GOAL_FIRST &&
+      cognitiveDecisionEffective?.goal?.targetEntityType &&
+      cognitiveDecisionEffective?.goal?.intendedOperation &&
       !/\b(create|add|set|update|edit|change|mark|assign|schedule|delete|remove|rename|reschedule)\b/i.test(
         effectiveUserMessage,
       )
-        ? `${cognitiveDecision.goal.intendedOperation} ${cognitiveDecision.goal.targetEntityType} from: ${effectiveUserMessage}`
+        ? `${cognitiveDecisionEffective.goal.intendedOperation} ${cognitiveDecisionEffective.goal.targetEntityType} from: ${effectiveUserMessage}`
         : effectiveUserMessage;
     const continuityGovernance =
       shouldPromoteFromContinuity && governanceExecutionContext?.promotionLockEntityType
@@ -3842,7 +4012,7 @@ class ChatOrchestrator {
           artifact: clarifyArtifact,
         });
         const artifactComposition = this._buildComposedArtifacts({
-          decision: cognitiveDecision,
+          decision: cognitiveDecisionEffective,
           assistantMode: "CLARIFY",
           clarificationArtifact: clarifyArtifact,
         });
@@ -3854,7 +4024,7 @@ class ChatOrchestrator {
             toolExecutions: minimalSupportingReadExecutions,
             resolutionMeta: {
               mutationGovernance,
-              cognitiveDecision,
+              cognitiveDecision: cognitiveDecisionEffective,
             },
             artifactComposition,
             composedArtifacts: [clarifyArtifact],
@@ -3978,7 +4148,7 @@ class ChatOrchestrator {
           artifact: clarifyArtifact,
         });
         const artifactComposition = this._buildComposedArtifacts({
-          decision: cognitiveDecision,
+          decision: cognitiveDecisionEffective,
           assistantMode: "CLARIFY",
           clarificationArtifact: clarifyArtifact,
         });
@@ -3990,7 +4160,7 @@ class ChatOrchestrator {
             toolExecutions: minimalSupportingReadExecutions,
             resolutionMeta: {
               mutationGovernance,
-              cognitiveDecision,
+              cognitiveDecision: cognitiveDecisionEffective,
             },
             artifactComposition,
             composedArtifacts: [clarifyArtifact],
@@ -4083,7 +4253,7 @@ class ChatOrchestrator {
             toolExecutions: minimalSupportingReadExecutions,
             resolutionMeta: {
               mutationGovernance,
-              cognitiveDecision,
+              cognitiveDecision: cognitiveDecisionEffective,
             },
           },
           CHAT_STATES.FINAL,
@@ -4113,7 +4283,7 @@ class ChatOrchestrator {
             toolExecutions: minimalSupportingReadExecutions,
             resolutionMeta: {
               mutationGovernance,
-              cognitiveDecision,
+              cognitiveDecision: cognitiveDecisionEffective,
             },
           },
           CHAT_STATES.FINAL,
@@ -4171,7 +4341,7 @@ class ChatOrchestrator {
           artifact: proposalArtifact,
         });
         const artifactComposition = this._buildComposedArtifacts({
-          decision: cognitiveDecision,
+          decision: cognitiveDecisionEffective,
           assistantMode: "PROPOSE",
           proposalArtifacts: [proposalArtifact],
         });
@@ -4189,7 +4359,7 @@ class ChatOrchestrator {
               outputContract: syntheticContract,
               routedOutputType: "mutation",
               mutationGovernance,
-              cognitiveDecision,
+              cognitiveDecision: cognitiveDecisionEffective,
             },
             artifactComposition,
             composedArtifacts: [proposalArtifact],

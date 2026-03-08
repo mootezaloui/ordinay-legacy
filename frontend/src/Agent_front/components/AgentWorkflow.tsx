@@ -1477,6 +1477,29 @@ function ArtifactBody({
                   updateSessionMessages(activeSessionId, nextMessages);
                 }
               }}
+              onUndo={(proposalId) => {
+                if (activeSessionId && activeSessionMessages && updateSessionMessages) {
+                  const nextMessages = activeSessionMessages.map((msg) => {
+                    if (msg.id !== message.id) return msg;
+                    if (!msg.data?.proposal) return msg;
+                    return {
+                      ...msg,
+                      data: {
+                        ...msg.data,
+                        proposal: {
+                          ...msg.data.proposal,
+                          proposals: (msg.data.proposal.proposals || []).map((p) =>
+                            p.proposalId !== proposalId
+                              ? p
+                              : { ...p, uiState: { status: "pending" as const } },
+                          ),
+                        },
+                      },
+                    };
+                  });
+                  updateSessionMessages(activeSessionId, nextMessages);
+                }
+              }}
             />
           </SemanticConfirmationErrorBoundary>
         ) : null}
@@ -1687,6 +1710,29 @@ function ArtifactBody({
               updateSessionMessages(activeSessionId, nextMessages);
             }
             // Cancel is UI-only — proposal expires server-side after 5 minutes
+          }}
+          onUndo={(proposalId) => {
+            if (activeSessionId && activeSessionMessages && updateSessionMessages) {
+              const nextMessages = activeSessionMessages.map((msg) => {
+                if (msg.id !== message.id) return msg;
+                if (msg.data?.type !== "proposal" || !msg.data?.proposal) return msg;
+                return {
+                  ...msg,
+                  data: {
+                    ...msg.data,
+                    proposal: {
+                      ...msg.data.proposal,
+                      proposals: (msg.data.proposal.proposals || []).map((p) =>
+                        p.proposalId !== proposalId
+                          ? p
+                          : { ...p, uiState: { status: "pending" as const } },
+                      ),
+                    },
+                  },
+                };
+              });
+              updateSessionMessages(activeSessionId, nextMessages);
+            }
           }}
         />
       </SemanticConfirmationErrorBoundary>

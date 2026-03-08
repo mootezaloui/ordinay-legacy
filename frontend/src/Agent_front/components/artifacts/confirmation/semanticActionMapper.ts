@@ -561,18 +561,6 @@ function subjectLabelOrSemanticFallback(
   return requireSubjectLabel(input, actionKind);
 }
 
-function requireEntityLabel(input: SemanticActionMappingInput, actionKind: string): string {
-  const entityLabel = toTitleCase(String(input.entityType || ""));
-  if (!entityLabel || entityLabel === "Unknown Target") {
-    throw new SemanticMappingError("Missing entity type label for semantic confirmation.", {
-      actionKind,
-      entityType: input.entityType,
-      detectedIntent: input.detectedIntent,
-    });
-  }
-  return entityLabel;
-}
-
 function buildNarrative(
   input: SemanticActionMappingInput,
   toneVariant: SemanticToneVariant,
@@ -865,6 +853,25 @@ function buildCancelLabel(args: {
 }
 
 export function mapSemanticAction(input: SemanticActionMappingInput): SemanticActionViewModel {
+  if (input.context.structuredCard) {
+    return {
+      assistantMessage: "",
+      headline: input.context.structuredCard.title,
+      description: input.context.structuredCard.subtitle || "",
+      impact: [],
+      confirmLabel: input.context.structuredCard.confirmLabel,
+      cancelLabel: input.context.structuredCard.cancelLabel,
+      toneVariant: classifyTone(input),
+      sections: {
+        changesLabel: "What changes",
+        consequencesLabel: "What this affects",
+        warningsLabel: "Warnings",
+        reversibilityLabel: "Can this be undone?",
+      },
+      card: input.context.structuredCard,
+    };
+  }
+
   const toneVariant = classifyTone(input);
   const narrative = buildNarrative(input, toneVariant);
   const impact = dedupeImpact([

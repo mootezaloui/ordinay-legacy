@@ -1,13 +1,25 @@
 import { useState } from "react";
 import {
   AlertTriangle,
+  Calendar,
   CheckCircle2,
+  FileText,
+  FolderOpen,
+  Link2,
   Loader2,
   RefreshCcw,
+  Tag,
+  User,
   XCircle,
 } from "lucide-react";
 import { MarkdownOutput } from "../../../../components/MarkdownOutput";
-import type { DecisionUiState, SemanticActionViewModel, SemanticImpactItem } from "./types";
+import type {
+  DecisionUiState,
+  SemanticActionViewModel,
+  SemanticImpactItem,
+  StructuredProposalCardField,
+  StructuredProposalCardViewModel,
+} from "./types";
 
 interface DecisionConfirmationPanelProps {
   viewModel: SemanticActionViewModel;
@@ -16,6 +28,7 @@ interface DecisionConfirmationPanelProps {
   completedAtLabel?: string;
   onConfirm?: () => void;
   onDecline?: () => void;
+  onUndo?: () => void;
   onRetry?: () => void;
   expiresAt?: string;
   canRetry?: boolean;
@@ -198,7 +211,7 @@ function PreviewRows({
   return (
     <div className="space-y-2">
       <SectionTitle>{preview.title || "Planned changes"}</SectionTitle>
-      <div className="rounded-md border border-slate-200/70 bg-white/85 dark:border-slate-700/60 dark:bg-slate-900/25 overflow-hidden">
+      <div className="overflow-hidden rounded-md border border-slate-200/70 bg-white/85 dark:border-slate-700/60 dark:bg-slate-900/25">
         <table className="w-full text-xs">
           <thead className="bg-slate-100/80 dark:bg-slate-800/70">
             <tr className="text-left text-slate-700 dark:text-slate-200">
@@ -279,7 +292,241 @@ function PreviewRows({
   );
 }
 
-function ExecutionState({
+function ProposalFieldIcon({ field }: { field: StructuredProposalCardField }) {
+  const className = "h-3.5 w-3.5";
+  if (field.icon === "client" || field.icon === "person") return <User className={className} />;
+  if (field.icon === "dossier") return <FolderOpen className={className} />;
+  if (field.icon === "lawsuit" || field.icon === "link") return <Link2 className={className} />;
+  if (field.icon === "calendar" || field.icon === "date") return <Calendar className={className} />;
+  if (field.icon === "tag" || field.icon === "type" || field.icon === "status") return <Tag className={className} />;
+  return <FileText className={className} />;
+}
+
+function ProposalResultFooter({
+  card,
+  uiState,
+  completedAtLabel,
+  onUndo,
+}: {
+  card: StructuredProposalCardViewModel;
+  uiState: DecisionUiState;
+  completedAtLabel?: string;
+  onUndo?: () => void;
+}) {
+  if (uiState === "applied") {
+    return (
+      <div className="flex items-center justify-between gap-3 border-t border-emerald-500/20 bg-emerald-500/10 px-4 py-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.55)] animate-pulse" />
+          <div className="min-w-0">
+            <div className="text-sm font-medium text-emerald-100">{card.applied.title}</div>
+            <div className="text-xs text-emerald-200/70">
+              {card.applied.subtitle || completedAtLabel || "The confirmed action completed successfully."}
+            </div>
+          </div>
+        </div>
+        {card.applied.shortcutLabel && card.applied.resultTarget ? (
+          <div className="text-xs font-medium text-emerald-200 whitespace-nowrap">
+            {card.applied.shortcutLabel} &rarr;
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (uiState === "declined") {
+    return (
+      <div className="flex items-center justify-between gap-3 border-t border-rose-500/20 bg-rose-500/10 px-4 py-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-rose-400 shadow-[0_0_10px_rgba(251,113,133,0.45)]" />
+          <div className="min-w-0">
+            <div className="text-sm font-medium text-rose-100">{card.cancelled.title}</div>
+            <div className="text-xs text-rose-200/70">{card.cancelled.subtitle}</div>
+          </div>
+        </div>
+        {onUndo ? (
+          <button
+            type="button"
+            onClick={onUndo}
+            className="rounded-md border border-white/10 px-2.5 py-1 text-xs font-medium text-slate-100 transition hover:bg-white/5"
+          >
+            {card.cancelled.undoLabel}
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function StructuredProposalCard({
+  card,
+  uiState,
+  errorMessage,
+  completedAtLabel,
+  expiresAt,
+  canRetry,
+  requiresRefresh,
+  onConfirm,
+  onDecline,
+  onUndo,
+  onRetry,
+}: {
+  card: StructuredProposalCardViewModel;
+  uiState: DecisionUiState;
+  errorMessage?: string;
+  completedAtLabel?: string;
+  expiresAt?: string;
+  canRetry: boolean;
+  requiresRefresh: boolean;
+  onConfirm?: () => void;
+  onDecline?: () => void;
+  onUndo?: () => void;
+  onRetry?: () => void;
+}) {
+  const showPendingBar = uiState === "awaiting_decision" || uiState === "submitting" || uiState === "failed";
+  const showRetry = uiState === "failed" && canRetry && !requiresRefresh;
+
+  return (
+    <div
+      className="overflow-hidden rounded-2xl border border-white/8 bg-slate-950/70 shadow-[0_16px_60px_rgba(2,6,23,0.42)] animate-in fade-in slide-in-from-bottom-2 duration-300"
+      data-testid="decision-confirmation-panel"
+      data-state={uiState}
+    >
+      <div className="flex items-center justify-between gap-3 border-b border-white/6 bg-black/20 px-4 py-3">
+        <div className="flex items-center gap-2.5">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{card.verb}</span>
+          <span className="rounded-md border border-sky-400/20 bg-sky-500/10 px-2 py-1 text-[11px] font-semibold text-sky-300">
+            {card.entityLabel}
+          </span>
+        </div>
+        <span className="rounded-md border border-white/8 bg-white/5 px-2 py-1 text-[11px] font-medium text-slate-300">
+          {card.reversibleLabel}
+        </span>
+      </div>
+
+      <div className="space-y-4 px-4 py-4">
+        <div className="space-y-1">
+          <h3 className="text-[15px] font-semibold leading-6 text-slate-50">{card.title}</h3>
+          {card.subtitle ? (
+            <p className="text-sm leading-5 text-slate-400">{card.subtitle}</p>
+          ) : null}
+        </div>
+
+        {card.fields.length > 0 ? (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {card.fields.map((field) => (
+              <div
+                key={`${field.key}-${field.label}`}
+                className={cx(
+                  "flex items-start gap-3 rounded-xl border border-white/6 bg-white/[0.03] px-3 py-3",
+                  field.span === "full" ? "sm:col-span-2" : "",
+                )}
+              >
+                <span className="mt-0.5 text-slate-500">
+                  <ProposalFieldIcon field={field} />
+                </span>
+                <div className="min-w-0">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    {field.label}
+                  </div>
+                  <div className="mt-1 break-words text-sm font-medium text-slate-100">{field.value}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {card.contentPreview ? (
+          <div className="rounded-r-xl border border-white/6 border-l-sky-400/40 bg-white/[0.03] px-4 py-3">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              {card.contentPreview.label}
+            </div>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-200">{card.contentPreview.text}</p>
+          </div>
+        ) : null}
+
+        {uiState === "expired" ? (
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-100">
+            This confirmation expired. Ask the assistant to prepare it again.
+          </div>
+        ) : null}
+
+        {uiState === "stale" ? (
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-100">
+            This confirmation is no longer current. Please ask the assistant to prepare the change again.
+          </div>
+        ) : null}
+
+        {errorMessage && uiState === "failed" ? (
+          <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2.5 text-sm text-rose-100">
+            {errorMessage}
+          </div>
+        ) : null}
+      </div>
+
+      {showPendingBar ? (
+        <div className="flex flex-col gap-3 border-t border-white/6 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 text-xs font-medium text-amber-300">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            <span>{card.warningHint}</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={onDecline}
+              disabled={uiState === "submitting"}
+              className="rounded-lg border border-white/10 px-3.5 py-2 text-sm font-medium text-slate-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {card.cancelLabel}
+            </button>
+            <button
+              type="button"
+              onClick={showRetry ? onRetry : onConfirm}
+              disabled={uiState === "submitting"}
+              className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {uiState === "submitting" ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>{card.confirmLabel}</span>
+                </>
+              ) : showRetry ? (
+                <>
+                  <RefreshCcw className="h-4 w-4" />
+                  <span>Try Again</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>{card.confirmLabel}</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {(uiState === "applied" || uiState === "declined") ? (
+        <ProposalResultFooter
+          card={card}
+          uiState={uiState}
+          completedAtLabel={completedAtLabel}
+          onUndo={uiState === "declined" ? onUndo : undefined}
+        />
+      ) : null}
+
+      {expiresAt && uiState === "awaiting_decision" ? (
+        <div className="border-t border-white/6 px-4 py-2 text-[11px] text-slate-500">
+          Available until {new Date(expiresAt).toLocaleTimeString()}.
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function LegacyExecutionState({
   uiState,
   errorMessage,
   completedAtLabel,
@@ -338,7 +585,7 @@ function ExecutionState({
   );
 }
 
-export function DecisionConfirmationPanel({
+function LegacyPanel({
   viewModel,
   uiState,
   errorMessage,
@@ -356,7 +603,6 @@ export function DecisionConfirmationPanel({
   const warningItems = viewModel.impact.filter((item) => item.kind === "warning");
   const reversibilityItems = viewModel.impact.filter((item) => item.kind === "reversibility");
   const consequenceItems = viewModel.impact.filter((item) => item.kind === "consequence");
-  // Render a single downstream-effects section for all non-diff impacts to keep execute confirmations consistent.
   const effectItems = [...consequenceItems, ...warningItems];
   const hasEffectWarnings = warningItems.length > 0;
   const toneLabel = getToneLabel(viewModel.toneVariant);
@@ -369,19 +615,19 @@ export function DecisionConfirmationPanel({
   return (
     <div className="space-y-2" data-testid="decision-confirmation-turn">
       <div className="agent-message-row">
-        <div className="agent-chat-text text-[15px] leading-relaxed text-slate-800 dark:text-slate-200 px-1">
+        <div className="agent-chat-text px-1 text-[15px] leading-relaxed text-slate-800 dark:text-slate-200">
           <MarkdownOutput content={viewModel.assistantMessage} />
         </div>
       </div>
 
       <div
-        className={cx("rounded-xl border shadow-sm overflow-hidden", tone.wrap)}
+        className={cx("overflow-hidden rounded-xl border shadow-sm", tone.wrap)}
         data-testid="decision-confirmation-panel"
         data-tone={viewModel.toneVariant}
         data-state={uiState}
       >
         <div className={cx("h-1", tone.accent)} />
-        <div className="px-4 py-3.5 space-y-3">
+        <div className="space-y-3 px-4 py-3.5">
           <div className="space-y-1">
             {toneLabel ? (
               <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -396,7 +642,7 @@ export function DecisionConfirmationPanel({
             ) : null}
           </div>
 
-          <div className={cx("rounded-lg border p-3 space-y-3", tone.subtle)}>
+          <div className={cx("space-y-3 rounded-lg border p-3", tone.subtle)}>
             <PreviewRows preview={viewModel.preview} />
             <ChangeRows items={changeItems} title={viewModel.sections.changesLabel} />
             <ImpactRows
@@ -420,7 +666,7 @@ export function DecisionConfirmationPanel({
             </div>
           ) : null}
 
-          <ExecutionState uiState={uiState} errorMessage={errorMessage} completedAtLabel={completedAtLabel} />
+          <LegacyExecutionState uiState={uiState} errorMessage={errorMessage} completedAtLabel={completedAtLabel} />
 
           {(isActionable || showRetry) ? (
             <div className="flex flex-wrap gap-2 pt-1">
@@ -480,4 +726,28 @@ export function DecisionConfirmationPanel({
       </div>
     </div>
   );
+}
+
+export function DecisionConfirmationPanel(props: DecisionConfirmationPanelProps) {
+  const { viewModel, uiState, errorMessage, completedAtLabel, expiresAt, canRetry = true, requiresRefresh = false, onConfirm, onDecline, onUndo, onRetry } = props;
+
+  if (viewModel.card) {
+    return (
+      <StructuredProposalCard
+        card={viewModel.card}
+        uiState={uiState}
+        errorMessage={errorMessage}
+        completedAtLabel={completedAtLabel}
+        expiresAt={expiresAt}
+        canRetry={canRetry}
+        requiresRefresh={requiresRefresh}
+        onConfirm={onConfirm}
+        onDecline={onDecline}
+        onUndo={onUndo}
+        onRetry={onRetry}
+      />
+    );
+  }
+
+  return <LegacyPanel {...props} />;
 }

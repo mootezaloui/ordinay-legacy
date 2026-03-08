@@ -1,4 +1,9 @@
-import type { ActionProposal, ConfirmationPreview } from "../../../../services/api/agent";
+import type {
+  ActionProposal,
+  ConfirmationPreview,
+  StructuredProposal,
+  StructuredProposalField,
+} from "../../../../services/api/agent";
 import type { SemanticActionMappingInput } from "./types";
 
 export interface DataContextLike {
@@ -25,6 +30,136 @@ export function labelForEntityType(entityType?: string): string {
   if (normalized === "financial_entry") return "financial entry";
   if (normalized === "personal_task") return "personal task";
   return toTitleCase(normalized).toLowerCase();
+}
+
+function sentenceCase(value: string): string {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function normalizeText(value: unknown): string {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function verbLabel(verb?: string): string {
+  const normalized = String(verb || "").trim().toLowerCase();
+  if (normalized === "create") return "Create";
+  if (normalized === "update") return "Update";
+  if (normalized === "delete") return "Delete";
+  if (normalized === "attach") return "Attach";
+  if (normalized === "link") return "Link";
+  return "Apply";
+}
+
+function fieldIconForKey(key: string, label?: string) {
+  const normalized = `${key} ${label || ""}`.toLowerCase();
+  if (normalized.includes("client")) return "client" as const;
+  if (normalized.includes("dossier")) return "dossier" as const;
+  if (normalized.includes("lawsuit")) return "lawsuit" as const;
+  if (normalized.includes("date")) return "calendar" as const;
+  if (normalized.includes("status")) return "status" as const;
+  if (normalized.includes("type")) return "tag" as const;
+  if (normalized.includes("content") || normalized.includes("note") || normalized.includes("description")) return "content" as const;
+  if (normalized.includes("reference")) return "link" as const;
+  return "generic" as const;
+}
+
+function orderStructuredFields(fields: StructuredProposalField[]) {
+  const priority: Record<string, number> = {
+    type: 0,
+    client: 1,
+    dossier: 2,
+    lawsuit: 3,
+    date: 4,
+    hearing_date: 5,
+    due_date: 6,
+    status: 7,
+    priority: 8,
+    reference: 9,
+    title: 10,
+  };
+  const ordered = [...fields].sort((a, b) => {
+    const aScore = priority[String(a.key || "").toLowerCase()] ?? 100;
+    const bScore = priority[String(b.key || "").toLowerCase()] ?? 100;
+    if (aScore !== bScore) return aScore - bScore;
+    return String(a.label || "").localeCompare(String(b.label || ""));
+  });
+  return ordered.map((field, index) => ({
+    key: field.key,
+    label: field.label,
+    value: field.value,
+    icon: fieldIconForKey(field.key, field.label),
+    span:
+      ordered.length % 2 !== 0 && index === ordered.length - 1
+        ? ("full" as const)
+        : ("half" as const),
+  }));
+}
+
+function buildStructuredCard(proposal: ActionProposal) {
+  const structured = proposal.structured as StructuredProposal | undefined;
+  if (!structured || !normalizeText(structured.title)) return undefined;
+
+  const entityLabel = sentenceCase(labelForEntityType(structured.entityType) || structured.entityType || "record");
+  const verb = verbLabel(structured.verb);
+  const confirmSuffix = verb === "Apply" ? "Apply" : verb;
+  const resultEntity = entityLabel || "Item";
+  const resultTargetLabel = normalizeText(structured.resultTarget?.label);
+  const lowerVerb = verb.toLowerCase();
+  const appliedTitle =
+    lowerVerb === "create"
+      ? `${resultEntity} created successfully`
+      : lowerVerb === "delete"
+        ? `${resultEntity} deleted successfully`
+        : lowerVerb === "update"
+          ? `${resultEntity} updated successfully`
+          : `${resultEntity} ${lowerVerb}d successfully`;
+  const shortcutLabel =
+    resultTargetLabel && normalizeText(structured.resultTarget?.type)
+      ? `View in ${labelForEntityType(structured.resultTarget?.type) || structured.resultTarget?.type}`
+      : undefined;
+
+  return {
+    verb,
+    entityLabel,
+    reversibleLabel:
+      structured.reversible === false
+        ? "Irreversible"
+        : structured.reversible === true
+          ? "Reversible"
+          : "Review required",
+    title: normalizeText(structured.title),
+    subtitle: normalizeText(structured.subtitle) || undefined,
+    fields: orderStructuredFields(Array.isArray(structured.fields) ? structured.fields.filter((field) => normalizeText(field?.value)) : []),
+    contentPreview:
+      structured.contentPreview && normalizeText(structured.contentPreview.text)
+        ? {
+            label: normalizeText(structured.contentPreview.label) || "Content Preview",
+            text: normalizeText(structured.contentPreview.text),
+          }
+        : undefined,
+    warningHint: "Review before confirming",
+    confirmLabel: `Confirm & ${confirmSuffix}`,
+    cancelLabel: "Cancel",
+    applied: {
+      title: appliedTitle,
+      subtitle: resultTargetLabel || undefined,
+      resultTarget: structured.resultTarget
+        ? {
+            type: structured.resultTarget.type,
+            id: structured.resultTarget.id,
+            label: structured.resultTarget.label,
+          }
+        : undefined,
+      shortcutLabel,
+    },
+    cancelled: {
+      title: "Action cancelled",
+      subtitle: "No changes were made",
+      undoLabel: "Undo",
+    },
+  };
 }
 
 export function resolveEntityLabel(
@@ -622,6 +757,7 @@ export function proposalToSemanticInput(
       requiresRiskAck: proposal.confirmation?.extraRiskAck === true,
       confirmationPreview: confirmationPreview,
       proposalPreview: proposalPreview || undefined,
+      structuredCard: buildStructuredCard(proposal),
       proposalSummary:
         String(proposal.humanReadableSummary || "").trim() ||
         String(proposal.description || "").trim() ||

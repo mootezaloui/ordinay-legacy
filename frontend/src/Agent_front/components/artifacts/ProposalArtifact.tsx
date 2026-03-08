@@ -16,6 +16,7 @@ interface ProposalArtifactProps {
   data: ProposalOutput;
   onConfirm: (proposalId: string, options?: { ackRisk?: boolean }) => Promise<ExecutionResult>;
   onCancel: (proposalId: string) => void;
+  onUndo?: (proposalId: string) => void;
 }
 
 interface ProposalState {
@@ -189,6 +190,7 @@ export function ProposalArtifact({
   data,
   onConfirm,
   onCancel,
+  onUndo,
 }: ProposalArtifactProps) {
   const contextData = useData() as DataContextLike;
   const [proposalStates, setProposalStates] = useState<Record<string, ProposalState>>(() => {
@@ -242,6 +244,17 @@ export function ProposalArtifact({
     onCancel(proposalId);
   };
 
+  const handleUndo = (proposalId: string) => {
+    const proposal = data.proposals.find((p) => p.proposalId === proposalId);
+    if (!proposal) return;
+    if (hasExpired(proposal)) {
+      updateState(proposalId, { status: "awaiting_decision" });
+      return;
+    }
+    updateState(proposalId, { status: "awaiting_decision" });
+    onUndo?.(proposalId);
+  };
+
   const renderItems = buildProposalRenderItems(data.proposals, contextData, isSemanticConfirmationPanelDebugEnabled());
 
   return (
@@ -273,6 +286,7 @@ export function ProposalArtifact({
             onConfirm={() => void handleConfirm(proposal.proposalId)}
             onRetry={() => void handleConfirm(proposal.proposalId)}
             onDecline={() => handleDecline(proposal.proposalId)}
+            onUndo={() => handleUndo(proposal.proposalId)}
           />
         );
       })}

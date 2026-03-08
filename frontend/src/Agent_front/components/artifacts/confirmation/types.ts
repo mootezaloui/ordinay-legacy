@@ -1,5 +1,61 @@
 export type SemanticToneVariant = "neutral" | "sensitive" | "caution" | "destructive";
 
+export type StructuredProposalFieldIcon =
+  | "type"
+  | "client"
+  | "dossier"
+  | "lawsuit"
+  | "date"
+  | "status"
+  | "content"
+  | "person"
+  | "link"
+  | "file"
+  | "tag"
+  | "calendar"
+  | "generic";
+
+export interface StructuredProposalCardField {
+  key: string;
+  label: string;
+  value: string;
+  icon: StructuredProposalFieldIcon;
+  span: "half" | "full";
+}
+
+export interface StructuredProposalCardResultTarget {
+  type: string;
+  id?: number | string;
+  label: string;
+}
+
+export interface StructuredProposalCardViewModel {
+  verb: string;
+  entityLabel: string;
+  reversibleLabel: string;
+  title: string;
+  subtitle?: string;
+  fields: StructuredProposalCardField[];
+  contentPreview?: {
+    label: string;
+    text: string;
+  };
+  warningHint: string;
+  confirmLabel: string;
+  cancelLabel: string;
+  applied: {
+    title: string;
+    subtitle?: string;
+    resultTarget?: StructuredProposalCardResultTarget;
+    shortcutLabel?: string;
+  };
+  cancelled: {
+    title: string;
+    subtitle: string;
+    undoLabel: string;
+  };
+}
+
 export interface ConfirmationPreviewChange {
   entityType: string;
   entityId?: number | null;
@@ -103,6 +159,7 @@ export interface SemanticActionMappingInput {
       }>;
       warnings?: string[];
     };
+    structuredCard?: StructuredProposalCardViewModel;
   };
 }
 
@@ -161,6 +218,7 @@ export interface SemanticActionViewModel {
     }>;
     warnings: string[];
   };
+  card?: StructuredProposalCardViewModel;
 }
 
 export type DecisionUiState =

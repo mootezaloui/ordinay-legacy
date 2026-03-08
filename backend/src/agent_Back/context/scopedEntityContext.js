@@ -112,9 +112,65 @@ function pickLabel(node = {}) {
   return (
     String(node?.title || "").trim() ||
     String(node?.name || "").trim() ||
+    String(node?.client_name || "").trim() ||
+    String(node?.clientName || "").trim() ||
     String(node?.reference || "").trim() ||
     null
   );
+}
+
+const CLOSED_STATUS_VALUES = new Set([
+  "closed",
+  "archived",
+  "cancelled",
+  "canceled",
+  "completed",
+  "resolved",
+  "dismissed",
+  "inactive",
+]);
+
+function isOpenLikeStatus(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) return true;
+  return !CLOSED_STATUS_VALUES.has(normalized);
+}
+
+function pickPreferredChildFromChildren(children = {}) {
+  const priorities = ["lawsuits", "dossiers", "sessions", "tasks", "missions"];
+  for (const category of priorities) {
+    const rows = Array.isArray(children?.[category]) ? children[category] : [];
+    const openRows = rows.filter((row) => row?.type && toId(row?.id) && isOpenLikeStatus(row?.status));
+    const preferred = openRows.length === 1 ? openRows[0] : rows.length === 1 ? rows[0] : null;
+    if (preferred?.type && toId(preferred?.id)) {
+      return {
+        type: String(preferred.type).toLowerCase(),
+        id: Number(preferred.id),
+        label: pickLabel(preferred),
+      };
+    }
+  }
+  return null;
+}
+
+function inferFromDirectListResult(toolName = "", result = {}) {
+  const normalizedToolName = String(toolName || "").trim();
+  const mapping = {
+    listDossiers: { key: "dossiers", entityType: "dossier" },
+    listDossiersForClient: { key: "dossiers", entityType: "dossier" },
+    listLawsuits: { key: "lawsuits", entityType: "lawsuit" },
+  };
+  const config = mapping[normalizedToolName];
+  if (!config) return null;
+  const rows = Array.isArray(result?.[config.key]) ? result[config.key] : [];
+  const openRows = rows.filter((row) => toId(row?.id) && isOpenLikeStatus(row?.status));
+  const preferred = openRows.length === 1 ? openRows[0] : rows.length === 1 ? rows[0] : null;
+  if (!preferred) return null;
+  return {
+    type: config.entityType,
+    id: Number(preferred.id),
+    label: pickLabel(preferred),
+  };
 }
 
 function inferLastResolvedFromGraphResult(graphResult = {}, preferredChildCategory = "") {
@@ -132,6 +188,9 @@ function inferLastResolvedFromGraphResult(graphResult = {}, preferredChildCatego
     }
   }
 
+  const preferredChild = pickPreferredChildFromChildren(graphResult?.children || {});
+  if (preferredChild) return preferredChild;
+
   const root = graphResult?.root || null;
   if (root?.type && toId(root?.id)) {
     return {
@@ -147,11 +206,17 @@ function inferLastResolvedFromToolExecutions(toolExecutions = []) {
   const list = Array.isArray(toolExecutions) ? toolExecutions : [];
   for (let idx = list.length - 1; idx >= 0; idx -= 1) {
     const row = list[idx];
-    if (String(row?.toolName || "") !== "getEntityGraph") continue;
+    const toolName = String(row?.toolName || "");
     const result = row?.result && typeof row.result === "object" ? row.result : null;
-    const include = Array.isArray(row?.input?.include) ? row.input.include : [];
-    const category = String(include[0] || "").trim();
-    const inferred = inferLastResolvedFromGraphResult(result, category);
+    if (!result) continue;
+    if (toolName === "getEntityGraph") {
+      const include = Array.isArray(row?.input?.include) ? row.input.include : [];
+      const category = String(include[0] || "").trim();
+      const inferred = inferLastResolvedFromGraphResult(result, category);
+      if (inferred) return inferred;
+      continue;
+    }
+    const inferred = inferFromDirectListResult(toolName, result);
     if (inferred) return inferred;
   }
   return null;

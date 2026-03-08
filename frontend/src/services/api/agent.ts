@@ -75,6 +75,34 @@ export interface ConfirmationPreview {
   reversibility?: 'reversible' | 'not_reversible' | 'unknown' | string;
 }
 
+export interface StructuredProposalField {
+  key: string;
+  label: string;
+  value: string;
+}
+
+export interface StructuredProposalContentPreview {
+  label: string;
+  text: string;
+}
+
+export interface StructuredProposalResultTarget {
+  type: string;
+  id?: number | string;
+  label: string;
+}
+
+export interface StructuredProposal {
+  verb: string;
+  entityType: string;
+  reversible: boolean | null;
+  title: string;
+  subtitle?: string;
+  fields: StructuredProposalField[];
+  contentPreview?: StructuredProposalContentPreview;
+  resultTarget?: StructuredProposalResultTarget;
+}
+
 export interface AgentRequestMetadata {
   webSearchEnabled?: boolean;
   webSearchTrigger?: WebSearchTrigger;
@@ -573,6 +601,7 @@ export interface ActionProposal {
     }>;
     warnings?: string[];
   };
+  structured?: StructuredProposal;
   // Frontend-only persisted UI state (stored in chat session history)
   uiState?: {
     status: "pending" | "confirmed" | "cancelled" | "failed";
