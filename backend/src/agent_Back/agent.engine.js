@@ -29,10 +29,171 @@ const { initializeToolRegistry } = require("./tools/index");
 const { ToolFirewall } = require("./tools/tool.firewall");
 const { executeToolV2 } = require("./engine/toolRuntime");
 const { enforceExecutionGuard } = require("./mutation/uis");
+const tasksService = require("../services/tasks.service");
+const clientsService = require("../services/clients.service");
+const dossiersService = require("../services/dossiers.service");
+const lawsuitsService = require("../services/lawsuits.service");
+const sessionsService = require("../services/sessions.service");
+const missionsService = require("../services/missions.service");
+const personalTasksService = require("../services/personalTasks.service");
+const financialService = require("../services/financial.service");
+const officersService = require("../services/officers.service");
+const notesService = require("../services/notes.service");
+const documentsService = require("../services/documents.service");
 
 const agentV1Policy = require("./policies/agent.v1.policy");
 const agentV2Policy = require("./policies/agent.v2.policy");
 const agentV3Policy = require("./policies/agent.v3.policy");
+
+const MUTATION_ACTION_TYPES = new Set([
+  "CREATE_ENTITY",
+  "UPDATE_ENTITY",
+  "DELETE_ENTITY",
+  "LINK_ENTITIES",
+  "ATTACH_TO_ENTITY",
+]);
+
+function normalizeProposalExecutionTarget(proposal = {}) {
+  const actionType = String(proposal?.actionType || "").trim().toUpperCase();
+  if (!MUTATION_ACTION_TYPES.has(actionType)) {
+    return {
+      toolName: String(proposal?.actionType || "").trim(),
+      params: proposal?.params || {},
+    };
+  }
+
+  const rawParams =
+    proposal?.params && typeof proposal.params === "object" && !Array.isArray(proposal.params)
+      ? proposal.params
+      : {};
+  const entityType = String(rawParams?.entityType || "").trim().toLowerCase();
+  let payload = rawParams?.payload;
+
+  // CREATE proposals may carry either the direct payload or a nested { entityType, payload } shape.
+  if (actionType === "CREATE_ENTITY") {
+    if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+      const nestedPayload =
+        payload?.payload && typeof payload.payload === "object" && !Array.isArray(payload.payload)
+          ? payload.payload
+          : null;
+      if (nestedPayload) {
+        payload = nestedPayload;
+      }
+    } else {
+      payload = {};
+    }
+
+    return {
+      toolName: "universalMutation",
+      params: {
+        operations: [
+          {
+            op: actionType,
+            entityType,
+            payload,
+            reason:
+              String(proposal?.humanReadableSummary || "").trim() ||
+              `Confirmed ${entityType || "entity"} creation proposal.`,
+          },
+        ],
+        idempotencyKey: `confirm_${String(proposal?.proposalId || "").trim() || Date.now()}`,
+        origin: "chat",
+        risk:
+          proposal?.confirmation?.extraRiskAck === true || proposal?.confirmation?.riskLevel === "high"
+            ? "high"
+            : "medium",
+      },
+    };
+  }
+
+  if (actionType === "UPDATE_ENTITY") {
+    const changes =
+      rawParams?.changes && typeof rawParams.changes === "object" && !Array.isArray(rawParams.changes)
+        ? rawParams.changes
+        : {};
+    return {
+      toolName: "universalMutation",
+      params: {
+        operations: [
+          {
+            op: actionType,
+            entityType,
+            payload: {
+              entityType,
+              entityId: rawParams?.entityId,
+              changes,
+            },
+            reason:
+              String(proposal?.humanReadableSummary || "").trim() ||
+              `Confirmed ${entityType || "entity"} update proposal.`,
+          },
+        ],
+        idempotencyKey: `confirm_${String(proposal?.proposalId || "").trim() || Date.now()}`,
+        origin: "chat",
+        risk:
+          proposal?.confirmation?.extraRiskAck === true || proposal?.confirmation?.riskLevel === "high"
+            ? "high"
+            : "medium",
+      },
+    };
+  }
+
+  return {
+    toolName: "universalMutation",
+    params: {
+      operations: [
+        {
+          op: actionType,
+          entityType,
+          payload: rawParams,
+          reason:
+            String(proposal?.humanReadableSummary || "").trim() ||
+            `Confirmed ${entityType || "entity"} mutation proposal.`,
+        },
+      ],
+      idempotencyKey: `confirm_${String(proposal?.proposalId || "").trim() || Date.now()}`,
+      origin: "chat",
+      risk:
+        proposal?.confirmation?.extraRiskAck === true || proposal?.confirmation?.riskLevel === "high"
+          ? "high"
+          : "medium",
+    },
+  };
+}
+
+function buildExecutionScope(proposal = {}, metadata = {}, sessionId = null) {
+  return {
+    ...(metadata?.activeScope && typeof metadata.activeScope === "object" ? metadata.activeScope : {}),
+    sessionId: sessionId || proposal?.sessionId || metadata?.sessionId || null,
+  };
+}
+
+function getMutationService(entityType = "") {
+  const svcMap = {
+    task: tasksService,
+    client: clientsService,
+    dossier: dossiersService,
+    lawsuit: lawsuitsService,
+    session: sessionsService,
+    mission: missionsService,
+    personal_task: personalTasksService,
+    financial_entry: financialService,
+    officer: officersService,
+    note: notesService,
+    document: documentsService,
+  };
+  return svcMap[String(entityType || "").toLowerCase()] || null;
+}
+
+function unwrapCreatePayload(params = {}) {
+  const payload =
+    params?.payload && typeof params.payload === "object" && !Array.isArray(params.payload)
+      ? params.payload
+      : {};
+  return payload?.payload && typeof payload.payload === "object" && !Array.isArray(payload.payload)
+    ? payload.payload
+    : payload;
+}
 
 class AgentEngine {
   constructor() {
@@ -161,6 +322,123 @@ class AgentEngine {
     const { proposal, metadata } = stored;
 
     const policy = this._resolvePolicy(proposal.version || "v3");
+    const mutationActionType = String(proposal.actionType || "").toUpperCase();
+
+    if (MUTATION_ACTION_TYPES.has(mutationActionType)) {
+      const entityType = String(proposal?.params?.entityType || "").toLowerCase();
+      const service = getMutationService(entityType);
+      if (!service) {
+        const err = new Error(`Unsupported entity type for confirmed mutation: ${entityType || "unknown"}`);
+        err.status = 400;
+        err.code = "UNSUPPORTED_CONFIRMED_MUTATION_ENTITY_TYPE";
+        throw err;
+      }
+
+      const scope = buildExecutionScope(proposal, metadata, sessionId);
+      let executionResult = null;
+
+      if (mutationActionType === "CREATE_ENTITY") {
+        const guard = enforceExecutionGuard({
+          actionType: mutationActionType,
+          entityType,
+          payload: unwrapCreatePayload(proposal.params),
+          activeScope: scope,
+        });
+        const guardedPayload = guard?.payload && typeof guard.payload === "object" ? guard.payload : unwrapCreatePayload(proposal.params);
+        const created = service.create(guardedPayload);
+        executionResult = {
+          ok: true,
+          entityType,
+          entityId: created?.id || null,
+          operation: "create",
+          id: created?.id || null,
+          createdRow: created || null,
+          uis: { trace: guard?.trace || null },
+        };
+      } else if (mutationActionType === "UPDATE_ENTITY") {
+        const guard = enforceExecutionGuard({
+          actionType: mutationActionType,
+          entityType,
+          payload:
+            proposal?.params?.changes && typeof proposal.params.changes === "object"
+              ? proposal.params.changes
+              : {},
+          activeScope: scope,
+        });
+        const guardedChanges =
+          guard?.payload && typeof guard.payload === "object"
+            ? guard.payload
+            : proposal?.params?.changes && typeof proposal.params.changes === "object"
+              ? proposal.params.changes
+              : {};
+        const updated = service.update(proposal?.params?.entityId, guardedChanges);
+        executionResult = {
+          ok: true,
+          entityType,
+          entityId: Number(proposal?.params?.entityId || 0) || updated?.id || null,
+          operation: "update",
+          id: Number(proposal?.params?.entityId || 0) || updated?.id || null,
+          updatedRow: updated || null,
+          uis: { trace: guard?.trace || null },
+        };
+      } else if (mutationActionType === "DELETE_ENTITY") {
+        const removed = typeof service.remove === "function"
+          ? service.remove(proposal?.params?.entityId)
+          : false;
+        executionResult = {
+          ok: Boolean(removed),
+          entityType,
+          entityId: Number(proposal?.params?.entityId || 0) || null,
+          operation: "delete",
+          id: Number(proposal?.params?.entityId || 0) || null,
+          removed: Boolean(removed),
+        };
+      } else {
+        const executionTarget = normalizeProposalExecutionTarget(proposal);
+        const { result, trace } = await executeToolV2.call(this, executionTarget.toolName, executionTarget.params, policy, {
+          confirmed: true,
+          posture: "WORK",
+          sessionId: sessionId || proposal.sessionId || metadata?.sessionId || null,
+          userId: userId || metadata?.userId || null,
+          ackRisk: ackRisk === true,
+          proposalId,
+          conversationId: metadata?.conversationId || null,
+        });
+        this._proposals.delete(proposalId);
+        this.ledger.record({
+          type: "proposal_confirmed",
+          proposalId,
+          actionType: proposal.actionType,
+          sessionId: sessionId || null,
+          userId: userId || null,
+          timestamp: new Date().toISOString(),
+        });
+        return { ...result, proposalId, trace };
+      }
+
+      this._proposals.delete(proposalId);
+      this.ledger.record({
+        type: "proposal_confirmed",
+        proposalId,
+        actionType: proposal.actionType,
+        sessionId: sessionId || null,
+        userId: userId || null,
+        timestamp: new Date().toISOString(),
+      });
+      return {
+        type: "execution_result",
+        proposalId,
+        status: executionResult?.ok ? "success" : "failed",
+        executedActions: [
+          {
+            actionType: proposal.actionType,
+            result: executionResult,
+            executedAt: new Date().toISOString(),
+          },
+        ],
+        ...executionResult,
+      };
+    }
 
     if (String(proposal.actionType || "").toUpperCase() === "EXECUTE_MUTATION_WORKFLOW") {
       const executedAt = new Date().toISOString();
@@ -323,8 +601,10 @@ class AgentEngine {
       };
     }
 
-    const { result, trace } = await executeToolV2.call(this, proposal.actionType, proposal.params, policy, {
+    const executionTarget = normalizeProposalExecutionTarget(proposal);
+    const { result, trace } = await executeToolV2.call(this, executionTarget.toolName, executionTarget.params, policy, {
       confirmed: true,
+      posture: "WORK",
       sessionId: sessionId || proposal.sessionId || metadata?.sessionId || null,
       userId: userId || metadata?.userId || null,
       ackRisk: ackRisk === true,
@@ -639,3 +919,4 @@ class AgentEngine {
 }
 
 module.exports = AgentEngine;
+module.exports.normalizeProposalExecutionTarget = normalizeProposalExecutionTarget;

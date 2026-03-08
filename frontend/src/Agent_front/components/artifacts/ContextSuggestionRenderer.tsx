@@ -94,6 +94,12 @@ export function ContextSuggestionRenderer({
   data,
   onSelect,
 }: ContextSuggestionRendererProps) {
+  const normalizedMessage = String(data.message || "").trim();
+  const normalizedManualHint = String(data.manualInputHint || "").trim();
+  const showManualHint =
+    Boolean(data.allowManualInput) &&
+    Boolean(normalizedManualHint) &&
+    normalizedManualHint.toLowerCase() !== normalizedMessage.toLowerCase();
   return (
     <div className="agent-message-row">
       <div className="agent-bubble agent-chat-text">
@@ -154,7 +160,7 @@ export function ContextSuggestionRenderer({
         </div>
 
         {/* Manual input hint (optional) */}
-        {data.allowManualInput && data.manualInputHint && (
+        {showManualHint && (
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-3 italic">
             {data.manualInputHint}
           </p>

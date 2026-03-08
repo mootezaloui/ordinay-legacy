@@ -498,7 +498,7 @@ export default function FormModal({
 
           {/* Form - Scrollable */}
           <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
-            <div className={`${paddingClass} overflow-y-auto overscroll-contain flex-1`}>
+            <div className={`${paddingClass} modal-scroll-stable overflow-y-auto overscroll-contain flex-1`}>
               <div className={`grid grid-cols-1 md:grid-cols-2 ${columnLayoutClass} ${spacingClass}`}>
                 {fields.map((field) => {
                   // ✅ Check hideIf function for conditional visibility

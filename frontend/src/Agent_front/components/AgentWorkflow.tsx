@@ -42,6 +42,7 @@ import { DocumentGenerationPreviewArtifact } from "./artifacts/DocumentGeneratio
 import { RecoveryArtifact } from "./artifacts/RecoveryArtifact";
 import { ContextSuggestionRenderer } from "./artifacts/ContextSuggestionRenderer";
 import { EntityCreationFormArtifact } from "./artifacts/EntityCreationFormArtifact";
+import { AssistSuggestions } from "./artifacts/AssistSuggestions";
 import { ChatbotMutationStatus } from "./chatbot/ChatbotMutationStatus";
 import { MarkdownOutput } from "../../components/MarkdownOutput";
 import { useAgentSessions } from "../hooks/useAgentSessions";
@@ -1155,7 +1156,10 @@ function MinimalChatbotTurn(props: {
   const { message } = props;
   const dataType = message.data?.type;
   const hasContent = Boolean(message.content && message.content.trim().length > 0);
-  const suppressStandaloneChatBubble = dataType === "proposal" && Boolean(message.data?.proposal);
+  const suppressStandaloneChatBubble =
+    (dataType === "proposal" && Boolean(message.data?.proposal)) ||
+    dataType === "context_suggestion" ||
+    dataType === "clarification";
   const mutationStatus = !isProposalMessageData(message.data) && message.chatbotTurn?.mutation ? (
     <ChatbotMutationStatus mutation={message.chatbotTurn.mutation} />
   ) : null;
@@ -1167,11 +1171,16 @@ function MinimalChatbotTurn(props: {
     }
   }
 
+  const proactiveSuggestionsEl = message.proactiveSuggestions ? (
+    <AssistSuggestions data={message.proactiveSuggestions} onAction={props.onExampleClick} />
+  ) : null;
+
   if (!hasContent && attachment) {
     return (
       <div className="space-y-2">
         {attachment}
         {mutationStatus}
+        {proactiveSuggestionsEl}
       </div>
     );
   }
@@ -1181,11 +1190,15 @@ function MinimalChatbotTurn(props: {
       <div className="space-y-2">
         <ArtifactBody {...props} />
         {mutationStatus}
+        {proactiveSuggestionsEl}
       </div>
     );
   }
 
   if (!hasContent && !attachment && mutationStatus) {
+    if (proactiveSuggestionsEl) {
+      return <div className="space-y-2">{mutationStatus}{proactiveSuggestionsEl}</div>;
+    }
     return mutationStatus;
   }
 
@@ -1194,6 +1207,7 @@ function MinimalChatbotTurn(props: {
       {hasContent && !suppressStandaloneChatBubble ? <ChatArtifact content={message.content} /> : null}
       {mutationStatus}
       {attachment}
+      {proactiveSuggestionsEl}
     </div>
   );
 }
@@ -1685,6 +1699,9 @@ function ArtifactBody({
         onExampleClick={onExampleClick}
       />
     );
+  }
+  if (dataType === "assist_suggestions" && message.data?.assistSuggestions) {
+    return <AssistSuggestions data={message.data.assistSuggestions} onAction={onExampleClick} />;
   }
   if (
     dataType === "document_generation_missing_fields" &&

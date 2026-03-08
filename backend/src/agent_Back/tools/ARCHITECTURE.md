@@ -1,6 +1,6 @@
 # Tool System Architecture
 
-**Last Updated**: 2026-03-06
+**Last Updated**: 2026-03-08
 
 ---
 
@@ -88,10 +88,21 @@ User message
       ▼
 Chat Orchestrator
       │
-      ├── detectCompositeIntent(message)
-      │     → {primary, secondaries, signals}
+      ├── Cognitive Goal & Intent Resolver
+      │     ├── turnIntentDecomposer()
+      │     ├── goalRouteArbitrator()
+      │     ├── context level analysis
+      │     │     → understanding / proposal / execution
+      │     ├── minimalSupportingReads[]
+      │     └── primaryRoute + secondaryOpportunities
       │
-      ├── Resolution Phase
+      ├── Goal-First Path
+      │     ├── run minimal supporting reads only
+      │     ├── if proposal-safe → mutation governance / proposal build
+      │     └── if proposal context missing → suggestion/clarification artifacts
+      │
+      ├── Database-First Path
+      │     ├── detectCompositeIntent(message)
       │     ├── try _tryRunDeterministicReadList()
       │     │     → artifact (if deterministic intent matches)
       │     │     OR
@@ -138,6 +149,43 @@ console.log("[AGENT_TURN]", {intent, artifactType, responseMode, messageLength, 
       ▼
 Response returned to router → SSE stream to frontend
 ```
+
+---
+
+## Cognitive Routing Layer
+
+The chat pipeline now starts with a cognitive routing layer before query resolution and broad read search.
+
+Key properties:
+
+1. `GOAL_FIRST` does not skip reads. It requests only the minimal reads needed to support the goal.
+2. The resolver supports mixed turns by returning a single `primaryRoute` plus `secondaryOpportunities`.
+3. Context needs are separated into:
+   - understanding context
+   - proposal context
+   - execution context
+4. Missing execution context no longer forces premature clarification if the system can still safely advise or prepare a proposal.
+5. Mutation governance preflight blocks only on proposal-critical gaps. UIS-defaulted structural fields remain proposal-safe and are filled later during proposal construction.
+
+Primary routes:
+
+- `GOAL_FIRST`
+  - clear progression / legal-development / initiation intent
+  - may emit assistant guidance + suggestions + proposal cards
+- `DATABASE_FIRST`
+  - explicit retrieval, inspection, or status path
+  - may still surface secondary next-step opportunities
+- `CLARIFY`
+  - only when understanding or proposal safety is materially blocked
+
+Artifact composition precedence:
+
+1. clarification
+2. proposal
+3. suggestions
+4. informational attachments
+
+This keeps the existing execution safety stack intact: mutation governance, proposal confirmation, tool firewall, and universal mutation remain the enforcement layer.
 
 ---
 

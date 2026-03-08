@@ -16,6 +16,7 @@ import type {
   WebDeepSearchResultsOutput,
   DocumentGenerationMissingFieldsOutput,
   RecoveryOutput,
+  AssistSuggestionsOutput,
 } from "../../services/api/agent";
 
 export type AgentMessageRole = "user" | "agent";
@@ -99,6 +100,8 @@ export interface AgentMessage {
    * - LLM unavailable
    */
   commentary?: CommentaryOutput;
+  /** Proactive suggestions appended after the main artifact — rendered below, not replacing it. */
+  proactiveSuggestions?: import("../../services/api/agent").AssistSuggestionsOutput;
   // If present, this agent message was generated as a retry of another agent message
   retryOf?: string;
   // Optional flag set when a user edits their own message
@@ -108,7 +111,7 @@ export interface AgentMessage {
 }
 
 export interface AgentMessageData {
-  type: "explanation" | "risks" | "draft" | "document_draft" | "actions" | "clarification" | "collection" | "context_suggestion" | "proposal" | "entity_creation_form" | "document_generation_preview" | "document_generation_missing_fields" | "web_search_results" | "web_deep_search_results" | "chat_context_summary" | "recovery" | "error";
+  type: "explanation" | "risks" | "draft" | "document_draft" | "actions" | "clarification" | "collection" | "context_suggestion" | "proposal" | "entity_creation_form" | "document_generation_preview" | "document_generation_missing_fields" | "web_search_results" | "web_deep_search_results" | "chat_context_summary" | "recovery" | "assist_suggestions" | "error";
   explanation?: ExplanationOutput;
   risks?: RiskAnalysisOutput;
   draft?: DraftOutput;
@@ -124,5 +127,6 @@ export interface AgentMessageData {
   documentGenerationMissingFields?: DocumentGenerationMissingFieldsOutput;
   webSearchResults?: WebSearchResultsOutput | WebDeepSearchResultsOutput;
   recovery?: RecoveryOutput;
+  assistSuggestions?: AssistSuggestionsOutput;
   error?: string;
 }

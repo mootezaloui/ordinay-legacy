@@ -329,7 +329,7 @@ export function AgentHistorySidebar({
       </div>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+      <div className="agent-history-scroll flex-1 overflow-y-auto p-3 space-y-3">
         {/* Pending folder input */}
         {isCreatingFolder && (
           <div className="space-y-1 mb-4">

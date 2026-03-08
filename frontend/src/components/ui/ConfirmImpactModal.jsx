@@ -125,7 +125,7 @@ export default function ConfirmImpactModal({
         </div>
 
         {/* Content */}
-        <div className="px-6 py-5 overflow-y-auto overscroll-contain flex-1 min-h-0 md:max-h-[calc(85vh-200px)]">
+        <div className="modal-scroll-stable px-6 py-5 overflow-y-auto overscroll-contain flex-1 min-h-0 md:max-h-[calc(85vh-200px)]">
           <div className="space-y-4">
             {normalizedImpactSummary.map((line, index) => {
               // Empty lines are spacers

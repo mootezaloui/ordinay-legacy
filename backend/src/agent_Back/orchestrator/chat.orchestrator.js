@@ -36,6 +36,17 @@ const {
 } = require("./chat.session.state");
 const { runChatToolLoop } = require("./chat.tool.loop");
 const { clarificationAnswerMatcher } = require("./clarificationAnswerMatcher");
+const { resolveCognitiveGoalIntent } = require("../cognition/goalIntentResolver");
+const {
+  PRIMARY_ROUTES,
+  GOAL_TYPES,
+  SECONDARY_OPPORTUNITIES,
+  MINIMAL_SUPPORTING_READ_TYPES,
+} = require("../cognition/goalIntent.contract");
+const { buildArtifactComposition } = require("../cognition/artifactComposerPolicy");
+const {
+  validateTurnArtifactComposition,
+} = require("../contracts/turnArtifactComposition.contract");
 const {
   DEFAULT_DOCUMENT_OUTPUT_FORMAT_PREFERENCE,
   DEFAULT_CANONICAL_FORMAT,
@@ -449,6 +460,337 @@ class ChatOrchestrator {
         parentResolution: governance?.parentResolution || null,
       },
     };
+  }
+
+  _getLastAssistantArtifact({ sessionState = {}, llmHistory = null } = {}) {
+    if (sessionState?.pendingProposal?.artifact) return sessionState.pendingProposal.artifact;
+    if (sessionState?.pendingClarification?.artifact) return sessionState.pendingClarification.artifact;
+    const recentTurns = Array.isArray(llmHistory?.recentTurns) ? llmHistory.recentTurns : [];
+    for (let i = recentTurns.length - 1; i >= 0; i -= 1) {
+      const turn = recentTurns[i];
+      const suggestion = turn?.agentOutput?.suggestion;
+      if (suggestion && typeof suggestion === "object") return suggestion;
+    }
+    return null;
+  }
+
+  _recordCognitiveDecision(requestContext = {}, decision = null) {
+    const safeDecision = decision && typeof decision === "object" ? decision : null;
+    this.engine?.ledger?.record?.({
+      type: "cognitive_route_selected",
+      sourceRoute: "/agent/chat",
+      conversationId: requestContext?.conversationId || null,
+      primaryRoute: safeDecision?.primaryRoute?.mode || null,
+      confidence: Number.isFinite(Number(safeDecision?.primaryRoute?.confidence))
+        ? Number(safeDecision.primaryRoute.confidence)
+        : null,
+      goalType: safeDecision?.goal?.goalType || null,
+      legalPhase: safeDecision?.goal?.legalPhase || null,
+      targetEntityType: safeDecision?.goal?.targetEntityType || null,
+      secondaryOpportunities: Array.isArray(safeDecision?.secondaryOpportunities)
+        ? safeDecision.secondaryOpportunities.map((item) => item?.type || null).filter(Boolean)
+        : [],
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  async _runMinimalSupportingReads({
+    decision = null,
+    requestContext = {},
+    policy = null,
+  } = {}) {
+    const plans = Array.isArray(decision?.minimalSupportingReads) ? decision.minimalSupportingReads : [];
+    const toolExecutions = [];
+    for (const plan of plans) {
+      const entityType = String(plan?.entityType || "").toLowerCase();
+      if (!entityType) continue;
+      let toolName = null;
+      let toolInput = { limit: 5 };
+      if (String(plan?.type || "").toUpperCase() === MINIMAL_SUPPORTING_READ_TYPES.EXISTENCE_CHECK) {
+        if (entityType === "lawsuit") {
+          toolName = "listLawsuits";
+          if (validId(plan?.scope?.dossierId || requestContext?.dossierId)) {
+            toolInput.dossierId = validId(plan.scope?.dossierId || requestContext?.dossierId);
+          } else {
+            continue;
+          }
+        } else if (entityType === "session") {
+          toolName = "listSessions";
+          if (validId(plan?.scope?.lawsuitId || requestContext?.lawsuitId)) {
+            toolInput.lawsuitId = validId(plan.scope?.lawsuitId || requestContext?.lawsuitId);
+          } else if (validId(plan?.scope?.dossierId || requestContext?.dossierId)) {
+            toolInput.dossierId = validId(plan.scope?.dossierId || requestContext?.dossierId);
+          } else {
+            continue;
+          }
+        } else if (entityType === "task") {
+          toolName = "listTasks";
+          if (validId(plan?.scope?.lawsuitId || requestContext?.lawsuitId)) {
+            toolInput.lawsuitId = validId(plan.scope?.lawsuitId || requestContext?.lawsuitId);
+          } else if (validId(plan?.scope?.dossierId || requestContext?.dossierId)) {
+            toolInput.dossierId = validId(plan.scope?.dossierId || requestContext?.dossierId);
+          } else {
+            continue;
+          }
+        } else if (entityType === "document") {
+          toolName = "listDocuments";
+          if (validId(plan?.scope?.lawsuitId || requestContext?.lawsuitId)) {
+            toolInput.lawsuitId = validId(plan.scope?.lawsuitId || requestContext?.lawsuitId);
+          } else if (validId(plan?.scope?.dossierId || requestContext?.dossierId)) {
+            toolInput.dossierId = validId(plan.scope?.dossierId || requestContext?.dossierId);
+          } else if (validId(plan?.scope?.clientId || requestContext?.clientId)) {
+            toolInput.clientId = validId(plan.scope?.clientId || requestContext?.clientId);
+          } else {
+            continue;
+          }
+        }
+      }
+      if (!toolName) continue;
+      try {
+        const result = await this.engine._callReadTool(toolName, toolInput, policy);
+        toolExecutions.push({
+          toolName,
+          args: toolInput,
+          ok: true,
+          result,
+          error: null,
+          responseForModel: result,
+        });
+      } catch (error) {
+        toolExecutions.push({
+          toolName,
+          args: toolInput,
+          ok: false,
+          result: null,
+          error: {
+            code: String(error?.code || "MINIMAL_SUPPORTING_READ_FAILED"),
+            message: String(error?.message || "Minimal supporting read failed."),
+          },
+          responseForModel: {
+            ok: false,
+            error: String(error?.message || "Minimal supporting read failed."),
+          },
+        });
+      }
+    }
+    if (toolExecutions.length > 0) {
+      this.engine?.ledger?.record?.({
+        type: "minimal_supporting_reads_requested",
+        sourceRoute: "/agent/chat",
+        conversationId: requestContext?.conversationId || null,
+        reads: toolExecutions.map((entry) => ({
+          toolName: entry.toolName,
+          ok: entry.ok,
+          args: entry.args,
+        })),
+        timestamp: new Date().toISOString(),
+      });
+    }
+    return toolExecutions;
+  }
+
+  _summarizeMinimalReadFindings(toolExecutions = []) {
+    const findings = {
+      foundExistingTarget: false,
+      exactMatchCount: 0,
+      toolSummary: [],
+    };
+    for (const execution of toolExecutions) {
+      if (!execution?.ok || !execution?.result || typeof execution.result !== "object") continue;
+      const lawsuitCount = Array.isArray(execution.result.lawsuits) ? execution.result.lawsuits.length : null;
+      const sessionCount = Array.isArray(execution.result.sessions) ? execution.result.sessions.length : null;
+      const taskCount = Array.isArray(execution.result.tasks) ? execution.result.tasks.length : null;
+      const documentCount = Array.isArray(execution.result.documents) ? execution.result.documents.length : null;
+      const count =
+        lawsuitCount ?? sessionCount ?? taskCount ?? documentCount ?? Number(execution.result.count || 0);
+      findings.toolSummary.push({
+        toolName: execution.toolName,
+        count: Number.isFinite(Number(count)) ? Number(count) : 0,
+      });
+      if (Number(count) > 0) {
+        findings.foundExistingTarget = true;
+        findings.exactMatchCount += Number(count);
+      }
+    }
+    return findings;
+  }
+
+  _buildCognitiveClarificationArtifact({
+    decision = null,
+    userMessage = "",
+  } = {}) {
+    const targetEntityType = String(decision?.goal?.targetEntityType || "record").toLowerCase();
+    const missing = Array.isArray(decision?.contextRequirements?.understandingContextNeeded)
+      ? decision.contextRequirements.understandingContextNeeded
+      : [];
+    const proposalMissing = Array.isArray(decision?.contextRequirements?.proposalContextNeeded)
+      ? decision.contextRequirements.proposalContextNeeded
+      : [];
+    const missingBits = Array.from(new Set([...missing, ...proposalMissing]));
+    const prompt =
+      missingBits.includes("parent_scope")
+        ? `Which client or dossier should this ${targetEntityType} be linked to?`
+        : missingBits.includes("exact_target_entity")
+          ? `Which ${targetEntityType} are you referring to?`
+          : `What ${targetEntityType || "matter"} should I use to continue?`;
+    return {
+      type: "context_suggestion",
+      message: prompt,
+      entityType: targetEntityType || "dossier",
+      reason: "cognitive_clarification",
+      originalIntent: "CHATBOT_AGENT_MODE",
+      originalMessage: String(userMessage || "").trim() || null,
+      suggestions: [],
+      timestamp: nowIso(),
+      confidence: Number.isFinite(Number(decision?.primaryRoute?.confidence))
+        ? Number(decision.primaryRoute.confidence)
+        : 0.7,
+      source: "cognitive_goal_router",
+      allowManualInput: true,
+      manualInputHint: prompt,
+      cognitiveDecision: decision,
+    };
+  }
+
+  _buildCognitiveSuggestionArtifact({
+    decision = null,
+    userMessage = "",
+    minimalReadSummary = null,
+  } = {}) {
+    const targetEntityType = String(decision?.goal?.targetEntityType || "record").toLowerCase();
+    const goalType = String(decision?.goal?.goalType || GOAL_TYPES.UNKNOWN).toUpperCase();
+    const suggestions = [];
+    const secondaryOpportunities = Array.isArray(decision?.secondaryOpportunities)
+      ? decision.secondaryOpportunities
+      : [];
+    for (const opportunity of secondaryOpportunities) {
+      const type = String(opportunity?.type || "").toUpperCase();
+      if (type === SECONDARY_OPPORTUNITIES.SUGGEST_NOTE) {
+        suggestions.push({
+          id: `suggest-note-${targetEntityType || "matter"}`,
+          actionType: "ADD_NOTE",
+          title: "Add a case note",
+          description: "Record this development before it gets lost.",
+          entityType: "note",
+          confidence: opportunity.confidence,
+          source: "cognitive_layer",
+          promotionEligible: false,
+        });
+      } else if (type === SECONDARY_OPPORTUNITIES.SUGGEST_TASK) {
+        suggestions.push({
+          id: `suggest-task-${targetEntityType || "matter"}`,
+          actionType: "CREATE_TASK",
+          title: "Create follow-up task",
+          description: "Track the next action as a concrete task.",
+          entityType: "task",
+          confidence: opportunity.confidence,
+          source: "cognitive_layer",
+          promotionEligible: false,
+        });
+      } else if (type === SECONDARY_OPPORTUNITIES.SUGGEST_SESSION) {
+        suggestions.push({
+          id: `suggest-session-${targetEntityType || "matter"}`,
+          actionType: "CREATE_SESSION",
+          title: "Schedule hearing workflow",
+          description: "Prepare the next hearing-related step.",
+          entityType: "session",
+          confidence: opportunity.confidence,
+          source: "cognitive_layer",
+          promotionEligible: false,
+        });
+      } else if (type === SECONDARY_OPPORTUNITIES.SUGGEST_DOCUMENT) {
+        suggestions.push({
+          id: `suggest-document-${targetEntityType || "matter"}`,
+          actionType: "CREATE_DOCUMENT",
+          title: "Prepare a supporting document",
+          description: "Start the document workflow for this development.",
+          entityType: "document",
+          confidence: opportunity.confidence,
+          source: "cognitive_layer",
+          promotionEligible: false,
+        });
+      }
+    }
+    if (
+      targetEntityType === "lawsuit" &&
+      !minimalReadSummary?.foundExistingTarget
+    ) {
+      suggestions.unshift({
+        id: "suggest-create-lawsuit",
+        actionType: "CREATE_LAWSUIT",
+        title: "Create custody lawsuit workflow",
+        description: "Start the lawsuit workflow instead of waiting for an existing record.",
+        entityType: "lawsuit",
+        confidence: Number.isFinite(Number(decision?.primaryRoute?.confidence))
+          ? Number(decision.primaryRoute.confidence)
+          : 0.8,
+        source: "cognitive_layer",
+        promotionEligible: true,
+      });
+    }
+    let message = "I can guide the next step from your stated goal.";
+    if (goalType === GOAL_TYPES.CASE_DEVELOPMENT || goalType === GOAL_TYPES.LEGAL_ACTION_INITIATION) {
+      message = minimalReadSummary?.foundExistingTarget
+        ? "I found related matter context, and I can help advance it from here."
+        : "I understand this as a legal escalation. I can help start the next workflow even if no matching record exists yet.";
+    } else if (goalType === GOAL_TYPES.FACT_UPDATE) {
+      message = "This sounds like a new case development. I can help capture it and suggest the next operational step.";
+    }
+    return {
+      type: "context_suggestion",
+      message,
+      entityType: targetEntityType || "dossier",
+      reason: "cognitive_goal_first",
+      originalIntent: "CHATBOT_AGENT_MODE",
+      originalMessage: String(userMessage || "").trim() || null,
+      suggestions,
+      timestamp: nowIso(),
+      confidence: Number.isFinite(Number(decision?.primaryRoute?.confidence))
+        ? Number(decision.primaryRoute.confidence)
+        : 0.75,
+      source: "cognitive_goal_router",
+      allowManualInput: false,
+      cognitiveDecision: decision,
+      minimalReadSummary,
+    };
+  }
+
+  _buildGoalFirstAssistantMessage({
+    decision = null,
+    minimalReadSummary = null,
+  } = {}) {
+    const goalType = String(decision?.goal?.goalType || GOAL_TYPES.UNKNOWN).toUpperCase();
+    const targetEntityType = String(decision?.goal?.targetEntityType || "matter").toLowerCase();
+    if (goalType === GOAL_TYPES.LEGAL_ACTION_INITIATION || goalType === GOAL_TYPES.CASE_DEVELOPMENT) {
+      if (minimalReadSummary?.foundExistingTarget) {
+        return `I read this as ${targetEntityType} progression. I found related records, and the next step is to continue from that workflow instead of asking you for internal IDs.`;
+      }
+      return `I read this as ${targetEntityType} progression. Even without an existing matching record, I can help you start the appropriate workflow and collect the minimum context needed safely.`;
+    }
+    if (goalType === GOAL_TYPES.FACT_UPDATE) {
+      return "I read this as a new case development. I can help capture the update and turn it into the next concrete legal step.";
+    }
+    if (goalType === GOAL_TYPES.ADVISORY_PLANNING) {
+      return "I understand the goal and can guide the next step before we worry about exact record bindings.";
+    }
+    return "I understand the goal and can route the next step from there.";
+  }
+
+  _buildComposedArtifacts({
+    decision = null,
+    assistantMode = "ADVISE",
+    suggestions = [],
+    proposalArtifacts = [],
+    clarificationArtifact = null,
+  } = {}) {
+    const composition = buildArtifactComposition({
+      primaryRoute: decision?.primaryRoute?.mode || PRIMARY_ROUTES.DATABASE_FIRST,
+      assistantMode,
+      suggestions,
+      proposalArtifacts,
+      clarificationArtifact,
+    });
+    return validateTurnArtifactComposition(composition);
   }
 
   _buildMutationOperationsFromGovernance(governance = {}, requestContext = {}, options = {}) {
@@ -3132,6 +3474,162 @@ class ChatOrchestrator {
         id: Number(governanceActiveScope.entityId),
       };
     }
+    const lastAssistantArtifact = this._getLastAssistantArtifact({ sessionState, llmHistory });
+    const cognitiveDecision = await resolveCognitiveGoalIntent({
+      userMessage: effectiveUserMessage,
+      requestContext: governanceExecutionContext,
+      sessionState,
+      lastAssistantArtifact,
+      llmExtractor: this.helper?.mutationIntentExtractor,
+    });
+    this._traceExecutionStep(requestContext, "cognitive_turn_decomposed", {
+      hasRetrievalIntent: Boolean(cognitiveDecision?.turnDecomposition?.hasRetrievalIntent),
+      hasProgressionIntent: Boolean(cognitiveDecision?.turnDecomposition?.hasProgressionIntent),
+      hasAdvisoryIntent: Boolean(cognitiveDecision?.turnDecomposition?.hasAdvisoryIntent),
+      hasMixedIntent: Boolean(cognitiveDecision?.turnDecomposition?.hasMixedIntent),
+      primaryRoute: cognitiveDecision?.primaryRoute?.mode || null,
+      goalType: cognitiveDecision?.goal?.goalType || null,
+      targetEntityType: cognitiveDecision?.goal?.targetEntityType || null,
+    });
+    this._recordCognitiveDecision(requestContext, cognitiveDecision);
+    sessionState = updateChatOrchestratorState(this.engine, requestContext, {
+      lastCognitiveDecision: cognitiveDecision,
+      lastPrimaryRoute: cognitiveDecision?.primaryRoute?.mode || null,
+      lastGoalType: cognitiveDecision?.goal?.goalType || null,
+      lastLegalPhase: cognitiveDecision?.goal?.legalPhase || null,
+      lastSecondaryOpportunities: Array.isArray(cognitiveDecision?.secondaryOpportunities)
+        ? cognitiveDecision.secondaryOpportunities
+        : [],
+    });
+    if (cognitiveDecision?.primaryRoute?.mode === PRIMARY_ROUTES.CLARIFY) {
+      const clarifyArtifact = this._buildCognitiveClarificationArtifact({
+        decision: cognitiveDecision,
+        userMessage: effectiveUserMessage,
+      });
+      const artifactComposition = this._buildComposedArtifacts({
+        decision: cognitiveDecision,
+        assistantMode: "CLARIFY",
+        clarificationArtifact: clarifyArtifact,
+      });
+      updateChatOrchestratorState(this.engine, requestContext, {
+        activeState: CHAT_STATES.CLARIFY,
+        pendingClarification: {
+          entityType: clarifyArtifact.entityType || null,
+          resumeState: state,
+          artifact: clarifyArtifact,
+          resolutionMeta: {
+            status: "missing",
+            entityType: clarifyArtifact.entityType || null,
+            candidatesCount: 0,
+            autoPicked: false,
+            chosenId: null,
+          },
+          createdAt: nowIso(),
+          expiresAt: new Date(Date.now() + PENDING_CLARIFICATION_TTL_MS).toISOString(),
+          turnsRemaining: PENDING_CLARIFICATION_MAX_TURNS,
+        },
+      });
+      const finalMessage = String(clarifyArtifact.message || "").trim() || "I need one more detail to continue.";
+      this.engine?.ledger?.record?.({
+        type: "artifact_composition_selected",
+        sourceRoute: "/agent/chat",
+        primaryRoute: artifactComposition.primaryRoute,
+        assistantMode: artifactComposition.assistantText.mode,
+        hasClarification: true,
+        suggestionsCount: 0,
+        proposalCount: 0,
+        timestamp: new Date().toISOString(),
+      });
+      this.helper._recordTranscript({
+        requestContext,
+        userMessage,
+        finalMessage,
+        posture,
+        toolExecutions: [],
+        artifactType: "context_suggestion",
+        artifact: clarifyArtifact,
+      });
+      return withStateOutput(
+        {
+          message: finalMessage,
+          outputArtifact: clarifyArtifact,
+          ambiguityArtifact: clarifyArtifact,
+          resolutionMeta: {
+            cognitiveDecision,
+          },
+          artifactComposition,
+          composedArtifacts: [clarifyArtifact],
+        },
+        CHAT_STATES.FINAL,
+      );
+    }
+    const minimalSupportingReadExecutions =
+      cognitiveDecision?.primaryRoute?.mode === PRIMARY_ROUTES.GOAL_FIRST
+        ? await this._runMinimalSupportingReads({
+            decision: cognitiveDecision,
+            requestContext: governanceExecutionContext,
+            policy,
+          })
+        : [];
+    const minimalReadSummary = this._summarizeMinimalReadFindings(minimalSupportingReadExecutions);
+    if (
+      cognitiveDecision?.primaryRoute?.mode === PRIMARY_ROUTES.GOAL_FIRST &&
+      cognitiveDecision?.contextRequirements?.proposalSatisfied !== true
+    ) {
+      const suggestionArtifact = this._buildCognitiveSuggestionArtifact({
+        decision: cognitiveDecision,
+        userMessage: effectiveUserMessage,
+        minimalReadSummary,
+      });
+      const assistantMessage = this._buildGoalFirstAssistantMessage({
+        decision: cognitiveDecision,
+        minimalReadSummary,
+      });
+      const artifactComposition = this._buildComposedArtifacts({
+        decision: cognitiveDecision,
+        assistantMode: "ADVISE",
+        suggestions: suggestionArtifact.suggestions,
+      });
+      updateChatOrchestratorState(this.engine, requestContext, {
+        activeState: CHAT_STATES.FINAL,
+        pendingClarification: null,
+      });
+      this.engine?.ledger?.record?.({
+        type: "artifact_composition_selected",
+        sourceRoute: "/agent/chat",
+        primaryRoute: artifactComposition.primaryRoute,
+        assistantMode: artifactComposition.assistantText.mode,
+        hasClarification: false,
+        suggestionsCount: Array.isArray(artifactComposition.suggestions)
+          ? artifactComposition.suggestions.length
+          : 0,
+        proposalCount: 0,
+        timestamp: new Date().toISOString(),
+      });
+      this.helper._recordTranscript({
+        requestContext,
+        userMessage,
+        finalMessage: assistantMessage,
+        posture,
+        toolExecutions: minimalSupportingReadExecutions,
+        artifactType: "context_suggestion",
+        artifact: suggestionArtifact,
+      });
+      return withStateOutput(
+        {
+          message: assistantMessage,
+          outputArtifact: suggestionArtifact,
+          toolExecutions: minimalSupportingReadExecutions,
+          resolutionMeta: {
+            cognitiveDecision,
+            minimalReadSummary,
+          },
+          artifactComposition,
+          composedArtifacts: [suggestionArtifact],
+        },
+        CHAT_STATES.FINAL,
+      );
+    }
     const continuityStructuredDraft =
       sessionState?.lastStructuredDraft &&
       typeof sessionState.lastStructuredDraft === "object" &&
@@ -3218,6 +3716,15 @@ class ChatOrchestrator {
       return deterministicBulkTaskOutcome;
     }
 
+    const governanceUserMessage =
+      cognitiveDecision?.primaryRoute?.mode === PRIMARY_ROUTES.GOAL_FIRST &&
+      cognitiveDecision?.goal?.targetEntityType &&
+      cognitiveDecision?.goal?.intendedOperation &&
+      !/\b(create|add|set|update|edit|change|mark|assign|schedule|delete|remove|rename|reschedule)\b/i.test(
+        effectiveUserMessage,
+      )
+        ? `${cognitiveDecision.goal.intendedOperation} ${cognitiveDecision.goal.targetEntityType} from: ${effectiveUserMessage}`
+        : effectiveUserMessage;
     const continuityGovernance =
       shouldPromoteFromContinuity && governanceExecutionContext?.promotionLockEntityType
         ? this._buildContinuityPromotionGovernance({
@@ -3229,7 +3736,7 @@ class ChatOrchestrator {
     const mutationGovernance = continuityGovernance
       ? continuityGovernance
       : await evaluateMutationGovernance({
-          userMessage: effectiveUserMessage,
+          userMessage: governanceUserMessage,
           requestContext,
           executionContext: governanceExecutionContext,
           llmExtractor: this.helper?.mutationIntentExtractor,
@@ -3330,18 +3837,27 @@ class ChatOrchestrator {
           userMessage,
           finalMessage,
           posture,
-          toolExecutions: [],
+          toolExecutions: minimalSupportingReadExecutions,
           artifactType: "context_suggestion",
           artifact: clarifyArtifact,
+        });
+        const artifactComposition = this._buildComposedArtifacts({
+          decision: cognitiveDecision,
+          assistantMode: "CLARIFY",
+          clarificationArtifact: clarifyArtifact,
         });
         return withStateOutput(
           {
             message: finalMessage,
             outputArtifact: clarifyArtifact,
             ambiguityArtifact: clarifyArtifact,
+            toolExecutions: minimalSupportingReadExecutions,
             resolutionMeta: {
               mutationGovernance,
+              cognitiveDecision,
             },
+            artifactComposition,
+            composedArtifacts: [clarifyArtifact],
           },
           CHAT_STATES.FINAL,
         );
@@ -3457,18 +3973,27 @@ class ChatOrchestrator {
           userMessage,
           finalMessage,
           posture,
-          toolExecutions: [],
+          toolExecutions: minimalSupportingReadExecutions,
           artifactType: "context_suggestion",
           artifact: clarifyArtifact,
+        });
+        const artifactComposition = this._buildComposedArtifacts({
+          decision: cognitiveDecision,
+          assistantMode: "CLARIFY",
+          clarificationArtifact: clarifyArtifact,
         });
         return withStateOutput(
           {
             message: finalMessage,
             outputArtifact: clarifyArtifact,
             ambiguityArtifact: clarifyArtifact,
+            toolExecutions: minimalSupportingReadExecutions,
             resolutionMeta: {
               mutationGovernance,
+              cognitiveDecision,
             },
+            artifactComposition,
+            composedArtifacts: [clarifyArtifact],
           },
           CHAT_STATES.FINAL,
         );
@@ -3547,7 +4072,7 @@ class ChatOrchestrator {
           userMessage: effectiveUserMessage,
           finalMessage,
           posture,
-          toolExecutions: [],
+          toolExecutions: minimalSupportingReadExecutions,
           artifactType: "error",
           artifact: errorArtifact,
         });
@@ -3555,8 +4080,10 @@ class ChatOrchestrator {
           {
             message: finalMessage,
             outputArtifact: errorArtifact,
+            toolExecutions: minimalSupportingReadExecutions,
             resolutionMeta: {
               mutationGovernance,
+              cognitiveDecision,
             },
           },
           CHAT_STATES.FINAL,
@@ -3575,7 +4102,7 @@ class ChatOrchestrator {
           userMessage: effectiveUserMessage,
           finalMessage,
           posture,
-          toolExecutions: [],
+          toolExecutions: minimalSupportingReadExecutions,
           artifactType: "entity_creation_form",
           artifact: proposal,
         });
@@ -3583,8 +4110,10 @@ class ChatOrchestrator {
           {
             message: finalMessage,
             outputArtifact: proposal,
+            toolExecutions: minimalSupportingReadExecutions,
             resolutionMeta: {
               mutationGovernance,
+              cognitiveDecision,
             },
           },
           CHAT_STATES.FINAL,
@@ -3637,14 +4166,20 @@ class ChatOrchestrator {
           userMessage: effectiveUserMessage,
           finalMessage,
           posture,
-          toolExecutions: [],
+          toolExecutions: minimalSupportingReadExecutions,
           artifactType: "proposal",
           artifact: proposalArtifact,
+        });
+        const artifactComposition = this._buildComposedArtifacts({
+          decision: cognitiveDecision,
+          assistantMode: "PROPOSE",
+          proposalArtifacts: [proposalArtifact],
         });
         return withStateOutput(
           {
             message: finalMessage,
             outputArtifact: proposalArtifact,
+            toolExecutions: minimalSupportingReadExecutions,
             mutationOutcome: {
               status: "PROPOSED",
               proposalId: proposal.proposalId,
@@ -3654,7 +4189,10 @@ class ChatOrchestrator {
               outputContract: syntheticContract,
               routedOutputType: "mutation",
               mutationGovernance,
+              cognitiveDecision,
             },
+            artifactComposition,
+            composedArtifacts: [proposalArtifact],
           },
           CHAT_STATES.EXECUTE,
         );

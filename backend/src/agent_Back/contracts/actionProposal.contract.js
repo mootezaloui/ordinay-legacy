@@ -106,7 +106,7 @@ function validateActionStatus(status) {
  * Create an action proposal with validation
  * @param {Object} proposal - Proposal data
  * @param {string} proposal.proposalId - Unique proposal identifier
- * @param {string} proposal.actionType - Action type (must match tool name)
+ * @param {string} proposal.actionType - Action family identifier (for execute proposals this may map to universalMutation during confirmation)
  * @param {string} proposal.toolCategory - Tool category (read/analysis/draft/execute)
  * @param {Object} proposal.params - Action parameters (validated against tool input schema)
  * @param {boolean} proposal.reversible - Whether action can be reversed

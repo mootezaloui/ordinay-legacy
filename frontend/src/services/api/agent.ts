@@ -840,6 +840,25 @@ export interface ChatContextSummaryOutput {
   rows: Array<{ label: string; value: string }>;
 }
 
+export interface AssistSuggestionItem {
+  actionType: 'CREATE_ENTITY' | 'ADD_NOTE' | 'GENERATE_DOCUMENT' | 'ENRICH_FIELD';
+  targetEntityType: string | null;
+  sourceEntityType: string;
+  sourceEntityId: number | string | null;
+  label: string;
+  reason: string;
+  field?: string | null;
+  documentType?: string | null;
+  relevanceScore: number;
+  finalScore: number;
+}
+
+export interface AssistSuggestionsOutput {
+  type: 'assist_suggestions';
+  suggestions: AssistSuggestionItem[];
+  generatedAt: string;
+}
+
 // Execution result — V3 execution confirmation result
 export interface ExecutionResult {
   type: 'execution_result';
@@ -886,6 +905,7 @@ export type AgentOutput =
   | WebSearchResultsOutput
   | WebDeepSearchResultsOutput
   | ChatContextSummaryOutput
+  | AssistSuggestionsOutput
   | { type: 'action_plan'; actions: ActionProposal[] };
 
 // Agent response from backend
@@ -921,6 +941,7 @@ export interface ProcessedAgentResponse {
   documentGenerationPreview?: DocumentGenerationPreviewOutput;
   documentGenerationMissingFields?: DocumentGenerationMissingFieldsOutput;
   webSearchResults?: WebSearchResultsOutput | WebDeepSearchResultsOutput;
+  assistSuggestions?: AssistSuggestionsOutput;
   actionProposals?: ActionProposal[];
   // Error info
   error?: string;
@@ -1038,6 +1059,9 @@ export async function sendAgentMessage(
     } else if (output.type === 'action_plan') {
       const actionPlan = output as { type: 'action_plan'; actions: ActionProposal[] };
       processed.actionProposals = actionPlan.actions;
+      processed.displayText = '';
+    } else if (output.type === 'assist_suggestions') {
+      processed.assistSuggestions = output as AssistSuggestionsOutput;
       processed.displayText = '';
     }
 

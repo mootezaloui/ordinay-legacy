@@ -10,7 +10,7 @@ const {
   getPayloadFieldForParent,
 } = require("../context/scopeDomainRelations");
 const { applyHierarchicalScopeBinding } = require("./hierarchicalScopeBinder");
-const { getRequiredFields } = require("./entityFieldRegistry");
+const { getEntityFieldSchema, getRequiredFields } = require("./entityFieldRegistry");
 
 const MUTATION_GOVERNANCE_CREATE_THRESHOLD = 0.72;
 const MUTATION_GOVERNANCE_UPDATE_THRESHOLD = 0.75;
@@ -268,6 +268,16 @@ async function inferEntityAndFieldsWithLLM({ llmExtractor, userMessage, knownEnt
 
 function computeMissingRequiredFields(entityType, payload = {}) {
   const missing = [];
+  const fieldSchema = getEntityFieldSchema(entityType);
+  const governanceRequiredWithoutDeterministicDefault = new Set(
+    getRequiredFields(entityType).filter((field) => {
+      const rule =
+        fieldSchema && typeof fieldSchema === "object" && !Array.isArray(fieldSchema)
+          ? fieldSchema[field]
+          : null;
+      return !(rule && Object.prototype.hasOwnProperty.call(rule, "default"));
+    }),
+  );
   try {
     const adapter = getAdapter(entityType);
     const required = Array.isArray(adapter?.requiredCreateFields)
@@ -275,6 +285,13 @@ function computeMissingRequiredFields(entityType, payload = {}) {
       : [];
     missing.push(
       ...required.filter((field) => {
+      const rule =
+        fieldSchema && typeof fieldSchema === "object" && !Array.isArray(fieldSchema)
+          ? fieldSchema[field]
+          : null;
+      if (rule && Object.prototype.hasOwnProperty.call(rule, "default")) {
+        return false;
+      }
       const value = payload?.[field];
       if (value === null || value === undefined) return true;
       if (typeof value === "string" && !value.trim()) return true;
@@ -285,10 +302,9 @@ function computeMissingRequiredFields(entityType, payload = {}) {
     return missing;
   }
 
-  const governanceRequired = getRequiredFields(entityType);
-  if (Array.isArray(governanceRequired) && governanceRequired.length > 0) {
+  if (governanceRequiredWithoutDeterministicDefault.size > 0) {
     missing.push(
-      ...governanceRequired.filter((field) => {
+      ...Array.from(governanceRequiredWithoutDeterministicDefault).filter((field) => {
         const value = payload?.[field];
         if (value === null || value === undefined) return true;
         if (typeof value === "string" && !value.trim()) return true;

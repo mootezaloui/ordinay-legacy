@@ -831,6 +831,18 @@ export function useAgentState() {
               recovery: output,
             };
             streamedContent = "";
+          } else if (output.type === "assist_suggestions") {
+            if (hasAgentMessage) {
+              const _existing = workingMessages.find((m) => m.id === agentMessageId);
+              if (_existing) updateMessage({ ..._existing, proactiveSuggestions: output as import("../../services/api/agent").AssistSuggestionsOutput });
+              clearSessionStatus(sessionId);
+              return;
+            }
+            agentData = {
+              type: "assist_suggestions",
+              assistSuggestions: output as import("../../services/api/agent").AssistSuggestionsOutput,
+            };
+            streamedContent = "";
           } else if (output.type === "action_plan") {
             agentData = { type: "actions", actionProposals: output.actions };
             streamedContent = "";
@@ -1324,6 +1336,18 @@ export function useAgentState() {
             agentData = {
               type: "recovery",
               recovery: output,
+            };
+            streamedContent = "";
+          } else if (output.type === "assist_suggestions") {
+            if (hasAgentMessage) {
+              const _existing = workingMessages.find((m) => m.id === agentMessageId);
+              if (_existing) updateMessage({ ..._existing, proactiveSuggestions: output as import("../../services/api/agent").AssistSuggestionsOutput });
+              clearSessionStatus(sessionId);
+              return;
+            }
+            agentData = {
+              type: "assist_suggestions",
+              assistSuggestions: output as import("../../services/api/agent").AssistSuggestionsOutput,
             };
             streamedContent = "";
           } else if (output.type === "action_plan") {
@@ -1844,6 +1868,18 @@ export function useAgentState() {
             agentData = {
               type: "recovery",
               recovery: output,
+            };
+            streamedContent = "";
+          } else if (output.type === "assist_suggestions") {
+            if (hasAgentMessage) {
+              const _existing = workingMessages.find((m) => m.id === agentMessageId);
+              if (_existing) updateMessage({ ..._existing, proactiveSuggestions: output as import("../../services/api/agent").AssistSuggestionsOutput });
+              clearSessionStatus(activeSessionId);
+              return;
+            }
+            agentData = {
+              type: "assist_suggestions",
+              assistSuggestions: output as import("../../services/api/agent").AssistSuggestionsOutput,
             };
             streamedContent = "";
           } else if (output.type === "action_plan") {

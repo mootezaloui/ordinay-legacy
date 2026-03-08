@@ -9,6 +9,11 @@ const DEFAULT_STATE = Object.freeze({
   lastStructuredDraft: null,
   lastDraftCapability: null,
   lastDraftEntityType: null,
+  lastCognitiveDecision: null,
+  lastPrimaryRoute: null,
+  lastGoalType: null,
+  lastLegalPhase: null,
+  lastSecondaryOpportunities: [],
   turnCounter: 0,
 });
 

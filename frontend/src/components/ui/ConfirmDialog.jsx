@@ -101,7 +101,7 @@ export default function ConfirmDialog({
 
         {/* Content */}
         <div className="flex flex-col flex-1 min-h-0">
-          <div className="p-6 pt-8 overflow-y-auto flex-1 min-h-0">
+          <div className="modal-scroll-stable p-6 pt-8 overflow-y-auto flex-1 min-h-0">
           {/* Icon with ring effect */}
           <div className={`flex items-center justify-center w-14 h-14 rounded-xl ${style.iconBg} ring-4 ${style.iconRing} mb-5`}>
             <Icon className={style.iconColor} size={26} strokeWidth={2} />

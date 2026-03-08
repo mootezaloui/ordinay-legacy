@@ -617,7 +617,7 @@ export default function LegacyImportModal({
           </button>
         </div>
 
-        <div className="space-y-5 overflow-y-auto overflow-x-hidden px-6 py-5 flex-1 min-h-0">
+        <div className="modal-scroll-stable space-y-5 overflow-y-auto overflow-x-hidden px-6 py-5 flex-1 min-h-0">
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           {t("import.notice")}
         </div>

@@ -312,7 +312,7 @@ export default function GenerateDocumentModal({
                         </button>
                     </div>
 
-                    <div className="px-6 py-4 space-y-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
+                    <div className="modal-scroll-stable px-6 py-4 space-y-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
                         <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4">
                             <p className="text-sm font-semibold text-slate-900 dark:text-white break-words">
                                 {generatedDoc.fileName}
@@ -399,7 +399,7 @@ export default function GenerateDocumentModal({
                     </div>
                 </div>
 
-                <div className="px-6 py-4 space-y-6 overflow-y-auto overscroll-contain flex-1 min-h-0">
+                <div className="modal-scroll-stable px-6 py-4 space-y-6 overflow-y-auto overscroll-contain flex-1 min-h-0">
                     <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-blue-50 dark:bg-blue-900/20 p-4">
                         <p className="text-sm text-blue-800 dark:text-blue-300">
                             {t("documentGeneration.subtitle")}

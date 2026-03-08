@@ -100,7 +100,7 @@ export default function ClientNotificationPrompt({
           </div>
 
           {/* Body */}
-          <div className="p-6 space-y-4 overflow-y-auto overscroll-contain flex-1 min-h-0 md:max-h-[60vh]">
+          <div className="modal-scroll-stable p-6 space-y-4 overflow-y-auto overscroll-contain flex-1 min-h-0 md:max-h-[60vh]">
             {/* Client Info */}
             {emailPreview && (
               <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-4 space-y-2">

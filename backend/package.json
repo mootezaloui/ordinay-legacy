@@ -8,7 +8,10 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "mcp:websearch": "node scripts/run-mcp-websearch-server.js",
-    "test:doc-intel": "node --test src/doc_intel/*.test.js"
+    "test:doc-intel": "node --test src/doc_intel/*.test.js",
+    "test:agent-engine": "node --test src/agent_Back/agent.engine.test.js",
+    "test:cognition": "node --test src/agent_Back/cognition/*.test.js",
+    "test:mutation-governance": "node --test src/agent_Back/mutation/*.test.js"
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.67",

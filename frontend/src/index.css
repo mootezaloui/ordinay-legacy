@@ -985,6 +985,112 @@ td[data-column-id="actions"] [data-table-action-button] {
     linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
 }
 
+.agent-history-scroll {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.agent-history-scroll::-webkit-scrollbar {
+  width: 12px;
+}
+
+.agent-history-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.agent-history-scroll::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  min-height: 24px;
+  transition: background-color 0.2s ease;
+}
+
+.agent-history-scroll:hover,
+.agent-history-scroll:focus-within {
+  scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+}
+
+.agent-history-scroll:hover::-webkit-scrollbar-thumb,
+.agent-history-scroll:focus-within::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.45);
+}
+
+.agent-history-scroll:hover::-webkit-scrollbar-thumb:hover,
+.agent-history-scroll:focus-within::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(100, 116, 139, 0.65);
+}
+
+.dark .agent-history-scroll:hover,
+.dark .agent-history-scroll:focus-within {
+  scrollbar-color: rgba(71, 85, 105, 0.6) transparent;
+}
+
+.dark .agent-history-scroll:hover::-webkit-scrollbar-thumb,
+.dark .agent-history-scroll:focus-within::-webkit-scrollbar-thumb {
+  background-color: rgba(71, 85, 105, 0.6);
+}
+
+.dark .agent-history-scroll:hover::-webkit-scrollbar-thumb:hover,
+.dark .agent-history-scroll:focus-within::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(148, 163, 184, 0.65);
+}
+
+.modal-scroll-stable {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.modal-scroll-stable::-webkit-scrollbar {
+  width: 12px;
+}
+
+.modal-scroll-stable::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal-scroll-stable::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  min-height: 24px;
+  transition: background-color 0.2s ease;
+}
+
+.modal-scroll-stable:hover,
+.modal-scroll-stable:focus-within {
+  scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+}
+
+.modal-scroll-stable:hover::-webkit-scrollbar-thumb,
+.modal-scroll-stable:focus-within::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.45);
+}
+
+.modal-scroll-stable:hover::-webkit-scrollbar-thumb:hover,
+.modal-scroll-stable:focus-within::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(100, 116, 139, 0.65);
+}
+
+.dark .modal-scroll-stable:hover,
+.dark .modal-scroll-stable:focus-within {
+  scrollbar-color: rgba(71, 85, 105, 0.6) transparent;
+}
+
+.dark .modal-scroll-stable:hover::-webkit-scrollbar-thumb,
+.dark .modal-scroll-stable:focus-within::-webkit-scrollbar-thumb {
+  background-color: rgba(71, 85, 105, 0.6);
+}
+
+.dark .modal-scroll-stable:hover::-webkit-scrollbar-thumb:hover,
+.dark .modal-scroll-stable:focus-within::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(148, 163, 184, 0.65);
+}
+
 /* Overlay scrollbar - floats over content, doesn't take layout space */
 .agent-thread::-webkit-scrollbar {
   width: 14px;
@@ -1264,6 +1370,10 @@ td[data-column-id="actions"] [data-table-action-button] {
   --artifact-accent: rgba(20, 184, 166, 0.8);
 }
 
+.agent-artifact-card.is-assist {
+  --artifact-accent: rgba(251, 191, 36, 0.8);
+}
+
 .agent-artifact-card.is-error {
   --artifact-accent: rgba(245, 158, 11, 0.7);
   --artifact-bg: rgba(255, 251, 235, 0.6);
@@ -1298,7 +1408,8 @@ td[data-column-id="actions"] [data-table-action-button] {
 .agent-flat-mode .agent-artifact-header-comparison,
 .agent-flat-mode .agent-artifact-header-collection,
 .agent-flat-mode .agent-artifact-header-proposal,
-.agent-flat-mode .agent-artifact-header-web-search {
+.agent-flat-mode .agent-artifact-header-web-search,
+.agent-flat-mode .agent-artifact-header-assist {
   background: transparent !important;
   border-bottom: 0 !important;
 }
@@ -1393,6 +1504,16 @@ td[data-column-id="actions"] [data-table-action-button] {
 .dark .agent-artifact-header-web-search {
   background: linear-gradient(135deg, rgba(20, 184, 166, 0.08) 0%, rgba(20, 184, 166, 0.03) 50%, transparent 100%);
   border-bottom: 1px solid rgba(20, 184, 166, 0.1);
+}
+
+.agent-artifact-header-assist {
+  background: linear-gradient(135deg, rgba(254, 243, 199, 0.5) 0%, rgba(253, 230, 138, 0.25) 50%, transparent 100%);
+  border-bottom: 1px solid rgba(251, 191, 36, 0.25);
+}
+
+.dark .agent-artifact-header-assist {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.08) 0%, rgba(251, 191, 36, 0.03) 50%, transparent 100%);
+  border-bottom: 1px solid rgba(251, 191, 36, 0.12);
 }
 
 /* ── Field-Level Diff Rendering (Universal Operations) ── */

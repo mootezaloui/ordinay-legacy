@@ -27,6 +27,7 @@ const { discoverScopedTarget } = require("./context/scopeDiscovery");
 const { mapUserFailure } = require("./failure/userFailure.mapper");
 const { toProposalArtifact } = require("./proposals/proposalArtifact");
 const { generateChatResponse } = require("./llm.client");
+const { runPAAE } = require("./mutation/proactiveAssistiveActionEngine");
 const { enforceUserSafeResponsePolicy } = require("./chat/chat.userSafeResponsePolicy");
 const eventEnvelopeSchema = require("./schemas/event-envelope.schema.json");
 const failureSchema = require("./schemas/failure.schema.json");
@@ -1739,17 +1740,38 @@ router.post("/agent/chat", async (req, res) => {
       );
     }
 
-    const chatbotAttachment = buildChatbotAttachmentArtifact({
-      output: result?.outputArtifact || result?.ambiguityArtifact || searchArtifact || null,
-      toolExecutions,
-    });
-    if (chatbotAttachment) {
+    const emittedArtifactKeys = new Set();
+    const artifactKeyFor = (artifact) => {
+      const type = String(artifact?.type || "").toLowerCase();
+      if (!type) return null;
+      if (type === "proposal") return `${type}:${String(artifact?.proposalId || "")}`;
+      return `${type}:${String(artifact?.entityType || "")}:${String(artifact?.message || artifact?.title || "")}`;
+    };
+    const emitComposedArtifact = (artifact) => {
+      if (!artifact || typeof artifact !== "object") return;
+      const key = artifactKeyFor(artifact);
+      if (key && emittedArtifactKeys.has(key)) return;
+      if (key) emittedArtifactKeys.add(key);
       emitSafeChatResult({
-        output: chatbotAttachment,
+        output: artifact,
         intent: "CHATBOT_AGENT_MODE",
         interactionMode,
         mutationOutcome: result?.mutationOutcome || null,
       });
+    };
+    const composedArtifacts = Array.isArray(result?.composedArtifacts)
+      ? result.composedArtifacts.filter((artifact) => artifact && typeof artifact === "object")
+      : [];
+    if (composedArtifacts.length > 0) {
+      composedArtifacts.forEach(emitComposedArtifact);
+    } else {
+      const chatbotAttachment = buildChatbotAttachmentArtifact({
+        output: result?.outputArtifact || result?.ambiguityArtifact || searchArtifact || null,
+        toolExecutions,
+      });
+      if (chatbotAttachment) {
+        emitComposedArtifact(chatbotAttachment);
+      }
     }
     await emitAssistantFinal({
       text: result?.message,
@@ -1758,6 +1780,34 @@ router.post("/agent/chat", async (req, res) => {
       intent: result?.intent || "CHATBOT_AGENT_MODE",
       interactionMode,
     });
+    const hasComposedSuggestions =
+      Array.isArray(result?.artifactComposition?.suggestions) &&
+      result.artifactComposition.suggestions.length > 0;
+    if (toolExecutions.length > 0 && !hasComposedSuggestions) {
+      try {
+        const paaeOutput = await runPAAE({
+          toolExecutions,
+          userMessage: message,
+          conversationId: requestContext?.conversationId || sessionId || null,
+          turnCount: 2,
+          isClarification: effectiveOutput.type === "context_suggestion" || effectiveOutput.type === "clarification",
+          cognitiveDecision:
+            result?.resolutionMeta?.cognitiveDecision || result?.cognitiveDecision || null,
+          llmClient: generateChatResponse,
+        });
+        console.log("[PAAE][router] paaeOutput:", paaeOutput ? `${paaeOutput.suggestions?.length} suggestions` : "null");
+        if (paaeOutput && !aborted) {
+          emit("result", {
+            output: paaeOutput,
+            intent: "PROACTIVE_ASSIST",
+            visibility: "visible",
+            interactionMode,
+          });
+        }
+      } catch (_paaeErr) {
+        console.error("[PAAE][router] error:", _paaeErr?.message || _paaeErr);
+      }
+    }
     emit("done", {
       timestamp: new Date().toISOString(),
       mode: "chatbot",
