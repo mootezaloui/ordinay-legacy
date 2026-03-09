@@ -55,6 +55,16 @@ const {
   resolveDocumentQuery,
   normalizeText: normalizeEntityResolverText,
 } = require("../entity.resolver");
+const { buildContextSuggestionFromIdentityCollision } = require("../mutation/entityIdentityPreflight");
+const clientsService = require("../../services/clients.service");
+const dossiersService = require("../../services/dossiers.service");
+const lawsuitsService = require("../../services/lawsuits.service");
+const tasksService = require("../../services/tasks.service");
+const sessionsService = require("../../services/sessions.service");
+const missionsService = require("../../services/missions.service");
+const financialService = require("../../services/financial.service");
+const officersService = require("../../services/officers.service");
+const personalTasksService = require("../../services/personalTasks.service");
 
 const MAX_TOOL_ROUNDS = Math.max(
   1,
@@ -93,6 +103,9 @@ const CHAT_MUTATION_DEBUG_ENABLED =
 const CHAT_ADAPTIVE_DOMAIN_CONSTRAINTS_ENABLED = ["1", "true", "yes", "on"].includes(
   String(process.env.AGENT_ADAPTIVE_DOMAIN_CONSTRAINTS ?? "1").toLowerCase(),
 );
+const CHAT_LOOP_DEBUG_ENABLED =
+  isTruthyEnv(process.env.AGENT_LOOP_DEBUG ?? "1") ||
+  process.env.NODE_ENV !== "production";
 function isScopeBindingEnabled() {
   return ["1", "true", "yes", "on"].includes(
     String(process.env.AGENT_SCOPE_BINDING_ENABLED ?? "1").toLowerCase(),
@@ -114,6 +127,62 @@ function isLikelyResolutionReply(message = "", followUpIntent = null) {
   if (text.split(/\s+/).length > 4) return false;
   if (/\b(show|list|recent|create|generate|draft|prepare|write)\b/i.test(text)) return false;
   return /[\p{L}\p{N}]/u.test(text);
+}
+
+function logChatLoop(event, payload = {}) {
+  if (!CHAT_LOOP_DEBUG_ENABLED) return;
+  try {
+    console.warn("[CHAT_LOOP_DEBUG][chat-service]", event, payload);
+  } catch (_) {}
+}
+
+function coercePositiveEntityId(...values) {
+  for (const value of values) {
+    const n = Number(value);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return 0;
+}
+
+const FOLLOW_UP_REFERENCE_SERVICES = Object.freeze({
+  client: { service: clientsService, refKeys: ["reference"] },
+  dossier: { service: dossiersService, refKeys: ["reference", "court_reference"] },
+  lawsuit: { service: lawsuitsService, refKeys: ["reference", "lawsuit_number", "reference_number"] },
+  task: { service: tasksService, refKeys: ["reference"] },
+  session: { service: sessionsService, refKeys: ["reference"] },
+  mission: { service: missionsService, refKeys: ["reference"] },
+  financial_entry: { service: financialService, refKeys: ["reference"] },
+  officer: { service: officersService, refKeys: ["reference", "registration_number"] },
+  personal_task: { service: personalTasksService, refKeys: ["reference"] },
+});
+
+function extractReferenceToken(value = "") {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  return text.split("|")[0].trim();
+}
+
+function resolveEntityIdFromReference(entityType, rawReference = "") {
+  const reference = extractReferenceToken(rawReference);
+  if (!reference) return 0;
+  const entry = FOLLOW_UP_REFERENCE_SERVICES[String(entityType || "").toLowerCase()];
+  if (!entry?.service || typeof entry.service.list !== "function") return 0;
+  try {
+    const rows = entry.service.list();
+    const match = (Array.isArray(rows) ? rows : []).find((row) =>
+      entry.refKeys.some((key) => String(row?.[key] || "").trim().toLowerCase() === reference.toLowerCase()),
+    );
+    return coercePositiveEntityId(match?.id);
+  } catch (_) {
+    return 0;
+  }
+}
+
+function resolveEntityIdFromSelectionId(selectionId = "") {
+  const text = String(selectionId || "").trim();
+  if (!text) return 0;
+  const match = text.match(/^[a-z_]+-(\d+)(?:-|$)/i);
+  return match ? coercePositiveEntityId(match[1]) : 0;
 }
 
 class ChatAgentService {
@@ -160,6 +229,29 @@ class ChatAgentService {
           `show ${resolvedSelection.entityType} ${resolvedSelection.label || resolvedSelection.entityId}`,
         ).trim()
       : String(followUpIntent?.originalMessage || userMessage).trim() || userMessage;
+    logChatLoop("run_start", {
+      conversationId: context?.conversationId || context?.agentSessionId || sessionId || null,
+      sessionId: sessionId || null,
+      userMessage: userMessage.slice(0, 180),
+      followUpIntent: followUpIntent
+        ? {
+            intent: String(followUpIntent.intent || ""),
+            entityType: String(followUpIntent.entityType || ""),
+            entityId: Number(followUpIntent.entityId || 0) || null,
+            originalIntent: String(followUpIntent.originalIntent || ""),
+            originalMessage: String(followUpIntent.originalMessage || "").slice(0, 180) || null,
+            hasResolvedEntity: Boolean(followUpIntent.resolvedEntity),
+          }
+        : null,
+      resolvedSelection: resolvedSelection
+        ? {
+            entityType: resolvedSelection.entityType,
+            entityId: resolvedSelection.entityId,
+            label: resolvedSelection.label || null,
+          }
+        : null,
+      effectiveUserMessage: effectiveUserMessage.slice(0, 180),
+    });
 
     const policy = this.engine._resolvePolicy(agentVersion);
     const draftIntent = detectDraftIntent(effectiveUserMessage, context || {});
@@ -335,7 +427,7 @@ class ChatAgentService {
     }
 
     const conversationalMutationProposal =
-      ((draftIntent && draftIntent.intent) || documentGenerationIntent)
+      (resolvedSelection || (draftIntent && draftIntent.intent) || documentGenerationIntent)
         ? null
         : await this._tryHandleStrongMutationIntentDetection({
             userMessage,
@@ -345,6 +437,13 @@ class ChatAgentService {
             llmHistory,
             policy,
           });
+    logChatLoop("mutation_detection_gate", {
+      conversationId: requestContext?.conversationId || null,
+      skippedBecauseResolvedSelection: Boolean(resolvedSelection),
+      skippedBecauseDraftIntent: Boolean(draftIntent && draftIntent.intent),
+      skippedBecauseDocumentGeneration: Boolean(documentGenerationIntent),
+      producedProposal: Boolean(conversationalMutationProposal),
+    });
     if (conversationalMutationProposal) {
       return conversationalMutationProposal;
     }
@@ -1997,9 +2096,13 @@ class ChatAgentService {
       status: v2Result?.result?.status || null,
       actionType: v2Result?.result?.actionType || null,
       requiresConfirmation: v2Result?.result?.requiresConfirmation ?? null,
+      outputType: v2Result?.result?.type || null,
       error: v2Result?.error || null,
     });
     const proposal = v2Result?.result;
+    if (proposal?.type === "identity_collision") {
+      return { identityCollision: proposal, toolArgs, bindingAudit };
+    }
     if (!proposal?.proposalId || proposal.requiresConfirmation !== true) {
       const err = new Error("Failed to create mutation proposal.");
       err.code = "MUTATION_PROPOSAL_INVALID";
@@ -2255,6 +2358,47 @@ class ChatAgentService {
           value: toolArgs?.payload?.[detectorResult?.metadata?.field] ?? null,
           reasonCode: normalizedFailure.code,
           safeMessage: finalMessage,
+        }),
+      };
+    }
+
+    if (proposalBundle?.identityCollision?.type === "identity_collision") {
+      const artifact = buildContextSuggestionFromIdentityCollision(proposalBundle.identityCollision, {
+        originalMessage: userMessage,
+      });
+      const finalMessage = String(
+        artifact.message || "I found an existing record that may already match this matter.",
+      );
+      this._recordTranscript({
+        requestContext,
+        userMessage,
+        finalMessage,
+        posture: "WORK",
+        toolExecutions: [],
+        artifactType: "context_suggestion",
+        artifact,
+      });
+      return {
+        message: finalMessage,
+        agentVersion: policy.version,
+        posture: "WORK",
+        toolExecutions: [],
+        stepCommentaries: [],
+        rounds: 0,
+        ambiguityArtifact: artifact,
+        resolutionMeta: {
+          identityCollision: artifact,
+        },
+        availableTools: [],
+        suppressIntentFraming: true,
+        suppressCommentary: false,
+        mutationOutcome: this._buildMutationOutcomeEnvelope({
+          status: "BLOCKED",
+          entityType: artifact.entityType || toolArgs?.entityType || null,
+          entityId: artifact?.matchedEntity?.id || null,
+          operation: "create",
+          safeMessage: finalMessage,
+          reasonCode: artifact?.identityCollision?.reasonCode || "identity_collision",
         }),
       };
     }
@@ -4308,10 +4452,48 @@ class ChatAgentService {
       return null;
     }
     const resolved = followUpIntent.resolvedEntity || {};
+    const resolutionInput =
+      followUpIntent.resolutionInput && typeof followUpIntent.resolutionInput === "object"
+        ? followUpIntent.resolutionInput
+        : {};
     const entityType = String(resolved.type || followUpIntent.entityType || "")
       .trim()
       .toLowerCase();
-    const entityId = Number(resolved.id || followUpIntent.entityId || 0);
+    const entityId = coercePositiveEntityId(
+      resolved.id,
+      resolved.entityId,
+      followUpIntent.entityId,
+      resolveEntityIdFromSelectionId(followUpIntent.selectionId),
+      resolutionInput.id,
+      resolutionInput.entityId,
+      resolveEntityIdFromReference(entityType, resolutionInput.reference),
+    );
+    logChatLoop("extract_resolved_selection", {
+      rawIntent: String(followUpIntent.intent || ""),
+      rawEntityType: String(followUpIntent.entityType || ""),
+      rawEntityId: followUpIntent.entityId ?? null,
+      selectionId: followUpIntent.selectionId ?? null,
+      resolvedEntity: resolved && typeof resolved === "object"
+        ? {
+            type: resolved.type || null,
+            id: resolved.id ?? null,
+            entityId: resolved.entityId ?? null,
+            label: resolved.label || null,
+          }
+        : null,
+      resolutionInput: resolutionInput && typeof resolutionInput === "object"
+        ? {
+            entityType: resolutionInput.entityType || null,
+            id: resolutionInput.id ?? null,
+            entityId: resolutionInput.entityId ?? null,
+            reference: resolutionInput.reference || null,
+            name: resolutionInput.name || null,
+          }
+        : null,
+      extracted: entityType && entityId > 0
+        ? { entityType, entityId }
+        : null,
+    });
     if (!entityType || !Number.isFinite(entityId) || entityId <= 0) return null;
     const scope = {
       ...(followUpIntent.scope && typeof followUpIntent.scope === "object"

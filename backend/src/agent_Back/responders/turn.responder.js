@@ -62,7 +62,13 @@ function selectMode({ artifact, secondaries }) {
   const artifactType = String(artifact?.type || "").toLowerCase();
   if (artifactType === "error") return RESPONSE_MODES.RECOVER;
   if (artifactType === "draft" || artifactType === "research_contract") return RESPONSE_MODES.DRAFT;
-  if (artifactType === "context_suggestion" || artifact?.ambiguous === true) return RESPONSE_MODES.CLARIFY;
+  if (
+    artifactType === "context_suggestion" ||
+    artifactType === "identity_collision" ||
+    artifact?.ambiguous === true
+  ) {
+    return RESPONSE_MODES.CLARIFY;
+  }
   return RESPONSE_MODES.REPORT;
 }
 

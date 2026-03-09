@@ -395,7 +395,7 @@ async function evaluateMutationGovernance({
       scopeHints: { deepestScope },
       extractedFields: {},
       missingRequiredFields: [],
-      dedupeQuery: null,
+      identityPreflightRequest: null,
       reason: "draft_intent_detected",
       shouldBypassReadResolution: false,
       entityTypeResolution: {
@@ -556,10 +556,11 @@ async function evaluateMutationGovernance({
         : ["entity_type"]
       : [];
 
-  const dedupeQuery =
+  const identityPreflightRequest =
     routedIntent === "create" || routedIntent === "update"
       ? {
           entityType: routedEntityType,
+          payload: preparedCreatePayload || extractedFields || {},
           query:
             typeof extractedFields?.title === "string" && extractedFields.title.trim()
               ? extractedFields.title.trim()
@@ -567,6 +568,7 @@ async function evaluateMutationGovernance({
           scope: deepestScope
             ? { entityType: deepestScope.entityType, entityId: deepestScope.entityId }
             : null,
+          parentResolution,
         }
       : null;
 
@@ -586,7 +588,7 @@ async function evaluateMutationGovernance({
     parentResolution,
     parentSelection: parentResolution?.parentSelection || null,
     missingRequiredFields,
-    dedupeQuery,
+    identityPreflightRequest,
     signals: {
       futureSignal,
       mutationSignal,

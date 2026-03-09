@@ -8,6 +8,7 @@
  */
 
 const adapters = require('../entities/adapters');
+const { getEntityIdentityPolicy } = require("../mutation/entityIdentityPolicies");
 
 /**
  * Get adapter for entity type
@@ -98,6 +99,10 @@ function getReversibilityRules(entityType) {
   return adapter.getReversibilityRules();
 }
 
+function getIdentityPolicy(entityType) {
+  return getEntityIdentityPolicy(entityType);
+}
+
 module.exports = {
   getAdapter,
   computeSnapshotHash,
@@ -107,4 +112,5 @@ module.exports = {
   getFieldTypes,
   getValueParsers,
   getReversibilityRules,
+  getIdentityPolicy,
 };

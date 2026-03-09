@@ -80,6 +80,48 @@ const MIN_WORKING_DURATION = 150;
 // How long the reveal animation takes before we consider it "complete"
 const REVEAL_DURATION = 400;
 
+function coerceSuggestionEntityId(suggestion: {
+  entityId?: number | string | null;
+  entityType?: string | null;
+  id?: string | number | null;
+  scope?: {
+    clientId?: number;
+    dossierId?: number;
+    lawsuitId?: number;
+    sessionId?: number;
+    taskId?: number;
+    missionId?: number;
+    personalTaskId?: number;
+    financialEntryId?: number;
+  } | null;
+}): number | null {
+  const direct = Number(suggestion?.entityId);
+  if (Number.isFinite(direct) && direct > 0) return direct;
+
+  const entityType = String(suggestion?.entityType || "").toLowerCase();
+  const scope = suggestion?.scope || {};
+  const scopedId =
+    entityType === "client" ? scope.clientId :
+    entityType === "dossier" ? scope.dossierId :
+    entityType === "lawsuit" ? scope.lawsuitId :
+    entityType === "session" ? scope.sessionId :
+    entityType === "task" ? scope.taskId :
+    entityType === "mission" ? scope.missionId :
+    entityType === "personal_task" ? scope.personalTaskId :
+    entityType === "financial_entry" ? scope.financialEntryId :
+    undefined;
+  const scopedNumber = Number(scopedId);
+  if (Number.isFinite(scopedNumber) && scopedNumber > 0) return scopedNumber;
+
+  const rawId = String(suggestion?.id || "").trim();
+  const match = rawId.match(/^[a-z_]+-(\d+)(?:-|$)/i);
+  if (match) {
+    const parsed = Number(match[1]);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return null;
+}
+
 interface AgentWorkflowProps {
   message: AgentMessage;
   onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
@@ -1267,12 +1309,8 @@ function ArtifactBody({
       <ContextSuggestionRenderer
         data={message.data.contextSuggestion}
         onSelect={(suggestion) => {
-          const selectionDisplayLabel = [
-            String(suggestion.label || "").trim(),
-            String(suggestion.subtitle || "").trim(),
-          ]
-            .filter(Boolean)
-            .join("\n");
+          const resolvedSuggestionEntityId = coerceSuggestionEntityId(suggestion);
+          const selectionDisplayLabel = String(suggestion.label || "").trim();
           const selectionCategory = message.data?.contextSuggestion?.category;
           const isInvoiceSelection = selectionCategory === "invoice_selection";
           const selectionClientId = suggestion.scope?.clientId;
@@ -1285,7 +1323,7 @@ function ArtifactBody({
                 }
               : {
                   type: suggestion.entityType,
-                  id: suggestion.entityId,
+                  id: resolvedSuggestionEntityId ?? suggestion.entityId,
                   label: selectionDisplayLabel || suggestion.label,
                 };
           // Send resolution payload preserving original intent
@@ -1297,23 +1335,23 @@ function ArtifactBody({
             pendingOperationId: message.data.contextSuggestion.pendingOperationId,
             resolvedEntity,
             entityType: suggestion.entityType,
-            entityId: suggestion.entityId,
+            entityId: resolvedSuggestionEntityId ?? suggestion.entityId,
             scope: suggestion.scope,
             resolutionInput: {
               entityType: suggestion.entityType,
-              id: suggestion.entityId,
+              id: resolvedSuggestionEntityId ?? suggestion.entityId,
               reference: suggestion.subtitle || undefined,
               name: suggestion.label || undefined,
             },
             label: selectionDisplayLabel || suggestion.label,
             selectionId: isInvoiceSelection
-              ? String(suggestion.entityId ?? suggestion.id)
+              ? String(resolvedSuggestionEntityId ?? suggestion.entityId ?? suggestion.id)
               : suggestion.id,
             selectionCategory,
             reason: "User selected context suggestion",
             origin: {
               entity: suggestion.entityType.toUpperCase(),
-              entityId: suggestion.entityId,
+              entityId: resolvedSuggestionEntityId ?? suggestion.entityId ?? suggestion.id,
             },
           };
           console.log("[DEBUG] Sending context resolution payload:", payload);

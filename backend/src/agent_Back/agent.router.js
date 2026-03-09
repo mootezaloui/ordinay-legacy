@@ -2093,7 +2093,9 @@ router.post("/agent/document-generation/preview/confirm", async (req, res, next)
     if (
       proposalOrOutput &&
       typeof proposalOrOutput === "object" &&
-      proposalOrOutput.type === "context_suggestion"
+      ["context_suggestion", "identity_collision", "entity_creation_form"].includes(
+        String(proposalOrOutput.type || ""),
+      )
     ) {
       return res.json({
         status: "ok",

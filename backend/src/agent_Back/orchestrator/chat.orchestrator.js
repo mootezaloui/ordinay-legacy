@@ -26,6 +26,7 @@ const { CHAT_STATES, selectInitialState } = require("./chat.state.machine");
 const { parseFinalOutputContract } = require("./output.contract");
 const { parseJsonResponse } = require("../llm/llm.validation");
 const { evaluateMutationGovernance, inferEntityAndFieldsWithLLM } = require("../mutation/mutation.governance");
+const { buildContextSuggestionFromIdentityCollision } = require("../mutation/entityIdentityPreflight");
 const { resolveEntityTypeFromMessage } = require("../mutation/mutation.entityTypeResolver");
 const { ENTITY_CREATION_SPECS } = require("../mutation/entityCreationPlanner");
 const _adaptersRegistry = require("../entities/adapters");
@@ -75,6 +76,16 @@ function nowIso() {
 
 const PENDING_CLARIFICATION_TTL_MS = 3 * 60 * 1000;
 const PENDING_CLARIFICATION_MAX_TURNS = 2;
+const CHAT_LOOP_DEBUG_ENABLED =
+  ["1", "true", "yes", "on"].includes(String(process.env.AGENT_LOOP_DEBUG ?? "1").toLowerCase()) ||
+  process.env.NODE_ENV !== "production";
+
+function logChatLoop(event, payload = {}) {
+  if (!CHAT_LOOP_DEBUG_ENABLED) return;
+  try {
+    console.warn("[CHAT_LOOP_DEBUG][orchestrator]", event, payload);
+  } catch (_) {}
+}
 
 function escapeHtml(value) {
   return String(value || "")
@@ -1306,8 +1317,9 @@ class ChatOrchestrator {
       parentResolution,
       parentSelection: parentResolution.parentSelection,
       missingRequiredFields: [],
-      dedupeQuery: {
+      identityPreflightRequest: {
         entityType: normalizedEntityType,
+        payload: preparedPayload,
         query: null,
         scope: null,
       },
@@ -2949,14 +2961,22 @@ class ChatOrchestrator {
     };
 
     const executionPolicy = this._resolveOutputContractExecutionPolicy(policy);
+    const governance =
+      metadata?.governance && typeof metadata.governance === "object" && !Array.isArray(metadata.governance)
+        ? metadata.governance
+        : {};
     const v2Result = await this.engine.executeToolV2("universalMutation", mutationInput, executionPolicy, {
       ...executionContext,
       posture: "WORK",
       confirmed: true,
       sourceRoute: "/agent/chat",
+      identityPreflightRequest:
+        governance?.identityPreflightRequest && typeof governance.identityPreflightRequest === "object"
+          ? governance.identityPreflightRequest
+          : null,
     });
     const proposal = v2Result?.result || null;
-    if (proposal && proposal.type === "entity_creation_form") {
+    if (proposal && (proposal.type === "entity_creation_form" || proposal.type === "identity_collision")) {
       return proposal;
     }
     if (
@@ -3142,8 +3162,44 @@ class ChatOrchestrator {
       pendingCandidateKeysPresent: Array.from(pendingCandidateKeySet).sort(),
       branchTaken: state === CHAT_STATES.CLARIFY ? "CLARIFY" : "normal",
     });
+    logChatLoop("turn_start", {
+      conversationId: requestContext?.conversationId || null,
+      sessionId: sessionId || null,
+      state,
+      userMessage: String(userMessage || "").slice(0, 180),
+      followUpIntent: followUpIntent
+        ? {
+            intent: String(followUpIntent.intent || ""),
+            entityType: String(followUpIntent.entityType || ""),
+            entityId: Number(followUpIntent.entityId || 0) || null,
+            originalIntent: String(followUpIntent.originalIntent || ""),
+            originalMessage: String(followUpIntent.originalMessage || "").slice(0, 180) || null,
+            hasResolvedEntity: Boolean(followUpIntent.resolvedEntity),
+          }
+        : null,
+      pendingClarification: pendingClarification
+        ? {
+            hasArtifact: Boolean(pendingArtifact),
+            artifactType: String(pendingArtifact?.type || pendingClarification?.entityType || ""),
+            suggestionsCount: pendingSuggestions.length,
+            originalMessage:
+              String(pendingArtifact?.originalMessage || "").slice(0, 180) || null,
+          }
+        : null,
+    });
 
     let resolvedSelection = this.helper._extractResolvedSelection(followUpIntent);
+    logChatLoop("resolved_selection_extracted", {
+      conversationId: requestContext?.conversationId || null,
+      resolvedSelection: resolvedSelection
+        ? {
+            entityType: resolvedSelection.entityType,
+            entityId: resolvedSelection.entityId,
+            label: resolvedSelection.label || null,
+            scopeKeys: Object.keys(resolvedSelection.scope || {}),
+          }
+        : null,
+    });
     if (state === CHAT_STATES.CLARIFY) {
       const pendingClarification = sessionState.pendingClarification || null;
       const pendingExpiresAt = pendingClarification?.expiresAt
@@ -3183,6 +3239,18 @@ class ChatOrchestrator {
           turnBudgetExceeded ||
           !matcherResult.isAnswer ||
           (hasFreshCompleteIntent && matcherResult?.resolved?.kind !== "selection"));
+      logChatLoop("clarify_gate_decision", {
+        conversationId: requestContext?.conversationId || null,
+        ttlExpired,
+        turnBudgetExceeded,
+        hasFreshCompleteIntent,
+        matcher: {
+          isAnswer: Boolean(matcherResult?.isAnswer),
+          reason: String(matcherResult?.reason || ""),
+          resolvedKind: String(matcherResult?.resolved?.kind || ""),
+        },
+        shouldClearForFreshTurn,
+      });
       if (pendingClarification && shouldClearForFreshTurn) {
         const clearReason = ttlExpired
           ? "expired_ttl"
@@ -3266,6 +3334,15 @@ class ChatOrchestrator {
           branchTaken: "CLARIFY",
         });
         state = pendingClarification?.resumeState || CHAT_STATES.RETRIEVE;
+        logChatLoop("clarify_selection_resolved", {
+          conversationId: requestContext?.conversationId || null,
+          resumedState: state,
+          resolvedSelection: {
+            entityType: resolvedSelection.entityType,
+            entityId: resolvedSelection.entityId,
+            label: resolvedSelection.label || null,
+          },
+        });
       } else if (pendingClarification?.artifact && !shouldClearForFreshTurn) {
         const decrementedTurns = Number.isFinite(Number(pendingClarification?.turnsRemaining))
           ? Math.max(0, Number(pendingClarification.turnsRemaining) - 1)
@@ -3296,6 +3373,14 @@ class ChatOrchestrator {
           reason: matcherResult?.reason || "clarification_replay",
           turnsRemaining: decrementedTurns,
           branchTaken: "CLARIFY",
+        });
+        logChatLoop("clarify_replayed", {
+          conversationId: requestContext?.conversationId || null,
+          reason: String(matcherResult?.reason || "clarification_replay"),
+          turnsRemaining: decrementedTurns,
+          artifactType: String(pendingClarification.artifact?.type || ""),
+          artifactMessage:
+            String(pendingClarification.artifact?.message || "").slice(0, 180) || null,
         });
         return withStateOutput(
           {
@@ -3361,6 +3446,20 @@ class ChatOrchestrator {
       : resolvedSelection
         ? `show ${resolvedSelection.entityType} ${resolvedSelection.label || resolvedSelection.entityId}`
         : userMessage;
+    logChatLoop("effective_message", {
+      conversationId: requestContext?.conversationId || null,
+      shouldResumeOriginalIntent,
+      continuationIntentSource,
+      continuationOriginalMessage:
+        String(continuationOriginalMessage || "").slice(0, 180) || null,
+      effectiveUserMessage: String(effectiveUserMessage || "").slice(0, 180),
+      resolvedSelection: resolvedSelection
+        ? {
+            entityType: resolvedSelection.entityType,
+            entityId: resolvedSelection.entityId,
+          }
+        : null,
+    });
     if (shouldResumeOriginalIntent) {
       this._traceExecutionStep(requestContext, "context_resolution_resumed", {
         resumedFrom: continuationIntentSource,
@@ -4189,7 +4288,7 @@ class ChatOrchestrator {
             intent: mutationGovernance.intent,
             entityType: mutationGovernance.entityType,
             confidence: mutationGovernance.confidence,
-            dedupeQuery: mutationGovernance.dedupeQuery || null,
+            identityPreflightRequest: mutationGovernance.identityPreflightRequest || null,
           },
           ...(draftPromotion
             ? {
@@ -4250,6 +4349,44 @@ class ChatOrchestrator {
           {
             message: finalMessage,
             outputArtifact: errorArtifact,
+            toolExecutions: minimalSupportingReadExecutions,
+            resolutionMeta: {
+              mutationGovernance,
+              cognitiveDecision: cognitiveDecisionEffective,
+            },
+          },
+          CHAT_STATES.FINAL,
+        );
+      }
+      if (proposal?.type === "identity_collision") {
+        const suggestionArtifact = buildContextSuggestionFromIdentityCollision(proposal, {
+          originalMessage: effectiveUserMessage,
+        });
+        logChatLoop("identity_collision_emitted", {
+          conversationId: requestContext?.conversationId || null,
+          entityType: suggestionArtifact?.entityType || null,
+          originalIntent: suggestionArtifact?.originalIntent || null,
+          originalMessage: suggestionArtifact?.originalMessage || null,
+          suggestionsCount: Array.isArray(suggestionArtifact?.suggestions)
+            ? suggestionArtifact.suggestions.length
+            : 0,
+        });
+        const finalMessage = String(
+          suggestionArtifact?.message || "I found an existing record that may already match this matter.",
+        );
+        this.helper._recordTranscript({
+          requestContext,
+          userMessage: effectiveUserMessage,
+          finalMessage,
+          posture,
+          toolExecutions: minimalSupportingReadExecutions,
+          artifactType: "context_suggestion",
+          artifact: suggestionArtifact,
+        });
+        return withStateOutput(
+          {
+            message: finalMessage,
+            outputArtifact: suggestionArtifact,
             toolExecutions: minimalSupportingReadExecutions,
             resolutionMeta: {
               mutationGovernance,
@@ -5070,7 +5207,15 @@ class ChatOrchestrator {
         );
       }
 
-      if (proposal?.type === "entity_creation_form") {
+      if (proposal?.type === "identity_collision") {
+        const suggestionArtifact = buildContextSuggestionFromIdentityCollision(proposal, {
+          originalMessage: effectiveUserMessage,
+        });
+        finalMessage = String(
+          suggestionArtifact?.message || "I found an existing record that may already match this matter.",
+        );
+        outputArtifact = suggestionArtifact;
+      } else if (proposal?.type === "entity_creation_form") {
         finalMessage = "I need a few required identity fields before preparing this mutation.";
         outputArtifact = proposal;
       } else if (proposal?.proposalId && proposal.requiresConfirmation === true) {

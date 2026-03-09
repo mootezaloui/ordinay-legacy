@@ -27,6 +27,10 @@ const notificationsService = require("../../services/notifications.service");
 const officersService = require("../../services/officers.service");
 const notesService = require("../../services/notes.service");
 const documentsService = require("../../services/documents.service");
+const {
+  runEntityIdentityPreflight,
+  buildIdentityCollisionArtifact,
+} = require("./entityIdentityPreflight");
 
 const MAX_REASONING_SUMMARY_LEN = 280;
 const CREATE_SENTINEL = "new";
@@ -321,7 +325,7 @@ function buildCreateEntityConfirmationPreview({
   return preview;
 }
 
-function buildProposal(input = {}, executionContext = {}) {
+async function buildProposal(input = {}, executionContext = {}) {
   const entityType = normalizeEntityType(input.entityType);
   const operation = normalizeOperation(input.operation);
   const payload = normalizePayloadKeys(input.payload);
@@ -396,6 +400,20 @@ function buildProposal(input = {}, executionContext = {}) {
       payload,
     };
     reversible = Boolean(getReversibilityRules(entityType)?.create?.reversible);
+    const identityPreflight = await runEntityIdentityPreflight(
+      {
+        entityType,
+        payload,
+        parent: input.parent || null,
+        userMessage: executionContext.userMessage || "",
+      },
+      { executionContext },
+    );
+    if (identityPreflight.outcome !== "allow_create") {
+      return buildIdentityCollisionArtifact(identityPreflight, {
+        sessionId: executionContext.sessionId || null,
+      });
+    }
   } else {
     const numericId = Number(String(input.entityId || "").trim());
     if (!Number.isInteger(numericId) || numericId <= 0) {
@@ -515,4 +533,5 @@ module.exports = {
   normalizePayloadKeys,
   CREATE_SENTINEL,
   MAX_REASONING_SUMMARY_LEN,
+  buildIdentityCollisionArtifact,
 };

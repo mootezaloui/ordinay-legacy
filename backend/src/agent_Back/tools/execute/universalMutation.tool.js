@@ -26,6 +26,10 @@ const {
 const { applyHierarchicalScopeBinding } = require('../../mutation/hierarchicalScopeBinder');
 const { normalizeTaskMutationPayload } = require('../../../domain/taskMutationNormalization');
 const { enrichStepPayload, applyBatchInference } = require('../../mutation/uis');
+const {
+  runEntityIdentityPreflight,
+  buildIdentityCollisionArtifact,
+} = require('../../mutation/entityIdentityPreflight');
 
 const OPERATION_TYPES = Object.freeze({
   CREATE_ENTITY: 'CREATE_ENTITY',
@@ -352,6 +356,71 @@ const outputSchema = {
       required: ['type', 'entityType', 'prefilled', 'missingRequired'],
       additionalProperties: false,
     },
+    {
+      type: "object",
+      properties: {
+        type: { const: "identity_collision" },
+        sessionId: { anyOf: [{ type: "string" }, { type: "null" }] },
+        entityType: { type: "string", minLength: 1 },
+        matchedEntity: {
+          anyOf: [
+            { type: "null" },
+            {
+              type: "object",
+              additionalProperties: false,
+              required: ["id", "label", "entityType"],
+              properties: {
+                id: { type: "integer" },
+                label: { type: "string", minLength: 1 },
+                entityType: { type: "string", minLength: 1 },
+                subtitle: { anyOf: [{ type: "string" }, { type: "null" }] },
+                metadata: {
+                  anyOf: [
+                    { type: "null" },
+                    { type: "object", additionalProperties: { anyOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }] } },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+        matches: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["id", "label", "score", "reasons"],
+            properties: {
+              id: { type: "integer" },
+              label: { type: "string", minLength: 1 },
+              score: { type: "number" },
+              reasons: { type: "array", items: { type: "string" } },
+              entityType: { type: "string", minLength: 1 },
+              subtitle: { anyOf: [{ type: "string" }, { type: "null" }] },
+              metadata: {
+                anyOf: [
+                  { type: "null" },
+                  { type: "object", additionalProperties: { anyOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }] } },
+                ],
+              },
+            },
+          },
+        },
+        reasonCode: { anyOf: [{ type: "string" }, { type: "null" }] },
+        confidence: { anyOf: [{ type: "number" }, { type: "null" }] },
+        ambiguous: { type: "boolean" },
+        message: { type: "string", minLength: 1 },
+        suggestedActions: { type: "array", items: { type: "string", minLength: 1 } },
+        scope: {
+          anyOf: [
+            { type: "null" },
+            { type: "object", additionalProperties: true },
+          ],
+        },
+      },
+      required: ["type", "entityType", "message", "suggestedActions"],
+      additionalProperties: false,
+    },
   ],
 };
 
@@ -602,6 +671,19 @@ async function buildSingleOperationProposal(input, executionContext = {}) {
 
       // Validate payload after deterministic governance normalization.
       validatePayload(entityType, 'create', params.payload);
+      const identityPreflight = await runEntityIdentityPreflight(
+        {
+          entityType,
+          payload: params.payload,
+          userMessage: executionContext.userMessage || "",
+        },
+        { executionContext },
+      );
+      if (identityPreflight.outcome !== "allow_create") {
+        return buildIdentityCollisionArtifact(identityPreflight, {
+          sessionId: executionContext.sessionId || null,
+        });
+      }
       params.uis = {
         trace: inferred.trace,
       };

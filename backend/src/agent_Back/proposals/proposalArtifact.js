@@ -677,6 +677,13 @@ function _buildStructuredProposal({ proposal = null, displayProposal = null, wor
 }
 
 function toProposalArtifact(proposal, sessionId) {
+  const passthroughType = String(proposal?.type || "").toLowerCase();
+  if (["identity_collision", "context_suggestion", "entity_creation_form", "error"].includes(passthroughType)) {
+    return {
+      ...proposal,
+      sessionId: proposal?.sessionId || sessionId || null,
+    };
+  }
   const rawParams =
     proposal?.params && typeof proposal.params === "object" && !Array.isArray(proposal.params)
       ? proposal.params

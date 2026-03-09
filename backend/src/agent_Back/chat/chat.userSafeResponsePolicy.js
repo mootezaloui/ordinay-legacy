@@ -57,7 +57,10 @@ function buildFallbackMessageFromOutput(output = null, mutationOutcome = null) {
   if (output && typeof output === "object") {
     const type = String(output.type || "").toLowerCase();
     const message = String(output.message || "").trim();
-    if (message && ["error", "recovery", "context_suggestion", "entity_creation_form"].includes(type)) {
+    if (
+      message &&
+      ["error", "recovery", "context_suggestion", "entity_creation_form", "identity_collision"].includes(type)
+    ) {
       return sanitizeDisplayText(message);
     }
   }
