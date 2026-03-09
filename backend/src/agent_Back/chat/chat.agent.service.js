@@ -1,7 +1,9 @@
 "use strict";
 
+const { buildScopeBlock } = require("../context/conversation.context");
+const { summarizeToolResult } = require("../tools/tool.summarizer");
 const { TOOL_DOMAIN_MAP } = require("../tools/tool.firewall");
-const { generateToolCallingTurn, generateChatResponse } = require("../llm.client");
+const { generateToolCallingTurn, generateChatResponse, CHAT_SYSTEM_PROMPT } = require("../llm.client");
 const { resolveInteractionPosture, POSTURES } = require("../posture.resolver");
 const { filterToolsForChat } = require("./chat.tool.exposure");
 const { rankExposedToolsForMessage, DEFAULT_TOOL_CAP } = require("./chat.tool.ranker");
@@ -739,10 +741,13 @@ class ChatAgentService {
             });
           }
         }
+        const modelSummary = execution?.ok
+          ? summarizeToolResult(String(call?.function?.name || execution.toolName || "tool"), execution.result)
+          : `${String(call?.function?.name || execution.toolName || "tool")} failed: ${String(execution?.error?.message || "Tool execution failed.")}`;
         messages.push({
           role: "tool",
           tool_call_id: call?.id || `tool_${rounds}_${index}`,
-          content: JSON.stringify(execution.responseForModel),
+          content: modelSummary,
         });
       }
     }
@@ -945,18 +950,12 @@ class ChatAgentService {
       {
         role: "system",
         content: [
-          "You are Ordinay Chatbot Mode.",
-          "Respond directly and concisely.",
-          "When performing analysis, retrieval, search, or generation tasks, begin with a short natural intent sentence (1-2 lines).",
+          CHAT_SYSTEM_PROMPT,
           "Use clean markdown in a single message bubble.",
-          "Let output structure be chosen freely based on what best serves the user's request.",
           "Do not output HTML tags; output markdown only.",
-          "Do not restate the user's request.",
-          "Do not restate the user's request verbatim.",
-          "Do not use phrases like 'Got it', 'You're asking', 'Based on your request', or 'Here's what I found regarding'.",
           "Do not mention tools or internal system logic.",
           "Do not describe internal reasoning, prompts, snapshots, scope, diagnostics, or system state.",
-          "Provide the main result clearly.",
+          "If the user's intent is reasonably clear from context, act on the most likely interpretation and surface the result. Only ask a clarifying question if two genuinely different actions are equally likely and the wrong choice would cause a meaningful problem.",
           "After completing any tool calls, your FINAL assistant response must be only a JSON object matching the output contract described below.",
           "Intermediate tool-calling turns may use normal assistant tool-call messages, but the terminal response must be strict JSON only.",
           'Final output contract JSON schema: {"outputType":"message|document|mutation|research","title":"optional string","content":"required string","metadata":{}}',
@@ -990,6 +989,14 @@ class ChatAgentService {
         ].join("\n"),
       },
     ];
+
+    const scopeBlock = buildScopeBlock(llmHistory || {});
+    if (scopeBlock) {
+      messages.push({
+        role: "system",
+        content: scopeBlock,
+      });
+    }
 
     const docCtx = requestContext?.documentContext;
     if (
@@ -1040,6 +1047,27 @@ class ChatAgentService {
     const turns = Array.isArray(llmHistory?.recentTurns) ? llmHistory.recentTurns : [];
     const recentTurns = turns.slice(-6);
     for (const turn of recentTurns) {
+      const artifactSummaryParts = [];
+      if (turn?.artifactType) artifactSummaryParts.push(`artifact ${turn.artifactType}`);
+      if (Array.isArray(turn?.entityRefs) && turn.entityRefs.length > 0) {
+        artifactSummaryParts.push(
+          `entities ${turn.entityRefs
+            .slice(0, 2)
+            .map((ref) => `${ref.type}:${ref.id}`)
+            .join(", ")}`,
+        );
+      }
+      if (turn?.agentOutput?.summary) {
+        artifactSummaryParts.push(`summary ${String(turn.agentOutput.summary).slice(0, 120)}`);
+      } else if (turn?.agentOutput?.message) {
+        artifactSummaryParts.push(`summary ${String(turn.agentOutput.message).slice(0, 120)}`);
+      }
+      if (artifactSummaryParts.length > 0) {
+        messages.push({
+          role: "system",
+          content: `Prior turn context: ${artifactSummaryParts.join(" | ")}`,
+        });
+      }
       if (turn?.userMessage) {
         messages.push({ role: "user", content: String(turn.userMessage) });
       }

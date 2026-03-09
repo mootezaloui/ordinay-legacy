@@ -2,6 +2,7 @@
 
 const { INTENTS, INTENT_LIST, READ_INTENTS } = require("./intents");
 const { classifyIntentWithLLM } = require("./llm.client");
+const { parseJsonResponse } = require("./llm/llm.validation");
 
 /**
  * Data requirement types that can be detected from user messages
@@ -2331,14 +2332,16 @@ async function detectCompositeIntent(message = "") {
       ? { kind: draftIntent.intent, entity: null }
       : { kind: "GENERAL", entity: null };
 
-  let secondaries = [];
+  let secondary = "NONE";
+  let emotionalLoad = false;
+  let urgency = "normal";
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), _COMPOSITE_INTENT_TIMEOUT);
   try {
     const prompt =
-      `Does this message ask for advice, recommendations, or next steps beyond just retrieving data?\n` +
+      `Classify the conversational layer of this message.\n` +
       `Message: "${msg.slice(0, 200)}"\n` +
-      `Answer with exactly one word: ADVICE or NONE\nAnswer:`;
+      `Return JSON only with this shape: {"secondary":"ADVICE|EXPLANATION|REASSURANCE|DECISION_SUPPORT|NONE","emotionalLoad":true|false,"urgency":"high|normal"}\nAnswer:`;
     const response = await fetch(`${_COMPOSITE_LLM_BASE_URL}/api/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2353,26 +2356,39 @@ async function detectCompositeIntent(message = "") {
     clearTimeout(timeoutId);
     if (response.ok) {
       const data = await response.json();
-      const answer = String(data.response || "").trim().toUpperCase();
-      if (answer === "ADVICE" || answer.startsWith("ADVICE")) {
-        secondaries = ["ADVICE"];
+      const answer = parseJsonResponse(String(data.response || "").trim());
+      if (answer && typeof answer === "object") {
+        secondary = String(answer.secondary || "NONE").trim().toUpperCase() || "NONE";
+        emotionalLoad = answer.emotionalLoad === true;
+        urgency = String(answer.urgency || "normal").trim().toLowerCase() === "high" ? "high" : "normal";
       }
     }
   } catch (_) {
     clearTimeout(timeoutId);
   }
 
-  // Keyword fallback: only when LLM call failed or timed out.
-  if (secondaries.length === 0) {
+  if (secondary === "NONE") {
     const lower = msg.toLowerCase();
     const ADVICE_PHRASES = [
       "what do you think", "what should", "what would you", "should we", "should i",
       "recommend", "suggestion", "advice", "priority", "priorities", "next step",
       "what to do", "how to proceed", "best approach",
     ];
-    if (ADVICE_PHRASES.some((p) => lower.includes(p))) secondaries = ["ADVICE"];
+    const EXPLANATION_PHRASES = ["why", "how", "what does this mean", "explain"];
+    const REASSURANCE_PHRASES = ["i think", "isn't it", "right?", "am i right", "not sure"];
+    const DECISION_SUPPORT_PHRASES = ["should we", "which is better", "go for", "option", "best approach"];
+    if (ADVICE_PHRASES.some((p) => lower.includes(p))) secondary = "ADVICE";
+    else if (EXPLANATION_PHRASES.some((p) => lower.includes(p))) secondary = "EXPLANATION";
+    else if (REASSURANCE_PHRASES.some((p) => lower.includes(p))) secondary = "REASSURANCE";
+    else if (DECISION_SUPPORT_PHRASES.some((p) => lower.includes(p))) secondary = "DECISION_SUPPORT";
   }
 
-  return { primary, secondaries, signals };
+  emotionalLoad =
+    emotionalLoad ||
+    /(shame|frustrat|worried|concern|disappoint|sad|did not find a solution|kids|wife)/i.test(msg);
+  urgency = /(urgent|today|immediately|asap|court date|deadline)/i.test(msg) ? "high" : urgency;
+
+  const secondaries = secondary !== "NONE" ? [secondary] : [];
+  return { primary, secondary, secondaries, emotionalLoad, urgency, signals };
 }
 module.exports.detectCompositeIntent = detectCompositeIntent;

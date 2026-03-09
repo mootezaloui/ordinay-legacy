@@ -29,34 +29,9 @@ const RESPONSE_MODES = Object.freeze({
   RECOVER: "RECOVER",
 });
 
-const MODE_SYSTEM_PROMPTS = Object.freeze({
-  [RESPONSE_MODES.REPORT]: `You are Ordinay Assistant. The user requested data to be displayed or summarized.
-Help the user understand what matters most right now.
-Do NOT restate counts, statuses, or data already visible in the artifact.
-If urgent or overdue signals are present, explain what they mean for the user's priorities.
-If you cannot add meaningful insight beyond the data, respond with exactly: [silent]`,
-
-  [RESPONSE_MODES.ADVISE]: `You are Ordinay Assistant. The user asked for advice, recommendations, or next steps.
-Help the user prioritize and sequence their work.
-Recommend what to address first and explain why the order matters.
-Never list options without reasoning. Never restate artifact data.
-If context is limited, give the best recommendation available. Never respond with [silent].`,
-
-  [RESPONSE_MODES.CLARIFY]: `You are Ordinay Assistant. More information is needed to continue.
-Explain what is missing and ask a focused, specific question.
-Do not reproduce the full artifact.`,
-
-  [RESPONSE_MODES.DRAFT]: `You are Ordinay Assistant. A document or structured draft was prepared.
-Explain what was produced and what the user should review or confirm.
-Do not reproduce the draft content in your response.`,
-
-  [RESPONSE_MODES.RECOVER]: `You are Ordinay Assistant. Something went wrong.
-Explain what happened in plain terms and offer a concrete next step.
-Never expose internal error codes to the user.`,
-});
-
-function selectMode({ artifact, secondaries }) {
-  if (Array.isArray(secondaries) && secondaries.includes("ADVICE")) {
+function selectMode({ artifact, secondaries, intentMeta }) {
+  const secondary = String(intentMeta?.secondary || "").toUpperCase();
+  if (secondary === "ADVICE" || (Array.isArray(secondaries) && secondaries.includes("ADVICE"))) {
     return RESPONSE_MODES.ADVISE;
   }
   const artifactType = String(artifact?.type || "").toLowerCase();
@@ -79,13 +54,91 @@ function summarizeArtifact(artifact) {
   if (artifact.listCategory) parts.push(`listCategory: ${artifact.listCategory}`);
   if (artifact.entityType) parts.push(`entityType: ${artifact.entityType}`);
   if (artifact.title) parts.push(`title: ${String(artifact.title).slice(0, 100)}`);
+  const candidateArrays = ["items", "rows", "clients", "dossiers", "lawsuits", "tasks", "sessions", "documents"];
+  for (const key of candidateArrays) {
+    if (Array.isArray(artifact[key])) {
+      parts.push(`${key}: ${artifact[key].length}`);
+      break;
+    }
+  }
   if (typeof artifact.message === "string" && artifact.message.trim()) {
     parts.push(`summary: ${artifact.message.slice(0, 300)}`);
   }
   if (typeof artifact.content === "string" && artifact.content.trim()) {
     parts.push(`contentSnippet: ${artifact.content.slice(0, 300)}`);
   }
+  if (!parts.length) {
+    parts.push("summary: retrieved information is available");
+  }
   return parts.join("\n");
+}
+
+function buildModeSystemPrompt({
+  mode,
+  userMessage,
+  artifactSummary,
+  scopeBlock,
+  intentMeta,
+  entityDetailsBlock,
+  relatedEntitiesBlock,
+  conversationTone,
+}) {
+  const extras = [];
+  if (intentMeta?.emotionalLoad) {
+    extras.push("The user's message carries emotional weight. Acknowledge it plainly before answering.");
+  }
+  if (String(intentMeta?.urgency || "").toLowerCase() === "high") {
+    extras.push("Urgency detected. Lead with the most time-sensitive information.");
+  }
+  if (String(intentMeta?.secondary || "").toUpperCase() === "REASSURANCE") {
+    extras.push("The user seems uncertain. Be direct and reassuring.");
+  }
+  if (String(intentMeta?.secondary || "").toUpperCase() === "EXPLANATION") {
+    extras.push("Explain what the information means, not just what it says.");
+  }
+  if (String(intentMeta?.secondary || "").toUpperCase() === "DECISION_SUPPORT") {
+    extras.push("The user is weighing options. State your read clearly.");
+  }
+  extras.push(
+    "Use whatever length and format best serves this response. A simple confirmation can be one sentence. A case overview can use headers, tables, and bullets. You decide.",
+  );
+  extras.push(
+    "If the user's intent is reasonably clear from context, act on the most likely interpretation and surface the result. Only ask a clarifying question if two genuinely different actions are equally likely and the wrong choice would cause a meaningful problem.",
+  );
+
+  const base = {
+    [RESPONSE_MODES.REPORT]: `You are a senior legal practice assistant for a law firm.
+You speak like a knowledgeable colleague - direct, clear, and expressive.
+You may use prose, bullets, headings, or tables when they make the answer clearer.
+You always synthesize retrieved information into a useful answer.
+
+User message: ${String(userMessage || "").slice(0, 300)}
+Retrieved artifact: ${artifactSummary}
+Active scope: ${scopeBlock || "(no active scope)"}
+Primary entity details: ${entityDetailsBlock || "(none)"}
+Related entities in conversation: ${relatedEntitiesBlock || "(none)"}
+Conversation tone so far: ${conversationTone || "routine lookup"}
+
+Directly address what the user asked or said.
+- If it confirms something the user expected, say so plainly.
+- If the data reveals something worth flagging, surface it.
+- If structured formatting would make the answer clearer, use it.
+- Never return [silent]. Always produce a response.`,
+    [RESPONSE_MODES.ADVISE]: `You are Ordinay Assistant. The user asked for advice, recommendations, or next steps.
+Help the user prioritize and sequence their work.
+Recommend what to address first and explain why the order matters.
+Use the format that best serves the answer.`,
+    [RESPONSE_MODES.CLARIFY]: `You are Ordinay Assistant. More information is needed to continue.
+If the user's intent is reasonably clear from context, act on the most likely interpretation and surface the result.
+Only ask a clarifying question if two genuinely different actions are equally likely and the wrong choice would cause a meaningful problem.`,
+    [RESPONSE_MODES.DRAFT]: `You are Ordinay Assistant. A document or structured draft was prepared.
+Explain what was produced and what the user should review or confirm.
+Do not reproduce the draft content in your response.`,
+    [RESPONSE_MODES.RECOVER]: `You are Ordinay Assistant. Something went wrong.
+Explain what happened in plain terms and offer a concrete next step.
+Never expose internal error codes to the user.`,
+  }[mode];
+  return extras.length > 0 ? `${base}\n${extras.join("\n")}` : base;
 }
 
 async function callLLM(systemPrompt, userContent) {
@@ -118,15 +171,15 @@ async function callLLM(systemPrompt, userContent) {
 function buildFallback(mode) {
   switch (mode) {
     case RESPONSE_MODES.ADVISE:
-      return "Here is the current situation. Let me know which area you would like to address first.";
+      return "Here is the current situation and the most sensible next step.";
     case RESPONSE_MODES.CLARIFY:
-      return "I need one more detail to continue. Could you clarify which record you mean?";
+      return "I need one more detail before acting safely on this.";
     case RESPONSE_MODES.DRAFT:
-      return "The draft has been prepared. Please review and let me know if you need adjustments.";
+      return "The draft is prepared and ready for review.";
     case RESPONSE_MODES.RECOVER:
-      return "I could not complete that request. Please try again or rephrase.";
+      return "I could not complete that request. The next step is to correct the missing or conflicting detail.";
     default:
-      return "";
+      return "The relevant information is available.";
   }
 }
 
@@ -143,34 +196,56 @@ function buildFallback(mode) {
  */
 async function buildTurnResponse({ userMessage, artifact, context = {} }) {
   const secondaries = Array.isArray(context.secondaries) ? context.secondaries : [];
-  const mode = selectMode({ artifact, secondaries });
+  const intentMeta = context.intentMeta && typeof context.intentMeta === "object" ? context.intentMeta : {};
+  const mode = selectMode({ artifact, secondaries, intentMeta });
 
-  // LLM loop paths pass their already-synthesized message — use it directly.
-  if (typeof context.existingMessage === "string" && context.existingMessage.trim()) {
+  if (
+    typeof context.existingMessage === "string" &&
+    context.existingMessage.trim() &&
+    context.skipRefinement === true
+  ) {
     return { finalMessage: context.existingMessage, responseMode: mode };
   }
 
-  const systemPrompt = MODE_SYSTEM_PROMPTS[mode];
+  const artifactSummary = summarizeArtifact(artifact);
+  const scopeBlock = String(context.scopeBlock || "").trim() || "(no active scope)";
+  const entityDetailsBlock = String(context.entityDetailsBlock || "").trim() || "(none)";
+  const relatedEntitiesBlock = String(context.relatedEntitiesBlock || "").trim() || "(none)";
+  const conversationTone = String(context.conversationTone || "").trim() || "routine lookup";
+  const systemPrompt = buildModeSystemPrompt({
+    mode,
+    userMessage,
+    artifactSummary,
+    scopeBlock,
+    intentMeta,
+    entityDetailsBlock,
+    relatedEntitiesBlock,
+    conversationTone,
+  });
   const userContent = [
     `User message: ${String(userMessage || "").slice(0, 300)}`,
     "",
     "Artifact:",
-    summarizeArtifact(artifact),
+    artifactSummary,
+    "",
+    "Active scope:",
+    scopeBlock,
+    "",
+    "Primary entity details:",
+    entityDetailsBlock,
+    "",
+    "Related entities in conversation:",
+    relatedEntitiesBlock,
+    "",
+    "Conversation tone:",
+    conversationTone,
   ].join("\n");
 
   const llmText = await callLLM(systemPrompt, userContent);
 
-  // Silent policy: only allowed for REPORT when artifact already contains a summary.
-  const canBeSilent =
-    mode === RESPONSE_MODES.REPORT &&
-    typeof artifact?.message === "string" &&
-    artifact.message.trim().length > 20;
-
   let finalMessage;
   if (llmText) {
     finalMessage = llmText;
-  } else if (canBeSilent) {
-    finalMessage = "";
   } else {
     finalMessage = buildFallback(mode);
   }

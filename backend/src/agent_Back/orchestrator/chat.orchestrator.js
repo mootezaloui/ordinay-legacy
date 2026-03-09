@@ -1,5 +1,6 @@
 "use strict";
 
+const { buildScopeBlock } = require("../context/conversation.context");
 const documentGenerationPreviewService = require("../../services/documentGeneration/documentGenerationPreview.service");
 const { ChatAgentService } = require("../chat/chat.agent.service");
 const { resolveChatAmbiguity } = require("../chat/chat.ambiguity.resolver");
@@ -79,6 +80,9 @@ const PENDING_CLARIFICATION_MAX_TURNS = 2;
 const CHAT_LOOP_DEBUG_ENABLED =
   ["1", "true", "yes", "on"].includes(String(process.env.AGENT_LOOP_DEBUG ?? "1").toLowerCase()) ||
   process.env.NODE_ENV !== "production";
+const RESPONDER_LLM_BASE_URL = process.env.LLM_BASE_URL || "http://127.0.0.1:11434";
+const RESPONDER_LLM_MODEL = process.env.LLM_MODEL || "gpt-oss:120b-cloud";
+const RESPONDER_TIMEOUT_MS = parseInt(process.env.LLM_RESPONDER_TIMEOUT || "20000", 10);
 
 function logChatLoop(event, payload = {}) {
   if (!CHAT_LOOP_DEBUG_ENABLED) return;
@@ -215,6 +219,192 @@ class ChatOrchestrator {
     if (!engine) throw new Error("ChatOrchestrator requires engine");
     this.engine = engine;
     this.helper = new ChatAgentService({ engine, llmClient });
+  }
+
+  _buildScopeContext({ requestContext = {}, llmHistory = null } = {}) {
+    const activeScope = this._resolveActiveEntityScope(requestContext, llmHistory);
+    return buildScopeBlock({
+      ...(llmHistory && typeof llmHistory === "object" ? llmHistory : {}),
+      activeEntity:
+        activeScope && activeScope.entityType && activeScope.entityId
+          ? { type: activeScope.entityType, id: activeScope.entityId, confidence: activeScope.confidence }
+          : llmHistory?.activeEntity || null,
+    });
+  }
+
+  _stringifySynthesisValue(value, maxChars = 1800) {
+    if (value === null || value === undefined) return "";
+    if (typeof value === "string") return value.slice(0, maxChars);
+    try {
+      return JSON.stringify(value, null, 2).slice(0, maxChars);
+    } catch (_) {
+      return String(value).slice(0, maxChars);
+    }
+  }
+
+  _buildRelatedEntitiesBlock({ llmHistory = null, requestContext = {} } = {}) {
+    const related = [];
+    const seen = new Set();
+    const activeScope = this._resolveActiveEntityScope(requestContext, llmHistory);
+    const candidates = [];
+    if (activeScope) candidates.push(activeScope);
+    const evidenceEntities = Array.isArray(llmHistory?.evidenceRefs?.entities)
+      ? llmHistory.evidenceRefs.entities
+      : [];
+    candidates.push(...evidenceEntities);
+    for (const entry of candidates) {
+      const entityType = String(entry?.entityType || entry?.type || "").trim();
+      const entityId = entry?.entityId ?? entry?.id ?? null;
+      if (!entityType || !entityId) continue;
+      const key = `${entityType}:${entityId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      related.push(`${entityType}:${entityId}`);
+    }
+    return related.length > 0 ? related.join(", ") : "(none)";
+  }
+
+  _buildConversationTone({ intentMeta = null, userMessage = "", llmHistory = null } = {}) {
+    if (intentMeta?.emotionalLoad) return "emotionally loaded case discussion";
+    if (String(intentMeta?.urgency || "").toLowerCase() === "high") return "time-sensitive";
+    const recentTurns = Array.isArray(llmHistory?.recentTurns) ? llmHistory.recentTurns : [];
+    const priorEmotional = recentTurns.some((turn) =>
+      /(shame|concern|frustrat|worried|urgent|deadline)/i.test(String(turn?.userMessage || "")),
+    );
+    if (priorEmotional) return "ongoing emotionally loaded discussion";
+    return /(overview|status|show|list)/i.test(String(userMessage || "")) ? "routine lookup" : "active case discussion";
+  }
+
+  _buildSynthesisContext({
+    artifact = null,
+    requestContext = {},
+    llmHistory = null,
+    intentMeta = null,
+    primaryEntity = null,
+    userMessage = "",
+  } = {}) {
+    const entityDetailsSource =
+      primaryEntity ||
+      artifact?.topRecord ||
+      artifact?.root ||
+      artifact?.targetEntity ||
+      artifact?.entity ||
+      artifact ||
+      null;
+    return {
+      entityDetailsBlock: this._stringifySynthesisValue(entityDetailsSource, 2200) || "(none)",
+      relatedEntitiesBlock: this._buildRelatedEntitiesBlock({ llmHistory, requestContext }),
+      conversationTone: this._buildConversationTone({
+        intentMeta,
+        userMessage,
+        llmHistory,
+      }),
+    };
+  }
+
+  async synthesizeDeterministicRead(evidence, userMessage, scopeContext, synthesisContext = {}) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), RESPONDER_TIMEOUT_MS);
+    try {
+      const response = await fetch(`${RESPONDER_LLM_BASE_URL}/api/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: RESPONDER_LLM_MODEL,
+          system:
+            "You are a legal practice assistant. Speak like a knowledgeable colleague. Never dump lists or raw fields.",
+          prompt: [
+            `User: ${String(userMessage || "").slice(0, 300)}`,
+            "",
+            `Retrieved data: ${String(evidence || "").slice(0, 2000)}`,
+            "",
+            `Active context: ${String(scopeContext || "(no active context)").slice(0, 1200)}`,
+            "",
+            `Primary entity details: ${String(synthesisContext.entityDetailsBlock || "(none)").slice(0, 2200)}`,
+            "",
+            `Related entities already known: ${String(synthesisContext.relatedEntitiesBlock || "(none)").slice(0, 1200)}`,
+            "",
+            `Conversation tone so far: ${String(synthesisContext.conversationTone || "routine lookup").slice(0, 200)}`,
+            "",
+            "Use whatever length and format best serves this response. A simple confirmation can be one sentence. A case overview can use headers, tables, and bullets. You decide.",
+            "If the user's intent is reasonably clear from context, act on the most likely interpretation and surface the result. Only ask a clarifying question if two genuinely different actions are equally likely and the wrong choice would cause a meaningful problem.",
+            "Directly answer what the user asked. If the data confirms what the user expected, say so. If something needs attention, flag it. If structure helps, use it. Never return [silent].",
+            "When presenting retrieved system records in a table or list, every row must come directly from the retrieved data. Never invent placeholder rows, range rows like '2-10', or dash-filled entries.",
+          ].join("\n"),
+          stream: false,
+          options: { temperature: 0.2, num_predict: 350 },
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (!response.ok) return null;
+      const data = await response.json();
+      const text = String(data?.response || "").trim();
+      return text && text !== "[silent]" ? text : null;
+    } catch (_) {
+      clearTimeout(timeoutId);
+      return null;
+    }
+  }
+
+  buildHumanizedFallback(artifactType, entityType, count, topRecord) {
+    const typeLabel = String(entityType || artifactType || "record").replace(/_/g, " ");
+    const topLabel = String(
+      topRecord?.title || topRecord?.name || topRecord?.full_name || topRecord?.reference || "",
+    ).trim();
+    const status = String(topRecord?.status || "").trim().replace(/_/g, " ");
+    if (Number(count) <= 0) {
+      return `No ${typeLabel}${typeLabel.endsWith("s") ? "" : "s"} found for this request.`;
+    }
+    if (Number(count) === 1 && topLabel) {
+      return `Found ${topLabel}${status ? ` - ${status}` : ""}.`;
+    }
+    if (Number(count) > 1) {
+      return `There ${count === 1 ? "is" : "are"} ${count} ${typeLabel}${count === 1 ? "" : "s"} in the current result.`;
+    }
+    return `Found ${typeLabel}.`;
+  }
+
+  async finalizeResponse({
+    artifact,
+    userMessage,
+    intentMeta = null,
+    scopeBlock = "",
+    existingMessage = "",
+    skipRefinement = false,
+    entityDetailsBlock = "",
+    relatedEntitiesBlock = "",
+    conversationTone = "",
+    requestContext = {},
+    llmHistory = null,
+    primaryEntity = null,
+  } = {}) {
+    const synthesisContext = this._buildSynthesisContext({
+      artifact,
+      requestContext,
+      llmHistory,
+      intentMeta,
+      primaryEntity,
+      userMessage,
+    });
+    const responderResult = await buildTurnResponse({
+      userMessage,
+      artifact,
+      context: {
+        secondaries:
+          intentMeta && intentMeta.secondary && intentMeta.secondary !== "NONE"
+            ? [intentMeta.secondary]
+            : [],
+        intentMeta,
+        existingMessage,
+        skipRefinement,
+        scopeBlock,
+        entityDetailsBlock: entityDetailsBlock || synthesisContext.entityDetailsBlock,
+        relatedEntitiesBlock: relatedEntitiesBlock || synthesisContext.relatedEntitiesBlock,
+        conversationTone: conversationTone || synthesisContext.conversationTone,
+      },
+    });
+    return responderResult.finalMessage || existingMessage || "";
   }
 
   _buildRequestContext({ context = {}, sessionId, metadata, userId, tenantId }) {
@@ -1970,6 +2160,112 @@ class ChatOrchestrator {
     return `- ${label}`;
   }
 
+  _escapeTableCell(value) {
+    return String(value ?? "")
+      .replace(/\|/g, "\\|")
+      .replace(/\r?\n/g, " ")
+      .trim();
+  }
+
+  _formatDateCell(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    return raw.length >= 10 ? raw.slice(0, 10) : raw;
+  }
+
+  _formatTaskTableCell(value, fallback = "-") {
+    const normalized = String(value ?? "").trim();
+    return this._escapeTableCell(normalized || fallback);
+  }
+
+  _formatTaskDisplayValue(value, fallback = "-") {
+    const normalized = String(value ?? "").trim();
+    if (!normalized) return fallback;
+    if (/^[a-z0-9_ -]+$/.test(normalized)) {
+      return normalized
+        .split(/[_\s-]+/)
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ");
+    }
+    return normalized;
+  }
+
+  _buildGroundedTaskListResponse(
+    rows = [],
+    { rootLabel = null, countLabel = "tasks", statusFilter = "", totalCount = null } = {},
+  ) {
+    const safeRows = (Array.isArray(rows) ? rows : []).filter(
+      (row) => row && typeof row === "object" && String(row.title || "").trim(),
+    );
+    if (safeRows.length === 0) {
+      if (String(statusFilter || "").trim().toLowerCase() === "todo") {
+        return `No pending ${countLabel} found.`;
+      }
+      return `No ${countLabel} found.`;
+    }
+    const normalizedStatus = String(statusFilter || "").trim().toLowerCase();
+    const isPending = normalizedStatus === "todo";
+    const normalizedCountLabel = this._formatTaskDisplayValue(countLabel, "Tasks");
+    const normalizedSingularLabel = normalizedCountLabel.endsWith("s")
+      ? normalizedCountLabel.slice(0, -1)
+      : normalizedCountLabel;
+    const summaryCountLabel = normalizedCountLabel.toLowerCase();
+    const summarySingularLabel = normalizedSingularLabel.toLowerCase();
+    const headerBase = isPending ? `Pending ${normalizedCountLabel}` : normalizedCountLabel;
+    const header = rootLabel ? `## ${headerBase} - ${rootLabel}` : `## ${headerBase}`;
+    const effectiveCount = Number.isInteger(Number(totalCount)) && Number(totalCount) > 0
+      ? Number(totalCount)
+      : safeRows.length;
+    const summary =
+      isPending
+        ? effectiveCount === 1
+          ? `You currently have **1** pending ${summarySingularLabel}.`
+          : `You currently have **${effectiveCount}** pending ${summaryCountLabel}.`
+        : effectiveCount === 1
+          ? `You currently have **1** ${summarySingularLabel}.`
+          : `You currently have **${effectiveCount}** ${summaryCountLabel}.`;
+    const table = [
+      "| # | Task | Priority | Due date | Assigned to |",
+      "|---|---|---|---|---|",
+      ...safeRows.slice(0, 12).map((row, index) => {
+        const assigned = this._formatTaskTableCell(row.assigned_to);
+        const priority = this._formatTaskTableCell(this._formatTaskDisplayValue(row.priority));
+        const due = this._formatTaskTableCell(this._formatDateCell(row.due_date));
+        return `| ${index + 1} | ${this._escapeTableCell(row.title)} | ${priority} | ${due} | ${assigned} |`;
+      }),
+    ].join("\n");
+    const extra =
+      effectiveCount > safeRows.slice(0, 12).length
+        ? `\n\nShowing the first **${Math.min(12, safeRows.length)}** of **${effectiveCount}** tasks.`
+        : "";
+    return `${header}\n\n${summary}\n\n${table}${extra}`;
+  }
+
+  _buildGroundedDeterministicListResponse({
+    result = {},
+    rows = [],
+    listCategory = "",
+    executionMode = "graph",
+    toolInput = {},
+  } = {}) {
+    const categoryLabel = LIST_CATEGORY_LABELS[listCategory] || listCategory || "items";
+    const rootLabel =
+      executionMode === "graph"
+        ? String(result?.root?.title || result?.root?.name || "").trim() || null
+        : null;
+    if (!Array.isArray(rows) || rows.length === 0) return null;
+    if (executionMode === "direct" && (listCategory === "tasks" || listCategory === "personal_tasks")) {
+      return this._buildGroundedTaskListResponse(rows, {
+        rootLabel,
+        countLabel: categoryLabel,
+        statusFilter: toolInput?.status || "",
+        totalCount: Number(result?.count),
+      });
+    }
+    return null;
+  }
+
   _extractDirectListRows(result = {}, listCategory = "") {
     const key = LIST_CATEGORY_RESULT_KEY[listCategory] || null;
     if (!key) return [];
@@ -2133,13 +2429,53 @@ class ChatOrchestrator {
         });
       }
     }
-    const finalMessage = toolError
+    const deterministicEvidence = toolError
       ? `I could not retrieve ${LIST_CATEGORY_LABELS[listCategory] || "the list"} right now.`
       : this._renderDeterministicReadList({
           result: toolResult,
           listCategory,
           executionMode,
         });
+    const scopeContext = this._buildScopeContext({ requestContext, llmHistory });
+    const synthesisContext = this._buildSynthesisContext({
+      artifact: {
+        type: "chat",
+        entityType: LIST_CATEGORY_ENTITY_TYPE[listCategory] || null,
+        topRecord: listedRows[0] || null,
+        count: listedRows.length,
+        toolResult,
+      },
+      requestContext,
+      llmHistory,
+      primaryEntity:
+        listedRows[0] ||
+        (executionMode === "graph" ? toolResult?.root || null : null) ||
+        toolResult,
+      userMessage,
+    });
+    const groundedListMessage = this._buildGroundedDeterministicListResponse({
+      result: toolResult,
+      rows: listedRows,
+      listCategory,
+      executionMode,
+      toolInput: plan.toolInput,
+    });
+    const synthesizedMessage = groundedListMessage
+      ? groundedListMessage
+      : await this.synthesizeDeterministicRead(
+          deterministicEvidence,
+          userMessage,
+          scopeContext,
+          synthesisContext,
+        );
+    const finalMessage =
+      synthesizedMessage ||
+      this.buildHumanizedFallback(
+        "chat",
+        LIST_CATEGORY_ENTITY_TYPE[listCategory] || listCategory,
+        listedRows.length,
+        listedRows[0] || null,
+      );
 
     updateChatOrchestratorState(this.engine, requestContext, {
       activeState: state,
@@ -2149,7 +2485,11 @@ class ChatOrchestrator {
       type: "chat",
       message: finalMessage,
       deterministicRead: true,
+      groundedDeterministicMessage: Boolean(groundedListMessage),
       listCategory,
+      entityType: LIST_CATEGORY_ENTITY_TYPE[listCategory] || null,
+      count: listedRows.length,
+      topRecord: listedRows[0] || null,
     };
     this.helper._recordTranscript({
       requestContext,
@@ -3460,6 +3800,7 @@ class ChatOrchestrator {
           }
         : null,
     });
+    const compositeIntent = await detectCompositeIntent(effectiveUserMessage);
     if (shouldResumeOriginalIntent) {
       this._traceExecutionStep(requestContext, "context_resolution_resumed", {
         resumedFrom: continuationIntentSource,
@@ -3590,8 +3931,14 @@ class ChatOrchestrator {
         pendingClarification,
       });
       const finalMessage =
-        String(discoveredScope.suggestionArtifact.message || "").trim() ||
-        "I need one more detail to continue.";
+        (await this.finalizeResponse({
+          artifact: discoveredScope.suggestionArtifact,
+          userMessage: effectiveUserMessage,
+          intentMeta: compositeIntent,
+          scopeBlock: this._buildScopeContext({ requestContext, llmHistory }),
+          requestContext,
+          llmHistory,
+        })) || "I need one more detail to continue.";
       this.helper._recordTranscript({
         requestContext,
         userMessage,
@@ -3747,7 +4094,14 @@ class ChatOrchestrator {
         },
       });
       const finalMessage =
-        String(clarifyArtifact.message || "").trim() || "I need one more detail to continue.";
+        (await this.finalizeResponse({
+          artifact: clarifyArtifact,
+          userMessage: effectiveUserMessage,
+          intentMeta: compositeIntent,
+          scopeBlock: this._buildScopeContext({ requestContext, llmHistory }),
+          requestContext,
+          llmHistory,
+        })) || "I need one more detail to continue.";
       this.helper._recordTranscript({
         requestContext,
         userMessage,
@@ -3798,7 +4152,15 @@ class ChatOrchestrator {
           turnsRemaining: PENDING_CLARIFICATION_MAX_TURNS,
         },
       });
-      const finalMessage = String(clarifyArtifact.message || "").trim() || "I need one more detail to continue.";
+      const finalMessage =
+        (await this.finalizeResponse({
+          artifact: clarifyArtifact,
+          userMessage: effectiveUserMessage,
+          intentMeta: compositeIntent,
+          scopeBlock: this._buildScopeContext({ requestContext, llmHistory }),
+          requestContext,
+          llmHistory,
+        })) || "I need one more detail to continue.";
       this.engine?.ledger?.record?.({
         type: "artifact_composition_selected",
         sourceRoute: "/agent/chat",
@@ -4371,9 +4733,15 @@ class ChatOrchestrator {
             ? suggestionArtifact.suggestions.length
             : 0,
         });
-        const finalMessage = String(
-          suggestionArtifact?.message || "I found an existing record that may already match this matter.",
-        );
+        const finalMessage =
+          (await this.finalizeResponse({
+            artifact: suggestionArtifact,
+            userMessage: effectiveUserMessage,
+            intentMeta: compositeIntent,
+            scopeBlock: this._buildScopeContext({ requestContext, llmHistory }),
+            requestContext,
+            llmHistory,
+          })) || "I found an existing record that may already match this matter.";
         this.helper._recordTranscript({
           requestContext,
           userMessage: effectiveUserMessage,
@@ -4553,7 +4921,6 @@ class ChatOrchestrator {
       },
       globalSafeIntent,
     });
-    const compositeIntent = await detectCompositeIntent(effectiveUserMessage);
     const secondaries = compositeIntent.secondaries;
     if (globalSafeIntent) {
       const deterministicReadResult = await this._tryRunDeterministicReadList({
@@ -4578,11 +4945,33 @@ class ChatOrchestrator {
             reasonCode: readIntentPolicy.reasonCode || null,
           },
         });
-        const responderResult = await buildTurnResponse({
-          userMessage: effectiveUserMessage,
-          artifact: deterministicReadResult.outputArtifact,
-          context: { secondaries },
-        });
+        const shouldBypassResponder = Boolean(
+          deterministicReadResult.outputArtifact?.groundedDeterministicMessage,
+        );
+        const responderResult = shouldBypassResponder
+          ? {
+              finalMessage: String(deterministicReadResult.outputArtifact?.message || ""),
+              responseMode: "REPORT",
+            }
+          : await buildTurnResponse({
+              userMessage: effectiveUserMessage,
+              artifact: deterministicReadResult.outputArtifact,
+              context: {
+                secondaries,
+                intentMeta: compositeIntent,
+                scopeBlock: this._buildScopeContext({ requestContext, llmHistory }),
+                ...this._buildSynthesisContext({
+                  artifact: deterministicReadResult.outputArtifact,
+                  requestContext,
+                  llmHistory,
+                  intentMeta: compositeIntent,
+                  primaryEntity:
+                    deterministicReadResult.outputArtifact?.topRecord ||
+                    deterministicReadResult.outputArtifact,
+                  userMessage: effectiveUserMessage,
+                }),
+              },
+            });
         console.log("[AGENT_TURN]", JSON.stringify({
           intent: readIntent?.intent || null,
           artifactType: deterministicReadResult?.outputArtifact?.type || "chat",
@@ -4597,7 +4986,15 @@ class ChatOrchestrator {
             agentIntent: readIntent?.intent || "CHATBOT_AGENT_MODE",
             agentOutput: {
               type: deterministicReadResult.outputArtifact?.type || "chat",
-              message: responderResult.finalMessage || deterministicReadResult.message,
+              message:
+                responderResult.finalMessage ||
+                this.buildHumanizedFallback(
+                  deterministicReadResult.outputArtifact?.type || "chat",
+                  deterministicReadResult.outputArtifact?.entityType ||
+                    deterministicReadResult.outputArtifact?.listCategory,
+                  deterministicReadResult.outputArtifact?.count || 0,
+                  deterministicReadResult.outputArtifact?.topRecord || null,
+                ),
               posture: "ASSISTANT",
               toolCalls: 0,
             },
@@ -4621,7 +5018,18 @@ class ChatOrchestrator {
             });
           }
         }
-        return { ...deterministicReadResult, message: responderResult.finalMessage || deterministicReadResult.message };
+        return {
+          ...deterministicReadResult,
+          message:
+            responderResult.finalMessage ||
+            this.buildHumanizedFallback(
+              deterministicReadResult.outputArtifact?.type || "chat",
+              deterministicReadResult.outputArtifact?.entityType ||
+                deterministicReadResult.outputArtifact?.listCategory,
+              deterministicReadResult.outputArtifact?.count || 0,
+              deterministicReadResult.outputArtifact?.topRecord || null,
+            ),
+        };
       }
     }
 
@@ -4695,8 +5103,14 @@ class ChatOrchestrator {
         pendingClarification,
       });
       const finalMessage =
-        String(ambiguityResolution.suggestionArtifact.message || "").trim() ||
-        "I need one more detail to continue.";
+        (await this.finalizeResponse({
+          artifact: ambiguityResolution.suggestionArtifact,
+          userMessage: effectiveUserMessage,
+          intentMeta: compositeIntent,
+          scopeBlock: this._buildScopeContext({ requestContext, llmHistory }),
+          requestContext,
+          llmHistory,
+        })) || "I need one more detail to continue.";
       this.helper._recordTranscript({
         requestContext,
         userMessage,
@@ -4724,19 +5138,31 @@ class ChatOrchestrator {
       posture,
     });
     if (documentFallback) {
+      const refinedDocumentFallback =
+        (await this.finalizeResponse({
+          artifact: {
+            type: "chat",
+            message: documentFallback.message,
+          },
+          userMessage: effectiveUserMessage,
+          intentMeta: compositeIntent,
+          scopeBlock: this._buildScopeContext({ requestContext, llmHistory }),
+          requestContext,
+          llmHistory,
+        })) || documentFallback.message;
       this.helper._recordTranscript({
         requestContext,
         userMessage: effectiveUserMessage,
-        finalMessage: documentFallback.message,
+        finalMessage: refinedDocumentFallback,
         posture,
         toolExecutions: [],
       });
       return withStateOutput(
         {
-          message: documentFallback.message,
+          message: refinedDocumentFallback,
           outputArtifact: {
             type: "chat",
-            message: documentFallback.message,
+            message: refinedDocumentFallback,
           },
         },
         CHAT_STATES.FINAL,
@@ -4768,7 +5194,19 @@ class ChatOrchestrator {
       const responderResult = await buildTurnResponse({
         userMessage: effectiveUserMessage,
         artifact: deterministicReadResult.outputArtifact,
-        context: { secondaries },
+        context: {
+          secondaries,
+          intentMeta: compositeIntent,
+          scopeBlock: this._buildScopeContext({ requestContext, llmHistory }),
+          ...this._buildSynthesisContext({
+            artifact: deterministicReadResult.outputArtifact,
+            requestContext,
+            llmHistory,
+            intentMeta: compositeIntent,
+            primaryEntity: deterministicReadResult.outputArtifact?.topRecord || deterministicReadResult.outputArtifact,
+            userMessage: effectiveUserMessage,
+          }),
+        },
       });
       console.log("[AGENT_TURN]", JSON.stringify({
         intent: readIntent?.intent || queryIR?.intent?.name || null,
@@ -4784,7 +5222,15 @@ class ChatOrchestrator {
           agentIntent: readIntent?.intent || queryIR?.intent?.name || "CHATBOT_AGENT_MODE",
           agentOutput: {
             type: deterministicReadResult.outputArtifact?.type || "chat",
-            message: responderResult.finalMessage || deterministicReadResult.message,
+            message:
+              responderResult.finalMessage ||
+              this.buildHumanizedFallback(
+                deterministicReadResult.outputArtifact?.type || "chat",
+                deterministicReadResult.outputArtifact?.entityType ||
+                  deterministicReadResult.outputArtifact?.listCategory,
+                deterministicReadResult.outputArtifact?.count || 0,
+                deterministicReadResult.outputArtifact?.topRecord || null,
+              ),
             posture: "ASSISTANT",
             toolCalls: 0,
           },
@@ -4808,7 +5254,18 @@ class ChatOrchestrator {
           });
         }
       }
-      return { ...deterministicReadResult, message: responderResult.finalMessage || deterministicReadResult.message };
+      return {
+        ...deterministicReadResult,
+        message:
+          responderResult.finalMessage ||
+          this.buildHumanizedFallback(
+            deterministicReadResult.outputArtifact?.type || "chat",
+            deterministicReadResult.outputArtifact?.entityType ||
+              deterministicReadResult.outputArtifact?.listCategory,
+            deterministicReadResult.outputArtifact?.count || 0,
+            deterministicReadResult.outputArtifact?.topRecord || null,
+          ),
+      };
     }
 
     const stateForTools = state === CHAT_STATES.RETRIEVE ? CHAT_STATES.RETRIEVE : CHAT_STATES.PLAN_DRAFT;
@@ -5012,8 +5469,14 @@ class ChatOrchestrator {
           pendingClarification,
         });
         const finalClarifyMessage =
-          String(scopedDiscovery.suggestionArtifact.message || "").trim() ||
-          "I need one more detail to continue.";
+          (await this.finalizeResponse({
+            artifact: scopedDiscovery.suggestionArtifact,
+            userMessage: effectiveUserMessage,
+            intentMeta: compositeIntent,
+            scopeBlock: this._buildScopeContext({ requestContext, llmHistory }),
+            requestContext,
+            llmHistory,
+          })) || "I need one more detail to continue.";
         this.helper._recordTranscript({
           requestContext,
           userMessage,
@@ -5145,7 +5608,16 @@ class ChatOrchestrator {
           ...draftArtifactBase,
           ...(activeScope ? activeScope : {}),
         };
-        finalMessage = groundedContract.content;
+        finalMessage =
+          (await this.finalizeResponse({
+            artifact: outputArtifact,
+            userMessage: effectiveUserMessage,
+            intentMeta: compositeIntent,
+            scopeBlock: this._buildScopeContext({ requestContext, llmHistory }),
+            existingMessage: groundedContract.content,
+            requestContext,
+            llmHistory,
+          })) || groundedContract.content;
         this._traceExecutionStep(requestContext, "artifact_preview_pipeline_triggered", {
           outputType: "document",
           artifactType: outputArtifact?.type || null,
@@ -5211,9 +5683,15 @@ class ChatOrchestrator {
         const suggestionArtifact = buildContextSuggestionFromIdentityCollision(proposal, {
           originalMessage: effectiveUserMessage,
         });
-        finalMessage = String(
-          suggestionArtifact?.message || "I found an existing record that may already match this matter.",
-        );
+        finalMessage =
+          (await this.finalizeResponse({
+            artifact: suggestionArtifact,
+            userMessage: effectiveUserMessage,
+            intentMeta: compositeIntent,
+            scopeBlock: this._buildScopeContext({ requestContext, llmHistory }),
+            requestContext,
+            llmHistory,
+          })) || "I found an existing record that may already match this matter.";
         outputArtifact = suggestionArtifact;
       } else if (proposal?.type === "entity_creation_form") {
         finalMessage = "I need a few required identity fields before preparing this mutation.";
@@ -5340,7 +5818,23 @@ class ChatOrchestrator {
     const llmLoopResponder = await buildTurnResponse({
       userMessage: effectiveUserMessage,
       artifact: outputArtifact || { type: "chat", message: finalMessage },
-      context: { secondaries, existingMessage: finalMessage },
+      context: {
+        secondaries,
+        intentMeta: compositeIntent,
+        existingMessage: finalMessage,
+        scopeBlock: this._buildScopeContext({ requestContext, llmHistory }),
+        ...this._buildSynthesisContext({
+          artifact: outputArtifact || { type: "chat", message: finalMessage },
+          requestContext,
+          llmHistory,
+          intentMeta: compositeIntent,
+          primaryEntity: outputArtifact?.topRecord || outputArtifact?.root || outputArtifact || null,
+          userMessage: effectiveUserMessage,
+        }),
+        skipRefinement:
+          Boolean(outputArtifact) &&
+          ["proposal", "entity_creation_form"].includes(String(outputArtifact?.type || "").toLowerCase()),
+      },
     });
     const effectiveFinalMessage = llmLoopResponder.finalMessage || finalMessage;
     console.log("[AGENT_TURN]", JSON.stringify({

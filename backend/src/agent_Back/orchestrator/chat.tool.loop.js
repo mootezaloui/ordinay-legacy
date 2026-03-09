@@ -1,5 +1,7 @@
 "use strict";
 
+const { summarizeToolResult } = require("../tools/tool.summarizer");
+
 async function runChatToolLoop({
   helperService,
   messages,
@@ -37,6 +39,7 @@ async function runChatToolLoop({
 
     for (let index = 0; index < toolCalls.length; index += 1) {
       const call = toolCalls[index];
+      const toolName = String(call?.function?.name || "tool").trim() || "tool";
       const execution = await helperService._executeToolCall({
         call,
         policy,
@@ -45,10 +48,13 @@ async function runChatToolLoop({
         stepIndex: toolExecutions.length + index,
       });
       toolExecutions.push(execution);
+      const modelSummary = execution?.ok
+        ? summarizeToolResult(toolName, execution.result)
+        : `${toolName} failed: ${String(execution?.error?.message || "Tool execution failed.")}`;
       messages.push({
         role: "tool",
         tool_call_id: call?.id || `tool_${rounds}_${index}`,
-        content: JSON.stringify(execution.responseForModel),
+        content: modelSummary,
       });
     }
   }

@@ -57,6 +57,90 @@ const CONTEXT_SOURCES = Object.freeze({
   FOLLOW_UP: 'follow_up',
 });
 
+function _toCompactJson(value) {
+  if (!value || typeof value !== 'object') return '';
+  try {
+    return JSON.stringify(value);
+  } catch (_) {
+    return '';
+  }
+}
+
+function _buildEntityContextLines(historyContext = {}) {
+  const lines = [];
+  const activeScope = historyContext?.conversationScope?.activeScope || null;
+  const activeEntity = historyContext?.activeEntity || null;
+  const scopeCandidates = [activeScope, activeEntity].filter(Boolean);
+  const seen = new Set();
+  for (const entry of scopeCandidates) {
+    const entityType = String(entry?.entityType || entry?.type || '').trim();
+    const entityId = entry?.entityId ?? entry?.id ?? null;
+    if (!entityType || !entityId) continue;
+    const key = `${entityType}:${entityId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const label = `${entityType.charAt(0).toUpperCase()}${entityType.slice(1)}`;
+    const confidence =
+      entry?.confidence !== undefined && entry?.confidence !== null
+        ? `, confidence ${entry.confidence}`
+        : '';
+    lines.push(`${label}: ${entityId}${confidence}`);
+  }
+  const evidenceEntities = Array.isArray(historyContext?.evidenceRefs?.entities)
+    ? historyContext.evidenceRefs.entities.slice(0, 3)
+    : [];
+  for (const ref of evidenceEntities) {
+    const entityType = String(ref?.type || '').trim();
+    const entityId = ref?.id ?? null;
+    if (!entityType || !entityId) continue;
+    const key = `${entityType}:${entityId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const label = `${entityType.charAt(0).toUpperCase()}${entityType.slice(1)}`;
+    lines.push(`${label}: ${entityId}`);
+  }
+  return lines;
+}
+
+function buildScopeBlock(historyContext = {}) {
+  if (!historyContext || typeof historyContext !== 'object') return '';
+  const lines = ['--- ACTIVE CONTEXT ---'];
+  const entityLines = _buildEntityContextLines(historyContext);
+  if (entityLines.length > 0) {
+    lines.push(...entityLines);
+  }
+  if (historyContext.compactionSummary) {
+    lines.push(`Summary: ${String(historyContext.compactionSummary).slice(0, 240)}`);
+  }
+  const structured = historyContext.structuredSummary;
+  if (structured && typeof structured === 'object') {
+    const recentParts = [];
+    if (Array.isArray(structured.intents) && structured.intents.length > 0) {
+      recentParts.push(`intents ${structured.intents.slice(0, 4).join(', ')}`);
+    }
+    if (Array.isArray(structured.artifacts) && structured.artifacts.length > 0) {
+      recentParts.push(
+        `artifacts ${structured.artifacts
+          .slice(0, 3)
+          .map((artifact) => String(artifact?.type || 'unknown'))
+          .join(', ')}`,
+      );
+    }
+    if (recentParts.length > 0) {
+      lines.push(`Recent: ${recentParts.join(' | ')}`);
+    }
+  }
+  if (entityLines.length === 0 && !historyContext.compactionSummary && !structured) {
+    const fallback = _toCompactJson({
+      activeEntity: historyContext.activeEntity || null,
+      conversationScope: historyContext.conversationScope || null,
+    });
+    if (fallback) lines.push(`Summary: ${fallback.slice(0, 240)}`);
+  }
+  lines.push('----------------------');
+  return lines.join('\n');
+}
+
 function cloneWorkSnapshot(snapshot) {
   if (!snapshot || typeof snapshot !== 'object') return null;
   try {
@@ -535,3 +619,4 @@ module.exports = ConversationContextStore;
 module.exports.ACTION_TYPES = ACTION_TYPES;
 module.exports.CONTEXT_SOURCES = CONTEXT_SOURCES;
 module.exports.CONTEXT_TTL_MS = CONTEXT_TTL_MS;
+module.exports.buildScopeBlock = buildScopeBlock;
