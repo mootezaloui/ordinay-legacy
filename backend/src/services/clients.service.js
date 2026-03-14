@@ -35,6 +35,43 @@ function list() {
   }));
 }
 
+function listFiltered({ query = null, status = null, limit = 50 } = {}) {
+  const where = ["deleted_at IS NULL"];
+  const params = {
+    limit: Math.max(1, Math.min(200, Number(limit) || 50)),
+  };
+
+  if (status) {
+    where.push("LOWER(COALESCE(status, '')) = @status");
+    params.status = String(status).trim().toLowerCase();
+  }
+
+  if (query) {
+    where.push(
+      `(LOWER(COALESCE(name, '')) LIKE @query
+        OR LOWER(COALESCE(email, '')) LIKE @query
+        OR LOWER(COALESCE(phone, '')) LIKE @query
+        OR LOWER(COALESCE(alternate_phone, '')) LIKE @query
+        OR LOWER(COALESCE(company, '')) LIKE @query)`,
+    );
+    params.query = `%${String(query).trim().toLowerCase()}%`;
+  }
+
+  const clients = db
+    .prepare(
+      `SELECT * FROM ${table}
+       WHERE ${where.join(" AND ")}
+       ORDER BY LOWER(COALESCE(name, '')) ASC, id ASC
+       LIMIT @limit`,
+    )
+    .all(params);
+
+  return clients.map((client) => ({
+    ...client,
+    notes: notesService.getNotesForEntity("client", client.id),
+  }));
+}
+
 function findClientsWithOverdueInvoices(limit = 5, { clientId = null } = {}) {
   const params = {
     limit: Math.max(1, Number(limit) || 5),
@@ -482,6 +519,7 @@ function remove(id) {
 
 module.exports = {
   list,
+  listFiltered,
   findClientsWithOverdueInvoices,
   get,
   create,

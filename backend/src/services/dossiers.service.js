@@ -49,6 +49,80 @@ function list() {
   }));
 }
 
+function listByClient(clientId) {
+  if (!Number.isInteger(Number(clientId))) {
+    return [];
+  }
+
+  const dossiers = db
+    .prepare(
+      `SELECT * FROM ${table} WHERE client_id = @clientId AND deleted_at IS NULL ORDER BY id ASC`,
+    )
+    .all({ clientId: Number(clientId) });
+
+  return dossiers.map((dossier) => ({
+    ...dossier,
+    notes: notesService.getNotesForEntity("dossier", dossier.id),
+  }));
+}
+
+function getByReference(reference) {
+  const normalized = String(reference || "").trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+
+  const dossier = db
+    .prepare(
+      `SELECT * FROM ${table} WHERE LOWER(reference) = @reference AND deleted_at IS NULL LIMIT 1`,
+    )
+    .get({ reference: normalized });
+
+  if (!dossier) return null;
+  return {
+    ...dossier,
+    notes: notesService.getNotesForEntity("dossier", dossier.id),
+  };
+}
+
+function listFiltered({ query = null, status = null, clientId = null, limit = 50 } = {}) {
+  const where = ["deleted_at IS NULL"];
+  const params = {
+    limit: Math.max(1, Math.min(200, Number(limit) || 50)),
+  };
+
+  if (Number.isInteger(Number(clientId)) && Number(clientId) > 0) {
+    where.push("client_id = @clientId");
+    params.clientId = Number(clientId);
+  }
+
+  if (status) {
+    where.push("LOWER(COALESCE(status, '')) = @status");
+    params.status = String(status).trim().toLowerCase();
+  }
+
+  if (query) {
+    where.push(
+      "(LOWER(COALESCE(reference, '')) LIKE @query OR LOWER(COALESCE(title, '')) LIKE @query)",
+    );
+    params.query = `%${String(query).trim().toLowerCase()}%`;
+  }
+
+  const dossiers = db
+    .prepare(
+      `SELECT * FROM ${table}
+       WHERE ${where.join(" AND ")}
+       ORDER BY COALESCE(updated_at, created_at) DESC, id DESC
+       LIMIT @limit`,
+    )
+    .all(params);
+
+  return dossiers.map((dossier) => ({
+    ...dossier,
+    notes: notesService.getNotesForEntity("dossier", dossier.id),
+  }));
+}
+
 function get(id) {
   const dossier = db
     .prepare(`SELECT * FROM ${table} WHERE id = @id AND deleted_at IS NULL`)
@@ -387,6 +461,9 @@ function remove(id) {
 
 module.exports = {
   list,
+  listByClient,
+  listFiltered,
+  getByReference,
   get,
   create,
   update,

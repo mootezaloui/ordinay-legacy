@@ -135,6 +135,58 @@ function list() {
   return db.prepare(`SELECT * FROM ${table} WHERE deleted_at IS NULL`).all();
 }
 
+function listFiltered({
+  status = null,
+  severity = null,
+  entityType = null,
+  entityId = null,
+  query = null,
+  limit = 50,
+} = {}) {
+  const where = ["deleted_at IS NULL"];
+  const params = {
+    limit: Math.max(1, Math.min(200, Number(limit) || 50)),
+  };
+
+  if (entityType) {
+    where.push("LOWER(COALESCE(entity_type, '')) = @entityType");
+    params.entityType = String(entityType).trim().toLowerCase();
+  }
+
+  if (Number.isInteger(Number(entityId)) && Number(entityId) > 0) {
+    where.push("entity_id = @entityId");
+    params.entityId = Number(entityId);
+  }
+
+  if (status) {
+    where.push("LOWER(COALESCE(status, '')) = @status");
+    params.status = String(status).trim().toLowerCase();
+  }
+
+  if (severity) {
+    where.push("LOWER(COALESCE(severity, '')) = @severity");
+    params.severity = String(severity).trim().toLowerCase();
+  }
+
+  if (query) {
+    where.push(
+      `(LOWER(COALESCE(type, '')) LIKE @query
+        OR LOWER(COALESCE(sub_type, '')) LIKE @query
+        OR LOWER(COALESCE(template_key, '')) LIKE @query)`,
+    );
+    params.query = `%${String(query).trim().toLowerCase()}%`;
+  }
+
+  return db
+    .prepare(
+      `SELECT * FROM ${table}
+       WHERE ${where.join(" AND ")}
+       ORDER BY COALESCE(created_at, updated_at) DESC, id DESC
+       LIMIT @limit`,
+    )
+    .all(params);
+}
+
 function count() {
   const row = db
     .prepare(`SELECT COUNT(*) as count FROM ${table} WHERE deleted_at IS NULL`)
@@ -331,6 +383,7 @@ function clearAll(entity_type, entity_id, user_id = 1) {
 
 module.exports = {
   list,
+  listFiltered,
   count,
   get,
   create,

@@ -23,6 +23,42 @@ function list() {
   }));
 }
 
+function listFiltered({ query = null, status = null, priority = null, limit = 50 } = {}) {
+  const where = ["deleted_at IS NULL"];
+  const params = {
+    limit: Math.max(1, Math.min(200, Number(limit) || 50)),
+  };
+
+  if (status) {
+    where.push("LOWER(COALESCE(status, '')) = @status");
+    params.status = String(status).trim().toLowerCase();
+  }
+
+  if (priority) {
+    where.push("LOWER(COALESCE(priority, '')) = @priority");
+    params.priority = String(priority).trim().toLowerCase();
+  }
+
+  if (query) {
+    where.push("LOWER(COALESCE(title, '')) LIKE @query");
+    params.query = `%${String(query).trim().toLowerCase()}%`;
+  }
+
+  const tasks = db
+    .prepare(
+      `SELECT * FROM ${table}
+       WHERE ${where.join(" AND ")}
+       ORDER BY COALESCE(due_date, created_at) DESC, id DESC
+       LIMIT @limit`,
+    )
+    .all(params);
+
+  return tasks.map((task) => ({
+    ...task,
+    notes: notesService.getNotesForEntity("personal_task", task.id),
+  }));
+}
+
 function get(id) {
   const task = db
     .prepare(`SELECT * FROM ${table} WHERE id = @id AND deleted_at IS NULL`)
@@ -126,6 +162,7 @@ function remove(id) {
 
 module.exports = {
   list,
+  listFiltered,
   get,
   create,
   update,

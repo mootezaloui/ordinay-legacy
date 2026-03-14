@@ -1,0 +1,144 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "root": { "$ref": "#/definitions/graphNode" },
+    "parents": {
+      "type": "object",
+      "properties": {
+        "client": { "anyOf": [{ "$ref": "#/definitions/graphNode" }, { "type": "null" }] },
+        "dossier": { "anyOf": [{ "$ref": "#/definitions/graphNode" }, { "type": "null" }] },
+        "lawsuit": { "anyOf": [{ "$ref": "#/definitions/graphNode" }, { "type": "null" }] },
+        "task": { "anyOf": [{ "$ref": "#/definitions/graphNode" }, { "type": "null" }] },
+        "mission": { "anyOf": [{ "$ref": "#/definitions/graphNode" }, { "type": "null" }] },
+        "session": { "anyOf": [{ "$ref": "#/definitions/graphNode" }, { "type": "null" }] }
+      },
+      "additionalProperties": false
+    },
+    "children": {
+      "type": "object",
+      "properties": {
+        "dossiers": { "type": "array", "items": { "$ref": "#/definitions/graphNode" } },
+        "lawsuits": { "type": "array", "items": { "$ref": "#/definitions/graphNode" } },
+        "tasks": { "type": "array", "items": { "$ref": "#/definitions/graphNode" } },
+        "missions": { "type": "array", "items": { "$ref": "#/definitions/graphNode" } },
+        "sessions": { "type": "array", "items": { "$ref": "#/definitions/graphNode" } },
+        "documents": { "type": "array", "items": { "$ref": "#/definitions/graphNode" } }
+      },
+      "additionalProperties": false
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "totalDossiers": { "type": "integer", "minimum": 0 },
+        "totalLawsuits": { "type": "integer", "minimum": 0 },
+        "totalTasks": { "type": "integer", "minimum": 0 },
+        "totalMissions": { "type": "integer", "minimum": 0 },
+        "totalSessions": { "type": "integer", "minimum": 0 },
+        "totalDocuments": { "type": "integer", "minimum": 0 },
+        "overdueDeadlines": { "type": "integer", "minimum": 0 },
+        "upcomingWithin7Days": { "type": "integer", "minimum": 0 },
+        "upcomingWithin30Days": { "type": "integer", "minimum": 0 },
+        "openTasks": { "type": "integer", "minimum": 0 },
+        "urgentTasks": { "type": "integer", "minimum": 0 },
+        "activeLawsuits": { "type": "integer", "minimum": 0 },
+        "completedTasks": { "type": "integer", "minimum": 0 },
+        "latestActivity": { "type": ["string", "null"], "format": "date-time" },
+        "earliestUpcoming": { "type": ["string", "null"], "format": "date-time" }
+      },
+      "required": [
+        "totalDossiers",
+        "totalLawsuits",
+        "totalTasks",
+        "totalMissions",
+        "totalSessions",
+        "totalDocuments",
+        "overdueDeadlines",
+        "upcomingWithin7Days",
+        "upcomingWithin30Days",
+        "openTasks",
+        "urgentTasks",
+        "activeLawsuits",
+        "completedTasks",
+        "latestActivity",
+        "earliestUpcoming"
+      ],
+      "additionalProperties": false
+    },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "rootType": {
+          "type": "string",
+          "enum": ["client", "dossier", "lawsuit", "task", "mission", "session", "document"]
+        },
+        "rootId": { "type": "integer", "minimum": 1 },
+        "depth": { "type": "integer", "enum": [1, 2] },
+        "direction": { "type": "string", "enum": ["up", "down", "both"] },
+        "includedCategories": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["dossiers", "lawsuits", "tasks", "missions", "sessions", "documents"]
+          },
+          "uniqueItems": true
+        },
+        "truncated": { "type": "boolean" },
+        "totalBeforeCap": { "type": "integer", "minimum": 0 }
+      },
+      "required": [
+        "rootType",
+        "rootId",
+        "depth",
+        "direction",
+        "includedCategories",
+        "truncated",
+        "totalBeforeCap"
+      ],
+      "additionalProperties": false
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": ["root", "parents", "children", "metrics", "generatedAt", "meta"],
+  "additionalProperties": false,
+  "definitions": {
+    "graphNode": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["client", "dossier", "lawsuit", "task", "mission", "session", "document"]
+        },
+        "id": { "type": "integer", "minimum": 1 },
+        "name": { "type": ["string", "null"] },
+        "title": { "type": ["string", "null"] },
+        "status": { "type": ["string", "null"] },
+        "priority": { "type": ["string", "null"] },
+        "keyDates": {
+          "type": "object",
+          "properties": {
+            "nextUpcoming": { "type": ["string", "null"], "format": "date-time" },
+            "createdAt": { "type": ["string", "null"], "format": "date-time" },
+            "updatedAt": { "type": ["string", "null"], "format": "date-time" }
+          },
+          "required": ["nextUpcoming", "createdAt", "updatedAt"],
+          "additionalProperties": false
+        },
+        "flags": {
+          "type": "object",
+          "properties": {
+            "isUrgent": { "type": "boolean" },
+            "isOverdue": { "type": "boolean" }
+          },
+          "required": ["isUrgent", "isOverdue"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["type", "id", "name", "title", "status", "priority", "keyDates", "flags"],
+      "additionalProperties": false
+    }
+  }
+}

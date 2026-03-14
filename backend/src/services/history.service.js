@@ -55,6 +55,44 @@ function count(filters = {}) {
   return row?.count || 0;
 }
 
+function listFiltered({
+  entityType = null,
+  entityId = null,
+  query = null,
+  limit = 50,
+} = {}) {
+  const where = ["deleted_at IS NULL"];
+  const params = {
+    limit: Math.max(1, Math.min(200, Number(limit) || 50)),
+  };
+
+  if (entityType) {
+    where.push("entity_type = @entityType");
+    params.entityType = normalizeEntityType(entityType);
+  }
+  if (Number.isInteger(Number(entityId)) && Number(entityId) > 0) {
+    where.push("entity_id = @entityId");
+    params.entityId = Number(entityId);
+  }
+  if (query) {
+    where.push(
+      "(LOWER(COALESCE(action, '')) LIKE @query OR LOWER(COALESCE(description, '')) LIKE @query)",
+    );
+    params.query = `%${String(query).trim().toLowerCase()}%`;
+  }
+
+  const events = db
+    .prepare(
+      `SELECT * FROM ${table}
+       WHERE ${where.join(" AND ")}
+       ORDER BY created_at DESC, id DESC
+       LIMIT @limit`,
+    )
+    .all(params);
+
+  return events.map(parseChangedFields);
+}
+
 function buildWhereClause(filters = {}) {
   const where = ["deleted_at IS NULL"];
   const params = {};
@@ -171,6 +209,7 @@ list = function (filters = {}) {
 
 module.exports = {
   list,
+  listFiltered,
   count,
   get,
   create,

@@ -407,12 +407,75 @@ function list(filters = {}) {
   return db.prepare(sql).all(params).map(decorateDocument);
 }
 
+function listFiltered({
+  query = null,
+  textStatus = null,
+  limit = 50,
+  ...filters
+} = {}) {
+  let sql = `SELECT * FROM ${table} WHERE deleted_at IS NULL`;
+  const params = {
+    limit: Math.max(1, Math.min(200, Number(limit) || 50)),
+  };
+
+  sql = appendEntityFilters(sql, params, filters);
+
+  if (textStatus) {
+    sql += ` AND LOWER(COALESCE(text_status, '')) = @textStatus`;
+    params.textStatus = String(textStatus).trim().toLowerCase();
+  }
+
+  if (query) {
+    sql += ` AND (
+      LOWER(COALESCE(title, '')) LIKE @query
+      OR LOWER(COALESCE(original_filename, '')) LIKE @query
+      OR LOWER(COALESCE(notes, '')) LIKE @query
+    )`;
+    params.query = `%${String(query).trim().toLowerCase()}%`;
+  }
+
+  sql += ` ORDER BY COALESCE(uploaded_at, created_at) DESC, id DESC LIMIT @limit`;
+
+  return db.prepare(sql).all(params).map(decorateDocument);
+}
+
 function count(filters = {}) {
   let sql = `SELECT COUNT(*) as count FROM ${table} WHERE deleted_at IS NULL`;
   const params = {};
   sql = appendEntityFilters(sql, params, filters);
   const row = db.prepare(sql).get(params);
   return row?.count || 0;
+}
+
+function listByClient(clientId) {
+  return listByScope("client_id", clientId);
+}
+
+function listByDossier(dossierId) {
+  return listByScope("dossier_id", dossierId);
+}
+
+function listByLawsuit(lawsuitId) {
+  return listByScope("lawsuit_id", lawsuitId);
+}
+
+function listByTask(taskId) {
+  return listByScope("task_id", taskId);
+}
+
+function listByMission(missionId) {
+  return listByScope("mission_id", missionId);
+}
+
+function listBySession(sessionId) {
+  return listByScope("session_id", sessionId);
+}
+
+function listByScope(column, id) {
+  if (!Number.isInteger(Number(id))) {
+    return [];
+  }
+  return list({ [column]: Number(id) });
 }
 
 function appendEntityFilters(sql, params, filters = {}) {
@@ -577,7 +640,14 @@ module.exports = {
   listMetadataByEntity,
   listTextsByIds,
   list,
+  listFiltered,
   count,
+  listByClient,
+  listByDossier,
+  listByLawsuit,
+  listByTask,
+  listByMission,
+  listBySession,
   get,
   create,
   update,

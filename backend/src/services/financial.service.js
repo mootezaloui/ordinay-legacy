@@ -105,6 +105,100 @@ function list(includeDeleted = false) {
   }));
 }
 
+function listFiltered({
+  query = null,
+  status = null,
+  direction = null,
+  scope = null,
+  paymentStatus = null,
+  clientId = null,
+  dossierId = null,
+  lawsuitId = null,
+  missionId = null,
+  taskId = null,
+  personalTaskId = null,
+  limit = 50,
+} = {}) {
+  const where = ["deleted_at IS NULL"];
+  const params = {
+    limit: Math.max(1, Math.min(200, Number(limit) || 50)),
+  };
+
+  if (Number.isInteger(Number(clientId)) && Number(clientId) > 0) {
+    where.push("client_id = @clientId");
+    params.clientId = Number(clientId);
+  }
+  if (Number.isInteger(Number(dossierId)) && Number(dossierId) > 0) {
+    where.push("dossier_id = @dossierId");
+    params.dossierId = Number(dossierId);
+  }
+  if (Number.isInteger(Number(lawsuitId)) && Number(lawsuitId) > 0) {
+    where.push("lawsuit_id = @lawsuitId");
+    params.lawsuitId = Number(lawsuitId);
+  }
+  if (Number.isInteger(Number(missionId)) && Number(missionId) > 0) {
+    where.push("mission_id = @missionId");
+    params.missionId = Number(missionId);
+  }
+  if (Number.isInteger(Number(taskId)) && Number(taskId) > 0) {
+    where.push("task_id = @taskId");
+    params.taskId = Number(taskId);
+  }
+  if (Number.isInteger(Number(personalTaskId)) && Number(personalTaskId) > 0) {
+    where.push("personal_task_id = @personalTaskId");
+    params.personalTaskId = Number(personalTaskId);
+  }
+
+  if (status) {
+    where.push("LOWER(COALESCE(status, '')) = @status");
+    params.status = String(status).trim().toLowerCase();
+  }
+  if (direction) {
+    where.push("LOWER(COALESCE(direction, '')) = @direction");
+    params.direction = String(direction).trim().toLowerCase();
+  }
+  if (scope) {
+    where.push("LOWER(COALESCE(scope, '')) = @scope");
+    params.scope = String(scope).trim().toLowerCase();
+  }
+
+  const normalizedPaymentStatus = String(paymentStatus || "").trim().toLowerCase();
+  if (normalizedPaymentStatus === "paid") {
+    where.push("paid_at IS NOT NULL");
+  } else if (normalizedPaymentStatus === "unpaid") {
+    where.push("paid_at IS NULL");
+    where.push("LOWER(COALESCE(status, '')) NOT IN ('cancelled', 'void')");
+  } else if (normalizedPaymentStatus === "overdue") {
+    where.push("due_date IS NOT NULL");
+    where.push("DATETIME(due_date) < DATETIME('now')");
+    where.push("paid_at IS NULL");
+    where.push("LOWER(COALESCE(status, '')) NOT IN ('cancelled', 'void')");
+  }
+
+  if (query) {
+    where.push(
+      `(LOWER(COALESCE(title, '')) LIKE @query
+        OR LOWER(COALESCE(reference, '')) LIKE @query
+        OR LOWER(COALESCE(entry_type, '')) LIKE @query)`,
+    );
+    params.query = `%${String(query).trim().toLowerCase()}%`;
+  }
+
+  const entries = db
+    .prepare(
+      `SELECT * FROM ${table}
+       WHERE ${where.join(" AND ")}
+       ORDER BY COALESCE(occurred_at, created_at) DESC, id DESC
+       LIMIT @limit`,
+    )
+    .all(params);
+
+  return entries.map((entry) => ({
+    ...entry,
+    notes: notesService.getNotesForEntity("financial_entry", entry.id),
+  }));
+}
+
 /**
  * List entries for balance calculations (excludes cancelled entries)
  * @param {object} filters - Optional filters { clientId, dossierId, lawsuitId, direction }
@@ -655,6 +749,7 @@ function checkParentDeletionAllowed(parentType, parentId) {
 
 module.exports = {
   list,
+  listFiltered,
   listForBalance,
   get,
   getIncludeDeleted,

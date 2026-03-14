@@ -1,0 +1,24 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ordinay-agent-v2
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      API_PREFIX: /api
+      DB_FILE: /data/ordinay.db
+      FEATURE_AGENT_V2_STREAM: "true"
+      AGENT_DEPLOYMENT_ALLOW_PUBLIC_BIND: "true"
+      HOST: 0.0.0.0
+    volumes:
+      - agent_v2_data:/data
+    restart: unless-stopped
+    mem_limit: 1g
+    cpus: 1.0
+
+volumes:
+  agent_v2_data:

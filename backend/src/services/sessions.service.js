@@ -76,6 +76,104 @@ function list() {
   }));
 }
 
+function listByDossier(dossierId) {
+  if (!Number.isInteger(Number(dossierId))) {
+    return [];
+  }
+
+  const sessions = db
+    .prepare(
+      `SELECT * FROM ${table} WHERE dossier_id = @dossierId AND deleted_at IS NULL ORDER BY id ASC`,
+    )
+    .all({ dossierId: Number(dossierId) });
+
+  return sessions.map((session) => ({
+    ...session,
+    notes: notesService.getNotesForEntity("session", session.id),
+    participants: parseParticipants(session.participants),
+  }));
+}
+
+function listByLawsuit(lawsuitId) {
+  if (!Number.isInteger(Number(lawsuitId))) {
+    return [];
+  }
+
+  const sessions = db
+    .prepare(
+      `SELECT * FROM ${table} WHERE lawsuit_id = @lawsuitId AND deleted_at IS NULL ORDER BY id ASC`,
+    )
+    .all({ lawsuitId: Number(lawsuitId) });
+
+  return sessions.map((session) => ({
+    ...session,
+    notes: notesService.getNotesForEntity("session", session.id),
+    participants: parseParticipants(session.participants),
+  }));
+}
+
+function listFiltered({
+  query = null,
+  status = null,
+  dossierId = null,
+  lawsuitId = null,
+  timeframe = null,
+  limit = 50,
+} = {}) {
+  const where = ["deleted_at IS NULL"];
+  const params = {
+    limit: Math.max(1, Math.min(200, Number(limit) || 50)),
+  };
+
+  if (Number.isInteger(Number(dossierId)) && Number(dossierId) > 0) {
+    where.push("dossier_id = @dossierId");
+    params.dossierId = Number(dossierId);
+  }
+
+  if (Number.isInteger(Number(lawsuitId)) && Number(lawsuitId) > 0) {
+    where.push("lawsuit_id = @lawsuitId");
+    params.lawsuitId = Number(lawsuitId);
+  }
+
+  if (status) {
+    where.push("LOWER(COALESCE(status, '')) = @status");
+    params.status = String(status).trim().toLowerCase();
+  }
+
+  if (query) {
+    where.push(
+      "(LOWER(COALESCE(title, '')) LIKE @query OR LOWER(COALESCE(session_type, '')) LIKE @query)",
+    );
+    params.query = `%${String(query).trim().toLowerCase()}%`;
+  }
+
+  const normalizedTimeframe = String(timeframe || "").trim().toLowerCase();
+  if (normalizedTimeframe === "today") {
+    where.push("scheduled_at IS NOT NULL AND DATE(scheduled_at) = DATE('now')");
+  } else if (normalizedTimeframe === "this-week") {
+    where.push(
+      "scheduled_at IS NOT NULL AND DATETIME(scheduled_at) >= DATETIME('now') AND DATETIME(scheduled_at) <= DATETIME('now', '+7 days')",
+    );
+  } else if (normalizedTimeframe === "upcoming") {
+    where.push("scheduled_at IS NOT NULL AND DATETIME(scheduled_at) >= DATETIME('now')");
+  }
+
+  const sessions = db
+    .prepare(
+      `SELECT * FROM ${table}
+       WHERE ${where.join(" AND ")}
+       ORDER BY COALESCE(scheduled_at, created_at) DESC, id DESC
+       LIMIT @limit`,
+    )
+    .all(params);
+
+  return sessions.map((session) => ({
+    ...session,
+    notes: notesService.getNotesForEntity("session", session.id),
+    participants: parseParticipants(session.participants),
+  }));
+}
+
 function get(id) {
   const session = db
     .prepare(`SELECT * FROM ${table} WHERE id = @id AND deleted_at IS NULL`)
@@ -231,6 +329,9 @@ function remove(id) {
 
 module.exports = {
   list,
+  listByDossier,
+  listByLawsuit,
+  listFiltered,
   get,
   create,
   update,

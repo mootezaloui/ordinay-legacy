@@ -1,4 +1,5 @@
 const express = require("express");
+const path = require("node:path");
 
 const clientsRouter = require("./clients.routes");
 const dossiersRouter = require("./dossiers.routes");
@@ -19,11 +20,16 @@ const profileRouter = require("./profile.routes");
 const dashboardRouter = require("./dashboard.routes");
 const importsRouter = require("./imports.routes");
 const agentDocumentsRouter = require("./agentDocuments.routes");
-const { FEATURE_AI_AGENT } = require("../config/features");
+const { FEATURE_AI_AGENT, FEATURE_AGENT_V2_STREAM } = require("../config/features");
 
 let agentRouter = null;
 if (FEATURE_AI_AGENT) {
   agentRouter = require("../agent_Back/agent.router");
+}
+
+let agentV2Router = null;
+if (FEATURE_AGENT_V2_STREAM) {
+  agentV2Router = loadAgentV2Router();
 }
 
 const https = require("https");
@@ -49,6 +55,9 @@ router.use("/profile", profileRouter);
 router.use("/dashboard", dashboardRouter);
 router.use("/imports", importsRouter);
 router.use("/agent/sessions/:sessionId/documents", agentDocumentsRouter);
+if (agentRouter) {
+  router.use("/", agentRouter);
+}
 
 router.get("/ping", (_req, res) => {
   const probe = https.request(
@@ -60,8 +69,52 @@ router.get("/ping", (_req, res) => {
   probe.end();
 });
 
-if (agentRouter) {
-  router.use("/", agentRouter);
+if (agentV2Router) {
+  router.use("/", agentV2Router);
+}
+
+function loadAgentV2Router() {
+  const reasonPrefix = "Agent v2 route enabled but runtime is unavailable";
+
+  try {
+    const transportModulePath = path.resolve(
+      __dirname,
+      "../../.agent-build/agent/transport",
+    );
+    const transport = require(transportModulePath);
+    const { createAgentV2Router } = require("./agent.v2.routes");
+
+    if (
+      typeof transport.createAgentV2Runtime !== "function" ||
+      typeof transport.createAgentV2StreamHandler !== "function"
+    ) {
+      throw new Error("Transport factory exports are missing.");
+    }
+
+    const runtime = transport.createAgentV2Runtime();
+    return createAgentV2Router({
+      runtime,
+      createHandler: transport.createAgentV2StreamHandler,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error && error.message.trim().length > 0
+        ? error.message
+        : "Unknown transport loading failure.";
+    console.warn(`[agent.v2] ${reasonPrefix}: ${message}`);
+    return createAgentV2FallbackRouter(`${reasonPrefix}: ${message}`);
+  }
+}
+
+function createAgentV2FallbackRouter(message) {
+  const router = express.Router();
+  router.post("/agent/v2/stream", (_req, res) => {
+    res.status(503).json({
+      error: "AGENT_V2_UNAVAILABLE",
+      message,
+    });
+  });
+  return router;
 }
 
 module.exports = router;

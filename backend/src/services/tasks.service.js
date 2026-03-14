@@ -39,6 +39,103 @@ function list() {
   }));
 }
 
+function listByDossier(dossierId) {
+  if (!Number.isInteger(Number(dossierId))) {
+    return [];
+  }
+
+  const tasks = db
+    .prepare(
+      `SELECT * FROM ${table} WHERE dossier_id = @dossierId AND deleted_at IS NULL ORDER BY id ASC`,
+    )
+    .all({ dossierId: Number(dossierId) });
+
+  return tasks.map((task) => ({
+    ...task,
+    notes: notesService.getNotesForEntity('task', task.id),
+  }));
+}
+
+function listByLawsuit(lawsuitId) {
+  if (!Number.isInteger(Number(lawsuitId))) {
+    return [];
+  }
+
+  const tasks = db
+    .prepare(
+      `SELECT * FROM ${table} WHERE lawsuit_id = @lawsuitId AND deleted_at IS NULL ORDER BY id ASC`,
+    )
+    .all({ lawsuitId: Number(lawsuitId) });
+
+  return tasks.map((task) => ({
+    ...task,
+    notes: notesService.getNotesForEntity('task', task.id),
+  }));
+}
+
+function listFiltered({
+  dossierId = null,
+  lawsuitId = null,
+  status = null,
+  priority = null,
+  query = null,
+  limit = 50,
+} = {}) {
+  const where = ["deleted_at IS NULL"];
+  const params = {
+    limit: Math.max(1, Math.min(100, Number(limit) || 50)),
+  };
+
+  if (Number.isInteger(Number(dossierId)) && Number(dossierId) > 0) {
+    where.push("dossier_id = @dossierId");
+    params.dossierId = Number(dossierId);
+  }
+
+  if (Number.isInteger(Number(lawsuitId)) && Number(lawsuitId) > 0) {
+    where.push("lawsuit_id = @lawsuitId");
+    params.lawsuitId = Number(lawsuitId);
+  }
+
+  if (status) {
+    where.push("LOWER(COALESCE(status, '')) = @status");
+    params.status = String(status).trim().toLowerCase();
+  }
+
+  if (priority) {
+    where.push("LOWER(COALESCE(priority, '')) = @priority");
+    params.priority = String(priority).trim().toLowerCase();
+  }
+
+  if (query) {
+    where.push("LOWER(COALESCE(title, '')) LIKE @query");
+    params.query = `%${String(query).trim().toLowerCase()}%`;
+  }
+
+  const tasks = db
+    .prepare(
+      `SELECT * FROM ${table}
+       WHERE ${where.join(" AND ")}
+       ORDER BY
+         CASE LOWER(COALESCE(priority, ''))
+           WHEN 'urgent' THEN 4
+           WHEN 'high' THEN 3
+           WHEN 'medium' THEN 2
+           WHEN 'low' THEN 1
+           ELSE 0
+         END DESC,
+         CASE WHEN due_date IS NULL THEN 1 ELSE 0 END ASC,
+         due_date ASC,
+         COALESCE(updated_at, created_at) DESC
+       LIMIT @limit`,
+    )
+    .all(params);
+
+  return tasks.map((task) => ({
+    ...task,
+    notes: notesService.getNotesForEntity("task", task.id),
+  }));
+}
+
 function get(id) {
   const task = db
     .prepare(`SELECT * FROM ${table} WHERE id = @id AND deleted_at IS NULL`)
@@ -206,6 +303,9 @@ function remove(id) {
 
 module.exports = {
   list,
+  listByDossier,
+  listByLawsuit,
+  listFiltered,
   get,
   create,
   update,

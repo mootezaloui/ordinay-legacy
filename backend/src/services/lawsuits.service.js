@@ -77,6 +77,63 @@ function list() {
   }));
 }
 
+function listByDossier(dossierId) {
+  if (!Number.isInteger(Number(dossierId))) {
+    return [];
+  }
+
+  const lawsuits = db
+    .prepare(
+      `SELECT * FROM ${table} WHERE dossier_id = @dossierId AND deleted_at IS NULL ORDER BY id ASC`,
+    )
+    .all({ dossierId: Number(dossierId) });
+
+  return lawsuits.map((lawsuit) => ({
+    ...lawsuit,
+    notes: notesService.getNotesForEntity("lawsuit", lawsuit.id),
+  }));
+}
+
+function listFiltered({ query = null, status = null, dossierId = null, limit = 50 } = {}) {
+  const where = ["deleted_at IS NULL"];
+  const params = {
+    limit: Math.max(1, Math.min(200, Number(limit) || 50)),
+  };
+
+  if (Number.isInteger(Number(dossierId)) && Number(dossierId) > 0) {
+    where.push("dossier_id = @dossierId");
+    params.dossierId = Number(dossierId);
+  }
+
+  if (status) {
+    where.push("LOWER(COALESCE(status, '')) = @status");
+    params.status = String(status).trim().toLowerCase();
+  }
+
+  if (query) {
+    where.push(
+      `(LOWER(COALESCE(reference, '')) LIKE @query
+        OR LOWER(COALESCE(lawsuit_number, '')) LIKE @query
+        OR LOWER(COALESCE(title, '')) LIKE @query)`,
+    );
+    params.query = `%${String(query).trim().toLowerCase()}%`;
+  }
+
+  const lawsuits = db
+    .prepare(
+      `SELECT * FROM ${table}
+       WHERE ${where.join(" AND ")}
+       ORDER BY COALESCE(updated_at, created_at) DESC, id DESC
+       LIMIT @limit`,
+    )
+    .all(params);
+
+  return lawsuits.map((lawsuit) => ({
+    ...lawsuit,
+    notes: notesService.getNotesForEntity("lawsuit", lawsuit.id),
+  }));
+}
+
 function get(id) {
   const lawsuitData = db
     .prepare(`SELECT * FROM ${table} WHERE id = @id AND deleted_at IS NULL`)
@@ -275,6 +332,8 @@ function remove(id) {
 
 module.exports = {
   list,
+  listByDossier,
+  listFiltered,
   get,
   create,
   update,
