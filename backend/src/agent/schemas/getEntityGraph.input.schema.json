@@ -12,7 +12,7 @@
     },
     "depth": {
       "type": "integer",
-      "enum": [1, 2],
+      "minimum": 1,
       "default": 1
     },
     "direction": {

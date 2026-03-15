@@ -9,6 +9,18 @@
 
 const tasksService = require('../../../services/tasks.service');
 const TOOL_CATEGORIES = { READ: 'READ' };
+const ALLOWED_STATUS_VALUES = new Set([
+  'todo',
+  'in_progress',
+  'blocked',
+  'done',
+  'cancelled',
+  'open',
+  'closed',
+  'active',
+  'archived',
+  'pending',
+]);
 
 const inputSchema = {
   type: 'object',
@@ -73,6 +85,7 @@ async function handler({
   query = null,
   limit = 50,
 }) {
+  logStatusWarningIfNeeded(status);
   const tasks = tasksService.listFiltered({
     dossierId,
     lawsuitId,
@@ -86,6 +99,19 @@ async function handler({
     tasks,
     count: tasks.length,
   };
+}
+
+function logStatusWarningIfNeeded(status) {
+  if (typeof status !== 'string' || !status.trim()) {
+    return;
+  }
+
+  const normalized = status.trim().toLowerCase();
+  if (ALLOWED_STATUS_VALUES.has(normalized)) {
+    return;
+  }
+
+  console.warn('[STATUS_WARNING]', `tool: listTasks`, `received_status: "${status}"`);
 }
 
 module.exports = {

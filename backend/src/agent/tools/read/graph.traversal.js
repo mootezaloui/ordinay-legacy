@@ -396,6 +396,7 @@ function collectDepthTwoChildren({
   }
 }
 
+
 function appendRowsToCategoryMap(categoryMap, category, nodes) {
   if (!Array.isArray(nodes)) return;
   for (const node of nodes) {

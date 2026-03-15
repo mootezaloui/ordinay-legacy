@@ -9,6 +9,18 @@
 
 const sessionsService = require('../../../services/sessions.service');
 const TOOL_CATEGORIES = { READ: 'READ' };
+const ALLOWED_STATUS_VALUES = new Set([
+  'scheduled',
+  'completed',
+  'cancelled',
+  'rescheduled',
+  'no_show',
+  'open',
+  'closed',
+  'active',
+  'archived',
+  'pending',
+]);
 
 const inputSchema = {
   type: 'object',
@@ -72,6 +84,7 @@ async function handler({
   timeframe = null,
   limit = 50,
 } = {}) {
+  logStatusWarningIfNeeded(status);
   const limited = sessionsService.listFiltered({
     query,
     status,
@@ -85,6 +98,19 @@ async function handler({
     sessions: limited,
     count: limited.length,
   };
+}
+
+function logStatusWarningIfNeeded(status) {
+  if (typeof status !== 'string' || !status.trim()) {
+    return;
+  }
+
+  const normalized = status.trim().toLowerCase();
+  if (ALLOWED_STATUS_VALUES.has(normalized)) {
+    return;
+  }
+
+  console.warn('[STATUS_WARNING]', `tool: listSessions`, `received_status: "${status}"`);
 }
 
 module.exports = {

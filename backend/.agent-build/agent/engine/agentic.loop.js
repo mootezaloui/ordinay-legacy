@@ -5,6 +5,63 @@ const session_1 = require("../session");
 const safety_1 = require("../safety");
 const tools_1 = require("../tools");
 const types_1 = require("../types");
+const READ_POLICY_INSTRUCTIONS = [
+    "DATA ACCESS POLICY",
+    "",
+    "The system manages structured legal practice data stored in the database.",
+    "",
+    "When a user question references any of the following:",
+    "",
+    "- client",
+    "- dossier",
+    "- lawsuit",
+    "- task",
+    "- document",
+    "- financial entry",
+    "- notification",
+    "- history event",
+    "- workload",
+    "- cases",
+    "- deadlines",
+    "- sessions",
+    "",
+    "the information must be retrieved using READ tools.",
+    "",
+    "Never infer database state without retrieving it.",
+    "",
+    "If a question refers to database records, the agent must use READ tools before producing the final answer.",
+    "",
+    "Questions about general legal knowledge, concepts, or explanations do not require tools.",
+    "",
+    "This rule guides tool usage but does not enforce it programmatically.",
+    "",
+    "GRAPH TRAVERSAL GUIDELINES",
+    "",
+    "Entity relationships in the system:",
+    "",
+    "Client -> Dossiers -> Lawsuits -> Tasks/Sessions",
+    "Dossier -> Tasks / Sessions / Documents",
+    "Lawsuit -> Sessions",
+    "Document -> History",
+    "",
+    "Recommended traversal depths:",
+    "",
+    "- Client workload queries: depth 2-3",
+    "- Dossier context queries: depth 1-2",
+    "- Document history queries: depth 1",
+    "",
+    "Avoid shallow traversal when the user asks about workload, cases, or related activity.",
+    "",
+    "PRESENTATION QUALITY GUIDELINES",
+    "",
+    "Use the format (table, bullets, or concise prose) that is most readable for the current answer.",
+    "Keep one consistent date/time style in a response and prefer explicit UTC labels for database-derived timestamps.",
+    "Do not output raw JSON, tool payload wrappers, or stream-event fragments in user-facing text.",
+    "Keep sections compact and non-redundant; avoid repeating the same fact in multiple sections.",
+    "If data is partial or uncertain, state that clearly instead of filling gaps with assumptions.",
+].join("\n");
+const DATABASE_ENTITY_QUERY_PATTERN = /\b(client|clients|dossier|dossiers|case|cases|task|tasks|document|documents|workload|lawsuit|lawsuits|session|sessions|financial|history|deadline|deadlines|notification|notifications)\b/i;
+const WORKLOAD_OR_CASES_QUERY_PATTERN = /\b(work\s*-?\s*load|workload|cases?|matters?)\b/i;
 class AgenticLoop {
     llm;
     registry;
@@ -36,24 +93,30 @@ class AgenticLoop {
         const audit = [];
         const warnings = [];
         const stats = { iterations: 0, toolCalls: 0 };
+        const readCounters = this.createReadObservabilityCounters();
         let output;
-        switch (turnType) {
-            case types_1.TurnType.CONFIRMATION:
-                output = await this.handleConfirmationTurn(input, session, toolCalls, audit, warnings, stats);
-                break;
-            case types_1.TurnType.REJECTION:
-                output = this.handleRejectionTurn(input, session, toolCalls, audit, warnings, stats);
-                break;
-            case types_1.TurnType.NEW:
-            case types_1.TurnType.AMENDMENT:
-            default:
-                output = await this.handleReasoningTurn(input, session, turnType, toolCalls, audit, warnings, stats);
-                break;
+        try {
+            switch (turnType) {
+                case types_1.TurnType.CONFIRMATION:
+                    output = await this.handleConfirmationTurn(input, session, toolCalls, audit, warnings, stats, readCounters);
+                    break;
+                case types_1.TurnType.REJECTION:
+                    output = this.handleRejectionTurn(input, session, toolCalls, audit, warnings, stats);
+                    break;
+                case types_1.TurnType.NEW:
+                case types_1.TurnType.AMENDMENT:
+                default:
+                    output = await this.handleReasoningTurn(input, session, turnType, toolCalls, audit, warnings, stats, readCounters);
+                    break;
+            }
+        }
+        finally {
+            this.logReadObservabilitySummary(readCounters);
         }
         this.persistTurnArtifacts(input, session, output, startedAt, historyStartIndex);
         return output;
     }
-    async handleConfirmationTurn(input, session, toolCalls, audit, warnings, stats) {
+    async handleConfirmationTurn(input, session, toolCalls, audit, warnings, stats, readCounters) {
         const action = this.pending.confirmPending(session);
         const metadata = { confirmedAction: action, loopStats: stats };
         this.appendTurn(session, "user", input.message, types_1.TurnType.CONFIRMATION);
@@ -119,6 +182,9 @@ class AgenticLoop {
         const result = await this.executor.execute(tool, context, action.args);
         metadata.confirmedExecutionResult = result;
         this.collectToolWarnings(result, warnings);
+        if (tool.category === tools_1.ToolCategory.READ) {
+            this.trackReadToolResult(result, readCounters);
+        }
         const record = this.createToolRecord(action.toolName, action.args, context, result, { confirmedActionId: action.id });
         toolCalls.push(record);
         stats.toolCalls += 1;
@@ -151,7 +217,7 @@ class AgenticLoop {
         this.touchSession(session, types_1.TurnType.REJECTION);
         return this.buildOutput(input, session, types_1.TurnType.REJECTION, responseText, toolCalls, audit, metadata, warnings);
     }
-    async handleReasoningTurn(input, session, turnType, toolCalls, audit, warnings, stats) {
+    async handleReasoningTurn(input, session, turnType, toolCalls, audit, warnings, stats, readCounters) {
         const metadata = { loopStats: stats };
         const messages = this.buildInitialMessages(input, session, turnType);
         this.appendTurn(session, "user", input.message, turnType);
@@ -161,6 +227,9 @@ class AgenticLoop {
             : undefined;
         let responseText = "";
         let iteration = 0;
+        let invalidToolCallRecoveryAttempts = 0;
+        let emptyFinalizationRecoveryAttempts = 0;
+        let coverageRecoveryAttempts = 0;
         while (!responseText) {
             iteration += 1;
             stats.iterations = iteration;
@@ -169,13 +238,131 @@ class AgenticLoop {
                 messages,
                 tools: llmTools,
                 metadata: { sessionId: input.sessionId, turnId: input.turnId, iteration },
-            }));
+            }), () => {
+                console.warn("[AGENT_LOOP_TIMEOUT]", {
+                    sessionId: input.sessionId,
+                    turnId: input.turnId,
+                    iteration,
+                    toolCallsSoFar: toolCalls.length,
+                    messagePreview: input.message.slice(0, 200),
+                });
+            });
             messages.push({ role: "assistant", content: response.text ?? "" });
             if (response.toolCalls.length === 0) {
-                responseText = (response.text ?? "").trim() || "I completed your request.";
+                const candidateText = (response.text ?? "").trim();
+                if (candidateText) {
+                    const coverage = this.analyzeEntityCoverageForWorkloadQuery(input.mode, input.message, toolCalls);
+                    if (coverage.hasGap && coverageRecoveryAttempts < 2) {
+                        coverageRecoveryAttempts += 1;
+                        readCounters.READ_WARNINGS += 1;
+                        console.warn("[READ_ENTITY_COVERAGE_GAP]", this.safeJsonStringify({
+                            sessionId: input.sessionId,
+                            turnId: input.turnId,
+                            iteration,
+                            attempts: coverageRecoveryAttempts,
+                            expectedTools: coverage.expectedTools,
+                            executedTools: coverage.executedTools,
+                            missingTools: coverage.missingTools,
+                        }));
+                        messages.push({
+                            role: "system",
+                            content: this.buildCoverageRecoveryInstruction(input.message, coverage.missingTools),
+                        });
+                        continue;
+                    }
+                    if (this.isLikelyPlaceholderCompletion(candidateText) &&
+                        stats.toolCalls > 0 &&
+                        emptyFinalizationRecoveryAttempts < 2) {
+                        emptyFinalizationRecoveryAttempts += 1;
+                        messages.push({
+                            role: "system",
+                            content: this.buildFinalizationRecoveryInstruction(input.message),
+                        });
+                        continue;
+                    }
+                    responseText = candidateText;
+                    break;
+                }
+                if (stats.toolCalls > 0 && emptyFinalizationRecoveryAttempts < 2) {
+                    emptyFinalizationRecoveryAttempts += 1;
+                    messages.push({
+                        role: "system",
+                        content: this.buildFinalizationRecoveryInstruction(input.message),
+                    });
+                    continue;
+                }
+                responseText =
+                    stats.toolCalls > 0
+                        ? "I retrieved data but could not generate a final response text. Please retry."
+                        : "I could not generate a valid response. Please retry.";
+                warnings.push("Model returned empty final text.");
                 break;
             }
-            const processed = await this.processToolCalls(response.toolCalls, {
+            let validToolCalls = response.toolCalls.filter((toolCall) => typeof toolCall?.name === "string" && this.registry.get(toolCall.name));
+            let invalidToolCalls = response.toolCalls.filter((toolCall) => !(typeof toolCall?.name === "string" && this.registry.get(toolCall.name)));
+            if (invalidToolCalls.length > 0) {
+                const recoveredCalls = this.recoverInvalidToolCalls(invalidToolCalls, input, iteration);
+                if (recoveredCalls.length > 0) {
+                    validToolCalls = validToolCalls.concat(recoveredCalls);
+                    const recoveredIds = new Set(recoveredCalls.map((call) => call.id));
+                    invalidToolCalls = invalidToolCalls.filter((call) => !recoveredIds.has(call.id));
+                }
+            }
+            if (invalidToolCalls.length > 0) {
+                console.warn("[LLM_TOOL_CALLS_INVALID]", this.safeJsonStringify({
+                    sessionId: input.sessionId,
+                    turnId: input.turnId,
+                    iteration,
+                    invalidCount: invalidToolCalls.length,
+                    invalidNames: invalidToolCalls.map((toolCall) => toolCall?.name || "unknown"),
+                }));
+            }
+            if (validToolCalls.length === 0) {
+                const candidateText = (response.text ?? "").trim();
+                const rejectCandidateText = this.shouldRejectMalformedCandidateText({
+                    candidateText,
+                    userMessage: input.message,
+                    invalidToolCalls,
+                    toolCallsSoFar: stats.toolCalls,
+                });
+                if (candidateText && !rejectCandidateText) {
+                    const coverage = this.analyzeEntityCoverageForWorkloadQuery(input.mode, input.message, toolCalls);
+                    if (coverage.hasGap && coverageRecoveryAttempts < 2) {
+                        coverageRecoveryAttempts += 1;
+                        readCounters.READ_WARNINGS += 1;
+                        console.warn("[READ_ENTITY_COVERAGE_GAP]", this.safeJsonStringify({
+                            sessionId: input.sessionId,
+                            turnId: input.turnId,
+                            iteration,
+                            attempts: coverageRecoveryAttempts,
+                            expectedTools: coverage.expectedTools,
+                            executedTools: coverage.executedTools,
+                            missingTools: coverage.missingTools,
+                        }));
+                        messages.push({
+                            role: "system",
+                            content: this.buildCoverageRecoveryInstruction(input.message, coverage.missingTools),
+                        });
+                        continue;
+                    }
+                    responseText = candidateText;
+                    warnings.push("Model returned malformed tool calls before final response.");
+                    break;
+                }
+                invalidToolCallRecoveryAttempts += 1;
+                messages.push({
+                    role: "system",
+                    content: this.buildToolCallRecoveryInstruction(invalidToolCalls, input.message),
+                });
+                if (invalidToolCallRecoveryAttempts >= 4) {
+                    responseText =
+                        "I could not process malformed tool-call output from the model. Please retry.";
+                    warnings.push("Model repeatedly returned malformed tool calls without valid executable tools.");
+                    break;
+                }
+                continue;
+            }
+            const processed = await this.processToolCalls(validToolCalls, {
                 input,
                 session,
                 turnType,
@@ -184,6 +371,7 @@ class AgenticLoop {
                 audit,
                 warnings,
                 stats,
+                readCounters,
             });
             if (processed.stopForConfirmation) {
                 responseText = processed.confirmationMessage ?? "I prepared a pending action.";
@@ -192,6 +380,7 @@ class AgenticLoop {
                 }
             }
         }
+        this.logNoToolReadWarningIfNeeded(input.message, toolCalls.length, readCounters);
         this.appendTurn(session, "assistant", responseText, turnType);
         this.pushAudit(audit, input, "assistant_response", {
             toolCallsCount: toolCalls.length,
@@ -205,7 +394,22 @@ class AgenticLoop {
         for (const llmToolCall of llmToolCalls) {
             context.stats.toolCalls += 1;
             const toolName = llmToolCall.name;
+            console.info("[LLM_TOOL_CALL_RAW]", this.safeJsonStringify({
+                sessionId: context.input.sessionId,
+                turnId: context.input.turnId,
+                toolCallId: llmToolCall.id || null,
+                toolName,
+                rawArguments: llmToolCall.arguments,
+            }));
             const args = this.normalizeArgs(llmToolCall.arguments);
+            if (isRecord(args) && "tool" in args && "result" in args) {
+                console.warn("[LLM_TOOL_ARGS_WRAPPED_RESULT]", this.safeJsonStringify({
+                    sessionId: context.input.sessionId,
+                    turnId: context.input.turnId,
+                    toolName,
+                    argKeys: Object.keys(args),
+                }));
+            }
             const callId = llmToolCall.id || this.createId("tool_call");
             const tool = this.registry.get(toolName);
             if (!tool) {
@@ -229,6 +433,7 @@ class AgenticLoop {
                 });
                 continue;
             }
+            this.collectPreExecutionReadDiagnostics(tool.name, args, context.readCounters);
             const decision = this.permissionGate.evaluate(context.session.mode, tool);
             const boundaryFailure = this.validatePermissionBoundary(context.input, context.session, tool.category, decision, toolName);
             if (boundaryFailure) {
@@ -314,6 +519,9 @@ class AgenticLoop {
             const executionContext = this.createExecutionContext(context.input, context.session);
             const result = await this.executor.execute(tool, executionContext, args);
             this.collectToolWarnings(result, context.warnings);
+            if (tool.category === tools_1.ToolCategory.READ) {
+                this.trackReadToolResult(result, context.readCounters);
+            }
             if (result.ok) {
                 this.trackToolEntities(context.session, result, toolName, context.input.turnId);
             }
@@ -353,6 +561,10 @@ class AgenticLoop {
         }
         const context = (0, session_1.buildContext)(session);
         const messages = [];
+        messages.push({
+            role: "system",
+            content: READ_POLICY_INSTRUCTIONS,
+        });
         if (context.summary) {
             messages.push({
                 role: "system",
@@ -518,6 +730,127 @@ class AgenticLoop {
             return null;
         }
         return runtime.__operations;
+    }
+    createReadObservabilityCounters() {
+        return {
+            READ_TOOL_CALL_COUNT: 0,
+            READ_EMPTY_RESULTS: 0,
+            READ_WARNINGS: 0,
+            GRAPH_WARNINGS: 0,
+            STATUS_WARNINGS: 0,
+        };
+    }
+    logReadObservabilitySummary(counters) {
+        console.info("[READ_OBSERVABILITY_SUMMARY]", {
+            READ_TOOL_CALL_COUNT: counters.READ_TOOL_CALL_COUNT,
+            READ_EMPTY_RESULTS: counters.READ_EMPTY_RESULTS,
+            READ_WARNINGS: counters.READ_WARNINGS,
+            GRAPH_WARNINGS: counters.GRAPH_WARNINGS,
+            STATUS_WARNINGS: counters.STATUS_WARNINGS,
+        });
+    }
+    collectPreExecutionReadDiagnostics(toolName, args, counters) {
+        if (this.hasInvalidStatusForTool(toolName, args.status)) {
+            counters.STATUS_WARNINGS += 1;
+        }
+        if (toolName === "getEntityGraph" && this.isShallowGraphDepthRequest(args.depth)) {
+            counters.GRAPH_WARNINGS += 1;
+        }
+    }
+    hasInvalidStatusForTool(toolName, status) {
+        if (typeof status !== "string" || status.trim().length === 0) {
+            return false;
+        }
+        const normalized = status.trim().toLowerCase();
+        const allowedStatusesByTool = {
+            listDossiers: new Set(["open", "closed", "active", "archived", "pending"]),
+            listTasks: new Set([
+                "todo",
+                "in_progress",
+                "blocked",
+                "done",
+                "cancelled",
+                "open",
+                "closed",
+                "active",
+                "archived",
+                "pending",
+            ]),
+            listSessions: new Set([
+                "scheduled",
+                "completed",
+                "cancelled",
+                "rescheduled",
+                "no_show",
+                "open",
+                "closed",
+                "active",
+                "archived",
+                "pending",
+            ]),
+            listNotifications: new Set([
+                "unread",
+                "read",
+                "archived",
+                "pending",
+                "open",
+                "closed",
+                "active",
+            ]),
+        };
+        const allowed = allowedStatusesByTool[toolName];
+        if (!allowed) {
+            return false;
+        }
+        return !allowed.has(normalized);
+    }
+    isShallowGraphDepthRequest(depth) {
+        return Number(depth ?? 1) <= 1;
+    }
+    trackReadToolResult(result, counters) {
+        counters.READ_TOOL_CALL_COUNT += 1;
+        const resultCount = this.estimateResultCount(result);
+        if (resultCount === 0) {
+            counters.READ_EMPTY_RESULTS += 1;
+        }
+    }
+    estimateResultCount(result) {
+        if (!result.ok) {
+            return 0;
+        }
+        const data = result.data;
+        if (Array.isArray(data)) {
+            return data.length;
+        }
+        if (isRecord(data)) {
+            if (typeof data.count === "number" && Number.isFinite(data.count) && data.count >= 0) {
+                return Math.floor(data.count);
+            }
+            const values = Object.values(data);
+            const arrayCounts = values
+                .filter((value) => Array.isArray(value))
+                .map((value) => value.length);
+            if (arrayCounts.length > 0) {
+                return arrayCounts.reduce((sum, value) => sum + value, 0);
+            }
+            const objectValues = values.filter((value) => isRecord(value));
+            if (objectValues.length > 0) {
+                return objectValues.length;
+            }
+            return Object.keys(data).length > 0 ? 1 : 0;
+        }
+        return data === null || data === undefined ? 0 : 1;
+    }
+    logNoToolReadWarningIfNeeded(userMessage, toolCallsCount, counters) {
+        if (toolCallsCount > 0) {
+            return;
+        }
+        if (!DATABASE_ENTITY_QUERY_PATTERN.test(String(userMessage || ""))) {
+            return;
+        }
+        counters.READ_WARNINGS += 1;
+        const normalized = String(userMessage || "").replace(/\s+/g, " ").trim();
+        console.warn(`[READ_WARNING] No tools were called for a database-related question.\nuser_message: "${normalized}"`);
     }
     createToolRecord(toolName, args, context, result, metadata) {
         return {
@@ -812,6 +1145,209 @@ class AgenticLoop {
             return undefined;
         }
         return undefined;
+    }
+    buildToolCallRecoveryInstruction(invalidToolCalls, userMessage) {
+        const invalidNames = invalidToolCalls
+            .map((toolCall) => String(toolCall?.name || "").trim())
+            .filter((name) => name.length > 0);
+        const allowedToolNames = this.registry
+            .list()
+            .map((tool) => tool.name)
+            .slice(0, 60);
+        const workloadQuestion = /\b(workload|cases|case|matters|dossiers|lawsuits|deadlines|sessions|tasks)\b/i.test(userMessage);
+        return [
+            "TOOL-CALL FORMAT CORRECTION",
+            "Your previous tool call(s) used invalid tool names.",
+            invalidNames.length > 0 ? `Invalid names: ${invalidNames.join(", ")}` : "Invalid names: unknown",
+            "If more data is needed, call only registered tools by exact name.",
+            "If no additional data is needed, provide the final assistant answer now.",
+            workloadQuestion
+                ? "For workload/cases requests, prefer valid READ tools such as listDossiers, listLawsuits, listTasks, listSessions, listMissions, listDocuments, or getEntityGraph."
+                : "Prefer direct READ tools with valid arguments when more DB data is needed.",
+            `Registered tools: ${allowedToolNames.join(", ")}`,
+        ].join("\n");
+    }
+    buildFinalizationRecoveryInstruction(userMessage) {
+        return [
+            "FINAL RESPONSE REQUIRED",
+            "You have already retrieved data using tools.",
+            "Do not call additional tools unless strictly necessary.",
+            "Now provide a complete user-facing answer based on the retrieved tool results in context.",
+            "Do not output raw JSON or tool payload wrappers.",
+            `Original user request: ${userMessage}`,
+        ].join("\n");
+    }
+    shouldRejectMalformedCandidateText(params) {
+        const candidate = params.candidateText.trim();
+        if (!candidate) {
+            return true;
+        }
+        if (this.isLikelyPlaceholderCompletion(candidate)) {
+            return true;
+        }
+        const hasInvalidToolCalls = Array.isArray(params.invalidToolCalls) && params.invalidToolCalls.length > 0;
+        if (!hasInvalidToolCalls) {
+            return false;
+        }
+        const isDbQuery = DATABASE_ENTITY_QUERY_PATTERN.test(params.userMessage);
+        if (!isDbQuery) {
+            return false;
+        }
+        // Require stronger final text when malformed tool calls occurred on DB-driven turns.
+        if (params.toolCallsSoFar <= 1 && candidate.length < 140) {
+            return true;
+        }
+        return false;
+    }
+    isLikelyPlaceholderCompletion(text) {
+        const normalized = text.trim().toLowerCase();
+        return (normalized === "i completed your request." ||
+            normalized === "i completed your request" ||
+            normalized === "done." ||
+            normalized === "done" ||
+            normalized.includes("malformed tool-call output"));
+    }
+    analyzeEntityCoverageForWorkloadQuery(mode, userMessage, toolCalls) {
+        const normalizedMessage = String(userMessage || "");
+        if (mode !== "READ_ONLY" || !WORKLOAD_OR_CASES_QUERY_PATTERN.test(normalizedMessage)) {
+            return {
+                hasGap: false,
+                expectedTools: [],
+                executedTools: [],
+                missingTools: [],
+            };
+        }
+        const executed = new Set((toolCalls || [])
+            .map((call) => String(call?.toolName || "").trim())
+            .filter((name) => name.length > 0));
+        // A successful graph query can satisfy relational workload coverage in one call.
+        if (executed.has("getEntityGraph")) {
+            return {
+                hasGap: false,
+                expectedTools: ["getEntityGraph"],
+                executedTools: Array.from(executed),
+                missingTools: [],
+            };
+        }
+        const expected = new Set(["listDossiers", "listLawsuits", "listTasks"]);
+        if (/\b(session|sessions|hearing|hearings|meeting|meetings)\b/i.test(normalizedMessage)) {
+            expected.add("listSessions");
+        }
+        if (/\bmission|missions\b/i.test(normalizedMessage)) {
+            expected.add("listMissions");
+        }
+        if (/\bdocument|documents\b/i.test(normalizedMessage)) {
+            expected.add("listDocuments");
+        }
+        if (/\b(invoice|invoices|financial|finance|billing)\b/i.test(normalizedMessage)) {
+            expected.add("listFinancialEntries");
+        }
+        const expectedTools = Array.from(expected);
+        const missingTools = expectedTools.filter((name) => !executed.has(name));
+        return {
+            hasGap: missingTools.length > 0,
+            expectedTools,
+            executedTools: Array.from(executed),
+            missingTools,
+        };
+    }
+    buildCoverageRecoveryInstruction(userMessage, missingTools) {
+        const missing = (missingTools || []).filter((name) => typeof name === "string" && name.trim().length > 0);
+        return [
+            "ENTITY COVERAGE CHECK",
+            "The previous draft appears to have partial workload/case coverage.",
+            missing.length > 0
+                ? `Before finalizing, retrieve missing entities using valid tools: ${missing.join(", ")}`
+                : "Before finalizing, ensure workload/case entities are fully covered with valid READ tools.",
+            "Use only registered tool names and valid argument objects.",
+            `Original user request: ${userMessage}`,
+        ].join("\n");
+    }
+    recoverInvalidToolCalls(invalidToolCalls, input, iteration) {
+        const recovered = [];
+        for (const toolCall of invalidToolCalls) {
+            const args = this.normalizeArgs(toolCall.arguments);
+            const argKeys = Object.keys(args);
+            if (argKeys.length === 0) {
+                continue;
+            }
+            const candidates = this.rankToolCandidatesByArgKeys(argKeys);
+            if (candidates.length === 0) {
+                continue;
+            }
+            const top = candidates[0];
+            const runnerUp = candidates[1];
+            const highConfidence = top.overlap >= 2 &&
+                top.score >= 2 &&
+                (!runnerUp || top.score - runnerUp.score >= 1);
+            if (!highConfidence) {
+                continue;
+            }
+            const recoveredCall = {
+                id: toolCall.id,
+                name: top.name,
+                arguments: args,
+            };
+            recovered.push(recoveredCall);
+            console.warn("[LLM_TOOL_CALL_RECOVERED_BY_SCHEMA]", this.safeJsonStringify({
+                sessionId: input.sessionId,
+                turnId: input.turnId,
+                iteration,
+                originalName: toolCall.name,
+                recoveredName: top.name,
+                argKeys,
+                confidenceScore: top.score,
+            }));
+        }
+        return recovered;
+    }
+    rankToolCandidatesByArgKeys(argKeys) {
+        if (!Array.isArray(argKeys) || argKeys.length === 0) {
+            return [];
+        }
+        const normalizedArgKeys = argKeys
+            .map((key) => String(key || "").trim())
+            .filter((key) => key.length > 0);
+        if (normalizedArgKeys.length === 0) {
+            return [];
+        }
+        const candidates = [];
+        for (const tool of this.registry.list()) {
+            const schema = isRecord(tool.inputSchema) ? tool.inputSchema : null;
+            const properties = schema && isRecord(schema.properties) ? schema.properties : null;
+            if (!properties) {
+                continue;
+            }
+            const propertyKeys = new Set(Object.keys(properties));
+            if (propertyKeys.size === 0) {
+                continue;
+            }
+            let overlap = 0;
+            for (const key of normalizedArgKeys) {
+                if (propertyKeys.has(key)) {
+                    overlap += 1;
+                }
+            }
+            if (overlap === 0) {
+                continue;
+            }
+            const extra = normalizedArgKeys.length - overlap;
+            const score = overlap - extra * 0.35;
+            candidates.push({
+                name: tool.name,
+                overlap,
+                extra,
+                score,
+            });
+        }
+        candidates.sort((a, b) => {
+            if (b.score !== a.score)
+                return b.score - a.score;
+            if (b.overlap !== a.overlap)
+                return b.overlap - a.overlap;
+            return a.extra - b.extra;
+        });
+        return candidates;
     }
 }
 exports.AgenticLoop = AgenticLoop;

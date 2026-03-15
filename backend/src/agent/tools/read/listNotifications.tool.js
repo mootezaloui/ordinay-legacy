@@ -9,6 +9,7 @@
 
 const notificationsService = require('../../../services/notifications.service');
 const TOOL_CATEGORIES = { READ: 'READ' };
+const ALLOWED_STATUS_VALUES = new Set(['unread', 'read', 'archived', 'pending', 'open', 'closed', 'active']);
 
 const inputSchema = {
   type: 'object',
@@ -70,6 +71,7 @@ async function handler({
   query = null,
   limit = 50,
 } = {}) {
+  logStatusWarningIfNeeded(status);
   const limited = notificationsService.listFiltered({
     status,
     severity,
@@ -83,6 +85,19 @@ async function handler({
     notifications: limited,
     count: limited.length,
   };
+}
+
+function logStatusWarningIfNeeded(status) {
+  if (typeof status !== 'string' || !status.trim()) {
+    return;
+  }
+
+  const normalized = status.trim().toLowerCase();
+  if (ALLOWED_STATUS_VALUES.has(normalized)) {
+    return;
+  }
+
+  console.warn('[STATUS_WARNING]', `tool: listNotifications`, `received_status: "${status}"`);
 }
 
 module.exports = {

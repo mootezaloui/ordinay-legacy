@@ -8,6 +8,9 @@ const OPENAI_BASE_URL =
   process.env.OPENAI_BASE_URL ||
   process.env.LLM_OPENAI_BASE_URL ||
   "https://api.openai.com";
+const LLM_MAX_OUTPUT_TOKENS = readOptionalPositiveInt(
+  process.env.LLM_MAX_OUTPUT_TOKENS,
+);
 
 export function createNativeLLMProvider(): ILLMProvider {
   return new NativeLLMProvider();
@@ -58,7 +61,8 @@ class NativeLLMProvider implements ILLMProvider {
       messages: Array.isArray(params.messages) ? params.messages : [],
       tools: Array.isArray(params.tools) ? params.tools : [],
       temperature: typeof params.temperature === "number" ? params.temperature : 0.1,
-      maxTokens: typeof params.maxTokens === "number" ? params.maxTokens : 800,
+      maxTokens:
+        typeof params.maxTokens === "number" ? params.maxTokens : LLM_MAX_OUTPUT_TOKENS,
     };
   }
 
@@ -128,7 +132,9 @@ class NativeLLMProvider implements ILLMProvider {
           stream: false,
           options: {
             temperature: request.temperature,
-            num_predict: request.maxTokens,
+            ...(typeof request.maxTokens === "number"
+              ? { num_predict: request.maxTokens }
+              : {}),
           },
         }),
       });
@@ -159,7 +165,7 @@ interface LLMRequest {
   messages: LLMGenerateParams["messages"];
   tools: NonNullable<LLMGenerateParams["tools"]>;
   temperature: number;
-  maxTokens: number;
+  maxTokens?: number;
 }
 
 function toChatCompletionBody(request: LLMRequest): Record<string, unknown> {
@@ -169,7 +175,7 @@ function toChatCompletionBody(request: LLMRequest): Record<string, unknown> {
     tools: request.tools,
     tool_choice: "auto",
     temperature: request.temperature,
-    max_tokens: request.maxTokens,
+    ...(typeof request.maxTokens === "number" ? { max_tokens: request.maxTokens } : {}),
     stream: false,
   };
 }
@@ -197,14 +203,13 @@ function normalizeOpenAiToolCalls(value: unknown): LLMToolCall[] {
   for (let index = 0; index < value.length; index += 1) {
     const row = toRecord(value[index]);
     const fn = toRecord(row?.function);
-    const name = asString(fn?.name);
-    if (!name) {
-      continue;
-    }
-
     const id = asString(row?.id) ?? `tool_${Date.now()}_${index}`;
     const parsedArgs = parseArguments(fn?.arguments);
-    output.push({ id, name, arguments: parsedArgs });
+    const name = asString(fn?.name);
+    const sanitized = sanitizeToolCallCandidate({ id, name, args: parsedArgs, source: "openai" });
+    if (sanitized) {
+      output.push(sanitized);
+    }
   }
 
   return output;
@@ -219,14 +224,13 @@ function normalizeOllamaToolCalls(value: unknown): LLMToolCall[] {
   for (let index = 0; index < value.length; index += 1) {
     const row = toRecord(value[index]);
     const fn = toRecord(row?.function) ?? row;
-    const name = asString(fn?.name);
-    if (!name) {
-      continue;
-    }
-
     const id = asString(row?.id) ?? `tool_${Date.now()}_${index}`;
     const parsedArgs = parseArguments(fn?.arguments);
-    output.push({ id, name, arguments: parsedArgs });
+    const name = asString(fn?.name);
+    const sanitized = sanitizeToolCallCandidate({ id, name, args: parsedArgs, source: "ollama" });
+    if (sanitized) {
+      output.push(sanitized);
+    }
   }
 
   return output;
@@ -267,4 +271,78 @@ function toRecord(value: unknown): Record<string, unknown> | null {
     return null;
   }
   return value as Record<string, unknown>;
+}
+
+function readOptionalPositiveInt(value: string | undefined): number | undefined {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return undefined;
+  }
+  return parsed;
+}
+
+function sanitizeToolCallCandidate(params: {
+  id: string;
+  name: string | null;
+  args: Record<string, unknown>;
+  source: "openai" | "ollama";
+}): LLMToolCall | null {
+  const rawName = String(params.name || "").trim();
+  const args = params.args;
+
+  if (!rawName) {
+    return null;
+  }
+
+  const normalizedName = rawName.toLowerCase();
+  const hasPseudoAssistantName =
+    normalizedName === "assistant" ||
+    normalizedName === "commentary" ||
+    normalizedName.includes("<|channel|>");
+
+  if (!hasPseudoAssistantName) {
+    return { id: params.id, name: rawName, arguments: args };
+  }
+
+  const nestedTool = typeof args.tool === "string" ? args.tool.trim() : "";
+  const nestedArgs = toRecord(args.arguments) ?? {};
+  const hasWrappedResult = toRecord(args.result) !== null;
+
+  if (nestedTool && Object.keys(nestedArgs).length > 0) {
+    console.warn(
+      "[LLM_TOOL_CALL_SANITIZED]",
+      JSON.stringify({
+        source: params.source,
+        from: rawName,
+        to: nestedTool,
+      }),
+    );
+    return {
+      id: params.id,
+      name: nestedTool,
+      arguments: nestedArgs,
+    };
+  }
+
+  if (nestedTool && hasWrappedResult) {
+    console.warn(
+      "[LLM_TOOL_CALL_DROPPED_WRAPPED_RESULT]",
+      JSON.stringify({
+        source: params.source,
+        from: rawName,
+        nestedTool,
+      }),
+    );
+    return null;
+  }
+
+  console.warn(
+    "[LLM_TOOL_CALL_DROPPED_INVALID_NAME]",
+    JSON.stringify({
+      source: params.source,
+      name: rawName,
+      argKeys: Object.keys(args),
+    }),
+  );
+  return null;
 }

@@ -22,6 +22,11 @@ const importsRouter = require("./imports.routes");
 const agentDocumentsRouter = require("./agentDocuments.routes");
 const { FEATURE_AI_AGENT, FEATURE_AGENT_V2_STREAM } = require("../config/features");
 
+const AGENT_ROUTE_DIAGNOSTICS_ENABLED = parseBoolean(
+  process.env.AGENT_ROUTE_DIAGNOSTICS,
+  true,
+);
+
 let agentRouter = null;
 if (FEATURE_AI_AGENT) {
   agentRouter = require("../agent_Back/agent.router");
@@ -35,6 +40,17 @@ if (FEATURE_AGENT_V2_STREAM) {
 const https = require("https");
 
 const router = express.Router();
+if (AGENT_ROUTE_DIAGNOSTICS_ENABLED) {
+  console.warn(
+    "[AGENT_ROUTE_CONFIG]",
+    JSON.stringify({
+      featureAiAgent: FEATURE_AI_AGENT,
+      featureAgentV2Stream: FEATURE_AGENT_V2_STREAM,
+      legacyAgentMounted: Boolean(agentRouter),
+      agentV2Mounted: Boolean(agentV2Router),
+    }),
+  );
+}
 
 router.use("/clients", clientsRouter);
 router.use("/dossiers", dossiersRouter);
@@ -55,6 +71,37 @@ router.use("/profile", profileRouter);
 router.use("/dashboard", dashboardRouter);
 router.use("/imports", importsRouter);
 router.use("/agent/sessions/:sessionId/documents", agentDocumentsRouter);
+router.use((req, _res, next) => {
+  if (!AGENT_ROUTE_DIAGNOSTICS_ENABLED) {
+    next();
+    return;
+  }
+
+  const routePath = String(req.path || "");
+  if (
+    req.method === "POST" &&
+    (routePath === "/agent/chat" || routePath === "/agent/v2/stream")
+  ) {
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const conversationId = asString(body.conversationId) || asString(body.sessionId) || null;
+    const turnId = asString(body.turnId) || null;
+    const mode = asString(body.mode) || null;
+    console.warn(
+      "[AGENT_ROUTE_HIT]",
+      JSON.stringify({
+        method: req.method,
+        routePath,
+        conversationId,
+        turnId,
+        mode,
+        legacyAgentMounted: Boolean(agentRouter),
+        agentV2Mounted: Boolean(agentV2Router),
+      }),
+    );
+  }
+
+  next();
+});
 if (agentRouter) {
   router.use("/", agentRouter);
 }
@@ -118,3 +165,22 @@ function createAgentV2FallbackRouter(message) {
 }
 
 module.exports = router;
+
+function parseBoolean(value, fallback = false) {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+  const normalized = String(value).trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+  if (["0", "false", "no", "off"].includes(normalized)) {
+    return false;
+  }
+  return fallback;
+}
+
+function asString(value) {
+  const normalized = String(value ?? "").trim();
+  return normalized || null;
+}

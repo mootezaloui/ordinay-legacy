@@ -9,6 +9,7 @@
 
 const dossiersService = require('../../../services/dossiers.service');
 const TOOL_CATEGORIES = { READ: 'READ' };
+const ALLOWED_STATUS_VALUES = new Set(['open', 'closed', 'active', 'archived', 'pending']);
 
 const inputSchema = {
   type: 'object',
@@ -55,12 +56,26 @@ const outputSchema = {
 };
 
 async function handler({ query = null, status = null, clientId = null, limit = 50 } = {}) {
+  logStatusWarningIfNeeded(status);
   const limited = dossiersService.listFiltered({ query, status, clientId, limit });
 
   return {
     dossiers: limited,
     count: limited.length,
   };
+}
+
+function logStatusWarningIfNeeded(status) {
+  if (typeof status !== 'string' || !status.trim()) {
+    return;
+  }
+
+  const normalized = status.trim().toLowerCase();
+  if (ALLOWED_STATUS_VALUES.has(normalized)) {
+    return;
+  }
+
+  console.warn('[STATUS_WARNING]', `tool: listDossiers`, `received_status: "${status}"`);
 }
 
 module.exports = {

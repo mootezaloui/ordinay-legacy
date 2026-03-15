@@ -33,7 +33,9 @@ function createAgentV2Runtime() {
         evictAfterTouches: asPositiveInt(performance?.policy?.CACHE_EVICT_AFTER_TURNS, 120),
     });
     const permissionGate = new safety_1.PermissionGate();
-    const loopGuard = new safety_1.LoopGuard();
+    const loopGuard = new safety_1.LoopGuard({
+        timeoutMs: asPositiveInt(process.env.AGENT_LOOP_GUARD_TIMEOUT_MS, 90_000),
+    });
     const executor = new engine_1.ToolExecutor(permissionGate);
     const classifier = new engine_1.TurnClassifier();
     const pending = new engine_1.PendingManager();

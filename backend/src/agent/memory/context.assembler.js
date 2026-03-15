@@ -11,6 +11,61 @@ const {
 } = require("../performance/hotpath.optimizer");
 
 const ALLOWED_ROLES = new Set(["system", "user", "assistant", "tool"]);
+const READ_POLICY_INSTRUCTIONS = [
+  "DATA ACCESS POLICY",
+  "",
+  "The system manages structured legal practice data stored in the database.",
+  "",
+  "When a user question references any of the following:",
+  "",
+  "- client",
+  "- dossier",
+  "- lawsuit",
+  "- task",
+  "- document",
+  "- financial entry",
+  "- notification",
+  "- history event",
+  "- workload",
+  "- cases",
+  "- deadlines",
+  "- sessions",
+  "",
+  "the information must be retrieved using READ tools.",
+  "",
+  "Never infer database state without retrieving it.",
+  "",
+  "If a question refers to database records, the agent must use READ tools before producing the final answer.",
+  "",
+  "Questions about general legal knowledge, concepts, or explanations do not require tools.",
+  "",
+  "This rule guides tool usage but does not enforce it programmatically.",
+  "",
+  "GRAPH TRAVERSAL GUIDELINES",
+  "",
+  "Entity relationships in the system:",
+  "",
+  "Client -> Dossiers -> Lawsuits -> Tasks/Sessions",
+  "Dossier -> Tasks / Sessions / Documents",
+  "Lawsuit -> Sessions",
+  "Document -> History",
+  "",
+  "Recommended traversal depths:",
+  "",
+  "- Client workload queries: depth 2-3",
+  "- Dossier context queries: depth 1-2",
+  "- Document history queries: depth 1",
+  "",
+  "Avoid shallow traversal when the user asks about workload, cases, or related activity.",
+  "",
+  "PRESENTATION QUALITY GUIDELINES",
+  "",
+  "Use the format (table, bullets, or concise prose) that is most readable for the current answer.",
+  "Keep one consistent date/time style in a response and prefer explicit UTC labels for database-derived timestamps.",
+  "Do not output raw JSON, tool payload wrappers, or stream-event fragments in user-facing text.",
+  "Keep sections compact and non-redundant; avoid repeating the same fact in multiple sections.",
+  "If data is partial or uncertain, state that clearly instead of filling gaps with assumptions.",
+].join("\n");
 
 function createContextAssembler(options = {}) {
   const maxRecentTurns = normalizePositiveInt(options.maxRecentTurns, MAX_RECENT_TURNS);
@@ -31,6 +86,10 @@ function createContextAssembler(options = {}) {
   return {
     build(session, input) {
       const messages = [];
+      messages.push({
+        role: "system",
+        content: READ_POLICY_INSTRUCTIONS,
+      });
       const turnId = normalizeTurnId(input?.turnId);
       const sessionId = String(session?.id || "").trim();
       if (groundingRuntime && turnId && typeof groundingRuntime.beginTurn === "function") {

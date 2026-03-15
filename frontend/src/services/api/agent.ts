@@ -1455,6 +1455,60 @@ function buildLocalRecoveryOutput(
   };
 }
 
+type AgentV2Mode = 'READ_ONLY' | 'DRAFT' | 'EXECUTE' | 'AUTONOMOUS';
+
+function createAgentV2TurnId(): string {
+  return `turn_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function inferAgentV2Mode(params: {
+  followUpIntent?: FollowUpIntent;
+  metadata?: AgentRequestMetadata;
+}): AgentV2Mode {
+  const intent = String(params.followUpIntent?.intent || '').trim().toUpperCase();
+  const requestedAction =
+    String((params.metadata as unknown as Record<string, unknown> | undefined)?.requestedAction || '')
+      .trim()
+      .toLowerCase();
+
+  if (requestedAction === 'execute' || requestedAction === 'autonomous') {
+    return requestedAction === 'autonomous' ? 'AUTONOMOUS' : 'EXECUTE';
+  }
+
+  if (
+    /(CREATE|UPDATE|DELETE|MUTATION|LINK|ATTACH|PROPOSE|CONFIRM|EXECUTE|GENERATE_DOCUMENT|ADD_NOTE|ENRICH_FIELD)/.test(
+      intent,
+    )
+  ) {
+    return 'DRAFT';
+  }
+
+  return 'READ_ONLY';
+}
+
+function buildAgentV2Metadata(params: {
+  metadata?: AgentRequestMetadata;
+  contextScope: ContextScope;
+  contextRefs: ContextRefs;
+  dataAccess?: DataAccessPermissions;
+  followUpIntent?: FollowUpIntent;
+  agentVersion: AgentVersion;
+  documentIds?: number[];
+}): Record<string, unknown> {
+  const base = { ...(params.metadata || {}) } as Record<string, unknown>;
+  base.contextScope = params.contextScope;
+  base.contextRefs = params.contextRefs;
+  base.dataAccess = params.dataAccess || null;
+  base.clientAgentVersion = params.agentVersion;
+  if (params.followUpIntent) {
+    base.followUpIntent = params.followUpIntent;
+  }
+  if (Array.isArray(params.documentIds) && params.documentIds.length > 0) {
+    base.documentIds = params.documentIds;
+  }
+  return base;
+}
+
 /**
  * Stream a message to the agent with real-time token delivery
  * Uses SSE (Server-Sent Events) via fetch ReadableStream
@@ -1482,6 +1536,9 @@ export function streamAgentMessage(
 ): AbortController {
   const { contextScope = 'GLOBAL', contextRefs = {}, agentVersion = 'v1', dataAccess, followUpIntent, metadata, sessionId, documentIds } = options;
   const abortController = new AbortController();
+  const useAgentV2Stream = true;
+  const v2TurnId = createAgentV2TurnId();
+  const v2Mode = inferAgentV2Mode({ followUpIntent, metadata });
 
   const request: AgentRequest & {
     dataAccess?: DataAccessPermissions;
@@ -1508,39 +1565,37 @@ export function streamAgentMessage(
     request.documentIds = documentIds;
   }
 
+  const v2Request = {
+    sessionId,
+    turnId: v2TurnId,
+    message,
+    mode: v2Mode,
+    metadata: buildAgentV2Metadata({
+      metadata,
+      contextScope,
+      contextRefs,
+      dataAccess,
+      followUpIntent,
+      agentVersion,
+      documentIds,
+    }),
+  };
+
   // Start streaming in background
   (async () => {
     try {
-      const fallbackToNonStreaming = async (reason: string) => {
+      const fallbackToRecovery = async (reason: string) => {
         callbacks.onStart?.({
-          intent: 'PENDING',
-          agentVersion: request.agentVersion || 'v1',
+          intent: 'CHATBOT_AGENT_MODE',
+          agentVersion: 'v2',
         });
-
-        const response = await apiClient.post<AgentResponse>('/agent/run', request);
-        if (response.status !== 'ok' || !response.data) {
-          callbacks.onResult?.({
-            output: buildLocalRecoveryOutput(reason, 'temporary'),
-            intent: 'RECOVERY',
-            visibility: 'visible',
-            interactionMode: 'operational',
-          });
-          callbacks.onDone?.({ timestamp: new Date().toISOString() });
-          return;
-        }
-
         callbacks.onResult?.({
-          output: response.data.output,
-          intent: response.data.intent,
-          contextLifecycle: response.data.contextLifecycle || null,
+          output: buildLocalRecoveryOutput(reason, 'temporary'),
+          intent: 'RECOVERY',
           visibility: 'visible',
           interactionMode: 'operational',
-          mutationOutcome: response.data.mutationOutcome || null,
         });
-        callbacks.onDone?.({
-          timestamp: new Date().toISOString(),
-          mutationOutcome: response.data.mutationOutcome || null,
-        });
+        callbacks.onDone?.({ timestamp: new Date().toISOString() });
       };
 
       // SSE streaming requires a direct HTTP connection; it cannot be proxied
@@ -1561,42 +1616,37 @@ export function streamAgentMessage(
       }
 
       if (isUnsafeBrowserPortFromBase(apiBase)) {
-        await fallbackToNonStreaming(
-          `Streaming endpoint ${apiBase} uses a browser-blocked port. Switched to non-streaming mode.`,
+        await fallbackToRecovery(
+          `Streaming endpoint ${apiBase} uses a browser-blocked port. Unable to open Agent v2 stream.`,
         );
         return;
       }
-      
-      const response = await fetch(`${apiBase}/agent/chat`, {
+
+      const streamPath = useAgentV2Stream ? '/agent/v2/stream' : '/agent/chat';
+      const streamBody = useAgentV2Stream ? v2Request : request;
+      const response = await fetch(`${apiBase}${streamPath}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request),
+        body: JSON.stringify(streamBody),
         signal: abortController.signal,
       });
 
       if (!response.ok) {
         const text = await response.text();
-        callbacks.onResult?.({
-          output: buildLocalRecoveryOutput(
-            text || `The service returned HTTP ${response.status}.`,
-            'temporary',
-          ),
-          intent: 'RECOVERY',
-          visibility: 'visible',
-          interactionMode: 'operational',
-        });
+        const messageText = text || `The service returned HTTP ${response.status}.`;
+        callbacks.onError?.(messageText);
         callbacks.onDone?.({ timestamp: new Date().toISOString() });
         return;
       }
 
+      callbacks.onStart?.({
+        intent: 'CHATBOT_AGENT_MODE',
+        agentVersion: 'v2',
+      });
+
       const reader = response.body?.getReader();
       if (!reader) {
-        callbacks.onResult?.({
-          output: buildLocalRecoveryOutput('No response body received from the service.', 'temporary'),
-          intent: 'RECOVERY',
-          visibility: 'visible',
-          interactionMode: 'operational',
-        });
+        callbacks.onError?.('No response body received from the service.');
         callbacks.onDone?.({ timestamp: new Date().toISOString() });
         return;
       }
@@ -1605,7 +1655,7 @@ export function streamAgentMessage(
       let buffer = '';
       let currentEvent = '';
       let currentData = '';
-      let hasStartEnvelope = false;
+      let hasStartEnvelope = true;
       let hasResultEnvelope = false;
       let hasErrorEnvelope = false;
       let hasDoneEnvelope = false;
@@ -1613,12 +1663,126 @@ export function streamAgentMessage(
 
       const processCurrentEvent = () => {
         if (!currentEvent || !currentData) return;
+        const dispatchEvent = (eventName: string, data: any) => {
+          switch (eventName) {
+            case 'text_delta':
+              hasChunkEnvelope = true;
+              callbacks.onChunk?.(String(data?.delta || ''));
+              break;
+            case 'tool_start':
+              callbacks.onStatus?.({
+                action: `Running tool ${String(data?.toolName || 'unknown')}...`,
+                phase: 'tool_start',
+              });
+              break;
+            case 'tool_result':
+              callbacks.onStatus?.({
+                action: `Tool ${String(data?.toolName || 'unknown')} ${data?.ok === true ? 'completed' : 'failed'}.`,
+                phase: 'tool_result',
+              });
+              break;
+            case 'pending':
+              callbacks.onStatus?.({
+                action: 'Pending action requires confirmation.',
+                phase: 'pending',
+              });
+              break;
+            case 'confirmed':
+              callbacks.onStatus?.({
+                action: `Confirmed action ${data?.ok === true ? 'completed' : 'failed'}.`,
+                phase: 'confirmed',
+              });
+              break;
+            case 'done':
+              hasDoneEnvelope = true;
+              // Legacy chatbot mode (/agent/chat) can terminate with start -> chunk -> done
+              // without artifact/result envelopes.
+              if (!useAgentV2Stream && !hasResultEnvelope && (hasErrorEnvelope || !hasChunkEnvelope)) {
+                callbacks.onResult?.({
+                  output: buildLocalRecoveryOutput(
+                    'I could not complete that request in this turn.',
+                    'temporary',
+                  ),
+                  intent: 'RECOVERY',
+                  visibility: 'visible',
+                  interactionMode: 'operational',
+                });
+              }
+              callbacks.onDone?.(
+                data && typeof data === 'object'
+                  ? data
+                  : { timestamp: new Date().toISOString() },
+              );
+              break;
+            case 'error':
+              hasErrorEnvelope = true;
+              {
+                const errorMessage =
+                  (typeof data?.message === 'string' && data.message.trim()) ||
+                  (typeof data?.error === 'string' && data.error.trim()) ||
+                  'I could not complete that request.';
+                callbacks.onError?.(errorMessage);
+              }
+              break;
+            default:
+              return false;
+          }
+          return true;
+        };
         try {
-          const data = JSON.parse(currentData);
+          let data: any;
+          try {
+            data = JSON.parse(currentData);
+          } catch {
+            const raw = String(currentData || '').trim();
+            if (currentEvent === 'done') {
+              data = {};
+            } else if (currentEvent === 'error') {
+              data = { message: raw || 'I could not complete that request.' };
+            } else if (currentEvent === 'text_delta') {
+              data = { delta: currentData };
+            } else if (currentEvent === 'tool_start') {
+              data = { toolName: raw || 'unknown' };
+            } else if (currentEvent === 'tool_result') {
+              const lower = raw.toLowerCase();
+              data = {
+                toolName: 'unknown',
+                ok: lower === 'true' || lower === 'ok' || lower === '1',
+              };
+            } else if (currentEvent === 'pending' || currentEvent === 'confirmed') {
+              data = {};
+            } else {
+              throw new Error(`Non-JSON payload for event "${currentEvent}"`);
+            }
+          }
           if (SUPPRESSED_AUXILIARY_STREAM_EVENTS.has(currentEvent)) {
             return;
           }
+          if (currentEvent === 'agent_event') {
+            // In Agent v2 mode we already receive native events (text_delta/tool_*/done/error).
+            // Compat envelopes would duplicate chunks/status events in the UI.
+            if (useAgentV2Stream) {
+              return;
+            }
+            const compatType =
+              typeof data?.type === 'string' ? data.type : typeof data?.payload?.type === 'string' ? data.payload.type : '';
+            const compatPayload = (data?.payload && typeof data.payload === 'object') ? data.payload : data;
+            if (compatType && dispatchEvent(compatType, compatPayload)) {
+              return;
+            }
+          }
           switch (currentEvent) {
+            case 'text_delta':
+            case 'tool_start':
+            case 'tool_result':
+            case 'pending':
+            case 'confirmed':
+            case 'done':
+            case 'error':
+              if (dispatchEvent(currentEvent, data)) {
+                break;
+              }
+              return;
             case 'turn.start': {
               const payload = data?.payload || {};
               hasStartEnvelope = true;
@@ -1806,39 +1970,6 @@ export function streamAgentMessage(
             case 'commentary_chunk':
               callbacks.onCommentaryChunk?.(data.chunk);
               break;
-            case 'done':
-              hasDoneEnvelope = true;
-              // Chatbot mode (/agent/chat) can validly terminate with start -> chunk -> done
-              // without artifact/result envelopes.
-              if (!hasResultEnvelope && (hasErrorEnvelope || !hasChunkEnvelope)) {
-                callbacks.onResult?.({
-                  output: buildLocalRecoveryOutput(
-                    'I could not complete that request in this turn.',
-                    'temporary',
-                  ),
-                  intent: 'RECOVERY',
-                  visibility: 'visible',
-                  interactionMode: 'operational',
-                });
-              }
-              callbacks.onDone?.(data);
-              break;
-            case 'error':
-              hasErrorEnvelope = true;
-              if (String(data?.visibility || 'metadata').toLowerCase() !== 'metadata') {
-                callbacks.onResult?.({
-                  output: buildLocalRecoveryOutput(
-                    typeof data?.error === 'string' && data.error.trim()
-                      ? data.error
-                      : 'I could not complete that request.',
-                    'temporary',
-                  ),
-                  intent: 'RECOVERY',
-                  visibility: 'visible',
-                  interactionMode: 'operational',
-                });
-              }
-              break;
             case 'cancelled':
               callbacks.onCancelled?.();
               break;
@@ -1905,54 +2036,27 @@ export function streamAgentMessage(
         buffer = lines.pop() || ''; // Keep incomplete line in buffer
 
         for (const line of lines) {
+          const normalizedLine = line.endsWith('\r') ? line.slice(0, -1) : line;
           // Skip SSE comments (heartbeat/keep-alive)
-          if (line.startsWith(':')) {
+          if (normalizedLine.startsWith(':')) {
             continue;
           }
-          if (line.startsWith('event: ')) {
-            currentEvent = line.slice(7).trim();
-          } else if (line.startsWith('data: ')) {
-            const dataPart = line.slice(6);
+          if (normalizedLine.startsWith('event:')) {
+            currentEvent = normalizedLine.slice(6).trim();
+          } else if (normalizedLine.startsWith('data:')) {
+            const dataPart = normalizedLine.slice(5).trimStart();
             currentData = currentData ? `${currentData}\n${dataPart}` : dataPart;
-          } else if (line === '') {
+          } else if (normalizedLine === '') {
             // End of event, process it
             processCurrentEvent();
           }
         }
       }
     } catch (err) {
-      if ((err as Error).name === 'AbortError') {
+        if ((err as Error).name === 'AbortError') {
         callbacks.onCancelled?.();
       } else {
-        try {
-          const response = await apiClient.post<AgentResponse>('/agent/run', request);
-          if (response.status === 'ok' && response.data) {
-            callbacks.onResult?.({
-              output: response.data.output,
-              intent: response.data.intent,
-              contextLifecycle: response.data.contextLifecycle || null,
-              visibility: 'visible',
-              interactionMode: 'operational',
-              mutationOutcome: response.data.mutationOutcome || null,
-            });
-            callbacks.onDone?.({
-              timestamp: new Date().toISOString(),
-              mutationOutcome: response.data.mutationOutcome || null,
-            });
-            return;
-          }
-        } catch {
-          // Fall through to local recovery below
-        }
-        callbacks.onResult?.({
-          output: buildLocalRecoveryOutput(
-            (err as Error).message || 'Stream error',
-            'temporary',
-          ),
-          intent: 'RECOVERY',
-          visibility: 'visible',
-          interactionMode: 'operational',
-        });
+        callbacks.onError?.((err as Error).message || 'Stream error');
         callbacks.onDone?.({ timestamp: new Date().toISOString() });
       }
     }

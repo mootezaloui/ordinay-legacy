@@ -21,6 +21,12 @@ function createAgentV2StreamHandler(runtime) {
                 return;
             }
             let input = parsed.input;
+            console.info("[AGENT_V2_STREAM_TURN_START]", safeDiagnosticJson({
+                sessionId: input.sessionId,
+                turnId: input.turnId,
+                mode: input.mode,
+                messagePreview: truncateForDiagnostics(input.message, 140),
+            }));
             const rateLimit = evaluateRateLimit(security, req, input);
             if (!rateLimit.allowed) {
                 const message = asNonEmptyString(rateLimit.reason) ?? "Rate limit exceeded. Please retry shortly.";
@@ -60,11 +66,24 @@ function createAgentV2StreamHandler(runtime) {
             const output = applyGroundingPostprocess(runtime, input, session, loopOutput);
             runtime.sessionStore.updateSession(session);
             schedulePerformanceSnapshot(runtime, input, output);
+            console.info("[AGENT_V2_STREAM_TURN_END]", safeDiagnosticJson({
+                sessionId: input.sessionId,
+                turnId: input.turnId,
+                turnType: output.turnType,
+                toolCallsCount: Array.isArray(output.toolCalls) ? output.toolCalls.length : 0,
+                pendingAction: Boolean(output.pendingAction),
+                responseLength: String(output.responseText || "").length,
+            }));
             emitOutput(emitter, output);
             emitter.emit({ type: "done" });
             emitter.close();
         }
         catch (error) {
+            console.warn("[AGENT_V2_STREAM_ERROR]", safeDiagnosticJson({
+                message: error instanceof Error && error.message.trim().length > 0
+                    ? error.message
+                    : String(error || "Agent v2 stream failed"),
+            }));
             emitter.emit({
                 type: "error",
                 message: error instanceof Error && error.message.trim().length > 0
@@ -656,4 +675,19 @@ function toRecord(value) {
         return null;
     }
     return value;
+}
+function truncateForDiagnostics(value, maxLength) {
+    const normalized = String(value || "").replace(/\s+/g, " ").trim();
+    if (normalized.length <= maxLength) {
+        return normalized;
+    }
+    return `${normalized.slice(0, Math.max(maxLength - 3, 1)).trimEnd()}...`;
+}
+function safeDiagnosticJson(value) {
+    try {
+        return JSON.stringify(value);
+    }
+    catch {
+        return JSON.stringify({ error: "Unable to serialize diagnostic payload." });
+    }
 }

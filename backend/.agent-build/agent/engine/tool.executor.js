@@ -8,44 +8,107 @@ class ToolExecutor {
         this.permissionGate = permissionGate;
     }
     async execute(tool, context, args) {
+        const startedAt = Date.now();
+        let result;
         if (this.permissionGate) {
             const decision = this.permissionGate.evaluate(context.mode, tool);
             if (!decision.allowed) {
-                return {
+                result = {
                     ok: false,
                     errorCode: "TOOL_PERMISSION_DENIED",
                     errorMessage: decision.reason ?? "Tool is not allowed.",
                 };
+                return this.finalizeExecution(tool, args, result, startedAt);
             }
         }
         if (!(0, tools_1.validateToolInput)(tool.inputSchema, args)) {
-            return {
+            result = {
                 ok: false,
                 errorCode: "INVALID_TOOL_INPUT",
                 errorMessage: `Input validation failed for tool "${tool.name}"`,
             };
+            return this.finalizeExecution(tool, args, result, startedAt);
         }
         try {
             const rawResult = await tool.handler(context, args);
             const normalized = normalizeToolResult(rawResult);
             if (!normalized.ok) {
-                return normalized;
+                result = normalized;
+                return this.finalizeExecution(tool, args, result, startedAt);
             }
             if (!(0, tools_1.validateToolOutput)(tool.outputSchema, normalized.data)) {
-                return {
+                result = {
                     ok: false,
                     errorCode: "INVALID_TOOL_OUTPUT",
                     errorMessage: `Output validation failed for tool "${tool.name}"`,
                 };
+                return this.finalizeExecution(tool, args, result, startedAt);
             }
-            return normalized;
+            result = normalized;
+            return this.finalizeExecution(tool, args, result, startedAt);
         }
         catch (error) {
-            return normalizeFailure(error, "TOOL_RUNTIME_ERROR", tool.name);
+            result = normalizeFailure(error, "TOOL_RUNTIME_ERROR", tool.name);
+            return this.finalizeExecution(tool, args, result, startedAt);
+        }
+    }
+    finalizeExecution(tool, args, result, startedAt) {
+        if (tool.category === tools_1.ToolCategory.READ) {
+            this.logReadToolCall(tool.name, args, result, Date.now() - startedAt);
+        }
+        return result;
+    }
+    logReadToolCall(toolName, args, result, executionMs) {
+        const resultCount = estimateResultCount(result);
+        const payload = {
+            tool: toolName,
+            args,
+            result_count: resultCount,
+            execution_ms: executionMs,
+        };
+        console.info("[READ_TOOL_CALL]", safeStringify(payload));
+        if (resultCount === 0) {
+            console.warn("[READ_EMPTY_RESULT]", safeStringify({
+                tool: toolName,
+                args,
+            }));
         }
     }
 }
 exports.ToolExecutor = ToolExecutor;
+function estimateResultCount(result) {
+    if (!result.ok) {
+        return 0;
+    }
+    const data = result.data;
+    if (Array.isArray(data)) {
+        return data.length;
+    }
+    if (isRecord(data)) {
+        if (typeof data.count === "number" && Number.isFinite(data.count) && data.count >= 0) {
+            return Math.floor(data.count);
+        }
+        const values = Object.values(data);
+        const arrays = values.filter((value) => Array.isArray(value));
+        if (arrays.length > 0) {
+            return arrays.reduce((total, value) => total + value.length, 0);
+        }
+        const nestedObjects = values.filter((value) => isRecord(value));
+        if (nestedObjects.length > 0) {
+            return nestedObjects.length;
+        }
+        return Object.keys(data).length > 0 ? 1 : 0;
+    }
+    return data === null || data === undefined ? 0 : 1;
+}
+function safeStringify(value) {
+    try {
+        return JSON.stringify(value);
+    }
+    catch {
+        return JSON.stringify({ error: "Unable to serialize diagnostic payload" });
+    }
+}
 function normalizeToolResult(result) {
     if (isRecord(result) && typeof result.ok === "boolean") {
         if (result.ok) {

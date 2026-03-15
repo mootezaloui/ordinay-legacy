@@ -14,7 +14,7 @@
     "test:agent-engine": "node --test src/agent_Back/agent.engine.test.js",
     "test:cognition": "node --test src/agent_Back/cognition/*.test.js",
     "test:mutation-governance": "node --test src/agent_Back/mutation/*.test.js",
-    "test:agent-v2": "node --test src/agent/testing/tests/scenario.test.js src/agent/testing/tests/replay.test.js src/agent/testing/tests/failure.test.js src/agent/testing/tests/operations.test.js src/agent/testing/tests/getEntityGraph.test.js",
+    "test:agent-v2": "node --test src/agent/testing/tests/scenario.test.js src/agent/testing/tests/replay.test.js src/agent/testing/tests/failure.test.js src/agent/testing/tests/operations.test.js src/agent/testing/tests/getEntityGraph.test.js src/agent/testing/tests/read.audit.test.js",
     "test:agent-v2:load": "node --test src/agent/testing/tests/load.smoke.test.js"
   },
   "dependencies": {

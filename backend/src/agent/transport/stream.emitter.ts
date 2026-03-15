@@ -40,7 +40,8 @@ export class StreamEmitter {
 
     this.writeEvent(event.type, event);
 
-    if (ENABLE_COMPAT_EVENTS) {
+    const emitCompat = ENABLE_COMPAT_EVENTS && false;
+    if (emitCompat) {
       const compatEnvelope: CompatEnvelope = {
         type: event.type,
         payload: this.toCompatPayload(event),

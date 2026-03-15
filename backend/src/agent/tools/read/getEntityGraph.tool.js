@@ -44,7 +44,6 @@ const ALLOWED_ROOT_TYPES = new Set([
 ]);
 
 const ALLOWED_DIRECTIONS = new Set(["up", "down", "both"]);
-
 function normalizeEntityType(value) {
   const normalized = String(value || "").trim().toLowerCase();
   if (!ALLOWED_ROOT_TYPES.has(normalized)) {
@@ -62,7 +61,11 @@ function normalizeEntityId(value) {
 }
 
 function normalizeDepth(value) {
-  return Number(value) === 2 ? 2 : 1;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 2) {
+    return 1;
+  }
+  return 2;
 }
 
 function normalizeDirection(value) {
@@ -73,6 +76,12 @@ function normalizeDirection(value) {
 async function getEntityGraph(args, executionContext = {}) {
   const entityType = normalizeEntityType(args?.entityType);
   const entityId = normalizeEntityId(args?.entityId);
+  const requestedDepthRaw = args?.depth;
+  const requestedDepth = Number(requestedDepthRaw);
+  const hasRequestedDepth =
+    requestedDepthRaw !== undefined &&
+    requestedDepthRaw !== null &&
+    String(requestedDepthRaw).trim().length > 0;
   const depth = normalizeDepth(args?.depth);
   const direction = normalizeDirection(args?.direction);
   const nowMs = Date.now();
@@ -90,6 +99,17 @@ async function getEntityGraph(args, executionContext = {}) {
   });
 
   const includedCategories = collectIncludedCategories(categoryAllowance);
+  if (hasRequestedDepth && requestedDepth !== depth) {
+    console.warn(
+      "[GRAPH_DEPTH_NORMALIZED]",
+      safeJson({
+        root_type: entityType,
+        root_id: entityId,
+        requested_depth: Number.isFinite(requestedDepth) ? requestedDepth : requestedDepthRaw,
+        effective_depth: depth,
+      }),
+    );
+  }
   const response = {
     root: toGraphNode(entityType, rootRow, nowMs),
     parents: {},
@@ -133,6 +153,20 @@ async function getEntityGraph(args, executionContext = {}) {
       nowMs,
       forceClientDossiersForTraversal,
     });
+    console.info(
+      "[GRAPH_DIRECT_CHILDREN]",
+      safeJson({
+        root_type: entityType,
+        root_id: entityId,
+        effective_depth: depth,
+        dossiers: Array.isArray(directChildren.dossiers) ? directChildren.dossiers.length : 0,
+        lawsuits: Array.isArray(directChildren.lawsuits) ? directChildren.lawsuits.length : 0,
+        tasks: Array.isArray(directChildren.tasks) ? directChildren.tasks.length : 0,
+        missions: Array.isArray(directChildren.missions) ? directChildren.missions.length : 0,
+        sessions: Array.isArray(directChildren.sessions) ? directChildren.sessions.length : 0,
+        documents: Array.isArray(directChildren.documents) ? directChildren.documents.length : 0,
+      }),
+    );
 
     const categoryMap = createCategoryMap();
 
@@ -155,6 +189,22 @@ async function getEntityGraph(args, executionContext = {}) {
 
     const flattened = flattenCategoryMap(categoryMap, categoryAllowance);
     const capped = applyChildCaps(flattened, categoryAllowance);
+    console.info(
+      "[GRAPH_CHILDREN_FINAL]",
+      safeJson({
+        root_type: entityType,
+        root_id: entityId,
+        effective_depth: depth,
+        dossiers: Array.isArray(capped.children.dossiers) ? capped.children.dossiers.length : 0,
+        lawsuits: Array.isArray(capped.children.lawsuits) ? capped.children.lawsuits.length : 0,
+        tasks: Array.isArray(capped.children.tasks) ? capped.children.tasks.length : 0,
+        missions: Array.isArray(capped.children.missions) ? capped.children.missions.length : 0,
+        sessions: Array.isArray(capped.children.sessions) ? capped.children.sessions.length : 0,
+        documents: Array.isArray(capped.children.documents) ? capped.children.documents.length : 0,
+        truncated: capped.truncated,
+        totalBeforeCap: capped.totalBeforeCap,
+      }),
+    );
     response.children = capped.children;
     response.meta.truncated = capped.truncated;
     response.meta.totalBeforeCap = capped.totalBeforeCap;
@@ -166,7 +216,50 @@ async function getEntityGraph(args, executionContext = {}) {
     children: response.children,
   });
 
+  const parentsCount = countGraphNodes(response.parents);
+  const childrenCount = countGraphNodes(response.children);
+  const totalEntities = 1 + parentsCount + childrenCount;
+  console.info(
+    "[GRAPH_TRAVERSAL]",
+    safeJson({
+      root_type: entityType,
+      root_id: entityId,
+      depth,
+      parents_count: parentsCount,
+      children_count: childrenCount,
+      total_entities: totalEntities,
+    }),
+  );
+
+  if (depth <= 1) {
+    console.warn("[GRAPH_WARNING] depth may be too shallow for workload queries");
+  }
+
   return response;
+}
+
+function countGraphNodes(collection) {
+  if (!collection || typeof collection !== "object") {
+    return 0;
+  }
+
+  return Object.values(collection).reduce((total, value) => {
+    if (Array.isArray(value)) {
+      return total + value.length;
+    }
+    if (value && typeof value === "object") {
+      return total + 1;
+    }
+    return total;
+  }, 0);
+}
+
+function safeJson(value) {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return JSON.stringify({ error: "unable to serialize graph diagnostics" });
+  }
 }
 
 module.exports = {
