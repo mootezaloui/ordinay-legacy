@@ -105,6 +105,9 @@ function buildModeSystemPrompt({
   extras.push(
     "If the user's intent is reasonably clear from context, act on the most likely interpretation and surface the result. Only ask a clarifying question if two genuinely different actions are equally likely and the wrong choice would cause a meaningful problem.",
   );
+  extras.push(
+    "Never include internal database identifiers (numeric IDs like id, client_id, dossier_id, task_id) in any user-facing output. Refer to entities by name, title, or reference code only.",
+  );
 
   const base = {
     [RESPONSE_MODES.REPORT]: `You are a senior legal practice assistant for a law firm.

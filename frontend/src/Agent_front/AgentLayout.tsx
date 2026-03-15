@@ -180,10 +180,10 @@ export function AgentLayout({
         {/* Conversation - Scrollable */}
         <div
           ref={scrollContainerRef}
-          className="flex-1 overflow-y-auto scroll-smooth agent-thread"
+          className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth agent-thread"
           style={{ minHeight: 0 }}
         >
-          <div className="mx-auto w-full max-w-[52rem] px-4 py-6 sm:px-8">
+          <div className="mx-auto w-full max-w-[52rem] xl:max-w-[68rem] 2xl:max-w-[80rem] px-4 py-6 sm:px-8 overflow-hidden">
             {conversation.length === 0 ? (
               <AgentQuickActions onExampleClick={handleExampleClick} />
             ) : (

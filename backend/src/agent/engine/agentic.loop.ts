@@ -84,6 +84,13 @@ const READ_POLICY_INSTRUCTIONS = [
   "Do not output raw JSON, tool payload wrappers, or stream-event fragments in user-facing text.",
   "Keep sections compact and non-redundant; avoid repeating the same fact in multiple sections.",
   "If data is partial or uncertain, state that clearly instead of filling gaps with assumptions.",
+  "",
+  "INTERNAL IDENTIFIER POLICY",
+  "",
+  "Never include internal database identifiers (numeric IDs such as id, client_id, dossier_id, task_id, entity_id, etc.) in any user-facing output.",
+  "These are system-internal values and must never appear in response text, tables, structured data, or field labels.",
+  "When referring to entities, use their human-readable attributes: name, title, reference code, date, or description.",
+  "This rule applies to all entity types without exception.",
 ].join("\n");
 
 const DATABASE_ENTITY_QUERY_PATTERN =
@@ -143,6 +150,35 @@ export interface AgentMemoryServices {
     indexSessionArtifacts?: (session: Session) => unknown;
     indexTurnArtifacts?: (session: Session, turn: Session["turns"][number]) => unknown;
   };
+}
+
+/**
+ * Recursively strips internal database identifiers from tool results
+ * before they reach the LLM context.
+ *
+ * Removes:
+ *   - `id` fields (primary keys)
+ *   - `*_id` fields with numeric values (foreign keys)
+ *
+ * Preserves:
+ *   - `*_id` fields with string values (real-world identifiers like tax_id)
+ *   - All other fields
+ */
+function stripInternalIds(value: unknown): unknown {
+  if (value === null || value === undefined) return value;
+  if (Array.isArray(value)) return value.map(stripInternalIds);
+  if (typeof value !== "object") return value;
+
+  const obj = value as Record<string, unknown>;
+  const result: Record<string, unknown> = {};
+
+  for (const key of Object.keys(obj)) {
+    if (key === "id" && typeof obj[key] === "number") continue;
+    if (key.endsWith("_id") && typeof obj[key] === "number") continue;
+    result[key] = stripInternalIds(obj[key]);
+  }
+
+  return result;
 }
 
 export class AgenticLoop {
@@ -1445,7 +1481,7 @@ export class AgenticLoop {
   }
 
   private serializeToolMessage(toolName: string, result: ToolExecutionResult): string {
-    return this.safeJsonStringify({ tool: toolName, result });
+    return this.safeJsonStringify({ tool: toolName, result: stripInternalIds(result) });
   }
 
   private truncate(value: string, maxLength: number): string {

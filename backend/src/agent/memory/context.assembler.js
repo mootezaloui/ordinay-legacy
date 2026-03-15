@@ -65,6 +65,13 @@ const READ_POLICY_INSTRUCTIONS = [
   "Do not output raw JSON, tool payload wrappers, or stream-event fragments in user-facing text.",
   "Keep sections compact and non-redundant; avoid repeating the same fact in multiple sections.",
   "If data is partial or uncertain, state that clearly instead of filling gaps with assumptions.",
+  "",
+  "INTERNAL IDENTIFIER POLICY",
+  "",
+  "Never include internal database identifiers (numeric IDs such as id, client_id, dossier_id, task_id, entity_id, etc.) in any user-facing output.",
+  "These are system-internal values and must never appear in response text, tables, structured data, or field labels.",
+  "When referring to entities, use their human-readable attributes: name, title, reference code, date, or description.",
+  "This rule applies to all entity types without exception.",
 ].join("\n");
 
 function createContextAssembler(options = {}) {
@@ -353,12 +360,11 @@ function buildEntityDigest(activeEntities, maxItems, maxChars) {
 
   const lines = visible.map((entity) => {
     const type = String(entity?.type || "entity");
-    const id = String(entity?.id ?? "unknown");
     const label = String(entity?.label || "").trim();
     const source = String(entity?.sourceTool || "").trim();
-    const labelPart = label ? ` (${label})` : "";
+    const labelPart = label || "unnamed";
     const sourcePart = source ? ` [${source}]` : "";
-    return `- ${type}:${id}${labelPart}${sourcePart}`;
+    return `- ${type}: ${labelPart}${sourcePart}`;
   });
 
   if (hiddenCount > 0) {

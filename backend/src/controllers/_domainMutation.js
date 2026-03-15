@@ -1,4 +1,5 @@
 const { assertDomainMutationAllowed } = require("../agent_Back/mutation/agentDomainMutationRules");
+const { evaluateMutationConstraints } = require("../agent_Back/mutation/agentDomainConstraintEvaluator");
 
 function enforceDomainMutation({ entityType, operation, entityId = null, payload = {}, service }) {
   const existing =
@@ -6,7 +7,7 @@ function enforceDomainMutation({ entityType, operation, entityId = null, payload
       ? service.get(entityId)
       : null;
 
-  return assertDomainMutationAllowed({
+  const domainEvaluation = evaluateMutationConstraints({
     entityType,
     operation,
     entityId,
@@ -14,6 +15,19 @@ function enforceDomainMutation({ entityType, operation, entityId = null, payload
     existing,
     mode: "rest_api",
   });
+
+  if (!domainEvaluation.allowed) {
+    return assertDomainMutationAllowed({
+      entityType,
+      operation,
+      entityId,
+      payload,
+      existing,
+      mode: "rest_api",
+    });
+  }
+
+  return domainEvaluation;
 }
 
 module.exports = {
