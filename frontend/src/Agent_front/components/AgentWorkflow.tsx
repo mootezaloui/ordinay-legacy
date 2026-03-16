@@ -308,7 +308,11 @@ export function AgentWorkflow({
       <div className="agent-message-row">
         <div className="agent-chat-text text-[15px] leading-relaxed text-slate-800 dark:text-slate-200 px-1">
           <MarkdownOutput content={message.content} />
-          <span className="inline-block w-1.5 h-4 ml-0.5 bg-slate-400 dark:bg-slate-500 animate-pulse rounded-sm align-text-bottom" />
+          <span className="agent-stream-cursor" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </span>
         </div>
       </div>
     );

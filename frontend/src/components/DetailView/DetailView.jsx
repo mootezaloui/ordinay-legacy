@@ -210,7 +210,7 @@ export default function DetailView({ entityType }) {
     return () => {
       isMounted = false;
     };
-  }, [id, entityType, contextData.clients, contextData.dossiers, contextData.lawsuits, contextData.tasks, contextData.sessions, contextData.officers, contextData.personalTasks]);
+  }, [id, entityType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Show pending notification once data is loaded to avoid pre-navigation flicker
   useEffect(() => {
@@ -225,7 +225,7 @@ export default function DetailView({ entityType }) {
     }
   }, [loading]);
 
-  if (loading || globalLoading) {
+  if ((loading || globalLoading) && !data) {
     return (
       <PageLayout>
         <DetailSkeleton />

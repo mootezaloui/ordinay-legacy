@@ -13,25 +13,27 @@ const TOOL_CATEGORIES = { READ: 'READ' };
 const inputSchema = {
   type: 'object',
   properties: {
-    clientId: { type: ['integer', 'null'], minimum: 1 },
-    dossierId: { type: ['integer', 'null'], minimum: 1 },
-    lawsuitId: { type: ['integer', 'null'], minimum: 1 },
-    missionId: { type: ['integer', 'null'], minimum: 1 },
-    taskId: { type: ['integer', 'null'], minimum: 1 },
-    sessionId: { type: ['integer', 'null'], minimum: 1 },
-    personalTaskId: { type: ['integer', 'null'], minimum: 1 },
-    financialEntryId: { type: ['integer', 'null'], minimum: 1 },
-    officerId: { type: ['integer', 'null'], minimum: 1 },
-    query: { type: ['string', 'null'] },
+    clientId: { type: ['integer', 'null'], minimum: 1, description: 'Filter by client ID. Get this from listClients results.' },
+    dossierId: { type: ['integer', 'null'], minimum: 1, description: 'Filter by dossier ID. Get this from listDossiers results.' },
+    lawsuitId: { type: ['integer', 'null'], minimum: 1, description: 'Filter by lawsuit ID.' },
+    missionId: { type: ['integer', 'null'], minimum: 1, description: 'Filter by mission ID.' },
+    taskId: { type: ['integer', 'null'], minimum: 1, description: 'Filter by task ID.' },
+    sessionId: { type: ['integer', 'null'], minimum: 1, description: 'Filter by session ID.' },
+    personalTaskId: { type: ['integer', 'null'], minimum: 1, description: 'Filter by personal task ID.' },
+    financialEntryId: { type: ['integer', 'null'], minimum: 1, description: 'Filter by financial entry ID.' },
+    officerId: { type: ['integer', 'null'], minimum: 1, description: 'Filter by officer ID.' },
+    query: { type: ['string', 'null'], description: 'Text search on document title, filename, or notes only. Does NOT search by client or dossier name.' },
     textStatus: {
       type: ['string', 'null'],
       enum: ['readable', 'unreadable', 'processing', null],
+      description: 'Filter by document text extraction status.',
     },
     limit: {
       type: 'integer',
       minimum: 1,
       maximum: 200,
       default: 50,
+      description: 'Maximum number of documents to return.',
     },
   },
   additionalProperties: false,
@@ -100,7 +102,7 @@ async function handler({
       textStatus,
       limit,
     })
-    .map((doc) => ({
+    .map(({ document_text, artifact_json, ...doc }) => ({
       ...doc,
       id: Number(doc.document_id || doc.id),
     }));
@@ -115,7 +117,7 @@ module.exports = {
   name: 'listDocuments',
   category: TOOL_CATEGORIES.READ,
   description:
-    'List document metadata with optional scoped filters plus text-status/query filtering.',
+    'List document metadata. To find documents for a specific client, first use listClients to get the client ID, then pass it as clientId here. The query parameter searches document titles and filenames only, not client names.',
   inputSchema,
   outputSchema,
   reversibility: true,

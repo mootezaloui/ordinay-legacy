@@ -434,7 +434,7 @@ function listFiltered({
     params.query = `%${String(query).trim().toLowerCase()}%`;
   }
 
-  sql += ` ORDER BY COALESCE(uploaded_at, created_at) DESC, id DESC LIMIT @limit`;
+  sql += ` ORDER BY uploaded_at DESC, id DESC LIMIT @limit`;
 
   return db.prepare(sql).all(params).map(decorateDocument);
 }

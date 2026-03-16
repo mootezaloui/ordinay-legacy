@@ -59,6 +59,13 @@ const READ_POLICY_INSTRUCTIONS = [
     "Do not output raw JSON, tool payload wrappers, or stream-event fragments in user-facing text.",
     "Keep sections compact and non-redundant; avoid repeating the same fact in multiple sections.",
     "If data is partial or uncertain, state that clearly instead of filling gaps with assumptions.",
+    "",
+    "INTERNAL IDENTIFIER POLICY",
+    "",
+    "Never include internal database identifiers (numeric IDs such as id, client_id, dossier_id, task_id, entity_id, etc.) in any user-facing output.",
+    "These are system-internal values and must never appear in response text, tables, structured data, or field labels.",
+    "When referring to entities, use their human-readable attributes: name, title, reference code, date, or description.",
+    "This rule applies to all entity types without exception.",
 ].join("\n");
 const DATABASE_ENTITY_QUERY_PATTERN = /\b(client|clients|dossier|dossiers|case|cases|task|tasks|document|documents|workload|lawsuit|lawsuits|session|sessions|financial|history|deadline|deadlines|notification|notifications)\b/i;
 const WORKLOAD_OR_CASES_QUERY_PATTERN = /\b(work\s*-?\s*load|workload|cases?|matters?)\b/i;
@@ -83,7 +90,7 @@ class AgenticLoop {
         this.persistence = persistence;
         this.memory = memory;
     }
-    async run(input, session) {
+    async run(input, session, streamCallbacks) {
         const startedAt = new Date().toISOString();
         const historyStartIndex = session.history.length;
         session.mode = input.mode;
@@ -106,7 +113,7 @@ class AgenticLoop {
                 case types_1.TurnType.NEW:
                 case types_1.TurnType.AMENDMENT:
                 default:
-                    output = await this.handleReasoningTurn(input, session, turnType, toolCalls, audit, warnings, stats, readCounters);
+                    output = await this.handleReasoningTurn(input, session, turnType, toolCalls, audit, warnings, stats, readCounters, streamCallbacks);
                     break;
             }
         }
@@ -217,7 +224,7 @@ class AgenticLoop {
         this.touchSession(session, types_1.TurnType.REJECTION);
         return this.buildOutput(input, session, types_1.TurnType.REJECTION, responseText, toolCalls, audit, metadata, warnings);
     }
-    async handleReasoningTurn(input, session, turnType, toolCalls, audit, warnings, stats, readCounters) {
+    async handleReasoningTurn(input, session, turnType, toolCalls, audit, warnings, stats, readCounters, streamCallbacks) {
         const metadata = { loopStats: stats };
         const messages = this.buildInitialMessages(input, session, turnType);
         this.appendTurn(session, "user", input.message, turnType);
@@ -234,11 +241,11 @@ class AgenticLoop {
             iteration += 1;
             stats.iterations = iteration;
             this.loopGuard.assertIteration(iteration);
-            const response = await this.loopGuard.wrapTimeout(this.llm.generate({
+            const response = await this.loopGuard.wrapTimeout(this.generateAssistantResponse({
                 messages,
                 tools: llmTools,
                 metadata: { sessionId: input.sessionId, turnId: input.turnId, iteration },
-            }), () => {
+            }, streamCallbacks), () => {
                 console.warn("[AGENT_LOOP_TIMEOUT]", {
                     sessionId: input.sessionId,
                     turnId: input.turnId,
@@ -542,6 +549,55 @@ class AgenticLoop {
             });
         }
         return { stopForConfirmation: false };
+    }
+    async generateAssistantResponse(params, streamCallbacks) {
+        const textParts = [];
+        const toolCallsById = new Map();
+        let chunkIndex = 0;
+        let finishReason = "stop";
+        let streamed = false;
+        try {
+            for await (const chunk of this.llm.stream(params)) {
+                streamed = true;
+                if (typeof chunk.deltaText === "string" && chunk.deltaText.length > 0) {
+                    textParts.push(chunk.deltaText);
+                    streamCallbacks?.onTextDelta?.(chunk.deltaText);
+                }
+                if (chunk.toolCall) {
+                    const raw = chunk.toolCall;
+                    const id = typeof raw.id === "string" && raw.id.trim().length > 0
+                        ? raw.id.trim()
+                        : `tool_stream_${chunkIndex++}`;
+                    const existing = toolCallsById.get(id) ?? { id, name: "", arguments: {} };
+                    if (typeof raw.name === "string" && raw.name.trim().length > 0) {
+                        existing.name = raw.name.trim();
+                    }
+                    const normalizedArgs = this.normalizeArgs(raw.arguments);
+                    if (isRecord(normalizedArgs)) {
+                        existing.arguments = { ...(existing.arguments || {}), ...normalizedArgs };
+                    }
+                    toolCallsById.set(id, existing);
+                }
+                if (typeof chunk.finishReason === "string" && chunk.finishReason.trim().length > 0) {
+                    finishReason = chunk.finishReason;
+                }
+                if (chunk.done === true) {
+                    break;
+                }
+            }
+        }
+        catch {
+            streamed = false;
+        }
+        if (!streamed) {
+            return this.llm.generate(params);
+        }
+        const toolCalls = Array.from(toolCallsById.values()).filter((call) => typeof call.name === "string" && call.name.trim().length > 0);
+        return {
+            text: textParts.join(""),
+            toolCalls,
+            finishReason,
+        };
     }
     buildInitialMessages(input, session, turnType) {
         if (this.memory?.contextAssembler?.build) {

@@ -112,6 +112,7 @@ export function AgentInput({
   const [fileUploadAccept, setFileUploadAccept] = useState(
     ".pdf,.doc,.docx,.txt,.csv,.md,.json,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.bmp,.webp,.tif,.tiff,.heic,.heif",
   );
+  const [isDragging, setIsDragging] = useState(false);
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const documentPickerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -120,10 +121,17 @@ export function AgentInput({
 
   // Auto-resize textarea
   useEffect(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 200) + "px";
+    const adjustHeight = () => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.style.height = "auto";
+      el.style.height = Math.min(el.scrollHeight, 200) + "px";
+    };
+
+    adjustHeight();
+
+    window.addEventListener("resize", adjustHeight);
+    return () => window.removeEventListener("resize", adjustHeight);
   }, [input, inputRef]);
 
   const getNextAttachmentId = useCallback(() => {
@@ -296,48 +304,68 @@ export function AgentInput({
     ],
   );
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-
+  const processFiles = useCallback((files: FileList | File[]) => {
     Array.from(files).forEach((file) => {
-      const newFile: AttachedFile = {
-        id: getNextAttachmentId(),
-        name: file.name,
-        type: "file",
-        size: file.size,
-        file,
-      };
-      setAttachedFiles((prev) => [...prev, newFile]);
+      // Check if it's an image
+      if (file.type.startsWith("image/")) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const newFile: AttachedFile = {
+            id: getNextAttachmentId(),
+            name: file.name,
+            type: "image",
+            size: file.size,
+            preview: event.target?.result as string,
+            file,
+          };
+          setAttachedFiles((prev) => [...prev, newFile]);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        const newFile: AttachedFile = {
+          id: getNextAttachmentId(),
+          name: file.name,
+          type: "file",
+          size: file.size,
+          file,
+        };
+        setAttachedFiles((prev) => [...prev, newFile]);
+      }
     });
+  }, [getNextAttachmentId]);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) processFiles(e.target.files);
     setShowAttachMenu(false);
-    // Reset input so same file can be re-selected
     if (e.target) e.target.value = "";
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const newFile: AttachedFile = {
-          id: getNextAttachmentId(),
-          name: file.name,
-          type: "image",
-          size: file.size,
-          preview: event.target?.result as string,
-          file,
-        };
-        setAttachedFiles((prev) => [...prev, newFile]);
-      };
-      reader.readAsDataURL(file);
-    });
+    if (e.target.files) processFiles(e.target.files);
     setShowAttachMenu(false);
-    // Reset input so same file can be re-selected
     if (e.target) e.target.value = "";
   };
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processFiles(e.dataTransfer.files);
+    }
+  }, [processFiles]);
 
   const handleDocumentSelect = (doc: SystemDocument) => {
     const newFile: AttachedFile = {
@@ -427,9 +455,19 @@ export function AgentInput({
         )}
 
         <div>
-          <div className="relative bg-white/60 dark:bg-[#020617] rounded-xl border border-black/[0.04] dark:border-white/[0.08] focus-within:border-[#60a5fa]/30 focus-within:ring-1 focus-within:ring-[#60a5fa]/10 transition-all">
+          <div 
+            onDragEnter={handleDragOver}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`relative rounded-2xl border transition-all duration-300 ${
+              isDragging 
+                ? "border-blue-500 ring-4 ring-blue-500/20 bg-blue-50/50 dark:bg-blue-900/10" 
+                : "bg-white dark:bg-[#0f172a] border-slate-200/60 dark:border-slate-800/60 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] focus-within:shadow-[0_8px_30px_-4px_rgba(6,81,237,0.1)] focus-within:border-blue-500/40 focus-within:ring-4 focus-within:ring-blue-500/10"
+            }`}
+          >
             {showDropdown && (
-              <div className="absolute bottom-full left-0 right-0 mb-3 bg-white/95 dark:bg-[#1e293b]/95 border border-black/[0.06] dark:border-white/[0.06] rounded-2xl shadow-xl max-h-80 overflow-y-auto z-50">
+              <div className="absolute bottom-full left-0 right-0 mb-3 bg-white/95 dark:bg-[#1e293b]/95 backdrop-blur-md border border-black/[0.06] dark:border-white/[0.06] rounded-2xl shadow-xl max-h-80 overflow-y-auto z-50">
                 <div className="p-2">
                   <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-3 py-2 uppercase tracking-[0.2em] bg-black/[0.02] dark:bg-white/[0.03] rounded-xl mb-1">
                     Available Commands
@@ -444,7 +482,7 @@ export function AgentInput({
                       }}
                       className={`w-full text-left px-4 py-3 rounded-xl transition-all ${
                         idx === selectedIndex
-                          ? "bg-black/[0.04] dark:bg-white/10 text-[#0f172a] dark:text-[#f1f5f9] shadow-sm"
+                          ? "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 shadow-sm"
                           : "hover:bg-black/[0.03] dark:hover:bg-white/[0.04] text-slate-700 dark:text-slate-300"
                       }`}
                     >
@@ -468,7 +506,7 @@ export function AgentInput({
             {showAttachMenu && (
               <div
                 ref={attachMenuRef}
-                className="absolute bottom-full left-0 mb-3 bg-white/95 dark:bg-[#1e293b]/95 border border-black/[0.06] dark:border-white/[0.06] rounded-2xl shadow-xl z-50 min-w-[280px] overflow-hidden"
+                className="absolute bottom-full left-0 mb-3 bg-white/95 dark:bg-[#1e293b]/95 backdrop-blur-md border border-black/[0.06] dark:border-white/[0.06] rounded-2xl shadow-xl z-50 min-w-[280px] overflow-hidden"
               >
                 <div className="p-2">
                   <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-3 py-2 uppercase tracking-[0.2em] bg-black/[0.02] dark:bg-white/[0.03] rounded-xl mb-1">
@@ -476,7 +514,10 @@ export function AgentInput({
                   </div>
                   <button
                     type="button"
-                    onClick={() => setShowDocumentPicker(true)}
+                    onClick={() => {
+                      setShowAttachMenu(false);
+                      setShowDocumentPicker(true);
+                    }}
                     className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-black/[0.03] dark:hover:bg-white/[0.04] transition-all group"
                   >
                     <div className="w-10 h-10 flex items-center justify-center bg-black/[0.04] dark:bg-white/[0.06] text-slate-600 dark:text-slate-300 rounded-xl group-hover:scale-105 transition-transform">
@@ -629,7 +670,7 @@ export function AgentInput({
             {showDocumentPicker && (
               <div
                 ref={documentPickerRef}
-                className="absolute bottom-full left-0 mb-3 bg-white/95 dark:bg-[#1e293b]/95 border border-black/[0.06] dark:border-white/[0.06] rounded-2xl shadow-xl z-50 w-full max-w-md overflow-hidden"
+                className="absolute bottom-full left-0 mb-3 bg-white/95 dark:bg-[#1e293b]/95 backdrop-blur-md border border-black/[0.06] dark:border-white/[0.06] rounded-2xl shadow-xl z-50 w-full max-w-md overflow-hidden"
               >
                 <div className="p-4 border-b border-black/[0.04] dark:border-white/[0.04] bg-black/[0.02] dark:bg-white/[0.03]">
                   <div className="flex items-center gap-2 mb-3">
@@ -658,7 +699,7 @@ export function AgentInput({
                     </div>
                   )}
                   {!documentsLoading && filteredDocuments.length === 0 && (
-                    <div className="flex items-center justify-center py-8">
+                     <div className="flex items-center justify-center py-8">
                       <div className="text-sm text-slate-500 dark:text-slate-400">
                         No documents found
                       </div>
@@ -733,63 +774,58 @@ export function AgentInput({
               accept="image/*"
             />
 
-            {attachedFiles.length > 0 && (
-              <div className="px-4 pt-4 pb-2 border-b border-black/[0.04] dark:border-white/[0.04] bg-black/[0.02] dark:bg-white/[0.02]">
-                <div className="flex flex-wrap gap-2">
-                  {attachedFiles.map((file) => (
-                    <div key={file.id} className="relative group">
-                      {file.type === "image" && file.preview ? (
-                        <div className="relative">
-                          <img
-                            src={file.preview}
-                            alt={file.name}
-                            className="w-20 h-20 object-cover rounded-xl border border-black/[0.06] dark:border-white/[0.06]"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeAttachment(file.id)}
-                            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
+            {(attachedFiles.length > 0 || searchModeArmed) && (
+              <div className="px-4 pt-3 pb-1 flex flex-wrap gap-2 items-center">
+                {searchModeArmed && (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-500/10 border border-blue-500/20 dark:border-blue-400/20 rounded-full animate-in fade-in zoom-in duration-200">
+                    <div className="flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-500/20">
+                      {searchModeArmed === "deep" ? (
+                        <Search className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                       ) : (
-                        <div className="flex items-center gap-2 px-3 py-2 bg-white/90 dark:bg-[#1e293b]/70 border border-black/[0.06] dark:border-white/[0.06] rounded-xl hover:border-black/[0.08] transition-colors">
-                          <div className="text-slate-500 dark:text-slate-400">
-                            {getFileIcon(file.type)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs font-medium text-[#0f172a] dark:text-[#f1f5f9] truncate max-w-[150px]">
-                              {file.name}
-                            </div>
-                            {file.size && (
-                              <div className="text-xs text-slate-500 dark:text-slate-400">
-                                {formatFileSize(file.size)}
-                              </div>
-                            )}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeAttachment(file.id)}
-                            className="w-5 h-5 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
+                        <Globe className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                       )}
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
+                    <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
+                      {searchModeArmed === "deep" ? "Deep Search" : "Web Search"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSearchModeArmed(null)}
+                      className="ml-1 w-4 h-4 flex items-center justify-center rounded-full text-blue-500 hover:bg-blue-500/10 dark:text-blue-400 transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
 
-            {searchModeArmed && (
-              <div className="px-4 pt-3 pb-2 border-b border-black/[0.04] dark:border-white/[0.04] bg-cyan-50/70 dark:bg-cyan-900/20">
-                <div className="text-xs font-medium text-cyan-800 dark:text-cyan-200">
-                  {searchModeArmed === "deep"
-                    ? "Deep Search is activated. The next sent message will include a deep search request."
-                    : "Web Search is activated. The next sent message will include a web search request."}
-                </div>
+                {attachedFiles.map((file) => (
+                  <div
+                    key={file.id}
+                    className="flex items-center gap-1.5 pl-1.5 pr-2 py-1.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/50 rounded-full animate-in fade-in zoom-in duration-200"
+                  >
+                    {file.type === "image" && file.preview ? (
+                      <img
+                        src={file.preview}
+                        alt={file.name}
+                        className="w-5 h-5 object-cover rounded-full border border-black/5 dark:border-white/5"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center w-5 h-5 rounded-full bg-white dark:bg-slate-700 shadow-sm text-slate-500 dark:text-slate-400">
+                        <div className="scale-75">{getFileIcon(file.type)}</div>
+                      </div>
+                    )}
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate max-w-[120px] px-0.5">
+                      {file.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(file.id)}
+                      className="ml-0.5 w-4 h-4 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
 
@@ -801,6 +837,7 @@ export function AgentInput({
                     e.preventDefault();
                     e.stopPropagation();
                     setManualDropdownOpen(false);
+                    setShowDocumentPicker(false);
                     setShowAttachMenu(!showAttachMenu);
                     setTimeout(() => inputRef.current?.focus(), 0);
                   }}
@@ -876,10 +913,11 @@ export function AgentInput({
                     disabled={isOffline || (!input.trim() && attachedFiles.length === 0)}
                     title="Send message"
                     aria-label="Send message"
-                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#0f172a] text-white dark:bg-[#f1f5f9] dark:text-[#0f172a] hover:bg-[#1e293b] dark:hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    className="group relative w-8 h-8 flex items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm shadow-blue-500/20 hover:shadow-md hover:shadow-blue-500/40 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:-translate-y-0 disabled:hover:shadow-sm transition-all duration-200"
                   >
+                    <div className="absolute inset-0 rounded-xl bg-white opacity-0 group-hover:opacity-10 transition-opacity" />
                     <svg
-                      className="w-4 h-4"
+                      className="w-4 h-4 group-active:scale-90 transition-transform"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -888,7 +926,7 @@ export function AgentInput({
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2.5}
-                        d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18"
+                        d="M12 19V5M5 12l7-7 7 7"
                       />
                     </svg>
                   </button>

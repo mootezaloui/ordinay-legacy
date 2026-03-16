@@ -111,6 +111,10 @@ interface LoopStats {
   toolCalls: number;
 }
 
+interface LoopStreamCallbacks {
+  onTextDelta?: (delta: string) => void;
+}
+
 interface ToolCallProcessingContext {
   input: AgentTurnInput;
   session: Session;
@@ -152,35 +156,6 @@ export interface AgentMemoryServices {
   };
 }
 
-/**
- * Recursively strips internal database identifiers from tool results
- * before they reach the LLM context.
- *
- * Removes:
- *   - `id` fields (primary keys)
- *   - `*_id` fields with numeric values (foreign keys)
- *
- * Preserves:
- *   - `*_id` fields with string values (real-world identifiers like tax_id)
- *   - All other fields
- */
-function stripInternalIds(value: unknown): unknown {
-  if (value === null || value === undefined) return value;
-  if (Array.isArray(value)) return value.map(stripInternalIds);
-  if (typeof value !== "object") return value;
-
-  const obj = value as Record<string, unknown>;
-  const result: Record<string, unknown> = {};
-
-  for (const key of Object.keys(obj)) {
-    if (key === "id" && typeof obj[key] === "number") continue;
-    if (key.endsWith("_id") && typeof obj[key] === "number") continue;
-    result[key] = stripInternalIds(obj[key]);
-  }
-
-  return result;
-}
-
 export class AgenticLoop {
   constructor(
     private readonly llm: ILLMProvider,
@@ -194,7 +169,11 @@ export class AgenticLoop {
     private readonly memory?: AgentMemoryServices,
   ) {}
 
-  async run(input: AgentTurnInput, session: Session): Promise<AgentTurnOutput> {
+  async run(
+    input: AgentTurnInput,
+    session: Session,
+    streamCallbacks?: LoopStreamCallbacks,
+  ): Promise<AgentTurnOutput> {
     const startedAt = new Date().toISOString();
     const historyStartIndex = session.history.length;
     session.mode = input.mode;
@@ -236,6 +215,7 @@ export class AgenticLoop {
             warnings,
             stats,
             readCounters,
+            streamCallbacks,
           );
           break;
       }
@@ -449,6 +429,7 @@ export class AgenticLoop {
     warnings: string[],
     stats: LoopStats,
     readCounters: ReadObservabilityCounters,
+    streamCallbacks?: LoopStreamCallbacks,
   ): Promise<AgentTurnOutput> {
     const metadata: Record<string, unknown> = { loopStats: stats };
     const messages = this.buildInitialMessages(input, session, turnType);
@@ -472,11 +453,14 @@ export class AgenticLoop {
       this.loopGuard.assertIteration(iteration);
 
       const response = await this.loopGuard.wrapTimeout(
-        this.llm.generate({
-          messages,
-          tools: llmTools,
-          metadata: { sessionId: input.sessionId, turnId: input.turnId, iteration },
-        }),
+        this.generateAssistantResponse(
+          {
+            messages,
+            tools: llmTools,
+            metadata: { sessionId: input.sessionId, turnId: input.turnId, iteration },
+          },
+          streamCallbacks,
+        ),
         () => {
           console.warn("[AGENT_LOOP_TIMEOUT]", {
             sessionId: input.sessionId,
@@ -879,6 +863,70 @@ export class AgenticLoop {
     }
 
     return { stopForConfirmation: false };
+  }
+
+  private async generateAssistantResponse(
+    params: {
+      messages: LLMMessage[];
+      tools?: Array<Record<string, unknown>>;
+      metadata?: Record<string, unknown>;
+    },
+    streamCallbacks?: LoopStreamCallbacks,
+  ): Promise<{ text: string; toolCalls: LLMToolCall[]; finishReason: string }> {
+    const textParts: string[] = [];
+    const toolCallsById = new Map<string, LLMToolCall>();
+    let chunkIndex = 0;
+    let finishReason = "stop";
+    let streamed = false;
+
+    try {
+      for await (const chunk of this.llm.stream(params)) {
+        streamed = true;
+        if (typeof chunk.deltaText === "string" && chunk.deltaText.length > 0) {
+          textParts.push(chunk.deltaText);
+          streamCallbacks?.onTextDelta?.(chunk.deltaText);
+        }
+
+        if (chunk.toolCall) {
+          const raw = chunk.toolCall;
+          const id =
+            typeof raw.id === "string" && raw.id.trim().length > 0
+              ? raw.id.trim()
+              : `tool_stream_${chunkIndex++}`;
+          const existing = toolCallsById.get(id) ?? { id, name: "", arguments: {} };
+          if (typeof raw.name === "string" && raw.name.trim().length > 0) {
+            existing.name = raw.name.trim();
+          }
+          const normalizedArgs = this.normalizeArgs(raw.arguments);
+          if (isRecord(normalizedArgs)) {
+            existing.arguments = { ...(existing.arguments || {}), ...normalizedArgs };
+          }
+          toolCallsById.set(id, existing);
+        }
+
+        if (typeof chunk.finishReason === "string" && chunk.finishReason.trim().length > 0) {
+          finishReason = chunk.finishReason;
+        }
+        if (chunk.done === true) {
+          break;
+        }
+      }
+    } catch {
+      streamed = false;
+    }
+
+    if (!streamed) {
+      return this.llm.generate(params);
+    }
+
+    const toolCalls = Array.from(toolCallsById.values()).filter(
+      (call) => typeof call.name === "string" && call.name.trim().length > 0,
+    );
+    return {
+      text: textParts.join(""),
+      toolCalls,
+      finishReason,
+    };
   }
 
   private buildInitialMessages(
@@ -1481,7 +1529,7 @@ export class AgenticLoop {
   }
 
   private serializeToolMessage(toolName: string, result: ToolExecutionResult): string {
-    return this.safeJsonStringify({ tool: toolName, result: stripInternalIds(result) });
+    return this.safeJsonStringify({ tool: toolName, result });
   }
 
   private truncate(value: string, maxLength: number): string {

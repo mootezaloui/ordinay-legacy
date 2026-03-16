@@ -1,4 +1,5 @@
 # ARCHITECTURE.md — Ordinay Agent Technical Architecture
+
 _Migration Status: Phase 16 ✅ Completed | Phase 17 (Operational Controls) 🔄 In Progress_
 
 ## 1. System Context
@@ -36,23 +37,26 @@ _Migration Status: Phase 16 ✅ Completed | Phase 17 (Operational Controls) 🔄
 The agent must understand these entities and their relationships:
 
 ```
-Client (1) ──► (N) Dossier (1) ──► (N) Lawsuit
-                    │                    │
-                    ├──► (N) Task        ├──► (N) Task
-                    ├──► (N) Mission     ├──► (N) Mission
-                    ├──► (N) Session     ├──► (N) Session
-                    ├──► (N) Document    ├──► (N) Document
-                    └──► (N) Invoice     └──► (N) Session
+Client (1) ──► (N) Dossier (1) ───────────────► (N) Lawsuit
+                    │                              │
+                    ├──► (N) Task-> invoice        ├──► (N) Task -> invoice
+                    ├──► (N) Mission-> invoice     ├──► (N) Mission-> invoice
+                    ├──► (N) Session-> invoice     ├──► (N) Document
+                    ├──► (N) Document              ├──► (N) Session-> invoice
+                    └──► (N) Invoice               └──► (N) Invoice
+
 
 Additional entities:
   - PersonalTask (not linked to dossier — user-level)
   - Bailiff / Huissier
   - Notification
-  - AccountingEntry
+  - AccountingEntry these are the invoices
   - History (audit/activity log)
+  - notes for each entity
 ```
 
 Key relationships:
+
 - A Client has many Dossiers
 - A Dossier has many Lawsuits, Tasks, Missions, Sessions, Documents
 - A Lawsuit has many Sessions, Tasks, Missions, Documents
@@ -75,11 +79,11 @@ async function gateway(req: AgentRequest): Promise<GatewayResult> {
   const session = req.body.sessionId
     ? sessionStore.get(req.body.sessionId)
     : sessionStore.create(req.userId);
-  
+
   if (req.body.mode && session.mode !== req.body.mode) {
     session.mode = req.body.mode;
   }
-  
+
   return { session, message, requestId };
 }
 ```
@@ -89,6 +93,7 @@ async function gateway(req: AgentRequest): Promise<GatewayResult> {
 **Responsibility**: Determine if this message can be handled without a full LLM call.
 
 Three short-circuit paths:
+
 1. **CONFIRMATION**: Pending action exists + message is affirmative → execute pending
 2. **REJECTION**: Pending action exists + message is negative → clear pending, acknowledge
 3. **AMENDMENT**: Pending action exists + message modifies the pending action → re-run through LLM with amendment context
@@ -215,24 +220,22 @@ When a tool returns entity data, it's cached in the session:
 
 ```typescript
 // After tool execution:
-if (toolResult.ok && toolMeta.category === 'READ') {
+if (toolResult.ok && toolMeta.category === "READ") {
   const entities = extractEntities(toolMeta.name, toolResult.data);
   for (const entity of entities) {
-    session.activeEntities.set(
-      `${entity.type}:${entity.id}`,
-      {
-        type: entity.type,
-        id: entity.id,
-        data: entity.data,
-        fetchedAtTurn: session.turnCount,
-        toolSource: toolMeta.name,
-      }
-    );
+    session.activeEntities.set(`${entity.type}:${entity.id}`, {
+      type: entity.type,
+      id: entity.id,
+      data: entity.data,
+      fetchedAtTurn: session.turnCount,
+      toolSource: toolMeta.name,
+    });
   }
 }
 ```
 
 Entity extraction rules (by tool):
+
 - `getClient` → caches 1 client entity
 - `listDossiers` → caches N dossier entities
 - `getEntityGraph` → caches root + all children entities
@@ -245,18 +248,18 @@ When conversation exceeds the token budget for recent turns:
 ```typescript
 async function summarizeOldTurns(session: Session): Promise<void> {
   const turnsToSummarize = session.turns.splice(0, SUMMARIZE_BATCH);
-  
+
   const summaryPrompt = `Summarize this conversation segment concisely.
 PRESERVE EXACTLY: entity names, IDs, dates, amounts, decisions made.
 COMPRESS: explanations, reasoning, verbose tool outputs.`;
-  
+
   const summary = await llm.chat([
-    { role: 'system', content: summaryPrompt },
-    { role: 'user', content: formatTurnsForSummary(turnsToSummarize) }
+    { role: "system", content: summaryPrompt },
+    { role: "user", content: formatTurnsForSummary(turnsToSummarize) },
   ]);
-  
+
   session.summary = session.summary
-    ? session.summary + '\n' + summary
+    ? session.summary + "\n" + summary
     : summary;
 }
 ```
@@ -270,24 +273,28 @@ function buildMessages(session: Session, userMessage: string): Message[] {
   return [
     // 1. System prompt with dynamic context
     {
-      role: 'system',
-      content: buildSystemPrompt(session)
+      role: "system",
+      content: buildSystemPrompt(session),
     },
-    
+
     // 2. Summary of older conversation (if exists)
-    ...(session.summary ? [{
-      role: 'system',
-      content: `Previous conversation summary:\n${session.summary}`
-    }] : []),
-    
+    ...(session.summary
+      ? [
+          {
+            role: "system",
+            content: `Previous conversation summary:\n${session.summary}`,
+          },
+        ]
+      : []),
+
     // 3. Recent full turns (messages + tool calls + results)
-    ...session.turns.flatMap(turn => turn.messages),
-    
+    ...session.turns.flatMap((turn) => turn.messages),
+
     // 4. Current user message
     {
-      role: 'user',
-      content: userMessage
-    }
+      role: "user",
+      content: userMessage,
+    },
   ];
 }
 ```
@@ -315,12 +322,15 @@ Existing tool descriptions are terse. The adapter enriches them:
 
 ```typescript
 const DESCRIPTION_ENRICHMENTS: Record<string, string> = {
-  getClient: 'Retrieve a single client record by their numeric ID. Returns full client details including name, phone, email, address, status, notes, and creation date. Use when you need details about a specific known client.',
-  
-  listDossiers: 'List and search dossiers (case files). Supports filtering by client ID, status, and text search on reference/title. Returns dossier records sorted by most recently updated. Use to find dossiers or see all dossiers for a client.',
-  
-  getEntityGraph: 'Get a comprehensive graph of an entity and all its related records (parent entities, child entities like lawsuits, tasks, sessions, documents). Use when you need a complete picture of an entity and everything connected to it.',
-  
+  getClient:
+    "Retrieve a single client record by their numeric ID. Returns full client details including name, phone, email, address, status, notes, and creation date. Use when you need details about a specific known client.",
+
+  listDossiers:
+    "List and search dossiers (case files). Supports filtering by client ID, status, and text search on reference/title. Returns dossier records sorted by most recently updated. Use to find dossiers or see all dossiers for a client.",
+
+  getEntityGraph:
+    "Get a comprehensive graph of an entity and all its related records (parent entities, child entities like lawsuits, tasks, sessions, documents). Use when you need a complete picture of an entity and everything connected to it.",
+
   // ... enrichments for all ~40 tools
 };
 ```
@@ -329,7 +339,7 @@ const DESCRIPTION_ENRICHMENTS: Record<string, string> = {
 
 ```typescript
 // tool.adapter.ts
-import type { ExistingTool, AgentTool, OpenAIToolSchema } from './tool.types';
+import type { ExistingTool, AgentTool, OpenAIToolSchema } from "./tool.types";
 
 export function adaptTool(existing: ExistingTool): AgentTool {
   return {
@@ -345,12 +355,12 @@ export function adaptTool(existing: ExistingTool): AgentTool {
 
 export function toOpenAISchema(tool: AgentTool): OpenAIToolSchema {
   return {
-    type: 'function',
+    type: "function",
     function: {
       name: tool.name,
       description: tool.description,
       parameters: tool.inputSchema,
-    }
+    },
   };
 }
 ```
@@ -401,12 +411,12 @@ When the user amends a pending action:
 const amendmentMessages = [
   ...buildMessages(session, amendmentMessage),
   {
-    role: 'system',
+    role: "system",
     content: `There is a pending action awaiting confirmation:
 ${JSON.stringify(session.pending, null, 2)}
 
-The user wants to modify this action. Adjust the parameters based on their request, then call the same tool with updated parameters.`
-  }
+The user wants to modify this action. Adjust the parameters based on their request, then call the same tool with updated parameters.`,
+  },
 ];
 
 // LLM will call the tool again with modified params
@@ -418,14 +428,14 @@ The user wants to modify this action. Adjust the parameters based on their reque
 ```typescript
 // Event types sent over SSE
 type SSEEvent =
-  | { type: 'text_delta';    content: string }          // Streaming text chunk
-  | { type: 'tool_start';    tool: string; params: any } // Tool execution starting
-  | { type: 'tool_result';   tool: string; summary: string } // Tool completed
-  | { type: 'tool_error';    tool: string; error: string }   // Tool failed
-  | { type: 'pending';       action: PendingAction }     // Write awaiting confirmation
-  | { type: 'confirmed';     action: string }            // Write executed
-  | { type: 'error';         message: string }           // Agent-level error
-  | { type: 'done';          turnId: string }            // Turn complete
+  | { type: "text_delta"; content: string } // Streaming text chunk
+  | { type: "tool_start"; tool: string; params: any } // Tool execution starting
+  | { type: "tool_result"; tool: string; summary: string } // Tool completed
+  | { type: "tool_error"; tool: string; error: string } // Tool failed
+  | { type: "pending"; action: PendingAction } // Write awaiting confirmation
+  | { type: "confirmed"; action: string } // Write executed
+  | { type: "error"; message: string } // Agent-level error
+  | { type: "done"; turnId: string }; // Turn complete
 ```
 
 ## 8. Safety & Governance
@@ -434,10 +444,17 @@ type SSEEvent =
 
 ```typescript
 const PERMISSIONS: Record<AgentMode, Set<ToolCategory>> = {
-  read_only:  new Set(['READ', 'RESEARCH']),
-  drafting:   new Set(['READ', 'RESEARCH', 'DRAFT', 'SYSTEM']),
-  guided:     new Set(['READ', 'RESEARCH', 'DRAFT', 'SYSTEM', 'PLAN', 'EXECUTE']),
-  autonomous: new Set(['READ', 'RESEARCH', 'DRAFT', 'SYSTEM', 'PLAN', 'EXECUTE']),
+  read_only: new Set(["READ", "RESEARCH"]),
+  drafting: new Set(["READ", "RESEARCH", "DRAFT", "SYSTEM"]),
+  guided: new Set(["READ", "RESEARCH", "DRAFT", "SYSTEM", "PLAN", "EXECUTE"]),
+  autonomous: new Set([
+    "READ",
+    "RESEARCH",
+    "DRAFT",
+    "SYSTEM",
+    "PLAN",
+    "EXECUTE",
+  ]),
 };
 ```
 
@@ -493,4 +510,3 @@ Partial completion of multi-tool sequence:
   → WRITE tools: nothing executed until confirmation, so no partial state
   → LLM is informed of partial results and can adapt its response
 ```
-

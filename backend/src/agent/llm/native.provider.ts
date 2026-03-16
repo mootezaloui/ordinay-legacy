@@ -44,9 +44,56 @@ class NativeLLMProvider implements ILLMProvider {
   }
 
   async *stream(params: LLMGenerateParams): AsyncIterable<LLMStreamChunk> {
+    const request = this.buildRequest(params);
+
+    if (OPENAI_API_KEY) {
+      let emitted = false;
+      for await (const chunk of this.streamOpenAiFromUrl(
+        `${normalizeOpenAiBase(OPENAI_BASE_URL)}/chat/completions`,
+        request,
+        {
+          ...(OPENAI_API_KEY ? { Authorization: `Bearer ${OPENAI_API_KEY}` } : {}),
+        },
+      )) {
+        emitted = true;
+        yield chunk;
+      }
+      if (emitted) {
+        return;
+      }
+    }
+
+    // OpenAI-compatible endpoint served by local/remote LLM gateway (no API key required).
+    let compatEmitted = false;
+    for await (const chunk of this.streamOpenAiFromUrl(
+      `${normalizeBase(LLM_BASE_URL)}/v1/chat/completions`,
+      request,
+    )) {
+      compatEmitted = true;
+      yield chunk;
+    }
+    if (compatEmitted) {
+      return;
+    }
+
+    let ollamaEmitted = false;
+    for await (const chunk of this.streamOllamaFromUrl(
+      `${normalizeBase(LLM_BASE_URL)}/api/chat`,
+      request,
+    )) {
+      ollamaEmitted = true;
+      yield chunk;
+    }
+    if (ollamaEmitted) {
+      return;
+    }
+
     const response = await this.generate(params);
     if (response.text) {
       yield { deltaText: response.text };
+    }
+    for (const toolCall of response.toolCalls || []) {
+      yield { toolCall };
     }
     yield { finishReason: response.finishReason, done: true };
   }
@@ -93,6 +140,143 @@ class NativeLLMProvider implements ILLMProvider {
     }
   }
 
+  private async *streamOpenAiFromUrl(
+    url: string,
+    request: LLMRequest,
+    extraHeaders?: Record<string, string>,
+  ): AsyncIterable<LLMStreamChunk> {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(extraHeaders || {}),
+      },
+      body: JSON.stringify({
+        ...toChatCompletionBody(request),
+        stream: true,
+      }),
+    }).catch((err) => { console.warn("[LLM_STREAM_FETCH_ERROR]", url, String(err)); return null; });
+
+    if (!response?.ok || !response.body) {
+      if (response && !response.ok) {
+        const errBody = await response.text().catch(() => "");
+        console.warn("[LLM_STREAM_HTTP_ERROR]", JSON.stringify({ url, status: response.status, body: errBody.slice(0, 500), msgCount: request.messages?.length }));
+      }
+      return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    const toolFragments = new Map<
+      number,
+      { id?: string; name?: string; argumentsText: string }
+    >();
+    let finishReason: LLMResponse["finishReason"] = "stop";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const blocks = buffer.split("\n\n");
+      buffer = blocks.pop() ?? "";
+
+      for (const block of blocks) {
+        const lines = block
+          .split("\n")
+          .map((line) => line.trim())
+          .filter((line) => line.startsWith("data:"))
+          .map((line) => line.slice(5).trim())
+          .filter(Boolean);
+
+        for (const payload of lines) {
+          if (payload === "[DONE]") {
+            continue;
+          }
+          let row: Record<string, unknown> | null = null;
+          try {
+            row = JSON.parse(payload) as Record<string, unknown>;
+          } catch {
+            row = null;
+          }
+          if (!row) continue;
+
+          const choice = Array.isArray(row.choices) ? toRecord(row.choices[0]) : null;
+          const delta = toRecord(choice?.delta);
+          if (!delta) continue;
+
+          const content = asString(delta.content);
+          if (content && content.length > 0) {
+            yield { deltaText: content };
+          }
+
+          const toolCalls = Array.isArray(delta.tool_calls) ? delta.tool_calls : [];
+          for (const toolCallRow of toolCalls) {
+            const toolCall = toRecord(toolCallRow);
+            if (!toolCall) continue;
+            const idx = Number(toolCall.index);
+            if (!Number.isFinite(idx)) continue;
+            const current = toolFragments.get(idx) ?? { argumentsText: "" };
+            if (typeof toolCall.id === "string" && toolCall.id.trim().length > 0) {
+              current.id = toolCall.id;
+            }
+            const fn = toRecord(toolCall.function);
+            const fnName = asString(fn?.name);
+            if (fnName && fnName.trim().length > 0) {
+              current.name = fnName;
+            }
+            const argChunk = asString(fn?.arguments);
+            if (argChunk) {
+              current.argumentsText += argChunk;
+            }
+            toolFragments.set(idx, current);
+          }
+
+          const stopReason = asString(choice?.finish_reason);
+          if (stopReason) {
+            finishReason = stopReason;
+          }
+        }
+      }
+    }
+
+    if (buffer.trim().length > 0) {
+      const parts = buffer.split("\n").map((line) => line.trim());
+      for (const part of parts) {
+        if (!part.startsWith("data:")) continue;
+        const payload = part.slice(5).trim();
+        if (!payload || payload === "[DONE]") continue;
+        let row: Record<string, unknown> | null = null;
+        try {
+          row = JSON.parse(payload) as Record<string, unknown>;
+        } catch {
+          row = null;
+        }
+        const choice = row && Array.isArray(row.choices) ? toRecord(row.choices[0]) : null;
+        const stopReason = asString(choice?.finish_reason);
+        if (stopReason) {
+          finishReason = stopReason;
+        }
+      }
+    }
+
+    for (const [, fragment] of Array.from(toolFragments.entries()).sort((a, b) => a[0] - b[0])) {
+      const id = fragment.id || `tool_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const name = fragment.name || "";
+      if (!name) continue;
+      const argumentsObj = parseArguments(fragment.argumentsText);
+      yield {
+        toolCall: {
+          id,
+          name,
+          arguments: argumentsObj,
+        },
+      };
+    }
+
+    yield { finishReason, done: true };
+  }
+
   private async tryOllamaOpenAiCompletion(
     request: LLMRequest,
   ): Promise<LLMResponse | null> {
@@ -107,12 +291,15 @@ class NativeLLMProvider implements ILLMProvider {
       });
 
       if (!response.ok) {
+        const errBody = await response.text().catch(() => "");
+        console.warn("[LLM_OLLAMA_OPENAI_ERROR]", JSON.stringify({ status: response.status, body: errBody.slice(0, 300), msgCount: request.messages?.length, toolCount: request.tools?.length }));
         return null;
       }
 
       const payload = (await response.json()) as Record<string, unknown>;
       return normalizeChatCompletionResponse(payload);
-    } catch {
+    } catch (err) {
+      console.warn("[LLM_OLLAMA_OPENAI_CATCH]", String(err));
       return null;
     }
   }
@@ -140,6 +327,8 @@ class NativeLLMProvider implements ILLMProvider {
       });
 
       if (!response.ok) {
+        const errBody = await response.text().catch(() => "");
+        console.warn("[LLM_OLLAMA_CHAT_ERROR]", JSON.stringify({ status: response.status, body: errBody.slice(0, 300), msgCount: request.messages?.length }));
         return null;
       }
 
@@ -154,9 +343,83 @@ class NativeLLMProvider implements ILLMProvider {
         finishReason: toolCalls.length > 0 ? "tool_calls" : "stop",
         raw: payload,
       };
-    } catch {
+    } catch (err) {
+      console.warn("[LLM_OLLAMA_CHAT_CATCH]", String(err));
       return null;
     }
+  }
+
+  private async *streamOllamaFromUrl(
+    url: string,
+    request: LLMRequest,
+  ): AsyncIterable<LLMStreamChunk> {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: request.model,
+        messages: request.messages,
+        tools: request.tools,
+        stream: true,
+        options: {
+          temperature: request.temperature,
+          ...(typeof request.maxTokens === "number"
+            ? { num_predict: request.maxTokens }
+            : {}),
+        },
+      }),
+    }).catch(() => null);
+
+    if (!response?.ok || !response.body) {
+      return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let finishReason: LLMResponse["finishReason"] = "stop";
+    const collectedToolCalls: LLMToolCall[] = [];
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        let row: Record<string, unknown> | null = null;
+        try {
+          row = JSON.parse(trimmed) as Record<string, unknown>;
+        } catch {
+          row = null;
+        }
+        if (!row) continue;
+        const message = toRecord(row.message);
+        const content = asString(message?.content);
+        if (content && content.length > 0) {
+          yield { deltaText: content };
+        }
+
+        const parsedCalls = normalizeOllamaToolCalls(message?.tool_calls);
+        if (parsedCalls.length > 0) {
+          collectedToolCalls.push(...parsedCalls);
+        }
+
+        if (row.done === true) {
+          finishReason = parsedCalls.length > 0 ? "tool_calls" : "stop";
+        }
+      }
+    }
+
+    for (const toolCall of collectedToolCalls) {
+      yield { toolCall };
+    }
+    yield { finishReason, done: true };
   }
 }
 

@@ -81,7 +81,10 @@ async function handler({
 
   if (documentId) {
     const row = documentsService.get(Number(documentId));
-    return { document: row ? { ...row, id: Number(row.document_id || row.id) } : null };
+    if (!row) return { document: null };
+    const { artifact_json, ...meta } = row;
+    const text = typeof meta.document_text === 'string' ? meta.document_text.slice(0, 30000) : meta.document_text;
+    return { document: { ...meta, document_text: text, id: Number(meta.document_id || meta.id) } };
   }
 
   const filters = buildFilters({
@@ -105,10 +108,11 @@ async function handler({
     limit: 1,
   });
 
+  if (!matched) return { document: null };
+  const { artifact_json, ...matchedMeta } = matched;
+  const text = typeof matchedMeta.document_text === 'string' ? matchedMeta.document_text.slice(0, 30000) : matchedMeta.document_text;
   return {
-    document: matched
-      ? { ...matched, id: Number(matched.document_id || matched.id) }
-      : null,
+    document: { ...matchedMeta, document_text: text, id: Number(matchedMeta.document_id || matchedMeta.id) },
   };
 }
 

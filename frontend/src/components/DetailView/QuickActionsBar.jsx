@@ -226,27 +226,31 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
                 />
             ) : (
                 <>
-                    {/* Dropdown Button */}
+                    {/* Dropdown Button — Pill Style */}
                     <div className="relative">
                         <button
                             onClick={() => setIsOpen(!isOpen)}
                             disabled={isSaving}
                             className={`
-                w-full px-3 py-2 rounded-lg text-sm font-medium transition-all
-                flex items-center justify-between gap-2
-                hover:ring-2 hover:ring-blue-500/20
+                w-full px-4 py-2 rounded-full text-sm font-medium transition-all
+                flex items-center gap-2
+                border border-transparent
+                hover:brightness-110
                 ${colorClass}
                 ${isSaving ? 'opacity-50 cursor-wait' : 'cursor-pointer'}
               `}
                         >
-                            <span className="truncate">{displayValue}</span>
+                            {action.colorMap && currentOption?.color && (
+                                <span className="w-2 h-2 rounded-full flex-shrink-0 bg-current" />
+                            )}
+                            <span className="truncate flex-1 text-left">{displayValue}</span>
                             <div className="flex-shrink-0">
                                 {isSaving ? (
                                     <i className="fas fa-spinner fa-spin text-sm"></i>
                                 ) : showSuccess ? (
                                     <i className="fas fa-check text-green-600 dark:text-green-400"></i>
                                 ) : (
-                                    <i className="fas fa-chevron-down text-sm"></i>
+                                    <i className={`fas fa-chevron-down text-[10px] opacity-60 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}></i>
                                 )}
                             </div>
                         </button>
@@ -261,28 +265,27 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
                                 />
 
                                 {/* Options */}
-                                <div className="absolute top-full left-0 mt-1 w-full min-w-[200px] bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 z-50 py-1 max-h-60 overflow-y-auto">
+                                <div className="absolute top-full left-0 mt-1.5 w-full min-w-[200px] bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 z-50 p-1 max-h-60 overflow-y-auto">
                                     {options.map((option) => (
                                         <button
                                             key={option.value}
                                             onClick={() => handleChange(option.value)}
                                             className={`
-                        w-full px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors
-                        flex items-center justify-between
+                        w-full px-3 py-2 text-left text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors
+                        flex items-center gap-2
                         ${option.value === value ? 'bg-blue-50 dark:bg-blue-900/20' : ''}
                       `}
                                         >
-                                            <span className="flex items-center gap-2">
-                                                {action.colorMap && option.color ? (
-                                                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${option.color}`}>
-                                                        {option.label}
-                                                    </span>
-                                                ) : (
-                                                    <span>{option.label}</span>
-                                                )}
-                                            </span>
+                                            {action.colorMap && option.color ? (
+                                                <span className={`flex items-center gap-2 flex-1 ${option.color.split(' ').filter(c => c.startsWith('text-') || c.startsWith('dark:text-')).join(' ')}`}>
+                                                    <span className="w-2 h-2 rounded-full flex-shrink-0 bg-current" />
+                                                    <span className="text-sm font-medium">{option.label}</span>
+                                                </span>
+                                            ) : (
+                                                <span className="flex-1">{option.label}</span>
+                                            )}
                                             {option.value === value && (
-                                                <i className="fas fa-check text-blue-600 dark:text-blue-400"></i>
+                                                <i className="fas fa-check text-blue-600 dark:text-blue-400 text-xs"></i>
                                             )}
                                         </button>
                                     ))}

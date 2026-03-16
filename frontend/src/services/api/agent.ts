@@ -1583,6 +1583,7 @@ export function streamAgentMessage(
 
   // Start streaming in background
   (async () => {
+    let clearSmoothingState: (() => void) | null = null;
     try {
       const fallbackToRecovery = async (reason: string) => {
         callbacks.onStart?.({
@@ -1660,6 +1661,87 @@ export function streamAgentMessage(
       let hasErrorEnvelope = false;
       let hasDoneEnvelope = false;
       let hasChunkEnvelope = false;
+      let smoothingQueue = '';
+      let smoothingTimer: ReturnType<typeof setTimeout> | null = null;
+      const pendingTerminalEvents: Array<
+        | { type: 'error'; message: string }
+        | { type: 'done'; payload: { timestamp: string; fullContent?: string; mutationOutcome?: { status?: string; entityType?: string; entityId?: number | string; operation?: string } | null } }
+      > = [];
+
+      clearSmoothingState = () => {
+        if (smoothingTimer) {
+          clearTimeout(smoothingTimer);
+          smoothingTimer = null;
+        }
+        smoothingQueue = '';
+        pendingTerminalEvents.length = 0;
+      };
+
+      const charsPerStep = (queueLength: number): number => {
+        if (queueLength > 1200) return 20;
+        if (queueLength > 700) return 14;
+        if (queueLength > 350) return 10;
+        if (queueLength > 150) return 7;
+        return 4;
+      };
+
+      const flushTerminalEventsIfIdle = () => {
+        if (smoothingQueue.length > 0) return;
+        while (pendingTerminalEvents.length > 0) {
+          const next = pendingTerminalEvents.shift();
+          if (!next) break;
+          if (next.type === 'error') {
+            callbacks.onError?.(next.message);
+          } else {
+            callbacks.onDone?.(next.payload);
+          }
+        }
+      };
+
+      const drainSmoothingQueue = () => {
+        smoothingTimer = null;
+        if (abortController.signal.aborted) {
+          clearSmoothingState?.();
+          return;
+        }
+
+        if (smoothingQueue.length > 0) {
+          const take = Math.min(charsPerStep(smoothingQueue.length), smoothingQueue.length);
+          const piece = smoothingQueue.slice(0, take);
+          smoothingQueue = smoothingQueue.slice(take);
+          callbacks.onChunk?.(piece);
+        }
+
+        if (smoothingQueue.length > 0) {
+          smoothingTimer = setTimeout(drainSmoothingQueue, 20);
+          return;
+        }
+
+        flushTerminalEventsIfIdle();
+      };
+
+      const scheduleSmoothingDrain = () => {
+        if (smoothingTimer) return;
+        smoothingTimer = setTimeout(drainSmoothingQueue, 0);
+      };
+
+      const enqueueSmoothChunk = (content: string) => {
+        if (!content) return;
+        smoothingQueue += content;
+        scheduleSmoothingDrain();
+      };
+
+      const enqueueTerminalEvent = (
+        event:
+          | { type: 'error'; message: string }
+          | { type: 'done'; payload: { timestamp: string; fullContent?: string; mutationOutcome?: { status?: string; entityType?: string; entityId?: number | string; operation?: string } | null } },
+      ) => {
+        pendingTerminalEvents.push(event);
+        flushTerminalEventsIfIdle();
+        if (smoothingQueue.length > 0) {
+          scheduleSmoothingDrain();
+        }
+      };
 
       const processCurrentEvent = () => {
         if (!currentEvent || !currentData) return;
@@ -1667,7 +1749,7 @@ export function streamAgentMessage(
           switch (eventName) {
             case 'text_delta':
               hasChunkEnvelope = true;
-              callbacks.onChunk?.(String(data?.delta || ''));
+              enqueueSmoothChunk(String(data?.delta || ''));
               break;
             case 'tool_start':
               callbacks.onStatus?.({
@@ -1708,11 +1790,13 @@ export function streamAgentMessage(
                   interactionMode: 'operational',
                 });
               }
-              callbacks.onDone?.(
-                data && typeof data === 'object'
-                  ? data
-                  : { timestamp: new Date().toISOString() },
-              );
+              enqueueTerminalEvent({
+                type: 'done',
+                payload:
+                  data && typeof data === 'object'
+                    ? data
+                    : { timestamp: new Date().toISOString() },
+              });
               break;
             case 'error':
               hasErrorEnvelope = true;
@@ -1721,7 +1805,7 @@ export function streamAgentMessage(
                   (typeof data?.message === 'string' && data.message.trim()) ||
                   (typeof data?.error === 'string' && data.error.trim()) ||
                   'I could not complete that request.';
-                callbacks.onError?.(errorMessage);
+                enqueueTerminalEvent({ type: 'error', message: errorMessage });
               }
               break;
             default:
@@ -1952,7 +2036,7 @@ export function streamAgentMessage(
             case 'chunk':
               hasChunkEnvelope = true;
               if (String(data?.visibility || 'visible').toLowerCase() !== 'metadata') {
-                callbacks.onChunk?.(data.content);
+                enqueueSmoothChunk(String(data?.content || ''));
               }
               break;
             case 'result':
@@ -2054,8 +2138,10 @@ export function streamAgentMessage(
       }
     } catch (err) {
         if ((err as Error).name === 'AbortError') {
+        clearSmoothingState?.();
         callbacks.onCancelled?.();
       } else {
+        clearSmoothingState?.();
         callbacks.onError?.((err as Error).message || 'Stream error');
         callbacks.onDone?.({ timestamp: new Date().toISOString() });
       }

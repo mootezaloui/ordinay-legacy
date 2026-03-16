@@ -125,11 +125,20 @@ export function createAgentV2StreamHandler(runtime: AgentV2Runtime) {
 
       const session = await getOrCreateSession(runtime, input);
       runtime.grounding?.beginTurn?.(input.turnId);
+      let deliveredLiveText = false;
       const uxPreflight = evaluateUxPreflight(runtime, input, session);
       const loopOutput = uxPreflight.handled
         ? buildUxHandledOutput(input, session, uxPreflight)
         : mergePreflightMetadata(
-            await runtime.loop.run(input, session),
+            await runtime.loop.run(input, session, {
+              onTextDelta: (delta: string) => {
+                if (typeof delta !== "string" || delta.length === 0) {
+                  return;
+                }
+                deliveredLiveText = true;
+                emitter.emit({ type: "text_delta", delta });
+              },
+            }),
             uxPreflight.metadata,
           );
       const output = applyGroundingPostprocess(runtime, input, session, loopOutput);
@@ -147,7 +156,7 @@ export function createAgentV2StreamHandler(runtime: AgentV2Runtime) {
         }),
       );
 
-      emitOutput(emitter, output);
+      emitOutput(emitter, output, deliveredLiveText);
       emitter.emit({ type: "done" });
       emitter.close();
     } catch (error) {
@@ -352,8 +361,12 @@ function getRequestIp(req: RequestLike): string | undefined {
   return asString(req?.ip) || asString(req?.socket?.remoteAddress) || undefined;
 }
 
-function emitOutput(emitter: StreamEmitter, output: AgentTurnOutput): void {
-  if (output.responseText && output.responseText.trim().length > 0) {
+function emitOutput(
+  emitter: StreamEmitter,
+  output: AgentTurnOutput,
+  deliveredLiveText: boolean,
+): void {
+  if (!deliveredLiveText && output.responseText && output.responseText.trim().length > 0) {
     for (const chunk of splitText(output.responseText, TEXT_CHUNK_SIZE)) {
       emitter.emit({ type: "text_delta", delta: chunk });
     }

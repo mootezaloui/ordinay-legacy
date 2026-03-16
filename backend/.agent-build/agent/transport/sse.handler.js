@@ -59,10 +59,19 @@ function createAgentV2StreamHandler(runtime) {
             input = clampModeBySafeMode(runtime, input);
             const session = await getOrCreateSession(runtime, input);
             runtime.grounding?.beginTurn?.(input.turnId);
+            let deliveredLiveText = false;
             const uxPreflight = evaluateUxPreflight(runtime, input, session);
             const loopOutput = uxPreflight.handled
                 ? buildUxHandledOutput(input, session, uxPreflight)
-                : mergePreflightMetadata(await runtime.loop.run(input, session), uxPreflight.metadata);
+                : mergePreflightMetadata(await runtime.loop.run(input, session, {
+                    onTextDelta: (delta) => {
+                        if (typeof delta !== "string" || delta.length === 0) {
+                            return;
+                        }
+                        deliveredLiveText = true;
+                        emitter.emit({ type: "text_delta", delta });
+                    },
+                }), uxPreflight.metadata);
             const output = applyGroundingPostprocess(runtime, input, session, loopOutput);
             runtime.sessionStore.updateSession(session);
             schedulePerformanceSnapshot(runtime, input, output);
@@ -74,7 +83,7 @@ function createAgentV2StreamHandler(runtime) {
                 pendingAction: Boolean(output.pendingAction),
                 responseLength: String(output.responseText || "").length,
             }));
-            emitOutput(emitter, output);
+            emitOutput(emitter, output, deliveredLiveText);
             emitter.emit({ type: "done" });
             emitter.close();
         }
@@ -237,8 +246,8 @@ function getRequestIp(req) {
     }
     return asString(req?.ip) || asString(req?.socket?.remoteAddress) || undefined;
 }
-function emitOutput(emitter, output) {
-    if (output.responseText && output.responseText.trim().length > 0) {
+function emitOutput(emitter, output, deliveredLiveText) {
+    if (!deliveredLiveText && output.responseText && output.responseText.trim().length > 0) {
         for (const chunk of splitText(output.responseText, TEXT_CHUNK_SIZE)) {
             emitter.emit({ type: "text_delta", delta: chunk });
         }
