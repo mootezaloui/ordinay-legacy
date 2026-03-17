@@ -124,6 +124,11 @@ export function createAgentV2StreamHandler(runtime: AgentV2Runtime) {
       input = clampModeBySafeMode(runtime, input);
 
       const session = await getOrCreateSession(runtime, input);
+      try {
+        runtime.retrieval?.indexSessionArtifacts?.(session);
+      } catch (_ixErr) {
+        /* non-fatal – retrieval index warm-up */
+      }
       runtime.grounding?.beginTurn?.(input.turnId);
       let deliveredLiveText = false;
       const uxPreflight = evaluateUxPreflight(runtime, input, session);

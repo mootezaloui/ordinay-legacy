@@ -9,13 +9,11 @@ import {
   Check,
   Edit2,
   RotateCw,
-  Image,
-  Paperclip,
 } from "lucide-react";
 import {
   AgentMessage as AgentMessageType,
-  MessageAttachment,
 } from "../types/agentMessage";
+import { ChatMessageAttachments } from "./messages/ChatMessageAttachments";
 import type {
   ActionProposal,
   DraftOutput,
@@ -246,9 +244,9 @@ export function AgentMessage({
                 {isUser &&
                   message.attachments &&
                   message.attachments.length > 0 && (
-                    <InlineAttachments
+                    <ChatMessageAttachments
                       attachments={message.attachments}
-                      isUserBubble={isUser}
+                      variant={isUser ? "user" : "neutral"}
                     />
                   )}
                 {isUser && isEditing ? (
@@ -649,86 +647,6 @@ function ActionsSection({ data }: { data: ActionProposal[] }) {
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Inline attachment rendering (used in AgentMessage for user bubbles)
-// ---------------------------------------------------------------------------
-
-function getAttachmentIcon(type: string) {
-  switch (type) {
-    case "image":
-      return <Image className="w-4 h-4" />;
-    case "document":
-      return <FileText className="w-4 h-4" />;
-    default:
-      return <Paperclip className="w-4 h-4" />;
-  }
-}
-
-function formatSize(bytes?: number) {
-  if (!bytes) return "";
-  if (bytes < 1024) return bytes + " B";
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
-}
-
-function InlineAttachments({
-  attachments,
-  isUserBubble,
-}: {
-  attachments: MessageAttachment[];
-  isUserBubble: boolean;
-}) {
-  return (
-    <div className="flex flex-wrap gap-2 mb-2">
-      {attachments.map((att) => (
-        <div key={att.id}>
-          {att.type === "image" && att.preview ? (
-            <img
-              src={att.preview}
-              alt={att.name}
-              className="max-w-[200px] max-h-[140px] object-cover rounded-xl"
-            />
-          ) : (
-            <div
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${
-                isUserBubble
-                  ? "user-attachment-card"
-                  : "bg-black/[0.04] dark:bg-white/[0.05] border-black/[0.06] dark:border-white/[0.06]"
-              }`}
-            >
-              <div
-                className={
-                  isUserBubble
-                    ? "opacity-70"
-                    : "text-slate-500 dark:text-slate-400"
-                }
-              >
-                {getAttachmentIcon(att.type)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div
-                  className={`text-xs font-medium truncate max-w-[160px] ${
-                    isUserBubble ? "" : "text-[#0f172a] dark:text-[#f1f5f9]"
-                  }`}
-                >
-                  {att.name}
-                </div>
-                {att.size != null && att.size > 0 && (
-                  <div
-                    className={`text-[11px] ${isUserBubble ? "opacity-60" : "text-slate-500 dark:text-slate-400"}`}
-                  >
-                    {formatSize(att.size)}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      ))}
     </div>
   );
 }

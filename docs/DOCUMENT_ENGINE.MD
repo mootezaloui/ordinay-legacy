@@ -1051,25 +1051,34 @@ const results = await backfillAll();
 
 ---
 
-## Phase 7 — Future RAG Readiness ⏳ DEFERRED (by design)
+## Phase 7 — RAG System 🔄 PLANNED
 
 ### Status
 
-Not implemented — intentionally deferred. The current architecture is RAG-ready without redesign.
+Full plan documented in **[RAG_SYSTEM.MD](./RAG_SYSTEM.MD)**.
 
-### What's already in place for future RAG
+### Summary
 
-- `document_chunks` table with stable schema (chunk_text, token_estimate, page_start, sheet_name, metadata_json)
-- `agent/retrieval/retrieval.index.js` — in-memory similarity search, extensible
-- `agent/retrieval/retrieval.policy.js` — chunk_size/overlap/top-k defaults
-- FTS5 keyword search working as baseline retrieval
+The extraction pipeline (Phases 1-6) creates the data. The RAG system selects what the LLM sees.
 
-### Future additions (when needed)
+**Problem:** Full document text injection doesn't scale past a few small files.
 
-- `document_embeddings` table (chunk_id → vector)
-- `retrieval_service.semantic_search()` — embed query → cosine similarity
-- `retrieval_service.hybrid_search()` — combine FTS5 + semantic scores
-- Local embedding model via Ollama or sentence-transformers
+**Solution:** Budget gate + hybrid retrieval (FTS5 + in-memory TF-IDF) + smart chunk injection.
+
+**Key finding from audit:** 80% of the RAG infrastructure already exists in `agent/retrieval/` — it's built but never wired. The in-memory index, embedder, context builder, loader, and grounding system all work but the index is never populated with document chunks.
+
+### RAG Phases (see RAG_SYSTEM.MD for full detail)
+
+- **R1** — Budget gate: stop injecting full text when it exceeds 8000 chars, inject manifest instead
+- **R2** — Hydrate in-memory index from `document_chunks` table (bridge the gap)
+- **R3** — Hybrid chunk retrieval: FTS5 + TF-IDF, merge, deduplicate, inject top-K
+- **R4** — Current-turn document priority: attached docs get priority budget
+- **R5** — Session artifact indexing: wire existing `retrieval.loader.js` (already built, never called)
+- **R6** — Observability: RAG decision logging, metrics
+
+### No new files needed
+
+All changes fit into existing files. No new dependencies.
 
 ---
 

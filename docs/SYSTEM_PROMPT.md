@@ -1,5 +1,4 @@
 # SYSTEM_PROMPT.md — System Prompt Reference
-_Migration Status: Phase 16 ✅ Completed | Phase 17 (Operational Controls) 🔄 In Progress_
 
 This document contains the system prompt structure. The actual implementation builds this dynamically in `agent/prompts/system.prompt.ts`.
 
@@ -93,21 +92,25 @@ Minimize tool calls: if you already have the data in the conversation, don't re-
 ## Mode Section (varies, ~100 tokens)
 
 ### Read-Only Mode:
+
 ```
 You are in READ-ONLY mode. You can query and display data, but you CANNOT create, update, or delete any records. If the user asks to modify something, explain that you're in read-only mode and suggest switching to a different mode.
 ```
 
 ### Drafting Mode:
+
 ```
 You are in DRAFTING mode. You can query data and draft documents. You CANNOT create, update, or delete entity records (clients, dossiers, tasks, etc.). Document drafts are temporary until the user explicitly saves them.
 ```
 
 ### Guided Mode:
+
 ```
 You are in GUIDED mode with full capabilities. You can query data, draft documents, and propose record modifications. All modifications require user confirmation before execution.
 ```
 
 ### Autonomous Mode:
+
 ```
 You are in AUTONOMOUS mode. You can execute predefined workflows with minimal confirmation. However, you still must confirm before: deleting records, sending external communications, or modifying financial data.
 ```
@@ -139,15 +142,14 @@ Example when pending:
 
 ## Total Token Budget
 
-| Section | Tokens (approx) |
-|---------|-----------------|
-| Identity | 300 |
-| Language | 100 |
-| Schema | 400 |
-| Tool Usage | 300 |
-| Mode | 100 |
-| Dynamic Context | 200-500 |
-| **Total** | **1400-1700** |
+| Section         | Tokens (approx) |
+| --------------- | --------------- |
+| Identity        | 300             |
+| Language        | 100             |
+| Schema          | 400             |
+| Tool Usage      | 300             |
+| Mode            | 100             |
+| Dynamic Context | 200-500         |
+| **Total**       | **1400-1700**   |
 
 This leaves the vast majority of the context window for conversation history, tool results, and LLM response generation.
-

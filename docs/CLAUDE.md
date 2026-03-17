@@ -1,9 +1,8 @@
 # CLAUDE.md — Ordinay AI Agent Implementation Guide
-_Migration Status: Phase 16 ✅ Completed | Phase 17 (Operational Controls) 🔄 In Progress_
 
 ## Project Overview
 
-Ordinay is a legal practice management desktop application (Electron) with an embedded AI agent. We are **rebuilding the agent's core engine** while keeping the working pieces:
+Ordinay is a legal practice management desktop application (Electron) with an embedded AI agent. We are **rebuilding the agent's core engine** while keeping the working pieces agent_Back is the old agent folder, while agent folder is our V2 where we are operating now:
 
 - ✅ KEEP: Database schema + CRUD services (`services/`)
 - ✅ KEEP: SSE transport (`routes/agent.stream.routes.js`)
@@ -13,36 +12,42 @@ Ordinay is a legal practice management desktop application (Electron) with an em
 
 ## Tech Stack
 
-| Component | Technology |
-|-----------|-----------|
-| Runtime | Node.js + TypeScript |
-| Framework | Express |
-| Desktop | Electron |
-| Database | SQLite via better-sqlite3 (raw SQL) |
-| LLM | OpenAI GPT API (primary), provider-agnostic abstraction for future Claude/Gemini |
-| Transport | SSE (Server-Sent Events) — already working |
-| Languages | French + Arabic + English (trilingual) |
+| Component | Technology                                                                       |
+| --------- | -------------------------------------------------------------------------------- |
+| Runtime   | Node.js + TypeScript                                                             |
+| Framework | Express                                                                          |
+| Desktop   | Electron                                                                         |
+| Database  | SQLite via better-sqlite3 (raw SQL)                                              |
+| LLM       | OpenAI GPT API (primary), provider-agnostic abstraction for future Claude/Gemini |
+| Transport | SSE (Server-Sent Events) — already working                                       |
+| Languages | French + Arabic + English (trilingual)                                           |
 
 ---
 
 ## Critical Rules (READ BEFORE WRITING ANY CODE)
 
 ### Rule 1: No File Over 300 Lines
+
 Previous codebase had 2000+ line files. Every file MUST stay under 300 lines. Decompose aggressively.
 
 ### Rule 2: No Hardcoded Keywords for Tool Selection
+
 Tool selection uses OpenAI's native function-calling. The LLM sees tool schemas and decides. We do NOT build keyword matchers, intent routers, or regex-based classifiers. We ADD validation, permissions, and caching on top of the LLM's decisions.
 
 ### Rule 3: Session State Drives Context
+
 Every request is processed within a conversational session. Entities resolved on turn 1 persist through turn N. The agent does NOT re-fetch data it already has. The session state — not the latest message alone — drives tool selection.
 
 ### Rule 4: Write Operations Always Require Confirmation
+
 Any tool that creates, updates, or deletes data produces a PROPOSAL. Execution only happens after explicit user confirmation. The response includes what will change, and the pending action is stored in session state.
 
 ### Rule 5: TypeScript Strict Mode
+
 All new code is TypeScript with `strict: true`. Existing JS tool files are wrapped with TS adapters.
 
 ### Rule 6: Every Tool Call Is Validated and Logged
+
 Before execution: validate parameters against schema. After execution: validate output shape. Always: write to audit log with timing, inputs (sanitized), outputs (summarized), and status.
 
 ---
@@ -101,6 +106,7 @@ The LLM chains tools naturally: calls getClient → uses client_id from result �
 ## Implementation Phases
 
 ### Phase 1: Foundation
+
 Create the type system, configuration, LLM abstraction, and session store.
 
 ```
@@ -122,6 +128,7 @@ agent/
 ```
 
 ### Phase 2: Core Engine
+
 Build the agentic loop, turn classifier, and tool executor.
 
 ```
@@ -135,6 +142,7 @@ agent/engine/
 ```
 
 ### Phase 3: Session & Context
+
 Implement entity tracking, conversation summarization, and persistence.
 
 ```
@@ -146,6 +154,7 @@ agent/session/
 ```
 
 ### Phase 4: Safety & Audit
+
 Permission checking, output validation, and audit logging.
 
 ```
@@ -157,6 +166,7 @@ agent/safety/
 ```
 
 ### Phase 5: Integration
+
 Wire new engine to existing SSE transport, adapt existing tools.
 
 ```
@@ -171,6 +181,7 @@ agent/tools/adapters/
 ```
 
 ### Phase 6: Document Generation (later)
+
 ```
 agent/documents/
 ├── template.registry.ts
@@ -188,13 +199,13 @@ agent/documents/
 ```typescript
 function buildSystemPrompt(session: Session): string {
   return [
-    AGENT_IDENTITY,          // Who you are, behavioral rules
-    LANGUAGE_INSTRUCTIONS,   // Respond in user's language, trilingual support
-    DATABASE_SCHEMA_REF,     // Condensed schema: entity types, key fields, relationships
-    TOOL_USAGE_RULES,        // When to use tools, confirmation requirements
-    ACTIVE_CONTEXT,          // Dynamic: current entities, pending actions, focus
-    MODE_INSTRUCTIONS,       // Current mode constraints
-  ].join('\n\n');
+    AGENT_IDENTITY, // Who you are, behavioral rules
+    LANGUAGE_INSTRUCTIONS, // Respond in user's language, trilingual support
+    DATABASE_SCHEMA_REF, // Condensed schema: entity types, key fields, relationships
+    TOOL_USAGE_RULES, // When to use tools, confirmation requirements
+    ACTIVE_CONTEXT, // Dynamic: current entities, pending actions, focus
+    MODE_INSTRUCTIONS, // Current mode constraints
+  ].join("\n\n");
 }
 ```
 
@@ -203,6 +214,7 @@ The system prompt is ~1500-2000 tokens. It is NOT a massive document — it's fo
 ### Tool Schema Conversion
 
 Existing tools export:
+
 ```javascript
 module.exports = {
   name: 'getClient',
@@ -214,6 +226,7 @@ module.exports = {
 ```
 
 We convert to OpenAI format:
+
 ```json
 {
   "type": "function",
@@ -233,31 +246,31 @@ The adapter enriches descriptions to help the LLM make better decisions. Terse d
 interface Session {
   id: string;
   userId: string;
-  mode: 'read_only' | 'drafting' | 'guided' | 'autonomous';
-  
+  mode: "read_only" | "drafting" | "guided" | "autonomous";
+
   activeEntities: Map<string, CachedEntity>;
   pending: PendingAction | null;
-  
-  turns: Turn[];        // Recent full turns (last N)
-  summary: string;      // Compressed older turns
+
+  turns: Turn[]; // Recent full turns (last N)
+  summary: string; // Compressed older turns
   turnCount: number;
-  
+
   createdAt: number;
   lastActivityAt: number;
 }
 
 interface CachedEntity {
-  type: string;         // 'client', 'dossier', 'lawsuit', etc.
+  type: string; // 'client', 'dossier', 'lawsuit', etc.
   id: number;
   data: Record<string, unknown>;
   fetchedAtTurn: number;
-  toolSource: string;   // Which tool fetched this
+  toolSource: string; // Which tool fetched this
 }
 
 interface PendingAction {
-  type: 'create' | 'update' | 'delete';
+  type: "create" | "update" | "delete";
   entityType: string;
-  description: string;  // Human-readable description of what will happen
+  description: string; // Human-readable description of what will happen
   toolName: string;
   params: Record<string, unknown>;
   proposedAtTurn: number;
@@ -271,18 +284,18 @@ The turn classifier is a lightweight function (NOT an LLM call) that examines th
 ```typescript
 function classifyTurn(message: string, session: Session): TurnType {
   // CONFIRMATION: short affirmative + pending action exists
-  if (session.pending && isAffirmative(message)) return 'CONFIRMATION';
-  
+  if (session.pending && isAffirmative(message)) return "CONFIRMATION";
+
   // REJECTION: short negative + pending action exists
-  if (session.pending && isNegative(message)) return 'REJECTION';
-  
+  if (session.pending && isNegative(message)) return "REJECTION";
+
   // AMENDMENT: modification language + pending action exists
-  if (session.pending && isAmendment(message)) return 'AMENDMENT';
-  
+  if (session.pending && isAmendment(message)) return "AMENDMENT";
+
   // Everything else goes through the full LLM pipeline
   // The LLM itself handles FOLLOW_UP vs NEW_REQUEST vs TOPIC_SHIFT
   // naturally through conversation context
-  return 'FULL_PIPELINE';
+  return "FULL_PIPELINE";
 }
 ```
 
@@ -333,13 +346,13 @@ User: "Create a task to file the brief by Friday"
 
 ```typescript
 const TOKEN_BUDGET = {
-  systemPrompt: 2000,      // Fixed persona + rules + schema ref
-  dynamicContext: 500,      // Active entities, pending actions
-  historySummary: 500,      // Compressed old conversation
-  recentTurns: 6000,       // Last 5-8 full turns with tool results
-  toolSchemas: 3000,       // ~40 tool definitions
-  currentMessage: 500,      // User's current message
-  responseReserve: 4000,   // Space for LLM response
+  systemPrompt: 2000, // Fixed persona + rules + schema ref
+  dynamicContext: 500, // Active entities, pending actions
+  historySummary: 500, // Compressed old conversation
+  recentTurns: 6000, // Last 5-8 full turns with tool results
+  toolSchemas: 3000, // ~40 tool definitions
+  currentMessage: 500, // User's current message
+  responseReserve: 4000, // Space for LLM response
   // Total: ~16500 tokens — well within 128K, leaves huge margin
 };
 ```
@@ -354,15 +367,17 @@ class AgentError extends Error {
     message: string,
     public code: string,
     public recoverable: boolean,
-    public userMessage: string,   // Safe to show to user (in their language)
-    public details?: unknown       // For audit log only
-  ) { super(message); }
+    public userMessage: string, // Safe to show to user (in their language)
+    public details?: unknown, // For audit log only
+  ) {
+    super(message);
+  }
 }
 
 // Tool execution NEVER throws — always returns a result
 type ToolResult =
   | { ok: true; data: unknown }
-  | { ok: false; error: string; code: string; recoverable: boolean }
+  | { ok: false; error: string; code: string; recoverable: boolean };
 ```
 
 ### Audit Log Schema (SQLite)
@@ -397,18 +412,3 @@ CREATE TABLE IF NOT EXISTS agent_audit_log (
 - **Integration tests**: Full agentic loop with mocked OpenAI responses
 - **Conversation tests**: Multi-turn scenario scripts that verify context carries correctly
 - Test runner: vitest
-
-## Commands
-
-```bash
-# Install new dependencies
-npm install openai zod
-npm install -D vitest @types/better-sqlite3
-
-# Run tests
-npx vitest run
-
-# Run single test
-npx vitest run agent/engine/turn.classifier.test.ts
-```
-

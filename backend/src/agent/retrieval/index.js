@@ -35,6 +35,7 @@ function createActiveRuntime({ policy, retrievalIndex, retrievalLoader, retrieva
     enabled: true,
     disabledReason: undefined,
   };
+  const hydratedDocs = new Map(); // documentId → textLength (skip re-hydration if unchanged)
 
   function safeRun(label, fallback, fn, mode = "skip") {
     if (!state.enabled) {
@@ -95,9 +96,31 @@ function createActiveRuntime({ policy, retrievalIndex, retrievalLoader, retrieva
       );
     },
     clearCache() {
-      return safeRun("clearCache", 0, () =>
-        typeof retrievalIndex.clear === "function" ? retrievalIndex.clear() : 0,
-      );
+      return safeRun("clearCache", 0, () => {
+        hydratedDocs.clear();
+        return typeof retrievalIndex.clear === "function" ? retrievalIndex.clear() : 0;
+      });
+    },
+    hydrateDocument({ documentId, text, metadata } = {}) {
+      return safeRun("hydrateDocument", null, () => {
+        const safeDocId = String(documentId || "").trim();
+        const safeText = String(text || "").trim();
+        if (!safeDocId || !safeText) return null;
+        const prevLen = hydratedDocs.get(safeDocId);
+        if (prevLen === safeText.length) return null; // skip if unchanged
+        const sourceId = `rag-doc:${safeDocId}`;
+        const result = retrievalIndex.addOrReplaceBySource({
+          sourceId,
+          documentId: safeDocId,
+          text: safeText,
+          metadata: metadata || {},
+        });
+        hydratedDocs.set(safeDocId, safeText.length);
+        return result;
+      });
+    },
+    isDocumentHydrated(documentId) {
+      return hydratedDocs.has(String(documentId || "").trim());
     },
   };
 }
@@ -131,6 +154,12 @@ function createDisabledRuntime(policy, reason) {
     },
     clearCache() {
       return 0;
+    },
+    hydrateDocument() {
+      return null;
+    },
+    isDocumentHydrated() {
+      return false;
     },
   };
 }

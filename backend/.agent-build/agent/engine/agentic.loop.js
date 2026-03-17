@@ -650,43 +650,129 @@ class AgenticLoop {
                 ].join("\n"),
             });
         }
-        // Inject attached session document content — separate current-turn from background
+        // Inject attached session document content — budget gate for RAG
+        const RAG_FULL_TEXT_BUDGET_FALLBACK = 8000;
+        const RAG_CURRENT_DOC_BUDGET_FALLBACK = 5000;
         try {
             const docContext = agentDocumentsService.buildAgentDocumentContext(input.sessionId);
             if (docContext && docContext.documents && docContext.documents.length > 0) {
                 const turnDocIds = new Set(Array.isArray(input.metadata?.documentIds) ? input.metadata.documentIds.map(Number) : []);
-                const currentParts = [];
-                const backgroundParts = [];
+                const currentDocs = [];
+                const backgroundDocs = [];
                 for (const doc of docContext.documents) {
-                    const label = doc.original_filename || doc.title;
-                    const line = doc.has_text && doc.text
-                        ? `--- Document: ${label} (${doc.mime_type}) ---\n${doc.text}`
-                        : `--- Document: ${label} (${doc.mime_type}) --- [text not available: ${doc.text_status}]`;
                     if (turnDocIds.size > 0 && turnDocIds.has(doc.document_id)) {
-                        currentParts.push(line);
+                        currentDocs.push(doc);
                     }
                     else {
-                        backgroundParts.push(line);
+                        backgroundDocs.push(doc);
                     }
                 }
-                if (turnDocIds.size > 0 && currentParts.length > 0) {
-                    messages.push({
-                        role: "system",
-                        content: `Documents attached to the current message (focus your answer on these):\n\n${currentParts.join("\n\n")}`,
-                    });
-                    if (backgroundParts.length > 0) {
+                let totalChars = 0;
+                for (const doc of docContext.documents) {
+                    if (doc.has_text && doc.text) {
+                        totalChars += doc.text.length;
+                    }
+                }
+                const useFullText = totalChars <= RAG_FULL_TEXT_BUDGET_FALLBACK;
+                if (useFullText) {
+                    const currentParts = [];
+                    const backgroundParts = [];
+                    for (const doc of docContext.documents) {
+                        const label = doc.original_filename || doc.title;
+                        const line = doc.has_text && doc.text
+                            ? `--- Document: ${label} (${doc.mime_type}) ---\n${doc.text}`
+                            : `--- Document: ${label} (${doc.mime_type}) --- [text not available: ${doc.text_status}]`;
+                        if (turnDocIds.size > 0 && turnDocIds.has(doc.document_id)) {
+                            currentParts.push(line);
+                        }
+                        else {
+                            backgroundParts.push(line);
+                        }
+                    }
+                    if (turnDocIds.size > 0 && currentParts.length > 0) {
                         messages.push({
                             role: "system",
-                            content: `Other session documents (for reference only, the user is NOT asking about these right now):\n\n${backgroundParts.join("\n\n")}`,
+                            content: `Documents attached to the current message (focus your answer on these):\n\n${currentParts.join("\n\n")}`,
                         });
+                        if (backgroundParts.length > 0) {
+                            messages.push({
+                                role: "system",
+                                content: `Other session documents (for reference only, the user is NOT asking about these right now):\n\n${backgroundParts.join("\n\n")}`,
+                            });
+                        }
+                    }
+                    else {
+                        const allParts = [...currentParts, ...backgroundParts];
+                        if (allParts.length > 0) {
+                            messages.push({
+                                role: "system",
+                                content: `Session documents available for reference:\n\n${allParts.join("\n\n")}`,
+                            });
+                        }
                     }
                 }
                 else {
-                    const allParts = [...currentParts, ...backgroundParts];
-                    if (allParts.length > 0) {
+                    console.info(`[RAG] session=${input.sessionId} mode=rag total_chars=${totalChars} budget=${RAG_FULL_TEXT_BUDGET_FALLBACK} docs=${docContext.documents.length}`);
+                    if (currentDocs.length > 0) {
+                        let currentChars = 0;
+                        for (const doc of currentDocs) {
+                            if (doc.has_text && doc.text) {
+                                currentChars += doc.text.length;
+                            }
+                        }
+                        if (currentChars <= RAG_CURRENT_DOC_BUDGET_FALLBACK) {
+                            const parts = [];
+                            for (const doc of currentDocs) {
+                                const label = doc.original_filename || doc.title;
+                                parts.push(doc.has_text && doc.text
+                                    ? `--- Document: ${label} (${doc.mime_type}) ---\n${doc.text}`
+                                    : `--- Document: ${label} (${doc.mime_type}) --- [text not available: ${doc.text_status}]`);
+                            }
+                            messages.push({
+                                role: "system",
+                                content: `Documents attached to the current message (focus your answer on these):\n\n${parts.join("\n\n")}`,
+                            });
+                        }
+                        else {
+                            const parts = [];
+                            let usedChars = 0;
+                            for (const doc of currentDocs) {
+                                const label = doc.original_filename || doc.title;
+                                if (!doc.has_text || !doc.text) {
+                                    parts.push(`--- Document: ${label} (${doc.mime_type}) --- [text not available: ${doc.text_status}]`);
+                                    continue;
+                                }
+                                const remaining = RAG_CURRENT_DOC_BUDGET_FALLBACK - usedChars;
+                                if (remaining <= 0) {
+                                    parts.push(`--- Document: ${label} (${doc.mime_type}) --- [text truncated, use searchDocuments tool for full content]`);
+                                    continue;
+                                }
+                                if (doc.text.length <= remaining) {
+                                    parts.push(`--- Document: ${label} (${doc.mime_type}) ---\n${doc.text}`);
+                                    usedChars += doc.text.length;
+                                }
+                                else {
+                                    parts.push(`--- Document: ${label} (${doc.mime_type}) [truncated] ---\n${doc.text.slice(0, remaining)}...\n[Document truncated. Use searchDocuments tool to search for specific content.]`);
+                                    usedChars += remaining;
+                                }
+                            }
+                            messages.push({
+                                role: "system",
+                                content: `Documents attached to the current message (focus your answer on these):\n\n${parts.join("\n\n")}`,
+                            });
+                        }
+                    }
+                    if (backgroundDocs.length > 0) {
+                        const manifestLines = [];
+                        for (const doc of backgroundDocs) {
+                            const label = doc.original_filename || doc.title;
+                            const status = doc.has_text ? "readable" : (doc.text_status || "unknown");
+                            const size = doc.text ? `${Math.round(doc.text.length / 1000)}k chars` : "no text";
+                            manifestLines.push(`- ${label} (${doc.mime_type}, ${status}, ${size})`);
+                        }
                         messages.push({
                             role: "system",
-                            content: `Session documents available for reference:\n\n${allParts.join("\n\n")}`,
+                            content: `Other session documents (available for reference — use searchDocuments tool to search their content):\n\n${manifestLines.join("\n")}`,
                         });
                     }
                 }

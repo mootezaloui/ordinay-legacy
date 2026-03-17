@@ -37,6 +37,7 @@ function buildPerformanceSnapshot({
       misses: retrievalMisses,
       hitRatio: retrievalEvaluated > 0 ? round4(retrievalHits / retrievalEvaluated) : 0,
     },
+    rag: buildRagSnapshot(caches),
     caches,
     memory,
     active: {
@@ -46,6 +47,24 @@ function buildPerformanceSnapshot({
       retrievalSessions: normalizeNumber(caches.retrievalIndex?.sessionCount),
       ...normalizeRecord(activeStats),
     },
+  };
+}
+
+function buildRagSnapshot(caches) {
+  const rs = normalizeRecord(caches.ragStats);
+  const activations = normalizeNumber(rs.ragActivations);
+  const fullText = normalizeNumber(rs.fullTextInjections);
+  const totalDecisions = activations + fullText;
+  const chunkSamples = normalizeNumber(rs.ragChunksInjectedSamples);
+  const scoreSamples = normalizeNumber(rs.ragScoreSamples);
+  return {
+    activations,
+    fullTextInjections: fullText,
+    activationRate: totalDecisions > 0 ? round4(activations / totalDecisions) : 0,
+    avgChunksInjected: chunkSamples > 0 ? round2(normalizeNumber(rs.ragChunksInjectedTotal) / chunkSamples) : 0,
+    avgScore: scoreSamples > 0 ? round4(normalizeNumber(rs.ragScoreTotal) / scoreSamples) : 0,
+    hydrations: normalizeNumber(rs.ragHydrations),
+    hydrationCacheHits: normalizeNumber(rs.ragHydrationCacheHits),
   };
 }
 

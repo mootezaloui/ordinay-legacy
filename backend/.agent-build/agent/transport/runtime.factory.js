@@ -251,6 +251,9 @@ function registerPerformanceProviders({ performance, sessionStore, retrievalRunt
             ? retrievalRuntime.getIndexStats()
             : {}));
     safeRegister(performance, "memoryContext", () => getOptionalCacheStats(memory?.contextAssembler));
+    safeRegister(performance, "ragStats", () => (memory?.contextAssembler && typeof memory.contextAssembler.getRagStats === "function"
+        ? memory.contextAssembler.getRagStats()
+        : {}));
     safeRegister(performance, "memorySummary", () => getOptionalCacheStats(memory?.summarizer));
 }
 function safeRegister(performance, name, statsProvider) {

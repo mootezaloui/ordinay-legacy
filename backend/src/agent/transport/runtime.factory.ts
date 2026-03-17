@@ -591,6 +591,11 @@ function registerPerformanceProviders({
       : {}) as Record<string, unknown>,
   );
   safeRegister(performance, "memoryContext", () => getOptionalCacheStats(memory?.contextAssembler));
+  safeRegister(performance, "ragStats", () =>
+    (memory?.contextAssembler && typeof (memory.contextAssembler as any).getRagStats === "function"
+      ? (memory.contextAssembler as any).getRagStats()
+      : {}) as Record<string, unknown>,
+  );
   safeRegister(performance, "memorySummary", () => getOptionalCacheStats(memory?.summarizer));
 }
 

@@ -1,5 +1,4 @@
 # SKILLS.md — Agent Capabilities & Behavior Definitions
-_Migration Status: Phase 16 ✅ Completed | Phase 17 (Operational Controls) 🔄 In Progress_
 
 ## Agent Identity
 

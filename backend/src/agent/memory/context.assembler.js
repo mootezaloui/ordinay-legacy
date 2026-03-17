@@ -9,12 +9,30 @@ const {
   buildDeterministicKey,
   stableStringify,
 } = require("../performance/hotpath.optimizer");
+const {
+  RAG_FULL_TEXT_BUDGET,
+  RAG_CURRENT_DOC_BUDGET,
+  RAG_CHUNK_BUDGET,
+  RAG_TOP_K,
+  RAG_MIN_SCORE,
+  RAG_MAX_CHUNKS_PER_DOC,
+  RAG_FTS5_WEIGHT,
+  RAG_TFIDF_WEIGHT,
+  RAG_OVERLAP_BONUS,
+} = require("../retrieval/retrieval.policy");
 
 let _agentDocumentsService;
 try {
   _agentDocumentsService = require("../../services/agentDocuments.service");
 } catch (_e) {
   _agentDocumentsService = null;
+}
+
+let _extractionService;
+try {
+  _extractionService = require("../../services/documentExtraction.service");
+} catch (_e) {
+  _extractionService = null;
 }
 
 const ALLOWED_ROLES = new Set(["system", "user", "assistant", "tool"]);
@@ -95,6 +113,16 @@ function createContextAssembler(options = {}) {
     summary: { hits: 0, misses: 0 },
     entities: { hits: 0, misses: 0 },
     pending: { hits: 0, misses: 0 },
+  };
+  const ragStats = {
+    ragActivations: 0,
+    fullTextInjections: 0,
+    ragChunksInjectedTotal: 0,
+    ragChunksInjectedSamples: 0,
+    ragScoreTotal: 0,
+    ragScoreSamples: 0,
+    ragHydrations: 0,
+    ragHydrationCacheHits: 0,
   };
 
   return {
@@ -179,30 +207,104 @@ function createContextAssembler(options = {}) {
         });
       }
 
-      const retrievalPayload = buildRetrievalContextPayload(
-        retrievalRuntime,
-        operationsRuntime,
-        session,
-        input,
-      );
-      if (retrievalPayload.text) {
-        const grounded = wrapGroundedContext({
-          groundingRuntime,
-          turnId,
+      // Pre-load session documents for budget check and potential RAG hydration.
+      // This docContext is reused later for document injection.
+      let _docContext = null;
+      let _ragMode = false;
+      try {
+        if (_agentDocumentsService && typeof _agentDocumentsService.buildAgentDocumentContext === "function") {
+          const resolvedSid = String(session?.id || input?.sessionId || "").trim();
+          _docContext = _agentDocumentsService.buildAgentDocumentContext(resolvedSid);
+          if (_docContext && Array.isArray(_docContext.documents) && _docContext.documents.length > 0) {
+            let totalChars = 0;
+            for (const doc of _docContext.documents) {
+              if (doc.has_text && doc.text) totalChars += doc.text.length;
+            }
+            _ragMode = totalChars > RAG_FULL_TEXT_BUDGET;
+            if (_ragMode) {
+              ragStats.ragActivations += 1;
+              console.info(`[RAG] session=${resolvedSid} mode=rag total_chars=${totalChars} budget=${RAG_FULL_TEXT_BUDGET} docs=${_docContext.documents.length}`);
+            } else {
+              ragStats.fullTextInjections += 1;
+            }
+            // Hydrate documents into retrieval index so buildRetrievalContext finds them
+            if (_ragMode && retrievalRuntime && typeof retrievalRuntime.hydrateDocument === "function") {
+              let hydrated = 0;
+              for (const doc of _docContext.documents) {
+                if (!doc.has_text || !doc.text) continue;
+                const result = retrievalRuntime.hydrateDocument({
+                  documentId: String(doc.document_id),
+                  text: doc.text,
+                  metadata: {
+                    sourceLabel: doc.original_filename || doc.title || `doc-${doc.document_id}`,
+                    sessionId: resolvedSid,
+                    mimeType: doc.mime_type,
+                  },
+                });
+                if (result && result.chunkCount > 0) {
+                  hydrated++;
+                  ragStats.ragHydrations += 1;
+                } else {
+                  ragStats.ragHydrationCacheHits += 1;
+                }
+              }
+              if (hydrated > 0) {
+                console.info(`[RAG] hydrated ${hydrated} documents into retrieval index for session=${resolvedSid}`);
+              }
+            }
+          }
+        }
+      } catch (_preloadErr) {
+        // Non-critical: continue without pre-loaded doc context
+      }
+
+      // Retrieval context: in RAG mode, run hybrid search (TF-IDF + FTS5).
+      // In non-RAG mode, use existing retrieval pipeline (session artifacts).
+      if (_ragMode) {
+        const inputMeta = (input && typeof input === "object") ? input.metadata : null;
+        const _turnDocIds = new Set(
+          Array.isArray(inputMeta?.documentIds) ? inputMeta.documentIds.map(Number) : []
+        );
+        const ragContext = buildRagHybridContext(
+          retrievalRuntime,
+          _extractionService,
+          _docContext,
+          input,
+          _turnDocIds,
+          ragStats,
+        );
+        if (ragContext) {
+          messages.push({
+            role: "system",
+            content: ragContext,
+          });
+        }
+      } else {
+        const retrievalPayload = buildRetrievalContextPayload(
+          retrievalRuntime,
+          operationsRuntime,
           session,
-          retrievalText: retrievalPayload.text,
-          retrievalMatches: retrievalPayload.matches,
-        });
-        if (grounded.text) {
-          messages.push({
-            role: "system",
-            content: grounded.text,
+          input,
+        );
+        if (retrievalPayload.text) {
+          const grounded = wrapGroundedContext({
+            groundingRuntime,
+            turnId,
+            session,
+            retrievalText: retrievalPayload.text,
+            retrievalMatches: retrievalPayload.matches,
           });
-        } else {
-          messages.push({
-            role: "system",
-            content: `Retrieved context:\n${retrievalPayload.text}`,
-          });
+          if (grounded.text) {
+            messages.push({
+              role: "system",
+              content: grounded.text,
+            });
+          } else {
+            messages.push({
+              role: "system",
+              content: `Retrieved context:\n${retrievalPayload.text}`,
+            });
+          }
         }
       }
 
@@ -217,55 +319,117 @@ function createContextAssembler(options = {}) {
       }
 
       // Inject attached session document content so the LLM can reason about them.
-      // Separate current-turn documents (attached with this message) from earlier ones.
+      // Budget gate: if total text exceeds RAG_FULL_TEXT_BUDGET, inject manifest
+      // instead of full text for background docs. Current-turn docs get priority.
+      // Reuse _docContext loaded earlier for RAG hydration (avoids double DB query).
       try {
-        if (_agentDocumentsService && typeof _agentDocumentsService.buildAgentDocumentContext === "function") {
-          const resolvedSessionId = String(session?.id || input?.sessionId || "").trim();
-          const docContext = _agentDocumentsService.buildAgentDocumentContext(resolvedSessionId);
-          if (docContext && Array.isArray(docContext.documents) && docContext.documents.length > 0) {
+        const docContext = _docContext;
+        if (docContext && Array.isArray(docContext.documents) && docContext.documents.length > 0) {
             const metadata = (input && typeof input === "object") ? input.metadata : null;
             const turnDocIds = new Set(
               Array.isArray(metadata?.documentIds) ? metadata.documentIds.map(Number) : []
             );
 
-            const currentParts = [];
-            const backgroundParts = [];
+            // Separate current-turn vs background documents
+            const currentDocs = [];
+            const backgroundDocs = [];
             for (const doc of docContext.documents) {
-              const label = doc.original_filename || doc.title;
-              const line = doc.has_text && doc.text
-                ? `--- Document: ${label} (${doc.mime_type}) ---\n${doc.text}`
-                : `--- Document: ${label} (${doc.mime_type}) --- [text not available: ${doc.text_status}]`;
               if (turnDocIds.size > 0 && turnDocIds.has(doc.document_id)) {
-                currentParts.push(line);
+                currentDocs.push(doc);
               } else {
-                backgroundParts.push(line);
+                backgroundDocs.push(doc);
               }
             }
 
-            if (turnDocIds.size > 0 && currentParts.length > 0) {
-              // User attached specific documents with this message — highlight them
-              messages.push({
-                role: "system",
-                content: `Documents attached to the current message (focus your answer on these):\n\n${currentParts.join("\n\n")}`,
-              });
-              if (backgroundParts.length > 0) {
+            const useFullText = !_ragMode;
+
+            if (useFullText) {
+              // Under budget — inject full text (original behavior)
+              const currentParts = [];
+              const backgroundParts = [];
+              for (const doc of docContext.documents) {
+                const label = doc.original_filename || doc.title;
+                const line = doc.has_text && doc.text
+                  ? `--- Document: ${label} (${doc.mime_type}) ---\n${doc.text}`
+                  : `--- Document: ${label} (${doc.mime_type}) --- [text not available: ${doc.text_status}]`;
+                if (turnDocIds.size > 0 && turnDocIds.has(doc.document_id)) {
+                  currentParts.push(line);
+                } else {
+                  backgroundParts.push(line);
+                }
+              }
+
+              if (turnDocIds.size > 0 && currentParts.length > 0) {
                 messages.push({
                   role: "system",
-                  content: `Other session documents (for reference only, the user is NOT asking about these right now):\n\n${backgroundParts.join("\n\n")}`,
+                  content: `Documents attached to the current message (focus your answer on these):\n\n${currentParts.join("\n\n")}`,
                 });
+                if (backgroundParts.length > 0) {
+                  messages.push({
+                    role: "system",
+                    content: `Other session documents (for reference only, the user is NOT asking about these right now):\n\n${backgroundParts.join("\n\n")}`,
+                  });
+                }
+              } else {
+                const allParts = [...currentParts, ...backgroundParts];
+                if (allParts.length > 0) {
+                  messages.push({
+                    role: "system",
+                    content: `Session documents available for reference:\n\n${allParts.join("\n\n")}`,
+                  });
+                }
               }
             } else {
-              // No specific turn docs — all docs as general context
-              const allParts = [...currentParts, ...backgroundParts];
-              if (allParts.length > 0) {
+              // Over budget — RAG mode: hybrid retrieval already injected above.
+              // Current-turn docs: full text if small, otherwise reference retrieval.
+              // Background docs: manifest only.
+
+              if (currentDocs.length > 0) {
+                let currentChars = 0;
+                for (const doc of currentDocs) {
+                  if (doc.has_text && doc.text) currentChars += doc.text.length;
+                }
+
+                if (currentChars <= RAG_CURRENT_DOC_BUDGET) {
+                  // Current-turn docs fit in priority budget — inject full text
+                  const parts = [];
+                  for (const doc of currentDocs) {
+                    const label = doc.original_filename || doc.title;
+                    parts.push(doc.has_text && doc.text
+                      ? `--- Document: ${label} (${doc.mime_type}) ---\n${doc.text}`
+                      : `--- Document: ${label} (${doc.mime_type}) --- [text not available: ${doc.text_status}]`);
+                  }
+                  messages.push({
+                    role: "system",
+                    content: `Documents attached to the current message (focus your answer on these):\n\n${parts.join("\n\n")}`,
+                  });
+                } else {
+                  // Current-turn docs too large for full text — retrieval above has
+                  // prioritized chunks from these docs. Just note which docs are attached.
+                  const docNames = currentDocs.map((d) => d.original_filename || d.title).join(", ");
+                  messages.push({
+                    role: "system",
+                    content: `The user just attached: ${docNames}. Relevant excerpts from ${currentDocs.length === 1 ? "this document" : "these documents"} are included in the retrieved context above. Focus your answer on ${currentDocs.length === 1 ? "this document" : "these documents"}. Use searchDocuments tool if you need more detail.`,
+                  });
+                }
+              }
+
+              // Background documents: manifest only (no full text)
+              if (backgroundDocs.length > 0) {
+                const manifestLines = [];
+                for (const doc of backgroundDocs) {
+                  const label = doc.original_filename || doc.title;
+                  const status = doc.has_text ? "readable" : (doc.text_status || "unknown");
+                  const size = doc.text ? `${Math.round(doc.text.length / 1000)}k chars` : "no text";
+                  manifestLines.push(`- ${label} (${doc.mime_type}, ${status}, ${size})`);
+                }
                 messages.push({
                   role: "system",
-                  content: `Session documents available for reference:\n\n${allParts.join("\n\n")}`,
+                  content: `Other session documents (available for reference — use searchDocuments tool to search their content):\n\n${manifestLines.join("\n")}`,
                 });
               }
             }
           }
-        }
       } catch (_docErr) {
         // Non-critical: continue without document context
       }
@@ -284,7 +448,193 @@ function createContextAssembler(options = {}) {
         pendingBlock: buildStatsRow("pendingBlock", pendingBlockCache, cacheStats.pending),
       };
     },
+    getRagStats() {
+      return { ...ragStats };
+    },
   };
+}
+
+const RAG_CURRENT_TURN_BOOST = 0.25;
+
+function buildRagHybridContext(retrievalRuntime, extractionService, docContext, input, turnDocIds, stats) {
+  const userMessage = String(input?.message || "").trim();
+  if (!userMessage) return "";
+  const safeTurnDocIds = turnDocIds instanceof Set ? turnDocIds : new Set();
+
+  // Collect session document IDs for scoping FTS5 results
+  const sessionDocIds = new Set();
+  if (docContext && Array.isArray(docContext.documents)) {
+    for (const doc of docContext.documents) {
+      sessionDocIds.add(Number(doc.document_id));
+    }
+  }
+  if (sessionDocIds.size === 0) return "";
+
+  // Build a filename lookup for labeling
+  const docLabels = new Map();
+  for (const doc of docContext.documents) {
+    docLabels.set(Number(doc.document_id), doc.original_filename || doc.title || `doc-${doc.document_id}`);
+  }
+
+  // --- Source 1: In-memory TF-IDF retrieval (already hydrated in R2) ---
+  const tfidfResults = [];
+  try {
+    if (retrievalRuntime && typeof retrievalRuntime.buildRetrievalContext === "function" && retrievalRuntime.isEnabled()) {
+      const ctx = retrievalRuntime.buildRetrievalContext({ input });
+      if (ctx && Array.isArray(ctx.matches)) {
+        for (const match of ctx.matches) {
+          const docId = Number(match.documentId);
+          if (!sessionDocIds.has(docId)) continue;
+          tfidfResults.push({
+            chunkKey: normalizeChunkKey(match.text),
+            documentId: docId,
+            text: String(match.text || ""),
+            score: Number(match.score || 0),
+            source: "tfidf",
+            pageStart: null,
+            pageEnd: null,
+          });
+        }
+      }
+    }
+  } catch (_tfidfErr) {
+    // Non-critical
+  }
+
+  // --- Source 2: FTS5 keyword search ---
+  const fts5Results = [];
+  try {
+    if (extractionService && typeof extractionService.searchChunks === "function") {
+      const rows = extractionService.searchChunks({ query: userMessage, limit: RAG_TOP_K * 2 });
+      if (Array.isArray(rows)) {
+        for (const row of rows) {
+          const docId = Number(row.document_id);
+          if (!sessionDocIds.has(docId)) continue;
+          // Normalize FTS5 rank to [0,1]: rank is negative, lower = better
+          const normalizedScore = 1 / (1 + Math.abs(Number(row.rank || 0)));
+          fts5Results.push({
+            chunkKey: normalizeChunkKey(row.chunk_text),
+            documentId: docId,
+            text: String(row.chunk_text || ""),
+            score: normalizedScore,
+            source: "fts5",
+            pageStart: row.page_start || null,
+            pageEnd: row.page_end || null,
+          });
+        }
+      }
+    }
+  } catch (_fts5Err) {
+    // Non-critical
+  }
+
+  if (tfidfResults.length === 0 && fts5Results.length === 0) return "";
+
+  // --- Merge + deduplicate ---
+  const merged = new Map(); // chunkKey → combined result
+  for (const r of tfidfResults) {
+    const isCurrent = safeTurnDocIds.has(r.documentId);
+    merged.set(r.chunkKey, {
+      ...r,
+      tfidfScore: r.score,
+      fts5Score: 0,
+      isCurrentTurn: isCurrent,
+      combinedScore: r.score * RAG_TFIDF_WEIGHT + (isCurrent ? RAG_CURRENT_TURN_BOOST : 0),
+    });
+  }
+  for (const r of fts5Results) {
+    const isCurrent = safeTurnDocIds.has(r.documentId);
+    const existing = merged.get(r.chunkKey);
+    if (existing) {
+      // Found in both sources — boost
+      existing.fts5Score = r.score;
+      existing.combinedScore = Math.max(existing.tfidfScore, r.score) + RAG_OVERLAP_BONUS + (existing.isCurrentTurn ? RAG_CURRENT_TURN_BOOST : 0);
+      if (r.pageStart && !existing.pageStart) existing.pageStart = r.pageStart;
+      if (r.pageEnd && !existing.pageEnd) existing.pageEnd = r.pageEnd;
+    } else {
+      merged.set(r.chunkKey, {
+        ...r,
+        tfidfScore: 0,
+        fts5Score: r.score,
+        isCurrentTurn: isCurrent,
+        combinedScore: r.score * RAG_FTS5_WEIGHT + (isCurrent ? RAG_CURRENT_TURN_BOOST : 0),
+      });
+    }
+  }
+
+  // Sort: current-turn docs first at equal score, then by combined score
+  const sorted = [...merged.values()]
+    .filter((r) => r.combinedScore >= RAG_MIN_SCORE)
+    .sort((a, b) => {
+      if (a.isCurrentTurn !== b.isCurrentTurn) return a.isCurrentTurn ? -1 : 1;
+      return b.combinedScore - a.combinedScore;
+    });
+
+  // Enforce per-document limit + top-K + budget
+  // Current-turn docs get relaxed per-doc limit (double)
+  const perDocCount = new Map();
+  const selected = [];
+  let usedChars = 0;
+
+  for (const chunk of sorted) {
+    const maxPerDoc = chunk.isCurrentTurn ? RAG_MAX_CHUNKS_PER_DOC * 2 : RAG_MAX_CHUNKS_PER_DOC;
+    const docCount = perDocCount.get(chunk.documentId) || 0;
+    if (docCount >= maxPerDoc) continue;
+    if (selected.length >= RAG_TOP_K) break;
+    if (usedChars + chunk.text.length > RAG_CHUNK_BUDGET) {
+      if (selected.length > 0) break;
+    }
+
+    selected.push(chunk);
+    perDocCount.set(chunk.documentId, docCount + 1);
+    usedChars += chunk.text.length;
+  }
+
+  if (selected.length === 0) return "";
+
+  // --- Format ---
+  const lines = [];
+  for (const chunk of selected) {
+    const label = docLabels.get(chunk.documentId) || `doc-${chunk.documentId}`;
+    const pagePart = chunk.pageStart ? ` (page ${chunk.pageStart}${chunk.pageEnd && chunk.pageEnd !== chunk.pageStart ? `-${chunk.pageEnd}` : ""})` : "";
+    lines.push(`--- From: ${label}${pagePart} ---\n${chunk.text}`);
+  }
+
+  const remainingDocs = [];
+  for (const [docId, label] of docLabels) {
+    if (!perDocCount.has(docId)) {
+      remainingDocs.push(label);
+    }
+  }
+
+  let footer = "";
+  if (remainingDocs.length > 0) {
+    footer = `\n\nOther session documents not shown above: ${remainingDocs.join(", ")}\n(Use searchDocuments tool for deeper search if needed)`;
+  }
+
+  const tfidfCount = selected.filter((s) => s.tfidfScore > 0).length;
+  const fts5Count = selected.filter((s) => s.fts5Score > 0).length;
+  const overlapCount = selected.filter((s) => s.tfidfScore > 0 && s.fts5Score > 0).length;
+  const currentTurnCount = selected.filter((s) => s.isCurrentTurn).length;
+  const currentTurnChars = selected.filter((s) => s.isCurrentTurn).reduce((sum, s) => sum + s.text.length, 0);
+  const backgroundChars = usedChars - currentTurnChars;
+  console.info(`[RAG] hybrid search: tfidf=${tfidfCount} fts5=${fts5Count} overlap=${overlapCount} current_turn=${currentTurnCount} selected=${selected.length}/${sorted.length}`);
+  console.info(`[RAG] budget: current_turn=${currentTurnChars}/${RAG_CURRENT_DOC_BUDGET} background=${backgroundChars}/${RAG_CHUNK_BUDGET} total=${usedChars}`);
+
+  if (stats) {
+    stats.ragChunksInjectedTotal += selected.length;
+    stats.ragChunksInjectedSamples += 1;
+    for (const s of selected) {
+      stats.ragScoreTotal += s.combinedScore;
+      stats.ragScoreSamples += 1;
+    }
+  }
+
+  return `Relevant excerpts from session documents (retrieved by relevance to your question):\n\n${lines.join("\n\n")}${footer}`;
+}
+
+function normalizeChunkKey(text) {
+  return String(text || "").toLowerCase().replace(/\s+/g, " ").trim().slice(0, 200);
 }
 
 function buildRetrievalContextPayload(retrievalRuntime, operationsRuntime, session, input) {

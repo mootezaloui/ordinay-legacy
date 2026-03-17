@@ -42,6 +42,25 @@ function createMetricsAggregator() {
       state.retrievalEvaluated += 1;
     }
 
+    if (metricData.ragActivated === true) {
+      state.ragActivations += 1;
+    }
+    if (metricData.fullTextInjected === true) {
+      state.fullTextInjections += 1;
+    }
+    const ragChunks = normalizeNumber(metricData.ragChunksInjected);
+    if (ragChunks > 0) {
+      state.ragChunksInjectedTotal += ragChunks;
+      state.ragChunksInjectedSamples += 1;
+    }
+    const ragAvgScore = normalizeNumber(metricData.ragAvgScore);
+    if (ragAvgScore > 0) {
+      state.ragScoreTotal += ragAvgScore;
+      state.ragScoreSamples += 1;
+    }
+    state.ragHydrations += normalizeNumber(metricData.ragHydrations);
+    state.ragHydrationCacheHits += normalizeNumber(metricData.ragHydrationCacheHits);
+
     if (metricData.citationAppended === true) {
       state.citationAppendedResponses += 1;
     }
@@ -90,6 +109,12 @@ function createMetricsAggregator() {
         toolCallsFailed: state.toolCallsFailed,
         retrievalHits: state.retrievalHits,
         retrievalMisses: state.retrievalMisses,
+        ragActivations: state.ragActivations,
+        fullTextInjections: state.fullTextInjections,
+        ragChunksInjectedTotal: state.ragChunksInjectedTotal,
+        ragChunksInjectedSamples: state.ragChunksInjectedSamples,
+        ragHydrations: state.ragHydrations,
+        ragHydrationCacheHits: state.ragHydrationCacheHits,
         citationAppendedResponses: state.citationAppendedResponses,
         lowConfidenceGroundedResponses: state.lowConfidenceGroundedResponses,
       },
@@ -98,6 +123,9 @@ function createMetricsAggregator() {
         toolFailureRate: safeRate(state.toolCallsFailed, toolCallsTotal),
         clarificationRate: safeRate(state.clarificationCount, turnsTotal),
         retrievalMissRate: safeRate(state.retrievalMisses, retrievalEvaluated),
+        ragActivationRate: safeRate(state.ragActivations, state.ragActivations + state.fullTextInjections),
+        avgRagChunksInjected: safeRate(state.ragChunksInjectedTotal, state.ragChunksInjectedSamples),
+        avgRagScore: safeRate(state.ragScoreTotal, state.ragScoreSamples),
         averageTurnLatencyMs: safeRate(state.turnLatencyTotalMs, state.turnLatencySamples),
       },
       failuresByType: { ...state.failuresByType },
@@ -132,6 +160,14 @@ function createInitialState() {
     retrievalHits: 0,
     retrievalMisses: 0,
     retrievalEvaluated: 0,
+    ragActivations: 0,
+    fullTextInjections: 0,
+    ragChunksInjectedTotal: 0,
+    ragChunksInjectedSamples: 0,
+    ragScoreTotal: 0,
+    ragScoreSamples: 0,
+    ragHydrations: 0,
+    ragHydrationCacheHits: 0,
     citationAppendedResponses: 0,
     lowConfidenceGroundedResponses: 0,
     turnLatencyTotalMs: 0,
