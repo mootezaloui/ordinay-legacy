@@ -136,38 +136,51 @@ export function AgentLayout({
 
   return (
     <div className="agent-flat-mode relative w-full h-full flex gap-0 bg-[#f8fafc] dark:bg-[#0f172a]">
-      {/* ══════════════════════════════════════════════════════════════════
+      {/* 
           LEFT SIDEBAR - Conversation History
-          Desktop: Static column | Mobile: Overlay drawer
-      ══════════════════════════════════════════════════════════════════ */}
+          Desktop: Animated slide-in | Mobile: Animated overlay drawer
+      */}
 
-      {/* Desktop - Static */}
-      {showHistorySidebar && (
-        <div className="hidden lg:block w-72 flex-shrink-0 h-full">
-          <AgentHistorySidebar {...sidebarProps} />
-        </div>
-      )}
-
-      {/* Mobile - Overlay */}
-      {showHistorySidebar && (
-        <div className="absolute inset-0 z-40 lg:hidden">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setShowHistorySidebar(false)}
+      {/* Desktop Sidebar with Animation */}
+      <div 
+        className={`hidden lg:block h-full flex-shrink-0 overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)] ${
+          showHistorySidebar ? "w-72" : "w-0"
+        }`}
+      >
+        <div className="w-72 h-full">
+          <AgentHistorySidebar 
+            {...sidebarProps} 
+            onToggleCollapse={() => setShowHistorySidebar(!showHistorySidebar)}
           />
-          <div className="absolute inset-y-0 left-0 w-80 max-w-[85vw]">
-            <AgentHistorySidebar {...sidebarProps} />
-          </div>
         </div>
-      )}
+      </div>
 
-      {/* ══════════════════════════════════════════════════════════════════
-          CENTER COLUMN - Main Chat Area
-          Fixed height, scrollable conversation, sticky input
-      ══════════════════════════════════════════════════════════════════ */}
+      {/* Mobile Sidebar with Animation */}
+      <div 
+        className={`lg:hidden fixed inset-0 z-50 transition-all duration-300 ${
+          showHistorySidebar ? "visible" : "invisible pointer-events-none"
+        }`}
+      >
+        <div 
+          className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${
+            showHistorySidebar ? "opacity-100" : "opacity-0"
+          }`}
+          onClick={() => setShowHistorySidebar(false)}
+        />
+        <div 
+          className={`absolute inset-y-0 left-0 w-80 max-w-[85vw] bg-[#f9fafb] dark:bg-[#0f172a] shadow-2xl transition-transform duration-300 ease-out ${
+            showHistorySidebar ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          <AgentHistorySidebar 
+            {...sidebarProps} 
+            onToggleCollapse={() => setShowHistorySidebar(false)}
+          />
+        </div>
+      </div>
 
+      {/* CENTER COLUMN - Main Chat Area */}
       <div className="flex-1 min-w-0 flex flex-col h-full agent-ui-text">
-        {/* Top Bar - Fixed */}
         <div className="flex-shrink-0">
           <AgentTopBar
             showHistorySidebar={showHistorySidebar}
@@ -177,7 +190,6 @@ export function AgentLayout({
           />
         </div>
 
-        {/* Conversation - Scrollable */}
         <div
           ref={scrollContainerRef}
           className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth agent-thread"
@@ -201,7 +213,6 @@ export function AgentLayout({
           </div>
         </div>
 
-        {/* Offline Banner */}
         {isOffline && (
           <div className="flex-shrink-0 flex items-center justify-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border-t border-amber-200 dark:border-amber-700/40 text-amber-800 dark:text-amber-300 text-xs font-medium">
             <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -211,7 +222,6 @@ export function AgentLayout({
           </div>
         )}
 
-        {/* Input - Fixed */}
         <div className="flex-shrink-0">
           <AgentInput
             input={input}
@@ -227,98 +237,111 @@ export function AgentLayout({
         </div>
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════════
-          RIGHT SIDEBAR - Context Panel
-          Desktop: Static column | Mobile: Overlay drawer
-      ══════════════════════════════════════════════════════════════════ */}
-
-      {/* Desktop - Static */}
-      {showContextSidebar && (
-        <div className="hidden 2xl:block w-80 flex-shrink-0 h-full">
-          <div className="h-full flex flex-col">
-            <div className="flex-shrink-0 p-2 border-l border-b border-black/[0.05] dark:border-white/[0.04] bg-[#f8fafc] dark:bg-[#0f172a]">
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setRightPanelTab("context")}
-                  className={`text-xs px-3 py-1.5 rounded border transition-colors ${
-                    rightPanelTab === "context"
-                      ? "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700"
-                      : "bg-white text-slate-600 border-slate-300 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700"
-                  }`}
-                >
-                  Context
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRightPanelTab("documents")}
-                  className={`text-xs px-3 py-1.5 rounded border transition-colors ${
-                    rightPanelTab === "documents"
-                      ? "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-900/20 dark:text-indigo-300 dark:border-indigo-700"
-                      : "bg-white text-slate-600 border-slate-300 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700"
-                  }`}
-                >
-                  Documents
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 min-h-0">
-              {rightPanelTab === "context" ? (
-                <AgentResultPreview {...contextProps} />
-              ) : (
-                <AgentSessionDocumentsPanel sessionId={activeSessionId} />
-              )}
-            </div>
+      {/* RIGHT SIDEBAR - Context Panel */}
+      <div 
+        className={`hidden 2xl:block h-full flex-shrink-0 overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)] relative ${
+          showContextSidebar ? "w-80" : "w-0"
+        }`}
+      >
+        <div 
+          className="absolute -left-4 top-[10%] bottom-[10%] w-4 cursor-pointer group/toggle flex items-center justify-center z-50 overflow-visible"
+          onClick={() => setShowContextSidebar(!showContextSidebar)}
+          title={showContextSidebar ? "Collapse panel" : "Expand panel"}
+        >
+          <div className="h-20 w-1.5 bg-black/[0.1] dark:bg-white/[0.1] rounded-full flex items-center justify-center group-hover/toggle:h-32 group-hover/toggle:w-4 group-hover/toggle:bg-indigo-500/20 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] border border-transparent group-hover/toggle:border-indigo-500/30 group-hover/toggle:shadow-[0_0_12px_rgba(79,70,229,0.15)] relative overflow-hidden">
+               <i className={`fas ${showContextSidebar ? "fa-chevron-right" : "fa-chevron-left"} text-[8px] text-indigo-500 opacity-0 group-hover/toggle:opacity-100 transition-opacity duration-300 absolute`}></i>
           </div>
         </div>
-      )}
 
-      {/* Mobile - Overlay */}
-      {showContextSidebar && (
-        <div className="absolute inset-0 z-40 2xl:hidden">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setShowContextSidebar(false)}
-          />
-          <div className="absolute inset-y-0 right-0 w-80 max-w-[85vw]">
-            <div className="h-full flex flex-col">
-              <div className="flex-shrink-0 p-2 border-l border-b border-black/[0.05] dark:border-white/[0.04] bg-[#f8fafc] dark:bg-[#0f172a]">
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setRightPanelTab("context")}
-                    className={`text-xs px-3 py-1.5 rounded border transition-colors ${
-                      rightPanelTab === "context"
-                        ? "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700"
-                        : "bg-white text-slate-600 border-slate-300 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700"
-                    }`}
-                  >
-                    Context
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRightPanelTab("documents")}
-                    className={`text-xs px-3 py-1.5 rounded border transition-colors ${
-                      rightPanelTab === "documents"
-                        ? "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-900/20 dark:text-indigo-300 dark:border-indigo-700"
-                        : "bg-white text-slate-600 border-slate-300 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700"
-                    }`}
-                  >
-                    Documents
-                  </button>
-                </div>
-              </div>
-              <div className="flex-1 min-h-0">
-                {rightPanelTab === "context" ? (
-                  <AgentResultPreview {...contextProps} />
-                ) : (
-                  <AgentSessionDocumentsPanel sessionId={activeSessionId} />
-                )}
-              </div>
+        <div className="w-80 h-full overflow-hidden flex flex-col">
+          <div className="flex-shrink-0 p-2 border-b border-black/[0.05] dark:border-white/[0.04] bg-[#f8fafc] dark:bg-[#0f172a]">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setRightPanelTab("context")}
+                className={`text-xs px-3 py-1.5 rounded-lg border transition-all duration-200 font-medium ${
+                  rightPanelTab === "context"
+                    ? "bg-blue-500 text-white border-blue-600 shadow-sm"
+                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800"
+                }`}
+              >
+                Context
+              </button>
+              <button
+                type="button"
+                onClick={() => setRightPanelTab("documents")}
+                className={`text-xs px-3 py-1.5 rounded-lg border transition-all duration-200 font-medium ${
+                  rightPanelTab === "documents"
+                    ? "bg-indigo-500 text-white border-indigo-600 shadow-sm"
+                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800"
+                }`}
+              >
+                Documents
+              </button>
             </div>
           </div>
+          <div className="flex-1 min-h-0">
+            {rightPanelTab === "context" ? (
+              <AgentResultPreview {...contextProps} />
+            ) : (
+              <AgentSessionDocumentsPanel sessionId={activeSessionId} />
+            )}
+          </div>
         </div>
-      )}
+      </div>
+
+      {/* Mobile/Tablet Context Overlay */}
+      <div 
+        className={`2xl:hidden fixed inset-0 z-50 transition-all duration-300 ${
+          showContextSidebar ? "visible" : "invisible pointer-events-none"
+        }`}
+      >
+        <div 
+          className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${
+            showContextSidebar ? "opacity-100" : "opacity-0"
+          }`}
+          onClick={() => setShowContextSidebar(false)}
+        />
+        <div 
+          className={`absolute inset-y-0 right-0 w-80 max-w-[85vw] bg-[#f9fafb] dark:bg-[#0f172a] shadow-2xl transition-transform duration-300 ease-out flex flex-col ${
+            showContextSidebar ? "translate-x-0" : "translate-x-full"
+          }`}
+        >
+          <div className="flex-shrink-0 p-2 border-b border-black/[0.05] dark:border-white/[0.04]">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setRightPanelTab("context")}
+                className={`text-xs px-3 py-1.5 rounded-lg border transition-all duration-200 font-medium ${
+                  rightPanelTab === "context"
+                    ? "bg-blue-500 text-white border-blue-600 shadow-sm"
+                    : "bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800"
+                }`}
+              >
+                Context
+              </button>
+              <button
+                type="button"
+                onClick={() => setRightPanelTab("documents")}
+                className={`text-xs px-3 py-1.5 rounded-lg border transition-all duration-200 font-medium ${
+                  rightPanelTab === "documents"
+                    ? "bg-indigo-500 text-white border-indigo-600 shadow-sm"
+                    : "bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800"
+                }`}
+              >
+                Documents
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 min-h-0">
+            {rightPanelTab === "context" ? (
+              <AgentResultPreview {...contextProps} />
+            ) : (
+              <AgentSessionDocumentsPanel sessionId={activeSessionId} />
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

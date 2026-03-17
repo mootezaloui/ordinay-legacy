@@ -180,8 +180,11 @@ export default function UserDropdown({ isOpen, onToggle, onClose }) {
                     </SheetContent>
                 </Sheet>
             ) : (
-                isOpen && (
-                    <div className="absolute right-0 mt-3 w-72 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-700/70 overflow-hidden z-50 animate-in zoom-in-95 slide-in-from-top-1 duration-200">
+                <div className={`absolute right-0 mt-3 w-72 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl border border-slate-200/80 dark:border-slate-700/70 overflow-hidden z-50 origin-[90%_0%] ${
+                    isOpen 
+                        ? "opacity-100 scale-100 translate-y-0 pointer-events-auto shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]" 
+                        : "opacity-0 scale-50 -translate-y-4 pointer-events-none shadow-none transition-all duration-200 ease-in-out"
+                }`}>
                         <div className="px-5 py-4 bg-slate-50/90 dark:bg-slate-800/70 border-b border-slate-200/70 dark:border-slate-700/60">
                             <div className="flex items-center gap-3">
                                 <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/25">
@@ -197,7 +200,6 @@ export default function UserDropdown({ isOpen, onToggle, onClose }) {
                         </div>
                         {menuList}
                     </div>
-                )
             )}
         </div>
     );

@@ -67,17 +67,28 @@ export default function SearchableSelect({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Scroll to highlighted item
+  // Scroll to highlighted item (only when highlightedIndex changes via keyboard, not on open)
+  const prevHighlightedIndexRef = useRef(highlightedIndex);
+  const isOpenRef = useRef(isOpen);
+
+  useEffect(() => {
+    // Track isOpen changes without triggering scroll
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
+
   useEffect(() => {
     if (isOpen && listRef.current) {
       const highlightedElement = listRef.current.children[highlightedIndex];
-      if (highlightedElement) {
+      // Only scroll if highlightedIndex actually changed (keyboard navigation)
+      // Don't scroll when dropdown first opens (prev === current on initial render)
+      if (highlightedElement && prevHighlightedIndexRef.current !== highlightedIndex) {
         highlightedElement.scrollIntoView({
           block: "nearest",
           behavior: "smooth",
         });
       }
     }
+    prevHighlightedIndexRef.current = highlightedIndex;
   }, [highlightedIndex, isOpen]);
 
   const handleInputFocus = () => {

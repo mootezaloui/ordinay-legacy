@@ -35,6 +35,8 @@ interface AgentHistorySidebarProps {
   onReorderFolders: (fromIndex: number, toIndex: number) => void;
   getSessionsInFolder: (folderId: string | null) => AgentSession[];
   getRelativeTime: (timestamp: Date) => string;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export function AgentHistorySidebar({
@@ -53,6 +55,8 @@ export function AgentHistorySidebar({
   onReorderFolders,
   getSessionsInFolder,
   getRelativeTime,
+  isCollapsed = false,
+  onToggleCollapse,
 }: AgentHistorySidebarProps) {
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dropTargetFolderId, setDropTargetFolderId] = useState<
@@ -303,7 +307,23 @@ export function AgentHistorySidebar({
   // ============================================================================
 
   return (
-    <div className="h-full w-full flex flex-col border-r border-black/[0.05] dark:border-white/[0.04] bg-[#f9fafb] dark:bg-[#0f172a] agent-ui-text">
+    <div className="h-full w-full relative group/sidebar flex flex-col border-r border-black/[0.05] dark:border-white/[0.04] bg-[#f9fafb] dark:bg-[#0f172a] agent-ui-text">
+      {/* Modern Edge-attached Toggle Pill - Desktop Only */}
+      {onToggleCollapse && (
+        <div 
+          className="absolute -right-4 top-[10%] bottom-[10%] w-4 cursor-pointer group/toggle flex items-center justify-center hidden lg:flex z-50 overflow-visible"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleCollapse();
+          }}
+          title={isCollapsed ? "Expand history" : "Collapse history"}
+        >
+          <div className="h-20 w-1.5 bg-black/[0.1] dark:bg-white/[0.1] rounded-full flex items-center justify-center group-hover/toggle:h-32 group-hover/toggle:w-4 group-hover/toggle:bg-blue-500/20 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] border border-transparent group-hover/toggle:border-blue-500/30 group-hover/toggle:shadow-[0_0_12px_rgba(59,130,246,0.15)] relative overflow-hidden">
+               <i className={`fas ${isCollapsed ? "fa-chevron-right" : "fa-chevron-left"} text-[8px] text-blue-500 opacity-0 group-hover/toggle:opacity-100 transition-opacity duration-300 absolute`}></i>
+          </div>
+        </div>
+      )}
+
       {/* Header with actions */}
       <div className="p-4 border-b border-black/[0.05] dark:border-white/[0.04] space-y-2 flex-shrink-0">
         <button
@@ -438,7 +458,7 @@ export function AgentHistorySidebar({
                       }
                       onDragEnd={handleSessionDragEnd}
                       onDragOver={(e) =>
-                        handleSessionDragOver(e, session, sessionIndex)
+                        handleSessionDragOver(e, session)
                       }
                       onDragLeave={handleSessionDragLeave}
                       onDrop={(e) =>
@@ -488,7 +508,7 @@ export function AgentHistorySidebar({
                 }
                 onDragEnd={handleSessionDragEnd}
                 onDragOver={(e) =>
-                  handleSessionDragOver(e, session, sessionIndex)
+                  handleSessionDragOver(e, session)
                 }
                 onDragLeave={handleSessionDragLeave}
                 onDrop={(e) => handleSessionDrop(e, session, sessionIndex)}

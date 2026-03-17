@@ -1,26 +1,28 @@
 import { Link, useLocation } from "react-router-dom";
 import { useTheme } from "../../contexts/theme";
 import { useSidebar } from "../../contexts/SidebarContext";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+
+// Module-level: persists across component unmount/remount cycles
+let _lastIndicatorY = null;
+let _lastIndicatorH = null;
 
 export default function Sidebar() {
   const { isCollapsed, toggleSidebar, isMobileOpen, closeMobile } = useSidebar();
   const { isDark, toggleTheme } = useTheme();
   const location = useLocation();
   const prevPathRef = useRef(location.pathname);
-  const [activeFlash, setActiveFlash] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.matchMedia("(max-width: 767px)").matches;
   });
   const { t } = useTranslation("layout");
-  // Brief pop animation when route changes so the active item feels responsive
-  useEffect(() => {
-    setActiveFlash(true);
-    const timer = setTimeout(() => setActiveFlash(false), 280);
-    return () => clearTimeout(timer);
-  }, [location.pathname]);
+
+  // ── Animated indicator ──
+  const navContainerRef = useRef(null);
+  const itemRefs = useRef({});
+  const indicatorRef = useRef(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -40,7 +42,6 @@ export default function Sidebar() {
 
   const isCompact = isCollapsed && !isMobileViewport;
 
-  // Grouped navigation structure
   const navigationGroups = [
     {
       id: "primary",
@@ -83,27 +84,155 @@ export default function Sidebar() {
     }
   ];
 
+  const allRoutes = useMemo(
+    () => navigationGroups.flatMap(g => g.items.map(i => i.route)),
+    [t]
+  );
+
+  const setItemRef = useCallback((route, el) => {
+    if (el) {
+      itemRefs.current[route] = el;
+    }
+  }, []);
+
+  // Measure where the current active item is
+  const measureActive = useCallback(() => {
+    const container = navContainerRef.current;
+    if (!container) return null;
+
+    const pathname = location.pathname;
+    const activeRoute = allRoutes.find(r => pathname.startsWith(r));
+    if (!activeRoute || !itemRefs.current[activeRoute]) return null;
+
+    const activeEl = itemRefs.current[activeRoute];
+    const containerRect = container.getBoundingClientRect();
+    const activeRect = activeEl.getBoundingClientRect();
+
+    return {
+      y: activeRect.top - containerRect.top + container.scrollTop,
+      h: activeRect.height,
+    };
+  }, [allRoutes, location.pathname]);
+
+  // On mount: snap to old position, then animate to new position
+  useEffect(() => {
+    const indicator = indicatorRef.current;
+    if (!indicator) return;
+
+    // Wait for DOM refs to be ready
+    requestAnimationFrame(() => {
+      const target = measureActive();
+      if (!target) {
+        indicator.style.opacity = "0";
+        return;
+      }
+
+      // Always set the final position immediately
+      indicator.style.transform = `translateY(${target.y}px)`;
+      indicator.style.height = `${target.h}px`;
+      indicator.style.opacity = "1";
+
+      if (_lastIndicatorY !== null && Math.abs(_lastIndicatorY - target.y) > 1) {
+        // Animate from old position to new using Web Animations API
+        indicator.animate(
+          [
+            {
+              transform: `translateY(${_lastIndicatorY}px)`,
+              height: `${_lastIndicatorH}px`,
+            },
+            {
+              transform: `translateY(${target.y}px)`,
+              height: `${target.h}px`,
+            },
+          ],
+          {
+            duration: 350,
+            easing: "cubic-bezier(0.34, 1.56, 0.64, 1)",
+            fill: "none",
+          }
+        );
+      }
+
+      // Store for next mount
+      _lastIndicatorY = target.y;
+      _lastIndicatorH = target.h;
+    });
+  }); // Run on every render (component remounts each nav)
+
+  // On sidebar collapse: recalculate after the sidebar's own CSS transition finishes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const indicator = indicatorRef.current;
+      if (!indicator) return;
+      const target = measureActive();
+      if (!target) return;
+      indicator.style.transition = "none";
+      indicator.style.transform = `translateY(${target.y}px)`;
+      indicator.style.height = `${target.h}px`;
+      _lastIndicatorY = target.y;
+      _lastIndicatorH = target.h;
+    }, 320);
+    return () => clearTimeout(timer);
+  }, [isCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // On resize
+  useEffect(() => {
+    const handleResize = () => {
+      const indicator = indicatorRef.current;
+      if (!indicator) return;
+      const target = measureActive();
+      if (!target) return;
+      indicator.style.transition = "none";
+      indicator.style.transform = `translateY(${target.y}px)`;
+      indicator.style.height = `${target.h}px`;
+      _lastIndicatorY = target.y;
+      _lastIndicatorH = target.h;
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [measureActive]);
+
   return (
     <aside
       id="mobile-sidebar"
       className={`sidebar-shell fixed left-0 flex flex-col transition-all duration-300 border-r z-40 titlebar-offset-top titlebar-offset-height bg-background text-foreground border-border ${isMobileOpen ? "translate-x-0" : "-translate-x-full"
         } md:translate-x-0 ${isCollapsed ? "md:w-[72px]" : "md:w-64"} w-[84vw] max-w-[320px]`}
     >
-      {/* Toggle */}
-      <button
+      {/* Modern Edge-attached Sidebar Toggle Pill */}
+      <div 
+        className="absolute -right-4 top-[10%] bottom-[10%] w-4 cursor-pointer group flex items-center justify-center hidden md:flex z-50"
         onClick={toggleSidebar}
-        className="absolute -right-3 top-6 rounded-full p-1.5 border shadow-sm focus:outline-none focus:ring-2 focus:ring-primary bg-card border-border hover:bg-muted z-50 transition-all hidden md:flex"
-        aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
-        <i className={`${isCollapsed ? "fas fa-chevron-right text-xs" : "fas fa-chevron-left text-xs"} text-muted-foreground`}></i>
-      </button>
+        <div className="h-20 w-1.5 bg-border rounded-full flex items-center justify-center group-hover:h-32 group-hover:w-4 group-hover:bg-primary/20 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] border border-transparent group-hover:border-primary/30 group-hover:shadow-[0_0_12px_rgba(59,130,246,0.15)] relative overflow-hidden">
+             <i className={`${isCollapsed ? "fas fa-chevron-right" : "fas fa-chevron-left"} text-[8px] text-primary/70 opacity-0 group-hover:opacity-100 transition-opacity duration-300 absolute`}></i>
+        </div>
+      </div>
 
-      {/* Navigation - Grouped with enhanced hierarchy */}
-      <nav className="sidebar-nav flex-1 pt-6 pb-3 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent">
+      {/* Navigation */}
+      <nav
+        ref={navContainerRef}
+        className="sidebar-nav flex-1 pt-6 pb-3 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent relative"
+      >
+        {/* ── Animated Sliding Indicator ── */}
+        <div
+          ref={indicatorRef}
+          className="absolute left-3 right-3 rounded-xl pointer-events-none z-0"
+          style={{
+            top: 0,
+            height: 0,
+            opacity: 0,
+            willChange: "transform, height, opacity",
+          }}
+        >
+          <div className="absolute inset-0 rounded-xl bg-primary shadow-lg shadow-primary/25" />
+          <div className="absolute inset-0 rounded-xl bg-primary/10 blur-md" />
+          <div className="absolute left-0 top-[15%] bottom-[15%] w-[3px] rounded-full bg-white/60" />
+        </div>
+
         <div className="sidebar-groups space-y-6">
           {navigationGroups.map((group) => (
             <div key={group.id} className="sidebar-group px-3">
-              {/* Fixed heading slot keeps group items vertically anchored across states */}
               {group.label && (
                 <div className="px-3 mb-2 h-5 flex items-center">
                   {!isCompact ? (
@@ -118,18 +247,16 @@ export default function Sidebar() {
                 </div>
               )}
 
-              {/* Items */}
               <ul className="sidebar-items space-y-0.5">
                 {group.items.map((item) => {
                   const isActive = location.pathname.startsWith(item.route);
                   return (
                     <li key={item.route}>
                       <Link
+                        ref={(el) => setItemRef(item.route, el)}
                         to={item.route}
                         onClick={() => {
-                          if (isMobileOpen) {
-                            closeMobile();
-                          }
+                          if (isMobileOpen) closeMobile();
                         }}
                         data-tutorial={
                           item.route === "/dashboard" ? "sidebar-dashboard-link" :
@@ -141,40 +268,32 @@ export default function Sidebar() {
                                       item.route === "/accounting" ? "sidebar-accounting-link" :
                                         undefined
                         }
-                        className={`sidebar-item group relative flex items-center py-2.5 rounded-xl transition-all duration-200 ${isCompact ? "justify-center px-0 gap-0" : "justify-start gap-3 pl-[14px] pr-3"} ${isActive
-                            ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
+                        className={`sidebar-item group relative flex items-center py-2.5 rounded-xl transition-colors duration-200 z-[1] ${isCompact ? "justify-center px-0 gap-0" : "justify-start gap-3 pl-[14px] pr-3"} ${isActive
+                            ? "text-primary-foreground"
                             : "hover:bg-muted text-foreground hover:shadow-sm"
                           }`}
                       >
-                        {/* Icon container with enhanced styling */}
                         <span className={`relative flex items-center justify-center w-5 transition-transform duration-200 ${isActive ? "scale-110" : "group-hover:scale-105"
                           }`}>
                           <i
-                            className={`${item.icon} text-base transition-all duration-200 ${isActive
+                            className={`${item.icon} text-base transition-colors duration-200 ${isActive
                               ? "text-primary-foreground"
                               : "text-muted-foreground group-hover:text-foreground"
                               }`}
                           ></i>
                         </span>
 
-                        {/* Label */}
                         {!isCompact && (
                           <span
-                            className={`text-[13px] font-medium transition-all duration-200 ${isActive
+                            className={`text-[13px] font-medium transition-colors duration-200 ${isActive
                               ? "text-primary-foreground"
                               : "text-foreground"
-                              } ${isActive && activeFlash ? "animate-pop" : ""}`}
+                              }`}
                           >
                             {item.label}
                           </span>
                         )}
 
-                        {/* Active indicator glow */}
-                        {isActive && (
-                          <span className="absolute inset-0 rounded-xl bg-primary/10 blur-sm"></span>
-                        )}
-
-                        {/* Tooltip for collapsed state */}
                         {isCompact && (
                           <span className="absolute left-full ml-4 px-3 py-1.5 bg-foreground text-background text-xs font-medium rounded-lg opacity-0 invisible pointer-events-none group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-xl">
                             {item.label}
@@ -191,10 +310,9 @@ export default function Sidebar() {
         </div>
       </nav>
 
-      {/* Footer - System actions with clear separation */}
+      {/* Footer */}
       <div className="sidebar-footer border-t border-border bg-gradient-to-b from-transparent to-secondary/60">
         <div className="p-3 space-y-1">
-          {/* Theme toggle */}
           <button
             onClick={toggleTheme}
             className={`w-full group flex items-center py-2.5 rounded-xl transition-all duration-200 hover:bg-muted text-foreground hover:shadow-sm ${isCompact ? "justify-center px-0 gap-0" : "justify-start gap-3 pl-[14px] pr-3"}`}
@@ -205,8 +323,6 @@ export default function Sidebar() {
             {!isCompact && (
               <span className="text-[13px] font-medium">{isDark ? t("sidebar.theme.light") : t("sidebar.theme.dark")}</span>
             )}
-
-            {/* Tooltip for collapsed */}
             {isCompact && (
               <span className="absolute left-full ml-4 px-3 py-1.5 bg-foreground text-background text-xs font-medium rounded-lg opacity-0 invisible pointer-events-none group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-xl">
                 {isDark ? t("sidebar.theme.light") : t("sidebar.theme.dark")}
@@ -214,10 +330,8 @@ export default function Sidebar() {
               </span>
             )}
           </button>
-
         </div>
 
-        {/* Version footer */}
         <div className={`px-4 py-3 ${isCompact ? "text-center" : ""}`}>
           <p className="text-[10px] text-muted-foreground font-medium">
             {isCompact ? "©" : "© 2025"}
@@ -227,4 +341,3 @@ export default function Sidebar() {
     </aside>
   );
 }
-
