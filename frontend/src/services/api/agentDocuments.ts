@@ -21,7 +21,7 @@ export interface AgentSessionDocument {
   mime_type: string;
   size_bytes: number;
   notes: string | null;
-  text_status: 'processing' | 'readable' | 'unreadable';
+  text_status: 'unreadable' | 'extracting' | 'readable' | 'needs_ocr' | 'failed';
   text_source: string | null;
   text_failure_reason: string | null;
   analysis_status?: string | null;
@@ -255,27 +255,6 @@ export async function retrySessionDocumentAnalysis(
 }> {
   return apiClient.post(
     `/agent/sessions/${encodeURIComponent(sessionId)}/documents/${documentId}/retry`,
-    {},
-  );
-}
-
-export async function continueSessionDocumentAnalysis(
-  sessionId: string,
-  documentId: number,
-  payload: { mode: "full" | "pages"; pages?: number[] },
-): Promise<void> {
-  await apiClient.post(
-    `/agent/sessions/${encodeURIComponent(sessionId)}/documents/${documentId}/continue`,
-    payload,
-  );
-}
-
-export async function cancelSessionDocumentAnalysis(
-  sessionId: string,
-  documentId: number,
-): Promise<void> {
-  await apiClient.post(
-    `/agent/sessions/${encodeURIComponent(sessionId)}/documents/${documentId}/cancel`,
     {},
   );
 }

@@ -1,8 +1,8 @@
 const db = require('../db/connection');
 const { assert, filterPayload, buildUpdateClause } = require('./_utils');
-const documentIngestion = require('./documentIngestion');
 
 const table = 'documents';
+const DOCUMENT_UNDERSTANDING_DISABLED_REASON = 'document_understanding_disabled';
 const DOCUMENT_ENTITY_COLUMNS = {
   client: 'client_id',
   dossier: 'dossier_id',
@@ -59,84 +59,127 @@ function resolveTextStatus(document) {
   ) {
     return 'readable';
   }
-  return 'processing';
+  return 'unreadable';
+}
+
+function buildDisabledArtifact() {
+  return {
+    extracted_text: '',
+    visual_summary:
+      'Document understanding is disabled. File storage remains available.',
+    key_entities: [],
+    risk_flags: [DOCUMENT_UNDERSTANDING_DISABLED_REASON],
+    provenance: {
+      stage: 'disabled',
+      mode: 'disabled',
+    },
+    processingStats: {
+      elapsedMs: 0,
+      pagesProcessed: 0,
+      totalPages: 0,
+      cacheHit: false,
+    },
+    needsUserContinue: false,
+    remainingPages: [],
+  };
 }
 
 function buildPendingIngestionState() {
+  const now = new Date().toISOString();
   return {
     document_text: null,
-    unreadable_text: 0,
+    unreadable_text: 1,
     text_length: null,
-    text_status: 'processing',
+    text_status: 'unreadable',
     text_source: null,
-    text_failure_reason: null,
-    analysis_status: 'processing',
+    text_failure_reason: DOCUMENT_UNDERSTANDING_DISABLED_REASON,
+    analysis_status: 'disabled',
     analysis_provider: null,
     analysis_confidence: null,
     analysis_version: null,
-    artifact_json: null,
-    processing_started_at: new Date().toISOString(),
-    processing_finished_at: null,
-    failure_stage: null,
-    failure_detail: null,
+    artifact_json: JSON.stringify(buildDisabledArtifact()),
+    processing_started_at: now,
+    processing_finished_at: now,
+    failure_stage: 'disabled',
+    failure_detail: DOCUMENT_UNDERSTANDING_DISABLED_REASON,
   };
 }
 
-function buildIngestionUpdate(result) {
-  const status = result && result.status ? result.status : 'unreadable';
-  return {
-    document_text: status === 'readable' ? result.text : null,
-    unreadable_text: status === 'unreadable' ? 1 : 0,
-    text_length: status === 'readable' ? result.text_length : null,
-    text_status: status,
-    text_source: status === 'readable' ? result.source : null,
-    text_failure_reason: status === 'unreadable' ? result.failure_reason : null,
-    analysis_status: result?.analysis_status || (status === 'readable' ? 'completed' : 'failed'),
-    analysis_provider: result?.analysis_provider || null,
-    analysis_confidence:
-      Number.isFinite(result?.analysis_confidence) ? result.analysis_confidence : null,
-    analysis_version: result?.analysis_version || null,
-    artifact_json: result?.artifact_json || null,
-    processing_finished_at: new Date().toISOString(),
-    failure_stage: result?.failure_stage || null,
-    failure_detail: result?.failure_detail || null,
-  };
+function scheduleIngestion() {
+  return false;
 }
 
-function applyIngestionResult(documentId, result) {
-  const updates = buildIngestionUpdate(result);
-  const stmt = db.prepare(
-    `UPDATE ${table}
-     SET document_text = @document_text,
-         unreadable_text = @unreadable_text,
-         text_length = @text_length,
-         text_status = @text_status,
-         text_source = @text_source,
-         text_failure_reason = @text_failure_reason,
-         analysis_status = @analysis_status,
-         analysis_provider = @analysis_provider,
-         analysis_confidence = @analysis_confidence,
-         analysis_version = @analysis_version,
-         artifact_json = @artifact_json,
-         processing_finished_at = @processing_finished_at,
-         failure_stage = @failure_stage,
-         failure_detail = @failure_detail,
+function disableLegacyIngestionState() {
+  const unreadableExpr =
+    `COALESCE(LENGTH(document_text), 0) = 0 OR COALESCE(unreadable_text, 0) = 1`;
+  try {
+    db.prepare(
+      `UPDATE ${table}
+       SET
+         text_status = CASE
+           WHEN ${unreadableExpr} THEN 'unreadable'
+           ELSE 'readable'
+         END,
+         unreadable_text = CASE
+           WHEN ${unreadableExpr} THEN 1
+           ELSE 0
+         END,
+         text_source = CASE
+           WHEN ${unreadableExpr} THEN NULL
+           ELSE COALESCE(NULLIF(text_source, ''), 'native')
+         END,
+         text_failure_reason = CASE
+           WHEN ${unreadableExpr} THEN COALESCE(NULLIF(text_failure_reason, ''), @reason)
+           ELSE NULL
+         END,
+         analysis_status = CASE
+           WHEN ${unreadableExpr} THEN 'disabled'
+           ELSE COALESCE(NULLIF(analysis_status, ''), 'completed')
+         END,
+         analysis_provider = CASE
+           WHEN ${unreadableExpr} THEN NULL
+           ELSE analysis_provider
+         END,
+         analysis_confidence = CASE
+           WHEN ${unreadableExpr} THEN NULL
+           ELSE analysis_confidence
+         END,
+         analysis_version = CASE
+           WHEN ${unreadableExpr} THEN NULL
+           ELSE analysis_version
+         END,
+         artifact_json = CASE
+           WHEN ${unreadableExpr} THEN COALESCE(NULLIF(artifact_json, ''), @artifact)
+           ELSE artifact_json
+         END,
+         processing_finished_at = COALESCE(processing_finished_at, CURRENT_TIMESTAMP),
+         failure_stage = CASE
+           WHEN ${unreadableExpr} THEN COALESCE(NULLIF(failure_stage, ''), 'disabled')
+           ELSE NULL
+         END,
+         failure_detail = CASE
+           WHEN ${unreadableExpr} THEN COALESCE(NULLIF(failure_detail, ''), @reason)
+           ELSE NULL
+         END,
          updated_at = CURRENT_TIMESTAMP
-     WHERE id = @id AND deleted_at IS NULL`
-  );
-  stmt.run({ ...updates, id: documentId });
+       WHERE deleted_at IS NULL
+         AND (
+           LOWER(COALESCE(text_status, '')) = 'processing'
+           OR LOWER(COALESCE(analysis_status, '')) = 'processing'
+         )`,
+    ).run({
+      reason: DOCUMENT_UNDERSTANDING_DISABLED_REASON,
+      artifact: JSON.stringify(buildDisabledArtifact()),
+    });
+  } catch (error) {
+    console.error(
+      '[DocumentsService] Failed to normalize legacy document processing state:',
+      error.message,
+    );
+  }
 }
 
-function scheduleIngestion(documentId, filePath, mimeType, options = {}) {
-  if (!documentId || !filePath) return;
-  documentIngestion.enqueueDocumentIngestion({
-    documentId,
-    filePath,
-    mimeType,
-    options,
-    onComplete: (result) => applyIngestionResult(documentId, result),
-  });
-}
+disableLegacyIngestionState();
 
 function resolveLinkedEntity(document) {
   if (document.client_id !== null && document.client_id !== undefined) {
@@ -554,11 +597,6 @@ function create(payload) {
      VALUES (@title, @file_path, @original_filename, @mime_type, @size_bytes, @notes, @document_text, @unreadable_text, @text_length, @text_status, @text_source, @text_failure_reason, @analysis_status, @analysis_provider, @analysis_confidence, @analysis_version, @artifact_json, @processing_started_at, @processing_finished_at, @failure_stage, @failure_detail, @copy_type, @client_id, @dossier_id, @lawsuit_id, @mission_id, @task_id, @session_id, @personal_task_id, @financial_entry_id, @officer_id)`
   );
   const result = stmt.run(insertData);
-  scheduleIngestion(
-    result.lastInsertRowid,
-    insertData.file_path,
-    insertData.mime_type,
-  );
   return get(result.lastInsertRowid);
 }
 
@@ -595,16 +633,8 @@ function update(id, payload) {
   }
   assert(Object.keys(data).length > 0, 'No fields provided for update');
 
-  let ingestionTarget = null;
   let ingestionState = null;
   if (data.file_path !== undefined || data.mime_type !== undefined) {
-    const current = db
-      .prepare(`SELECT * FROM ${table} WHERE id = @id AND deleted_at IS NULL`)
-      .get({ id });
-    if (!current) return null;
-    const sourcePath = data.file_path !== undefined ? data.file_path : current.file_path;
-    const sourceMime = data.mime_type !== undefined ? data.mime_type : current.mime_type;
-    ingestionTarget = { file_path: sourcePath, mime_type: sourceMime };
     ingestionState = buildPendingIngestionState();
   }
 
@@ -621,9 +651,6 @@ function update(id, payload) {
     id,
   });
   if (result.changes === 0) return null;
-  if (ingestionTarget) {
-    scheduleIngestion(id, ingestionTarget.file_path, ingestionTarget.mime_type);
-  }
   return get(id);
 }
 

@@ -4621,12 +4621,12 @@ class ChatAgentService {
       });
       const processingSuffix =
         processingDocs.length > 0
-          ? ` ${processingDocs.length} other attachment(s) are still processing.`
+          ? ` ${processingDocs.length} other attachment(s) are currently unavailable for content analysis.`
           : "";
       message = [
-        "I can see your attached file(s), but I could not extract readable content from at least one file in the current environment.",
+        "I can see your attached file(s), but document understanding is currently disabled on this backend.",
         ...lines,
-        `You can retry analysis, upload a clearer/text-based version, or verify offline OCR assets/dependencies are installed correctly on this machine.${processingSuffix}`,
+        `File upload and storage still work, but I cannot read or summarize attachment contents until document understanding is reintroduced.${processingSuffix}`,
       ].join("\n");
     } else if (processingDocs.length > 0) {
       const names = processingDocs
@@ -4634,11 +4634,11 @@ class ChatAgentService {
         .map((doc) => doc.title || doc.original_filename || `document_${doc.document_id}`)
         .join(", ");
       message =
-        `I can see your attached file(s), but analysis is still processing for ${processingDocs.length} document(s): ${names}. ` +
-        "Please retry in a few seconds.";
+        `I can see your attached file(s), but document understanding is disabled for ${processingDocs.length} document(s): ${names}. ` +
+        "I cannot extract or summarize file contents in the current backend configuration.";
     } else {
       message =
-        "I can see your attached file(s), but readable content is not available yet. Please retry analysis.";
+        "I can see your attached file(s), but document understanding is disabled, so readable content is not available.";
     }
 
     return {
@@ -4661,7 +4661,7 @@ class ChatAgentService {
     const text = String(message || "").toLowerCase();
     if (!text) return false;
     return (
-      /\b(file|document|pdf|image|photo|picture|scan|scanned|attachment|attached|ocr)\b/.test(
+      /\b(file|document|pdf|image|photo|picture|scan|scanned|attachment|attached)\b/.test(
         text,
       ) ||
       /\bwhat does this (file|document|image|pdf)\b/.test(text) ||

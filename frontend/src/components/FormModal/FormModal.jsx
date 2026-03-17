@@ -25,6 +25,10 @@ import {
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../../contexts/SettingsContext";
 import useBodyScrollLock from "../../hooks/useBodyScrollLock";
+import {
+  PLACEHOLDER_CONTEXT,
+  resolveContextualPlaceholder,
+} from "../../utils/fieldPlaceholders";
 
 const interpolateCurrency = (value, currency) => {
   if (typeof value !== "string") return value;
@@ -623,6 +627,17 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
   const resolvedPlaceholder = interpolateCurrency(field.placeholder, currencyDisplay);
   const resolvedHelpText = interpolateCurrency(field.helpText, currencyDisplay);
   const resolvedCheckboxLabel = interpolateCurrency(field.checkboxLabel, currencyDisplay);
+  const resolvedSelectPlaceholder = resolveContextualPlaceholder({
+    t,
+    placeholder: resolvedPlaceholder,
+    context: PLACEHOLDER_CONTEXT.SELECT,
+  });
+  const resolvedSearchableSelectPlaceholder = resolveContextualPlaceholder({
+    t,
+    placeholder: resolvedPlaceholder,
+    context: PLACEHOLDER_CONTEXT.SEARCHABLE_SELECT,
+    isLoading: field.isLoading === true,
+  });
   const baseInputClass = `w-full ${compact ? 'px-3 py-1.5 text-sm' : 'px-3.5 py-2.5'} border-2 rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all duration-200 ${error
     ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/30"
     : "border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 hover:shadow-md"
@@ -735,10 +750,11 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
               value={value}
               onChange={(newValue) => onChange(field.name, newValue)}
               options={fieldOptions}
-              placeholder={resolvedPlaceholder || t("form.select.default")}
+              placeholder={resolvedSearchableSelectPlaceholder}
               disabled={field.disabled}
               error={error}
               compact={compact}
+              isLoading={field.isLoading === true}
             />
           );
         }
@@ -754,7 +770,7 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
               disabled={field.disabled}
               className={`${baseInputClass} appearance-none cursor-pointer pr-10 ${field.disabled ? 'bg-slate-50 dark:bg-slate-800 opacity-50' : ''}`}
             >
-              <option value="">{resolvedPlaceholder || t("form.select.default")}</option>
+              <option value="">{resolvedSelectPlaceholder}</option>
               {fieldOptions?.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
@@ -796,7 +812,7 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
             value={value}
             onChange={(newValue) => onChange(field.name, newValue)}
             options={searchableOptions}
-            placeholder={resolvedPlaceholder || t("form.select.searching")}
+            placeholder={resolvedSearchableSelectPlaceholder}
             disabled={field.disabled}
             error={error}
             compact={compact}
@@ -804,6 +820,7 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
             onCreateOption={handleCreateOption}
             createLabel={field.createLabel}
             placement={field.placement || "bottom"}
+            isLoading={field.isLoading === true}
           />
         );
 

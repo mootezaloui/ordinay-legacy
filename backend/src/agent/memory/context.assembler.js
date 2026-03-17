@@ -10,6 +10,13 @@ const {
   stableStringify,
 } = require("../performance/hotpath.optimizer");
 
+let _agentDocumentsService;
+try {
+  _agentDocumentsService = require("../../services/agentDocuments.service");
+} catch (_e) {
+  _agentDocumentsService = null;
+}
+
 const ALLOWED_ROLES = new Set(["system", "user", "assistant", "tool"]);
 const READ_POLICY_INSTRUCTIONS = [
   "DATA ACCESS POLICY",
@@ -207,6 +214,60 @@ function createContextAssembler(options = {}) {
           continue;
         }
         messages.push({ role, content });
+      }
+
+      // Inject attached session document content so the LLM can reason about them.
+      // Separate current-turn documents (attached with this message) from earlier ones.
+      try {
+        if (_agentDocumentsService && typeof _agentDocumentsService.buildAgentDocumentContext === "function") {
+          const resolvedSessionId = String(session?.id || input?.sessionId || "").trim();
+          const docContext = _agentDocumentsService.buildAgentDocumentContext(resolvedSessionId);
+          if (docContext && Array.isArray(docContext.documents) && docContext.documents.length > 0) {
+            const metadata = (input && typeof input === "object") ? input.metadata : null;
+            const turnDocIds = new Set(
+              Array.isArray(metadata?.documentIds) ? metadata.documentIds.map(Number) : []
+            );
+
+            const currentParts = [];
+            const backgroundParts = [];
+            for (const doc of docContext.documents) {
+              const label = doc.original_filename || doc.title;
+              const line = doc.has_text && doc.text
+                ? `--- Document: ${label} (${doc.mime_type}) ---\n${doc.text}`
+                : `--- Document: ${label} (${doc.mime_type}) --- [text not available: ${doc.text_status}]`;
+              if (turnDocIds.size > 0 && turnDocIds.has(doc.document_id)) {
+                currentParts.push(line);
+              } else {
+                backgroundParts.push(line);
+              }
+            }
+
+            if (turnDocIds.size > 0 && currentParts.length > 0) {
+              // User attached specific documents with this message — highlight them
+              messages.push({
+                role: "system",
+                content: `Documents attached to the current message (focus your answer on these):\n\n${currentParts.join("\n\n")}`,
+              });
+              if (backgroundParts.length > 0) {
+                messages.push({
+                  role: "system",
+                  content: `Other session documents (for reference only, the user is NOT asking about these right now):\n\n${backgroundParts.join("\n\n")}`,
+                });
+              }
+            } else {
+              // No specific turn docs — all docs as general context
+              const allParts = [...currentParts, ...backgroundParts];
+              if (allParts.length > 0) {
+                messages.push({
+                  role: "system",
+                  content: `Session documents available for reference:\n\n${allParts.join("\n\n")}`,
+                });
+              }
+            }
+          }
+        }
+      } catch (_docErr) {
+        // Non-critical: continue without document context
       }
 
       messages.push({

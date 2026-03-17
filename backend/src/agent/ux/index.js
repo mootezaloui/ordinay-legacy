@@ -6,6 +6,13 @@ const { decideClarificationAction } = require("./clarification.policy");
 const { selectResponsePosture } = require("./response.posture");
 const { detectWorkflowOpportunity } = require("./workflow.guide");
 
+let _agentDocumentsService;
+try {
+  _agentDocumentsService = require("../../services/agentDocuments.service");
+} catch (_e) {
+  _agentDocumentsService = null;
+}
+
 function createUxRuntime() {
   return {
     evaluatePreLoop(params = {}) {
@@ -49,6 +56,20 @@ function evaluatePreLoop({
         },
       },
     };
+  }
+
+  // If session has attached documents, skip ambiguity detection — references like
+  // "this file", "this image" clearly point to the attachment, not a DB entity.
+  try {
+    if (_agentDocumentsService && typeof _agentDocumentsService.buildAgentDocumentContext === "function") {
+      const sessionId = String((input && input.sessionId) || (session && session.id) || "").trim();
+      const docContext = _agentDocumentsService.buildAgentDocumentContext(sessionId);
+      if (docContext && docContext.totalDocuments > 0) {
+        return { handled: false, action: "proceed", metadata: { uxDecision: { action: "proceed", reason: "Session has attached documents; ambiguity bypass." } } };
+      }
+    }
+  } catch (_e) {
+    // Non-critical: fall through to normal ambiguity detection
   }
 
   const ambiguityResult = detectAmbiguity({

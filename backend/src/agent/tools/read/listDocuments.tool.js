@@ -26,7 +26,7 @@ const inputSchema = {
     textStatus: {
       type: ['string', 'null'],
       enum: ['readable', 'unreadable', 'processing', null],
-      description: 'Filter by document text extraction status.',
+      description: 'Filter by document text availability status.',
     },
     limit: {
       type: 'integer',

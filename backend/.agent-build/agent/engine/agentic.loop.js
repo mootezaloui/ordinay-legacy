@@ -5,6 +5,13 @@ const session_1 = require("../session");
 const safety_1 = require("../safety");
 const tools_1 = require("../tools");
 const types_1 = require("../types");
+let agentDocumentsService;
+try {
+    agentDocumentsService = require("../../../src/services/agentDocuments.service");
+}
+catch (_e) {
+    agentDocumentsService = { buildAgentDocumentContext: () => null };
+}
 const READ_POLICY_INSTRUCTIONS = [
     "DATA ACCESS POLICY",
     "",
@@ -642,6 +649,51 @@ class AgenticLoop {
                     "User requested an amendment. Update the same tool proposal with revised args.",
                 ].join("\n"),
             });
+        }
+        // Inject attached session document content — separate current-turn from background
+        try {
+            const docContext = agentDocumentsService.buildAgentDocumentContext(input.sessionId);
+            if (docContext && docContext.documents && docContext.documents.length > 0) {
+                const turnDocIds = new Set(Array.isArray(input.metadata?.documentIds) ? input.metadata.documentIds.map(Number) : []);
+                const currentParts = [];
+                const backgroundParts = [];
+                for (const doc of docContext.documents) {
+                    const label = doc.original_filename || doc.title;
+                    const line = doc.has_text && doc.text
+                        ? `--- Document: ${label} (${doc.mime_type}) ---\n${doc.text}`
+                        : `--- Document: ${label} (${doc.mime_type}) --- [text not available: ${doc.text_status}]`;
+                    if (turnDocIds.size > 0 && turnDocIds.has(doc.document_id)) {
+                        currentParts.push(line);
+                    }
+                    else {
+                        backgroundParts.push(line);
+                    }
+                }
+                if (turnDocIds.size > 0 && currentParts.length > 0) {
+                    messages.push({
+                        role: "system",
+                        content: `Documents attached to the current message (focus your answer on these):\n\n${currentParts.join("\n\n")}`,
+                    });
+                    if (backgroundParts.length > 0) {
+                        messages.push({
+                            role: "system",
+                            content: `Other session documents (for reference only, the user is NOT asking about these right now):\n\n${backgroundParts.join("\n\n")}`,
+                        });
+                    }
+                }
+                else {
+                    const allParts = [...currentParts, ...backgroundParts];
+                    if (allParts.length > 0) {
+                        messages.push({
+                            role: "system",
+                            content: `Session documents available for reference:\n\n${allParts.join("\n\n")}`,
+                        });
+                    }
+                }
+            }
+        }
+        catch (_docErr) {
+            // Non-critical: continue without document context
         }
         messages.push({ role: "user", content: input.message });
         return messages;

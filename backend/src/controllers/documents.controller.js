@@ -2,6 +2,7 @@ const service = require('../services/documents.service');
 const storage = require('../services/documentStorage');
 const documentAiSettings = require('../services/documentAiSettings.service');
 const documentGenerationService = require('../services/documentGeneration/documentGeneration.service');
+const extractionService = require('../services/documentExtraction.service');
 const {
   getFormatGovernanceSnapshot,
 } = require("../domain/documentFormatGovernance");
@@ -41,6 +42,10 @@ async function get(req, res, next) {
 async function create(req, res, next) {
   try {
     const document = service.create(req.body);
+    // Non-blocking: extraction runs async, does not block the HTTP response
+    extractionService.ingestDocument(document.id).catch(err => {
+      console.error(`[extraction] failed for document ${document.id}:`, err.message);
+    });
     res.status(201).json(document);
   } catch (error) {
     next(error);
@@ -241,6 +246,61 @@ async function listAiAuditLogs(req, res, next) {
   }
 }
 
+async function search(req, res, next) {
+  try {
+    const { query, client_id, dossier_id, lawsuit_id, limit } = req.body || {};
+    if (!query || !String(query).trim()) {
+      return res.status(400).json({ message: 'query is required' });
+    }
+    const results = extractionService.searchChunks({
+      query: String(query).trim(),
+      clientId: client_id ? Number(client_id) : undefined,
+      dossierId: dossier_id ? Number(dossier_id) : undefined,
+      lawsuitId: lawsuit_id ? Number(lawsuit_id) : undefined,
+      limit: limit ? Number(limit) : 10,
+    });
+    res.json({ results, count: results.length });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function retryExtraction(req, res, next) {
+  try {
+    const id = parseId(req.params.id);
+    const doc = service.get(id);
+    if (!doc) return res.status(404).json({ message: 'Document not found' });
+    const result = await extractionService.retryExtraction(id);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function runOcr(req, res, next) {
+  try {
+    const id = parseId(req.params.id);
+    const doc = service.get(id);
+    if (!doc) return res.status(404).json({ message: 'Document not found' });
+    if (doc.text_status !== 'needs_ocr') {
+      return res.status(400).json({ message: 'Document does not need OCR' });
+    }
+    const result = await extractionService.runOcr(id);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function backfill(req, res, next) {
+  try {
+    const results = await extractionService.backfillAll();
+    res.json(results);
+  } catch (error) {
+    next(error);
+  }
+}
+
 function parseEntityFilters(query = {}) {
   const filters = {};
   if (query.client_id) filters.client_id = parseInt(query.client_id, 10);
@@ -274,5 +334,9 @@ module.exports = {
   listAiAuditLogs,
   update,
   remove,
+  search,
+  retryExtraction,
+  runOcr,
+  backfill,
 };
 

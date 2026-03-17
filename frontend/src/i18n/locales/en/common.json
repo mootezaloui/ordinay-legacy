@@ -835,7 +835,13 @@
   },
   "form": {
     "placeholder": {
-      "notProvided": "Not provided"
+      "notProvided": "Not provided",
+      "input": "Enter a value",
+      "search": "Search...",
+      "filter": "Filter...",
+      "select": "Choose an option",
+      "searchableSelect": "Search or choose an option",
+      "loadingSearch": "Searching..."
     },
     "upload": {
       "dropPrompt": "Drag and drop files here, or",
@@ -843,7 +849,7 @@
     },
     "select": {
       "default": "Choose an option",
-      "searching": "Searching...",
+      "searching": "Search or choose an option",
       "noResults": "No results found",
       "noResultsFor": "for \"{{term}}\"",
       "createLabel": "Add",
@@ -871,7 +877,7 @@
     }
   },
   "table": {
-    "searching": "Searching...",
+    "searching": "Search...",
     "searchResults": "{{filtered}} result(s) out of {{total}}",
     "toolbar": {
       "view": "View",

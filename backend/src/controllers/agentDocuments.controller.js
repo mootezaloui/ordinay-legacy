@@ -9,10 +9,7 @@
  */
 
 const agentDocumentsService = require("../services/agentDocuments.service");
-const {
-  subscribeDocumentEvents,
-  getLatestDocumentEvent,
-} = require("../doc_intel/progressEvents");
+const extractionService = require("../services/documentExtraction.service");
 
 /**
  * POST /agent/sessions/:sessionId/documents/upload
@@ -38,7 +35,21 @@ async function upload(req, res, next) {
       dataBase64: data_base64,
     });
 
-    res.status(201).json(document);
+    // Blocking: wait for extraction (+ OCR if needed) before responding,
+    // so the document text is ready by the time the user sends a message.
+    try {
+      const ingested = await extractionService.ingestDocument(document.id);
+      if (ingested && ingested.text_status === 'needs_ocr') {
+        await extractionService.runOcr(document.id);
+      }
+    } catch (err) {
+      console.error(`[extraction] failed for agent document ${document.id}:`, err.message);
+    }
+
+    // Return the latest state (with extraction results)
+    const updated = agentDocumentsService.listBySession(sessionId, { includeText: false })
+      .find(d => d.document_id === document.id) || document;
+    res.status(201).json(updated);
   } catch (error) {
     if (error.code === "file_too_large") {
       return res.status(413).json({ error: "File too large" });
@@ -166,7 +177,7 @@ async function getArtifacts(req, res, next) {
 
 /**
  * POST /agent/sessions/:sessionId/documents/:documentId/retry
- * Re-run extraction/understanding for one session document.
+ * Keep API compatibility: mark analysis as disabled and return current artifacts.
  */
 async function retryAnalysis(req, res, next) {
   try {
@@ -187,11 +198,9 @@ async function retryAnalysis(req, res, next) {
 async function continueAnalysis(req, res, next) {
   try {
     const { sessionId, documentId } = req.params;
-    const { mode, pages } = req.body || {};
     const result = agentDocumentsService.continueDocumentAnalysis(
       sessionId,
       Number(documentId),
-      { mode, pages },
     );
     if (!result) {
       return res.status(404).json({ error: "Document not found in session" });
@@ -220,10 +229,14 @@ async function cancelAnalysis(req, res, next) {
 
 async function progress(req, res, next) {
   try {
-    const { documentId } = req.params;
+    const { sessionId, documentId } = req.params;
     const id = Number(documentId);
     if (!Number.isInteger(id) || id <= 0) {
       return res.status(400).json({ error: "Invalid document id" });
+    }
+    const detail = agentDocumentsService.getDocumentArtifacts(sessionId, id);
+    if (!detail) {
+      return res.status(404).json({ error: "Document not found in session" });
     }
 
     res.setHeader("Content-Type", "text/event-stream");
@@ -236,17 +249,30 @@ async function progress(req, res, next) {
       res.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
       if (typeof res.flush === "function") res.flush();
     };
-    const latest = getLatestDocumentEvent(id);
-    if (latest) send(latest);
-
-    const unsubscribe = subscribeDocumentEvents(id, send);
+    send({
+      type: "stage_end",
+      docId: id,
+      stage: "analysis_disabled",
+      elapsedMs: 0,
+      timestamp: new Date().toISOString(),
+    });
+    send({
+      type: "result",
+      docId: id,
+      summary: {
+        status: detail.text_status || "unreadable",
+        analysisDisabled: true,
+        pagesProcessed: 0,
+        totalPages: 0,
+      },
+      timestamp: new Date().toISOString(),
+    });
     const heartbeat = setInterval(() => {
       res.write(": heartbeat\n\n");
       if (typeof res.flush === "function") res.flush();
     }, 15000);
     req.on("close", () => {
       clearInterval(heartbeat);
-      unsubscribe();
       res.end();
     });
   } catch (error) {

@@ -693,6 +693,24 @@ class DocumentService {
   }
 
   /**
+   * Retry text extraction for a failed document.
+   * @param {string} documentId
+   * @returns {Promise<Object>} Updated document
+   */
+  async retryExtraction(documentId) {
+    return apiClient.post(`/documents/${documentId}/retry-extraction`, {});
+  }
+
+  /**
+   * Trigger OCR for a document marked as needs_ocr.
+   * @param {string} documentId
+   * @returns {Promise<Object>} Updated document
+   */
+  async runOcr(documentId) {
+    return apiClient.post(`/documents/${documentId}/run-ocr`, {});
+  }
+
+  /**
    * Gets storage statistics
    * @returns {Promise<Object>}
    */

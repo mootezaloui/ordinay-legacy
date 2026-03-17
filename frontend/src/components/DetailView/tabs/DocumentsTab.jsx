@@ -99,139 +99,48 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
     return iconMap[type?.toLowerCase()] || 'fas fa-file text-slate-600 dark:text-slate-400';
   };
 
-  const formatFailureReason = (reason) => {
-    if (!reason) {
-      return t("detail.documents.failureReasons.unknown", {
-        defaultValue: "unknown reason",
-      });
-    }
-    if (reason.startsWith("ocr_failed:")) {
-      const detail = reason.replace("ocr_failed:", "").trim();
-      const detailSuffix = detail ? ` (${detail})` : "";
-      return t("detail.documents.failureReasons.ocr_failed", {
-        detail: detailSuffix,
-        defaultValue: `OCR failed${detailSuffix}`,
-      });
-    }
-    if (reason.startsWith("ocr_spawn_failed:")) {
-      const detail = reason.replace("ocr_spawn_failed:", "").trim();
-      const detailSuffix = detail ? ` (${detail})` : "";
-      return t("detail.documents.failureReasons.ocr_spawn_failed", {
-        detail: detailSuffix,
-        defaultValue: `OCR failed to start${detailSuffix}`,
-      });
-    }
-    if (reason.startsWith("ingestion_error:")) {
-      const detail = reason.replace("ingestion_error:", "").trim();
-      const detailSuffix = detail ? ` (${detail})` : "";
-      return t("detail.documents.failureReasons.ingestion_error", {
-        detail: detailSuffix,
-        defaultValue: `Ingestion error${detailSuffix}`,
-      });
-    }
-    return t(`detail.documents.failureReasons.${reason}`, {
-      defaultValue: reason.replace(/_/g, " "),
-    });
-  };
-
-  const sanitizeVisualSummary = (summary) => {
-    const text = String(summary || "").trim();
-    if (!text) return null;
-    const lower = text.toLowerCase();
-    if (
-      lower.includes("embedded text") ||
-      lower.includes("ocr page") ||
-      lower.includes("analyzed offline") ||
-      lower.includes("provenance")
-    ) {
-      return t("detail.documents.summary.ready", {
-        defaultValue: "This document was analyzed and is available to support assistant responses.",
-      });
-    }
-    return text;
-  };
-
-  const mapQualityFlags = (flags) =>
-    (Array.isArray(flags) ? flags : [])
-      .map((flag) => {
-        const key = String(flag || "").toLowerCase();
-        if (key === "low_text_signal") {
-          return t("detail.documents.quality.lowTextSignal", {
-            defaultValue: "Limited readable text detected",
-          });
-        }
-        if (key === "ocr_timeout") {
-          return t("detail.documents.quality.ocrTimeout", {
-            defaultValue: "Reading timed out",
-          });
-        }
-        if (key === "ocr_empty") {
-          return t("detail.documents.quality.ocrEmpty", {
-            defaultValue: "No readable text detected",
-          });
-        }
-        return "";
-      })
-      .filter(Boolean);
-
   const renderTextStatusBadge = (doc) => {
-    if (doc.textStatus === "processing") {
+    if (doc.textStatus === "extracting") {
       return (
         <span className="inline-block px-2 py-0.5 bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-xs rounded">
-          {t("detail.documents.status.processing", { defaultValue: "OCR in progress" })}
+          {t("detail.documents.status.extracting", { defaultValue: "Extracting text..." })}
         </span>
       );
     }
-    if (doc.textStatus === "readable" && doc.textSource === "ocr") {
+    if (doc.textStatus === "readable") {
+      const sourceLabel = doc.textSource === "tesseract" || doc.textSource === "tesseract-pdf"
+        ? t("detail.documents.status.readableOcr", { defaultValue: "Readable (OCR)" })
+        : t("detail.documents.status.readable", { defaultValue: "Readable" });
       return (
         <span className="inline-block px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 text-xs rounded">
-          {t("detail.documents.status.ocr", { defaultValue: "Document read via OCR" })}
+          {sourceLabel}
+        </span>
+      );
+    }
+    if (doc.textStatus === "needs_ocr") {
+      return (
+        <span className="inline-block px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 text-xs rounded">
+          {t("detail.documents.status.needsOcr", { defaultValue: "Needs OCR" })}
+        </span>
+      );
+    }
+    if (doc.textStatus === "failed") {
+      const detail = doc.failureDetail || doc.textFailureReason || "";
+      const suffix = detail ? ` (${detail})` : "";
+      return (
+        <span className="inline-block px-2 py-0.5 bg-rose-100 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 text-xs rounded">
+          {t("detail.documents.status.failed", { defaultValue: `Extraction failed${suffix}` })}
         </span>
       );
     }
     if (doc.textStatus === "unreadable") {
       return (
-        <span className="inline-block px-2 py-0.5 bg-rose-100 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 text-xs rounded">
-          {t("detail.documents.status.unreadable", {
-            reason: formatFailureReason(doc.textFailureReason),
-            defaultValue: `Document unreadable (${formatFailureReason(doc.textFailureReason)})`,
-          })}
+        <span className="inline-block px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs rounded">
+          {t("detail.documents.status.unreadable", { defaultValue: "Not processed" })}
         </span>
       );
     }
     return null;
-  };
-
-  const renderUnderstandingBadge = (doc) => {
-    const status = doc.understandingStatus || doc.textStatus;
-    if (!status) return null;
-    if (status === "processing") {
-      return (
-        <span className="inline-block px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 text-xs rounded">
-          Understanding in progress
-        </span>
-      );
-    }
-    if (status === "completed" || status === "readable") {
-      return (
-        <span className="inline-block px-2 py-0.5 bg-teal-100 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 text-xs rounded">
-          Ready for assistant context
-        </span>
-      );
-    }
-    if (status === "failed" || status === "unreadable") {
-      return (
-        <span className="inline-block px-2 py-0.5 bg-rose-100 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 text-xs rounded">
-          Understanding failed
-        </span>
-      );
-    }
-    return null;
-  };
-
-  const formatConfidence = (value) => {
-    if (!Number.isFinite(value)) return null;
-    return `${Math.round(value * 100)}%`;
   };
 
   const handleFileSelect = async (files) => {
@@ -367,6 +276,28 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
     input.click();
   };
 
+  const handleRetryExtraction = async (docId) => {
+    try {
+      await documentService.retryExtraction(docId);
+      loadDocuments();
+      showToast(t("detail.documents.toast.success.retryExtraction", { defaultValue: "Extraction restarted" }), "success");
+    } catch (error) {
+      console.error("Error retrying extraction:", error);
+      showToast(t("detail.documents.toast.error.retryExtraction", { defaultValue: "Retry failed" }), "error");
+    }
+  };
+
+  const handleRunOcr = async (docId) => {
+    try {
+      await documentService.runOcr(docId);
+      loadDocuments();
+      showToast(t("detail.documents.toast.success.runOcr", { defaultValue: "OCR completed" }), "success");
+    } catch (error) {
+      console.error("Error running OCR:", error);
+      showToast(t("detail.documents.toast.error.runOcr", { defaultValue: "OCR failed" }), "error");
+    }
+  };
+
   const handleDragEnter = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -494,10 +425,6 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
           {documents.map((doc) => {
             const isMissing = missingFiles.has(doc.id);
             const statusBadge = renderTextStatusBadge(doc);
-            const understandingBadge = renderUnderstandingBadge(doc);
-            const confidenceLabel = formatConfidence(doc.understandingConfidence);
-            const visualSummary = sanitizeVisualSummary(doc?.artifacts?.visual_summary || null);
-            const riskFlags = mapQualityFlags(doc?.artifacts?.risk_flags || []);
             return (
               <div
                 key={doc.id}
@@ -553,7 +480,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
                         {formatDate(doc.uploadDate)}
                       </span>
                     </div>
-                    {(doc.category || statusBadge || understandingBadge || confidenceLabel) && (
+                    {(doc.category || statusBadge) && (
                       <div className="mt-2 flex flex-wrap gap-2">
                         {doc.category && (
                           <span className="inline-block px-2 py-0.5 bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 text-xs rounded">
@@ -561,39 +488,36 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
                           </span>
                         )}
                         {statusBadge}
-                        {understandingBadge}
-                        {confidenceLabel ? (
-                          <span className="inline-block px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs rounded">
-                            Readability {confidenceLabel}
-                          </span>
-                        ) : null}
-                      </div>
-                    )}
-                    {(visualSummary || riskFlags.length > 0) && (
-                      <div className="mt-3 p-3 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
-                        {visualSummary ? (
-                          <p className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed">
-                            {visualSummary}
-                          </p>
-                        ) : null}
-                        {riskFlags.length > 0 ? (
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {riskFlags.slice(0, 4).map((flag) => (
-                              <span
-                                key={`${doc.id}-${flag}`}
-                                className="inline-block px-2 py-0.5 bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-xs rounded"
-                              >
-                                {flag}
-                              </span>
-                            ))}
-                          </div>
-                        ) : null}
                       </div>
                     )}
                   </div>
 
                   {/* Actions */}
                   <div className="flex items-center gap-1">
+                    {doc.textStatus === "failed" && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRetryExtraction(doc.id);
+                        }}
+                        className="p-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+                        title={t("detail.documents.actions.retryExtraction", { defaultValue: "Retry extraction" })}
+                      >
+                        <i className="fas fa-redo text-indigo-600 dark:text-indigo-400"></i>
+                      </button>
+                    )}
+                    {doc.textStatus === "needs_ocr" && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRunOcr(doc.id);
+                        }}
+                        className="p-2 hover:bg-violet-100 dark:hover:bg-violet-900/20 rounded-lg transition-colors"
+                        title={t("detail.documents.actions.runOcr", { defaultValue: "Run OCR" })}
+                      >
+                        <i className="fas fa-eye text-violet-600 dark:text-violet-400"></i>
+                      </button>
+                    )}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

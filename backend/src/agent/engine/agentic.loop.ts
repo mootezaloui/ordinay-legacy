@@ -30,6 +30,23 @@ import { PendingManager } from "./pending.manager";
 import { ToolExecutor } from "./tool.executor";
 import { TurnClassifier } from "./turn.classifier";
 
+declare const require: (id: string) => unknown;
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const agentDocumentsService = require("../../services/agentDocuments.service") as {
+  buildAgentDocumentContext: (sessionId: string) => {
+    totalDocuments: number;
+    documents: Array<{
+      document_id: number;
+      title: string;
+      original_filename: string;
+      mime_type: string;
+      text_status: string;
+      has_text: boolean;
+      text: string | null;
+    }>;
+  } | null;
+};
+
 const READ_POLICY_INSTRUCTIONS = [
   "DATA ACCESS POLICY",
   "",
@@ -980,6 +997,52 @@ export class AgenticLoop {
           "User requested an amendment. Update the same tool proposal with revised args.",
         ].join("\n"),
       });
+    }
+
+    // Inject attached session document content so the LLM can reason about them.
+    // Separate current-turn documents (attached with this message) from earlier ones.
+    try {
+      const docContext = agentDocumentsService.buildAgentDocumentContext(input.sessionId);
+      if (docContext && docContext.documents && docContext.documents.length > 0) {
+        const turnDocIds = new Set(
+          Array.isArray(input.metadata?.documentIds) ? (input.metadata.documentIds as number[]).map(Number) : []
+        );
+        const currentParts: string[] = [];
+        const backgroundParts: string[] = [];
+        for (const doc of docContext.documents) {
+          const label = doc.original_filename || doc.title;
+          const line = doc.has_text && doc.text
+            ? `--- Document: ${label} (${doc.mime_type}) ---\n${doc.text}`
+            : `--- Document: ${label} (${doc.mime_type}) --- [text not available: ${doc.text_status}]`;
+          if (turnDocIds.size > 0 && turnDocIds.has(doc.document_id)) {
+            currentParts.push(line);
+          } else {
+            backgroundParts.push(line);
+          }
+        }
+        if (turnDocIds.size > 0 && currentParts.length > 0) {
+          messages.push({
+            role: "system",
+            content: `Documents attached to the current message (focus your answer on these):\n\n${currentParts.join("\n\n")}`,
+          });
+          if (backgroundParts.length > 0) {
+            messages.push({
+              role: "system",
+              content: `Other session documents (for reference only, the user is NOT asking about these right now):\n\n${backgroundParts.join("\n\n")}`,
+            });
+          }
+        } else {
+          const allParts = [...currentParts, ...backgroundParts];
+          if (allParts.length > 0) {
+            messages.push({
+              role: "system",
+              content: `Session documents available for reference:\n\n${allParts.join("\n\n")}`,
+            });
+          }
+        }
+      }
+    } catch (docErr) {
+      // Non-critical: if document loading fails, continue without document context
     }
 
     messages.push({ role: "user", content: input.message });

@@ -904,7 +904,13 @@
   },
   "form": {
     "placeholder": {
-      "notProvided": "غير متوفر"
+      "notProvided": "غير متوفر",
+      "input": "أدخل قيمة",
+      "search": "ابحث...",
+      "filter": "تصفية...",
+      "select": "اختر خيارًا",
+      "searchableSelect": "ابحث أو اختر خيارًا",
+      "loadingSearch": "جارٍ البحث..."
     },
     "upload": {
       "dropPrompt": "اسحب وأفلت الملفات هنا، أو",
@@ -912,7 +918,7 @@
     },
     "select": {
       "default": "اختر خيارًا",
-      "searching": "البحث...",
+      "searching": "ابحث أو اختر خيارًا",
       "noResults": "لا توجد نتائج",
       "noResultsFor": "لـ \"{{term}}\"",
       "createLabel": "إضافة",
@@ -940,7 +946,7 @@
     }
   },
   "table": {
-    "searching": "جاري البحث...",
+    "searching": "ابحث...",
     "searchResults": "{{filtered}} نتيجة(نتائج) من أصل {{total}}",
     "toolbar": {
       "view": "العرض",

@@ -5,7 +5,7 @@ const { INTENTS } = require("../intents");
 const agentV1Policy = {
   version: "v1",
   documentHandling: {
-    mode: "text", // deterministic text extraction for readable documents
+    mode: "text", // readable text only; scanned-doc parsing pipeline removed
   },
   allowedIntents: [
     INTENTS.GENERAL_CHAT,

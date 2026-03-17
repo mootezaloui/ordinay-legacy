@@ -5,6 +5,10 @@ import SearchableSelect from "../../FormModal/SearchableSelect";
 import BlockerModal from "../../ui/BlockerModal";
 import ConfirmImpactModal from "../../ui/ConfirmImpactModal";
 import { canPerformAction } from "../../../services/domainRules";
+import {
+  PLACEHOLDER_CONTEXT,
+  resolveContextualPlaceholder,
+} from "../../../utils/fieldPlaceholders";
 
 /**
  * Overview Tab - Displays general information
@@ -436,6 +440,17 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
                       const fieldOptions = typeof field.getOptions === 'function'
                         ? field.getOptions(editedData, contextData)
                         : field.options;
+                      const selectPlaceholder = resolveContextualPlaceholder({
+                        t,
+                        placeholder: field.placeholder,
+                        context: PLACEHOLDER_CONTEXT.SELECT,
+                      });
+                      const searchableSelectPlaceholder = resolveContextualPlaceholder({
+                        t,
+                        placeholder: field.placeholder,
+                        context: PLACEHOLDER_CONTEXT.SEARCHABLE_SELECT,
+                        isLoading: field.isLoading === true,
+                      });
 
                       const useSearchable = fieldType === 'searchable-select' || fieldOptions.length > 10;
 
@@ -445,12 +460,13 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
                             value={editedData[fieldKey] ?? value ?? ''}
                             onChange={(newValue) => handleFieldChange(fieldKey, newValue)}
                             options={fieldOptions}
-                            placeholder={field.placeholder || t("form.select.searching")}
+                            placeholder={searchableSelectPlaceholder}
                             disabled={false}
                             compact={false}
                             allowCreate={field.allowCreate || false}
                             onCreateOption={field.onCreateOption || null}
                             createLabel={field.createLabel || t("actions.add")}
+                            isLoading={field.isLoading === true}
                           />
                         );
                       }
@@ -463,7 +479,7 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
                             onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
                             className="w-full px-3.5 py-2.5 pr-10 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 appearance-none cursor-pointer hover:border-slate-300 dark:hover:border-slate-600 hover:shadow"
                           >
-                            <option value="">{t("form.select.default")}</option>
+                            <option value="">{selectPlaceholder}</option>
                             {fieldOptions.map((option) => (
                               <option key={option.value} value={option.value}>
                                 {option.label}
@@ -700,6 +716,17 @@ function RegularSection({ section, data, isEditing, onDataChange, contextData = 
                     )}
 
                     {(fieldType === 'select' || fieldType === 'searchable-select') && field.options && (() => {
+                      const selectPlaceholder = resolveContextualPlaceholder({
+                        t,
+                        placeholder: field.placeholder,
+                        context: PLACEHOLDER_CONTEXT.SELECT,
+                      });
+                      const searchableSelectPlaceholder = resolveContextualPlaceholder({
+                        t,
+                        placeholder: field.placeholder,
+                        context: PLACEHOLDER_CONTEXT.SEARCHABLE_SELECT,
+                        isLoading: field.isLoading === true,
+                      });
                       const useSearchable = fieldType === 'searchable-select' || field.options.length > 10;
 
                       if (useSearchable) {
@@ -708,9 +735,10 @@ function RegularSection({ section, data, isEditing, onDataChange, contextData = 
                             value={editedData[fieldKey] || ''}
                             onChange={(newValue) => handleFieldChange(fieldKey, newValue)}
                             options={field.options}
-                            placeholder={field.placeholder || t("form.select.searching")}
+                            placeholder={searchableSelectPlaceholder}
                             disabled={false}
                             compact={false}
+                            isLoading={field.isLoading === true}
                           />
                         );
                       }
@@ -723,7 +751,7 @@ function RegularSection({ section, data, isEditing, onDataChange, contextData = 
                             onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
                             className="w-full px-3.5 py-2.5 pr-10 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 appearance-none cursor-pointer hover:border-slate-300 dark:hover:border-slate-600 hover:shadow"
                           >
-                            <option value="">{t("form.select.default")}</option>
+                            <option value="">{selectPlaceholder}</option>
                             {field.options.map((option) => (
                               <option key={option.value} value={option.value}>
                                 {option.label}

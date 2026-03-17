@@ -10,7 +10,6 @@
     "typecheck:agent": "tsc -p tsconfig.agent.json --pretty false",
     "build:agent": "tsc -p tsconfig.agent.build.json --pretty false",
     "mcp:websearch": "node scripts/run-mcp-websearch-server.js",
-    "test:doc-intel": "node --test src/doc_intel/*.test.js",
     "test:agent-engine": "node --test src/agent_Back/agent.engine.test.js",
     "test:cognition": "node --test src/agent_Back/cognition/*.test.js",
     "test:mutation-governance": "node --test src/agent_Back/mutation/*.test.js",
@@ -18,17 +17,20 @@
     "test:agent-v2:load": "node --test src/agent/testing/tests/load.smoke.test.js"
   },
   "dependencies": {
-    "@napi-rs/canvas": "^0.1.67",
     "ajv": "^8.12.0",
     "ajv-formats": "^2.1.1",
     "better-sqlite3": "^9.6.0",
+    "canvas": "^3.2.1",
     "cors": "^2.8.5",
     "docx": "^9.5.1",
     "express": "^4.19.2",
+    "mammoth": "^1.12.0",
     "nodemailer": "^6.10.1",
-    "pdfjs-dist": "^4.10.38",
+    "pdf-parse": "^1.1.1",
+    "pdfjs-dist": "^3.11.174",
     "puppeteer": "^24.3.0",
-    "tesseract.js": "^5.1.1"
+    "tesseract.js": "^7.0.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/node": "^24.7.2",

@@ -835,7 +835,13 @@
   },
   "form": {
     "placeholder": {
-      "notProvided": "Non fourni"
+      "notProvided": "Non fourni",
+      "input": "Saisissez une valeur",
+      "search": "Rechercher...",
+      "filter": "Filtrer...",
+      "select": "Choisissez une option",
+      "searchableSelect": "Rechercher ou choisir une option",
+      "loadingSearch": "Recherche en cours..."
     },
     "upload": {
       "dropPrompt": "Glissez-déposez des fichiers ici, ou",
@@ -843,7 +849,7 @@
     },
     "select": {
       "default": "Choisissez une option",
-      "searching": "Recherche...",
+      "searching": "Rechercher ou choisir une option",
       "noResults": "Aucun résultat trouvé",
       "noResultsFor": "pour \"{{term}}\"",
       "createLabel": "Ajouter",
@@ -871,7 +877,7 @@
     }
   },
   "table": {
-    "searching": "Recherche en cours...",
+    "searching": "Rechercher...",
     "searchResults": "{{filtered}} résultat(s) sur {{total}}",
     "toolbar": {
       "view": "Affichage",

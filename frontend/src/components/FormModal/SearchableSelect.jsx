@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import {
+  PLACEHOLDER_CONTEXT,
+  resolveContextualPlaceholder,
+} from "../../utils/fieldPlaceholders";
 
 /**
  * SearchableSelect - A searchable dropdown component
@@ -15,6 +19,7 @@ export default function SearchableSelect({
   onChange,
   options = [],
   placeholder, // ✅ Now undefined by default - will use i18n fallback
+  placeholderContext = PLACEHOLDER_CONTEXT.SEARCHABLE_SELECT,
   disabled = false,
   className = "",
   error = false,
@@ -23,6 +28,7 @@ export default function SearchableSelect({
   onCreateOption = null, // ✅ NEW: Callback when creating new option
   createLabel = null, // ✅ NEW: Label for create button
   placement = "bottom", // NEW: allow opening above when dropdown would be clipped
+  isLoading = false,
 }) {
   const { t } = useTranslation("common");
   const [isOpen, setIsOpen] = useState(false);
@@ -189,6 +195,12 @@ export default function SearchableSelect({
     : "border-slate-300 dark:border-slate-600"
     } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-text hover:border-slate-400 dark:hover:border-slate-500"} ${className}`;
   const resolvedCreateLabel = createLabel || t("form.select.createLabel");
+  const resolvedPlaceholder = resolveContextualPlaceholder({
+    t,
+    placeholder,
+    context: placeholderContext,
+    isLoading,
+  });
 
   return (
     <div ref={containerRef} className="relative">
@@ -201,7 +213,7 @@ export default function SearchableSelect({
           onChange={handleInputChange}
           onFocus={handleInputFocus}
           onKeyDown={handleKeyDown}
-          placeholder={placeholder || t("form.select.searching")}
+          placeholder={resolvedPlaceholder}
           disabled={disabled}
           className={baseInputClass}
           autoComplete="off"

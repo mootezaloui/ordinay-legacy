@@ -11,6 +11,10 @@
  */
 import SearchableSelect from "../FormModal/SearchableSelect";
 import { useTranslation } from "react-i18next";
+import {
+    PLACEHOLDER_CONTEXT,
+    resolveContextualPlaceholder,
+} from "../../utils/fieldPlaceholders";
 
 /**
  * UnifiedSelect - Consistent visual shell for all selectors
@@ -31,6 +35,8 @@ export default function UnifiedSelect({
     onChange,
     options = [],
     placeholder,
+    placeholderContext = null,
+    isLoading = false,
     disabled = false,
     error = false,
     className = "",
@@ -43,7 +49,17 @@ export default function UnifiedSelect({
     const wrapperClass = `unified-select-wrapper ${className}`;
 
     // Use i18n fallback if no placeholder provided
-    const effectivePlaceholder = placeholder || t("form.select.default");
+    const effectiveContext = placeholderContext || (
+        variant === "searchable"
+            ? PLACEHOLDER_CONTEXT.SEARCHABLE_SELECT
+            : PLACEHOLDER_CONTEXT.SELECT
+    );
+    const effectivePlaceholder = resolveContextualPlaceholder({
+        t,
+        placeholder,
+        context: effectiveContext,
+        isLoading,
+    });
 
     // ✅ Searchable variant uses SearchableSelect with preserved behavior
     if (variant === "searchable") {
@@ -54,9 +70,11 @@ export default function UnifiedSelect({
                     onChange={onChange}
                     options={options}
                     placeholder={effectivePlaceholder}
+                    placeholderContext={effectiveContext}
                     disabled={disabled}
                     error={error}
                     compact={compact}
+                    isLoading={isLoading}
                     {...rest}
                 />
             </div>

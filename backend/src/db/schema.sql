@@ -504,3 +504,38 @@ CREATE TABLE IF NOT EXISTS legacy_imports (
 CREATE INDEX IF NOT EXISTS idx_legacy_imports_entity_type ON legacy_imports(entity_type);
 CREATE INDEX IF NOT EXISTS idx_legacy_imports_validated ON legacy_imports(validated);
 CREATE INDEX IF NOT EXISTS idx_legacy_imports_imported_at ON legacy_imports(imported_at);
+
+CREATE TABLE IF NOT EXISTS document_chunks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    document_id INTEGER NOT NULL,
+    chunk_order INTEGER NOT NULL,
+    page_start INTEGER,
+    page_end INTEGER,
+    chunk_text TEXT NOT NULL,
+    token_estimate INTEGER,
+    chunk_type TEXT NOT NULL DEFAULT 'text',
+    sheet_name TEXT,
+    metadata_json TEXT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_document_chunks_document_id ON document_chunks(document_id);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS fts_document_chunks USING fts5(
+    chunk_text,
+    content='document_chunks',
+    content_rowid='id'
+);
+
+CREATE TRIGGER IF NOT EXISTS document_chunks_ai AFTER INSERT ON document_chunks BEGIN
+    INSERT INTO fts_document_chunks(rowid, chunk_text) VALUES (new.id, new.chunk_text);
+END;
+
+CREATE TRIGGER IF NOT EXISTS document_chunks_ad AFTER DELETE ON document_chunks BEGIN
+    INSERT INTO fts_document_chunks(fts_document_chunks, rowid, chunk_text) VALUES('delete', old.id, old.chunk_text);
+END;
+
+CREATE TRIGGER IF NOT EXISTS document_chunks_au AFTER UPDATE ON document_chunks BEGIN
+    INSERT INTO fts_document_chunks(fts_document_chunks, rowid, chunk_text) VALUES('delete', old.id, old.chunk_text);
+    INSERT INTO fts_document_chunks(rowid, chunk_text) VALUES (new.id, new.chunk_text);
+END;

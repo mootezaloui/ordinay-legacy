@@ -288,50 +288,12 @@ function interpretEntityState(entityType, entityData, context) {
             },
           ];
         }
-        if (
-          combined.includes("pdf-to-image converter") ||
-          combined.includes("pdf reading is not supported")
-        ) {
-          return [
-            {
-              level: "warning",
-              statement:
-                "Document text could not be extracted in the current OCR setup.",
-              implication:
-                "Enable PDF-to-image OCR conversion, or upload a text-based file and retry.",
-            },
-          ];
-        }
-        if (combined.includes("tesseract")) {
-          return [
-            {
-              level: "warning",
-              statement: "OCR is unavailable on this machine.",
-              implication:
-                "Install and configure Tesseract OCR, then retry the document summary.",
-            },
-          ];
-        }
-        if (
-          combined.includes("contains no readable text") ||
-          combined.includes("ocr produced no readable text")
-        ) {
-          return [
-            {
-              level: "info",
-              statement: "No readable text was found in this document.",
-              implication:
-                "Try a clearer scan, a higher-resolution file, or a text-based source document.",
-            },
-          ];
-        }
         return [
           {
             level: "warning",
-            statement:
-              "Document text could not be extracted in the current OCR setup.",
+            statement: "Document understanding is disabled on this backend.",
             implication:
-              "Use a text-based document (DOCX/TXT) or enable PDF-to-image OCR conversion, then retry.",
+              "File upload and storage still work, but content extraction and summary are unavailable.",
           },
         ];
       }
@@ -367,11 +329,11 @@ function interpretEntityState(entityType, entityData, context) {
           level: "info",
           statement:
             entityType === "document"
-              ? "Document text extraction is still in progress."
+              ? "Document understanding is disabled on this backend."
               : "Requested data is still being processed.",
           implication:
             entityType === "document"
-              ? "Please wait a moment, then retry the document summary."
+              ? "File upload and storage still work, but content extraction and summary are unavailable."
               : "Please wait and retry shortly.",
         },
       ];
@@ -2318,7 +2280,7 @@ function generateFollowUps(
                 : "Review document details",
               reason:
                 readOutcome === "processing"
-                  ? "Check whether text extraction has completed."
+                  ? "Document understanding is disabled in this backend configuration."
                   : "Review the attached document status and details.",
               labelKey: "review_details",
               intent: READ_INTENTS.SUMMARIZE_DOCUMENT,
@@ -2341,11 +2303,11 @@ function generateFollowUps(
             category: "guidance",
             priority: 11,
             ...buildFollowUp({
-              label: "Retry document summary",
+              label: "Review document availability",
               reason:
                 readOutcome === "processing"
-                  ? "Text extraction may complete shortly."
-                  : "Retry after OCR setup or with a text-based document.",
+                  ? "Document understanding is disabled in this backend configuration."
+                  : "Document understanding is disabled; content summary is unavailable.",
               labelKey: "summarize",
               intent: READ_INTENTS.SUMMARIZE_DOCUMENT,
               scopeType: originType,

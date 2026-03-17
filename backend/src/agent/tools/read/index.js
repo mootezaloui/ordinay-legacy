@@ -27,6 +27,7 @@ const tools = [
   require("./listHistoryEvents.tool"),
   require("./getHistoryEvent.tool"),
   require("./getEntityGraph.tool"),
+  require("./searchDocuments.tool"),
 ];
 
 function getReadTools() {

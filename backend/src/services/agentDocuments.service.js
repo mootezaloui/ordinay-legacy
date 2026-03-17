@@ -13,17 +13,33 @@
  *   "agent_session" parent type using dedicated columns.
  * - An `agent_session_documents` junction table maps session IDs (strings)
  *   to document IDs and message IDs, preserving the conversation timeline.
- * - Text extraction (native + OCR) runs through the existing ingestion pipeline.
+ * - Document understanding is intentionally disabled in this backend revision.
  * - This service provides the agent engine with a unified view of session documents.
  */
 
 const db = require("../db/connection");
 const documentsService = require("./documents.service");
 const documentStorage = require("./documentStorage");
-const documentIngestion = require("./documentIngestion");
-const { getLatestDocumentEvent } = require("../doc_intel/progressEvents");
-// Note: documentIngestion is NOT imported here because documentsService.create()
-// automatically schedules text ingestion (native extraction + OCR fallback).
+const DOCUMENT_UNDERSTANDING_DISABLED_REASON = "document_understanding_disabled";
+const DOCUMENT_UNDERSTANDING_DISABLED_ARTIFACT = JSON.stringify({
+  extracted_text: "",
+  visual_summary:
+    "Document understanding is disabled. File storage remains available.",
+  key_entities: [],
+  risk_flags: [DOCUMENT_UNDERSTANDING_DISABLED_REASON],
+  provenance: {
+    stage: "disabled",
+    mode: "disabled",
+  },
+  processingStats: {
+    elapsedMs: 0,
+    pagesProcessed: 0,
+    totalPages: 0,
+    cacheHit: false,
+  },
+  needsUserContinue: false,
+  remainingPages: [],
+});
 
 // ============================================================================
 // Schema Bootstrap — creates the junction table if not present
@@ -65,7 +81,7 @@ try {
  *  2. Create a document record (using officer_id=1 as the "system" parent
  *     to satisfy the DB constraint, or any valid FK)
  *  3. Link it in the junction table
- *  4. Text ingestion runs automatically via documentsService.create()
+ *  4. Document understanding remains disabled; record is stored as unreadable
  *  5. Return full document metadata
  *
  * @param {Object} params
@@ -266,7 +282,7 @@ function listBySession(sessionId, { includeText = false } = {}) {
     mime_type: row.mime_type,
     size_bytes: row.size_bytes,
     notes: row.notes,
-    text_status: row.text_status || "processing",
+    text_status: row.text_status || "unreadable",
     text_source: row.text_source,
     text_failure_reason: row.text_failure_reason,
     analysis_status: row.analysis_status || null,
@@ -329,7 +345,7 @@ function getSessionDocumentTexts(sessionId) {
     title: row.title,
     original_filename: row.original_filename,
     mime_type: row.mime_type,
-    text_status: row.text_status || "processing",
+    text_status: row.text_status || "unreadable",
     text_source: row.text_source,
     analysis_status: row.analysis_status || null,
     analysis_provider: row.analysis_provider || null,
@@ -371,7 +387,6 @@ function buildAgentDocumentContext(sessionId) {
     unreadableCount: unreadable.length,
     documents: docs.map((d) => {
       const artifact = d.artifacts && typeof d.artifacts === "object" ? d.artifacts : null;
-      const latest = getLatestDocumentEvent(d.document_id);
       return {
         document_id: d.document_id,
         title: d.title,
@@ -392,7 +407,7 @@ function buildAgentDocumentContext(sessionId) {
           artifact && artifact.processingStats && Number.isFinite(artifact.processingStats.totalPages)
             ? artifact.processingStats.totalPages
             : null,
-        progress_stage: latest?.stage || null,
+        progress_stage: "disabled",
         role: d.role,
         supportedOperations: buildSupportedOperations(d),
       };
@@ -404,39 +419,10 @@ function buildAgentDocumentContext(sessionId) {
  * Determine what operations the agent can perform on a document.
  */
 function buildSupportedOperations(doc) {
-  const ops = [];
-
-  if (doc.has_text) {
-    ops.push("summarize", "extract_key_points", "search_content", "analyze");
-  }
-  if (doc.artifacts && doc.artifacts.visual_summary) {
-    ops.push("interpret_evidence_image", "cross-check_file_claims_with_message");
-  }
-  if (doc.mime_type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
-    ops.push("extract_table_from_spreadsheet");
-  }
-  if (doc.mime_type === "application/pdf" && doc.text_source === "ocr+rasterized_pdf") {
-    ops.push("summarize_scanned_document");
-  }
-
-  if (doc.text_status === "processing") {
-    ops.push("wait_for_processing");
-  }
-
+  const ops = ["reference_in_chat"];
   if (doc.text_status === "unreadable") {
-    ops.push("report_unreadable");
+    ops.push("analysis_disabled");
   }
-
-  // Image-specific
-  if (doc.mime_type && doc.mime_type.startsWith("image/")) {
-    ops.push("describe_image");
-  }
-
-  // PDF-specific
-  if (doc.mime_type === "application/pdf") {
-    ops.push("extract_text", "analyze_structure");
-  }
-
   return ops;
 }
 
@@ -486,9 +472,9 @@ function getDocumentArtifacts(sessionId, documentId) {
     title: row.title,
     original_filename: row.original_filename,
     mime_type: row.mime_type,
-    text_status: row.text_status || "processing",
+    text_status: row.text_status || "unreadable",
     text_source: row.text_source || null,
-    understanding_status: row.analysis_status || row.text_status || "processing",
+    understanding_status: row.analysis_status || row.text_status || "disabled",
     understanding_confidence: Number.isFinite(row.analysis_confidence)
       ? row.analysis_confidence
       : null,
@@ -506,6 +492,33 @@ function getDocumentArtifacts(sessionId, documentId) {
   };
 }
 
+function markDocumentAnalysisDisabled(documentId) {
+  db.prepare(
+    `UPDATE documents
+     SET
+       document_text = NULL,
+       unreadable_text = 1,
+       text_length = NULL,
+       text_status = 'unreadable',
+       text_source = NULL,
+       text_failure_reason = @reason,
+       analysis_status = 'disabled',
+       analysis_provider = NULL,
+       analysis_confidence = NULL,
+       analysis_version = NULL,
+       artifact_json = COALESCE(NULLIF(artifact_json, ''), @artifact),
+       processing_finished_at = COALESCE(processing_finished_at, CURRENT_TIMESTAMP),
+       failure_stage = 'disabled',
+       failure_detail = @reason,
+       updated_at = CURRENT_TIMESTAMP
+     WHERE id = @id AND deleted_at IS NULL`,
+  ).run({
+    id: Number(documentId),
+    reason: DOCUMENT_UNDERSTANDING_DISABLED_REASON,
+    artifact: DOCUMENT_UNDERSTANDING_DISABLED_ARTIFACT,
+  });
+}
+
 function retryDocumentAnalysis(sessionId, documentId) {
   if (!sessionId || !documentId) return null;
   const row = db
@@ -518,16 +531,11 @@ function retryDocumentAnalysis(sessionId, documentId) {
     )
     .get({ sessionId, documentId: Number(documentId) });
   if (!row) return null;
-
-  documentsService.scheduleIngestion(row.id, row.file_path, row.mime_type || null, {
-    mode: "auto",
-    force: true,
-  });
-
+  markDocumentAnalysisDisabled(row.id);
   return getDocumentArtifacts(sessionId, row.id);
 }
 
-function continueDocumentAnalysis(sessionId, documentId, options = {}) {
+function continueDocumentAnalysis(sessionId, documentId) {
   if (!sessionId || !documentId) return null;
   const row = db
     .prepare(
@@ -539,19 +547,7 @@ function continueDocumentAnalysis(sessionId, documentId, options = {}) {
     )
     .get({ sessionId, documentId: Number(documentId) });
   if (!row) return null;
-
-  const mode =
-    options.mode === "full" || options.mode === "pages" ? options.mode : "full";
-  const pages = Array.isArray(options.pages)
-    ? options.pages
-        .map((p) => Number(p))
-        .filter((p) => Number.isInteger(p) && p > 0)
-    : [];
-
-  documentsService.scheduleIngestion(row.id, row.file_path, row.mime_type || null, {
-    mode,
-    pages,
-  });
+  markDocumentAnalysisDisabled(row.id);
   return getDocumentArtifacts(sessionId, row.id);
 }
 
@@ -567,7 +563,8 @@ function cancelDocumentAnalysis(sessionId, documentId) {
     )
     .get({ sessionId, documentId: Number(documentId) });
   if (!row) return false;
-  return documentIngestion.cancelDocumentIngestion(row.id);
+  markDocumentAnalysisDisabled(row.id);
+  return true;
 }
 
 // ============================================================================

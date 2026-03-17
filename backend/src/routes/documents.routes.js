@@ -14,7 +14,11 @@ router.get('/generations/:generationId/progress', controller.generationProgress)
 router.get('/ai/settings', controller.getAiSettings);
 router.put('/ai/settings', controller.updateAiSettings);
 router.get('/ai/audit', controller.listAiAuditLogs);
+router.post('/backfill', controller.backfill);
+router.post('/search', controller.search);
 router.post('/', controller.create);
+router.post('/:id/retry-extraction', controller.retryExtraction);
+router.post('/:id/run-ocr', controller.runOcr);
 router.get('/:id/download', controller.download);
 router.get('/:id', controller.get);
 router.put('/:id', controller.update);

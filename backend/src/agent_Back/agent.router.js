@@ -150,7 +150,7 @@ function getStatusAction(intent, phase = "processing") {
 function isDocumentFocusedPrompt(text) {
   const value = String(text || "").trim().toLowerCase();
   if (!value) return false;
-  return /\b(file|document|pdf|image|photo|picture|scan|scanned|attachment|attached|ocr)\b/.test(
+  return /\b(file|document|pdf|image|photo|picture|scan|scanned|attachment|attached)\b/.test(
     value,
   );
 }

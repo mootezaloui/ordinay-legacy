@@ -12,6 +12,10 @@ import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import {
+  PLACEHOLDER_CONTEXT,
+  resolveContextualPlaceholder,
+} from "../../utils/fieldPlaceholders";
+import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -21,6 +25,7 @@ import {
 export default function TableToolbar({
   searchQuery = "",
   onSearchChange = () => { },
+  searchPlaceholder = null,
   columns = [],
   visibleColumns = [],
   onToggleColumn = () => { },
@@ -47,6 +52,11 @@ export default function TableToolbar({
   const columnButtonRef = useRef(null);
   const menuRef = useRef(null);
   const resolvedImportLabel = importLabel || t("table.toolbar.import");
+  const resolvedSearchPlaceholder = resolveContextualPlaceholder({
+    t,
+    placeholder: searchPlaceholder,
+    context: PLACEHOLDER_CONTEXT.SEARCH,
+  });
   const sortableColumns = columns.filter((column) => column.sortable !== false);
   const showViewToggle = typeof onViewModeChange === "function";
 
@@ -153,7 +163,7 @@ export default function TableToolbar({
     <div className="relative">
       <input
         type="text"
-        placeholder={t("table.searching")}
+        placeholder={resolvedSearchPlaceholder}
         value={searchQuery}
         onChange={(e) => onSearchChange(e.target.value)}
         className="w-full pl-10 pr-10 py-2.5 border border-slate-300 dark:border-slate-700/60 rounded-2xl bg-white dark:bg-slate-900/70 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-transparent transition-all shadow-sm"

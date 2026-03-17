@@ -11,11 +11,8 @@ import {
   getSessionDocumentArtifacts,
   removeSessionDocument,
   retrySessionDocumentAnalysis,
-  continueSessionDocumentAnalysis,
-  cancelSessionDocumentAnalysis,
   type AgentDocumentContext,
 } from "../../services/api/agentDocuments";
-import { getApiBase, getBackendConfig, isElectron } from "../../lib/apiConfig";
 
 interface AgentSessionDocumentsPanelProps {
   sessionId?: string | null;
@@ -24,14 +21,11 @@ interface AgentSessionDocumentsPanelProps {
 function formatUserStatus(status?: string | null): string {
   const normalized = String(status || "").toLowerCase();
   if (normalized === "readable" || normalized === "completed") return "Ready for assistant context";
-  if (normalized === "unreadable" || normalized === "failed") return "Needs review";
+  if (normalized === "needs_ocr") return "Needs OCR";
+  if (normalized === "failed") return "Extraction failed";
+  if (normalized === "extracting") return "Extracting text...";
+  if (normalized === "unreadable") return "Not processed";
   return "Processing document";
-}
-
-function toPercent(value?: number | null): string | null {
-  if (!Number.isFinite(value)) return null;
-  const bounded = Math.max(0, Math.min(1, Number(value)));
-  return `${Math.round(bounded * 100)}%`;
 }
 
 function renderStatusTone(status?: string | null): string {
@@ -39,8 +33,14 @@ function renderStatusTone(status?: string | null): string {
   if (normalized === "readable" || normalized === "completed") {
     return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300";
   }
-  if (normalized === "unreadable" || normalized === "failed") {
+  if (normalized === "needs_ocr") {
+    return "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300";
+  }
+  if (normalized === "failed") {
     return "bg-rose-100 text-rose-700 dark:bg-rose-900/20 dark:text-rose-300";
+  }
+  if (normalized === "unreadable") {
+    return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
   }
   return "bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300";
 }
@@ -77,10 +77,8 @@ function mapRiskFlags(flags: string[]): string[] {
   return flags
     .map((flag) => {
       const key = String(flag || "").toLowerCase();
-      if (key === "low_text_signal") return "Limited readable text detected";
-      if (key === "ocr_timeout") return "Reading timed out";
-      if (key === "ocr_empty") return "No readable text detected";
-      return "";
+      if (key === "document_understanding_disabled") return "";
+      return key.replace(/_/g, " ");
     })
     .filter(Boolean);
 }
@@ -96,18 +94,6 @@ export function AgentSessionDocumentsPanel({
   );
   const [openedArtifactByDoc, setOpenedArtifactByDoc] = useState<
     Record<number, unknown>
-  >({});
-  const [progressByDoc, setProgressByDoc] = useState<
-    Record<
-      number,
-      {
-        stage?: string | null;
-        pageIndex?: number;
-        totalPages?: number;
-        percent?: number;
-        warning?: string | null;
-      }
-    >
   >({});
 
   const setDocBusy = (documentId: number, action: string | null) => {
@@ -178,94 +164,6 @@ export function AgentSessionDocumentsPanel({
     };
   }, [sessionId]);
 
-  useEffect(() => {
-    if (!sessionId || !context?.documents?.length) return;
-    const sources: EventSource[] = [];
-    const resolveHttpBase = () => {
-      if (isElectron()) {
-        const backend = getBackendConfig();
-        if (backend?.httpApiUrl) return backend.httpApiUrl;
-      }
-      return getApiBase();
-    };
-    const base = resolveHttpBase();
-
-    for (const doc of context.documents) {
-      const url = `${base}/agent/sessions/${encodeURIComponent(
-        sessionId,
-      )}/documents/${doc.document_id}/progress`;
-      const source = new EventSource(url);
-      const onStageStart = (event: MessageEvent) => {
-        try {
-          const payload = JSON.parse(event.data);
-          setProgressByDoc((prev) => ({
-            ...prev,
-            [doc.document_id]: {
-              ...(prev[doc.document_id] || {}),
-              stage: payload.stage || null,
-            },
-          }));
-        } catch {
-          // ignore malformed progress events
-        }
-      };
-      const onPageProgress = (event: MessageEvent) => {
-        try {
-          const payload = JSON.parse(event.data);
-          setProgressByDoc((prev) => ({
-            ...prev,
-            [doc.document_id]: {
-              ...(prev[doc.document_id] || {}),
-              stage: payload.stage || "ocr_pages",
-              pageIndex: payload.pageIndex,
-              totalPages: payload.totalPages,
-              percent: payload.percent,
-            },
-          }));
-        } catch {
-          // ignore malformed progress events
-        }
-      };
-      const onWarning = (event: MessageEvent) => {
-        try {
-          const payload = JSON.parse(event.data);
-          setProgressByDoc((prev) => ({
-            ...prev,
-            [doc.document_id]: {
-              ...(prev[doc.document_id] || {}),
-              warning: payload.message || payload.code || "warning",
-            },
-          }));
-        } catch {
-          // ignore malformed progress events
-        }
-      };
-      const onResult = () => {
-        setProgressByDoc((prev) => ({
-          ...prev,
-          [doc.document_id]: {
-            ...(prev[doc.document_id] || {}),
-            stage: "completed",
-            percent: 100,
-          },
-        }));
-        void loadContext();
-      };
-      const onError = () => {
-        // Polling fallback remains active.
-      };
-      source.addEventListener("stage_start", onStageStart as EventListener);
-      source.addEventListener("page_progress", onPageProgress as EventListener);
-      source.addEventListener("warning", onWarning as EventListener);
-      source.addEventListener("result", onResult as EventListener);
-      source.addEventListener("error", onError as EventListener);
-      sources.push(source);
-    }
-
-    return () => {
-      for (const source of sources) source.close();
-    };
-  }, [sessionId, context?.documents?.length]);
 
   const handleOpenArtifacts = async (documentId: number) => {
     if (!sessionId) return;
@@ -327,58 +225,6 @@ export function AgentSessionDocumentsPanel({
     }
   };
 
-  const handleContinueAll = async (documentId: number) => {
-    if (!sessionId) return;
-    try {
-      setDocBusy(documentId, "continue");
-      await continueSessionDocumentAnalysis(sessionId, documentId, { mode: "full" });
-      await loadContext();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to continue OCR");
-    } finally {
-      setDocBusy(documentId, null);
-    }
-  };
-
-  const handleContinuePages = async (documentId: number) => {
-    if (!sessionId) return;
-    const raw = window.prompt("Enter pages (example: 6,7,10):");
-    if (!raw) return;
-    const pages = raw
-      .split(",")
-      .map((v) => Number(v.trim()))
-      .filter((v) => Number.isInteger(v) && v > 0);
-    if (!pages.length) {
-      setError("No valid page numbers provided");
-      return;
-    }
-    try {
-      setDocBusy(documentId, "continue_pages");
-      await continueSessionDocumentAnalysis(sessionId, documentId, {
-        mode: "pages",
-        pages,
-      });
-      await loadContext();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to continue OCR pages");
-    } finally {
-      setDocBusy(documentId, null);
-    }
-  };
-
-  const handleCancel = async (documentId: number) => {
-    if (!sessionId) return;
-    try {
-      setDocBusy(documentId, "cancel");
-      await cancelSessionDocumentAnalysis(sessionId, documentId);
-      await loadContext();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to cancel analysis");
-    } finally {
-      setDocBusy(documentId, null);
-    }
-  };
-
   const sortedDocuments = useMemo(() => {
     if (!context?.documents) return [];
     return [...context.documents].sort((a, b) => {
@@ -422,19 +268,7 @@ export function AgentSessionDocumentsPanel({
           </p>
         ) : (
           sortedDocuments.map((doc) => {
-            const understandingStatus =
-              doc.understanding_status || doc.text_status || "processing";
-            const confidence = toPercent(doc.understanding_confidence ?? null);
-            const artifacts = asArtifact(doc.artifacts || null);
-            const visualSummary = sanitizeVisualSummary(artifacts?.visual_summary || null);
-            const riskFlagsRaw = Array.isArray(artifacts?.risk_flags)
-              ? artifacts?.risk_flags || []
-              : [];
-            const riskFlags = mapRiskFlags(riskFlagsRaw);
-            const progress = progressByDoc[doc.document_id] || null;
-            const needsContinue =
-              Boolean((artifacts as { needsUserContinue?: boolean } | null)?.needsUserContinue) ||
-              Boolean((doc as { needs_user_continue?: boolean }).needs_user_continue);
+            const textStatus = doc.text_status || "unreadable";
 
             return (
               <div
@@ -452,56 +286,18 @@ export function AgentSessionDocumentsPanel({
                   </div>
                   <span
                     className={`text-[10px] px-2 py-0.5 rounded ${renderStatusTone(
-                      understandingStatus,
+                      textStatus,
                     )}`}
                   >
-                    {formatUserStatus(understandingStatus)}
+                    {formatUserStatus(textStatus)}
                   </span>
                 </div>
 
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {confidence ? (
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300">
-                      Readability {confidence}
+                {doc.text_source ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                      {doc.text_source}
                     </span>
-                  ) : null}
-                </div>
-
-                {visualSummary ? (
-                  <p className="mt-2 text-[11px] leading-relaxed text-slate-700 dark:text-slate-200">
-                    {visualSummary}
-                  </p>
-                ) : null}
-
-                {riskFlags.length > 0 ? (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {riskFlags.slice(0, 4).map((flag) => (
-                      <span
-                        key={`${doc.document_id}-${flag}`}
-                        className="text-[10px] px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300"
-                      >
-                        {String(flag).replace(/_/g, " ")}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-
-                {progress ? (
-                  <div className="mt-2 rounded border border-sky-200 dark:border-sky-800/50 bg-sky-50 dark:bg-sky-950/20 px-2 py-1.5">
-                    <p className="text-[10px] text-sky-700 dark:text-sky-300">
-                      Processing
-                      {Number.isFinite(progress.percent) ? ` • ${progress.percent}%` : ""}
-                    </p>
-                    {Number.isFinite(progress.pageIndex) && Number.isFinite(progress.totalPages) ? (
-                      <p className="text-[10px] text-sky-700/90 dark:text-sky-300/90">
-                        Page {progress.pageIndex} of {progress.totalPages}
-                      </p>
-                    ) : null}
-                    {progress.warning ? (
-                      <p className="text-[10px] text-amber-700 dark:text-amber-300">
-                        Additional review may be needed.
-                      </p>
-                    ) : null}
                   </div>
                 ) : null}
 
@@ -514,42 +310,14 @@ export function AgentSessionDocumentsPanel({
                   >
                     {openedArtifactByDoc[doc.document_id] ? "Hide details" : "View details"}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => handleRetry(doc.document_id)}
-                    disabled={Boolean(actionBusyByDoc[doc.document_id])}
-                    className="text-[11px] px-2 py-1 rounded border border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 disabled:opacity-60"
-                  >
-                    Retry analysis
-                  </button>
-                  {needsContinue ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => handleContinueAll(doc.document_id)}
-                        disabled={Boolean(actionBusyByDoc[doc.document_id])}
-                        className="text-[11px] px-2 py-1 rounded border border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-900/20 disabled:opacity-60"
-                      >
-                        Continue OCR
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleContinuePages(doc.document_id)}
-                        disabled={Boolean(actionBusyByDoc[doc.document_id])}
-                        className="text-[11px] px-2 py-1 rounded border border-cyan-300 dark:border-cyan-700 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 disabled:opacity-60"
-                      >
-                        OCR pages...
-                      </button>
-                    </>
-                  ) : null}
-                  {understandingStatus === "processing" ? (
+                  {textStatus === "failed" ? (
                     <button
                       type="button"
-                      onClick={() => handleCancel(doc.document_id)}
+                      onClick={() => handleRetry(doc.document_id)}
                       disabled={Boolean(actionBusyByDoc[doc.document_id])}
-                      className="text-[11px] px-2 py-1 rounded border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 disabled:opacity-60"
+                      className="text-[11px] px-2 py-1 rounded border border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 disabled:opacity-60"
                     >
-                      Cancel
+                      Retry extraction
                     </button>
                   ) : null}
                   <button
