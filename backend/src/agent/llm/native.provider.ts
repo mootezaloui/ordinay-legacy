@@ -12,41 +12,80 @@ const LLM_MAX_OUTPUT_TOKENS = readOptionalPositiveInt(
   process.env.LLM_MAX_OUTPUT_TOKENS,
 );
 
+const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
+const GROQ_MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
+const GROQ_BASE_URL = process.env.GROQ_BASE_URL || "https://api.groq.com/openai";
+const GPT_OSS_MODEL = "gpt-oss:120b-cloud";
+const DEEPSEEK_R1_8B_MODEL = "deepseek-r1:8b";
+const GEMMA3_1B_MODEL = "gemma3:1b";
+const LEGACY_GENNA3_1B_MODEL = "genna3:1b";
+const MODEL_TOOL_SUPPORT_HINTS: Record<string, boolean | undefined> = {
+  [GPT_OSS_MODEL]: true,
+  [GEMMA3_1B_MODEL]: false,
+  [LEGACY_GENNA3_1B_MODEL]: false,
+};
+
 export function createNativeLLMProvider(): ILLMProvider {
   return new NativeLLMProvider();
 }
 
 class NativeLLMProvider implements ILLMProvider {
-  async generate(params: LLMGenerateParams): Promise<LLMResponse> {
-    const request = this.buildRequest(params);
+  private lastStreamRetryAfterMs: number | null = null;
+  private readonly modelToolSupportCache = new Map<string, boolean>();
 
-    const openAi = await this.tryOpenAiCompletion(request);
-    if (openAi) {
-      return openAi;
+  async generate(params: LLMGenerateParams): Promise<LLMResponse> {
+    const modelChoice = await this.resolveModelChoice(
+      params.metadata,
+      Array.isArray(params.tools) && params.tools.length > 0,
+    );
+    const request = this.buildRequest(params, modelChoice.model);
+
+    if (modelChoice.route !== "local_only") {
+      const openAi = await this.tryOpenAiCompletion(request);
+      if (openAi) {
+        this.logCompletionDiagnostics("openai.generate", request, openAi);
+        return openAi;
+      }
     }
 
     const ollamaOpenAi = await this.tryOllamaOpenAiCompletion(request);
     if (ollamaOpenAi) {
+      this.logCompletionDiagnostics("ollama-openai.generate", request, ollamaOpenAi);
       return ollamaOpenAi;
     }
 
     const ollamaChat = await this.tryOllamaChatCompletion(request);
     if (ollamaChat) {
+      this.logCompletionDiagnostics("ollama-chat.generate", request, ollamaChat);
       return ollamaChat;
     }
 
-    return {
+    if (modelChoice.route !== "local_only") {
+      const groq = await this.tryGroqCompletion(request);
+      if (groq) {
+        this.logCompletionDiagnostics("groq.generate", request, groq);
+        return groq;
+      }
+    }
+
+    const fallback: LLMResponse = {
       text: "I cannot access the language model right now. Please try again.",
       toolCalls: [],
       finishReason: "error",
       raw: { source: "fallback" },
     };
+    this.logCompletionDiagnostics("fallback.generate", request, fallback);
+    return fallback;
   }
 
   async *stream(params: LLMGenerateParams): AsyncIterable<LLMStreamChunk> {
-    const request = this.buildRequest(params);
+    const modelChoice = await this.resolveModelChoice(
+      params.metadata,
+      Array.isArray(params.tools) && params.tools.length > 0,
+    );
+    const request = this.buildRequest(params, modelChoice.model);
 
-    if (OPENAI_API_KEY) {
+    if (modelChoice.route !== "local_only" && OPENAI_API_KEY) {
       let emitted = false;
       for await (const chunk of this.streamOpenAiFromUrl(
         `${normalizeOpenAiBase(OPENAI_BASE_URL)}/chat/completions`,
@@ -88,7 +127,32 @@ class NativeLLMProvider implements ILLMProvider {
       return;
     }
 
+    if (modelChoice.route !== "local_only" && GROQ_API_KEY) {
+      const groqRequest = { ...request, model: GROQ_MODEL };
+      for (let groqAttempt = 0; groqAttempt < 3; groqAttempt++) {
+        this.lastStreamRetryAfterMs = null;
+        let groqEmitted = false;
+        for await (const chunk of this.streamOpenAiFromUrl(
+          `${normalizeBase(GROQ_BASE_URL)}/v1/chat/completions`,
+          groqRequest,
+          { Authorization: `Bearer ${GROQ_API_KEY}` },
+        )) {
+          groqEmitted = true;
+          yield chunk;
+        }
+        if (groqEmitted) {
+          return;
+        }
+        const waitMs = this.lastStreamRetryAfterMs ?? 3000;
+        console.warn(
+          `[LLM_GROQ_STREAM_RETRY] attempt ${groqAttempt + 1}/3, waiting ${Math.ceil(waitMs / 1000)}s`,
+        );
+        await new Promise((r) => setTimeout(r, waitMs));
+      }
+    }
+
     const response = await this.generate(params);
+    this.logCompletionDiagnostics("stream.fallback_to_generate", request, response);
     if (response.text) {
       yield { deltaText: response.text };
     }
@@ -102,15 +166,143 @@ class NativeLLMProvider implements ILLMProvider {
     return true;
   }
 
-  private buildRequest(params: LLMGenerateParams): LLMRequest {
+  private logCompletionDiagnostics(
+    source: string,
+    request: LLMRequest,
+    response: LLMResponse,
+  ): void {
+    if (!this.shouldTraceDraftRequest(request)) {
+      return;
+    }
+    const toolCalls = Array.isArray(response.toolCalls) ? response.toolCalls : [];
+    console.info(
+      "[DRAFT_TRACE_LLM_COMPLETION]",
+      JSON.stringify({
+        source,
+        finishReason: response.finishReason,
+        toolCallCount: toolCalls.length,
+        toolNames: toolCalls.map((tc) => tc?.name || "unknown"),
+        textLength: String(response.text || "").trim().length,
+      }),
+    );
+  }
+
+  private shouldTraceDraftRequest(request: LLMRequest): boolean {
+    const messages = Array.isArray(request.messages) ? request.messages : [];
+    const userTail = [...messages]
+      .reverse()
+      .find((msg) => msg && msg.role === "user" && typeof msg.content === "string");
+    const userText = String(userTail?.content || "");
+    if (/\b(write|draft|compose|prepare|letter|email|summary|redige|rédige|prépare|اكتب|صغ)\b/i.test(userText)) {
+      return true;
+    }
+    return /\nDRAFTING\n/.test(messages.map((m) => String(m?.content || "")).join("\n"));
+  }
+
+  private buildRequest(params: LLMGenerateParams, model: string): LLMRequest {
     return {
-      model: LLM_MODEL,
+      model,
       messages: Array.isArray(params.messages) ? params.messages : [],
       tools: Array.isArray(params.tools) ? params.tools : [],
       temperature: typeof params.temperature === "number" ? params.temperature : 0.1,
       maxTokens:
         typeof params.maxTokens === "number" ? params.maxTokens : LLM_MAX_OUTPUT_TOKENS,
     };
+  }
+
+  private async resolveModelChoice(
+    metadata?: Record<string, unknown>,
+    requiresTools = false,
+  ): Promise<ModelChoice> {
+    const preferred = String(metadata?.modelPreference || "").trim();
+    let model = LLM_MODEL;
+    let route: ModelChoice["route"] = "auto";
+
+    if (
+      preferred === DEEPSEEK_R1_8B_MODEL ||
+      preferred === GEMMA3_1B_MODEL ||
+      preferred === LEGACY_GENNA3_1B_MODEL
+    ) {
+      model = preferred === LEGACY_GENNA3_1B_MODEL ? GEMMA3_1B_MODEL : preferred;
+      route = "local_only";
+    } else if (preferred === GPT_OSS_MODEL) {
+      model = GPT_OSS_MODEL;
+      route = "auto";
+    }
+
+    if (requiresTools) {
+      const supportsTools = await this.modelSupportsTools(model);
+      if (!supportsTools) {
+        const fallbackRoute: ModelChoice["route"] =
+          route === "local_only" ? "local_only" : "auto";
+        console.warn(
+          "[LLM_MODEL_FALLBACK_NO_TOOL_SUPPORT]",
+          JSON.stringify({
+            requestedModel: model,
+            fallbackModel: GPT_OSS_MODEL,
+            fallbackRoute,
+          }),
+        );
+        return { model: GPT_OSS_MODEL, route: fallbackRoute };
+      }
+    }
+
+    return { model, route };
+  }
+
+  private async modelSupportsTools(model: string): Promise<boolean> {
+    const normalizedModel = String(model || "").trim().toLowerCase();
+    if (!normalizedModel) {
+      return true;
+    }
+
+    const cached = this.modelToolSupportCache.get(normalizedModel);
+    if (typeof cached === "boolean") {
+      return cached;
+    }
+
+    const hint = MODEL_TOOL_SUPPORT_HINTS[normalizedModel];
+    if (typeof hint === "boolean") {
+      this.modelToolSupportCache.set(normalizedModel, hint);
+      return hint;
+    }
+
+    try {
+      const response = await fetch(`${normalizeBase(LLM_BASE_URL)}/api/show`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model }),
+      });
+      if (!response.ok) {
+        const errBody = await response.text().catch(() => "");
+        console.warn(
+          "[LLM_MODEL_CAPS_UNAVAILABLE]",
+          JSON.stringify({ model, status: response.status, body: errBody.slice(0, 200) }),
+        );
+        return true;
+      }
+      const payload = (await response.json()) as Record<string, unknown>;
+      const capabilities = Array.isArray(payload.capabilities)
+        ? payload.capabilities
+            .map((value) => String(value || "").trim().toLowerCase())
+            .filter(Boolean)
+        : [];
+
+      if (capabilities.length === 0) {
+        this.modelToolSupportCache.set(normalizedModel, true);
+        return true;
+      }
+
+      const supportsTools = capabilities.includes("tools");
+      this.modelToolSupportCache.set(normalizedModel, supportsTools);
+      return supportsTools;
+    } catch (error) {
+      console.warn(
+        "[LLM_MODEL_CAPS_CHECK_ERROR]",
+        JSON.stringify({ model, error: String(error) }),
+      );
+      return true;
+    }
   }
 
   private async tryOpenAiCompletion(request: LLMRequest): Promise<LLMResponse | null> {
@@ -160,10 +352,19 @@ class NativeLLMProvider implements ILLMProvider {
     if (!response?.ok || !response.body) {
       if (response && !response.ok) {
         const errBody = await response.text().catch(() => "");
+        if (response.status === 429) {
+          this.lastStreamRetryAfterMs = this.inferRetryDelayMs(
+            errBody,
+            response.headers.get("retry-after"),
+          );
+        } else {
+          this.lastStreamRetryAfterMs = null;
+        }
         console.warn("[LLM_STREAM_HTTP_ERROR]", JSON.stringify({ url, status: response.status, body: errBody.slice(0, 500), msgCount: request.messages?.length }));
       }
       return;
     }
+    this.lastStreamRetryAfterMs = null;
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -274,6 +475,21 @@ class NativeLLMProvider implements ILLMProvider {
       };
     }
 
+    if (this.shouldTraceDraftRequest(request)) {
+      const streamedToolNames = Array.from(toolFragments.values())
+        .map((fragment) => String(fragment?.name || "").trim())
+        .filter(Boolean);
+      console.info(
+        "[DRAFT_TRACE_LLM_STREAM_PARSED]",
+        JSON.stringify({
+          source: url,
+          finishReason,
+          toolCallCount: streamedToolNames.length,
+          toolNames: streamedToolNames,
+        }),
+      );
+    }
+
     yield { finishReason, done: true };
   }
 
@@ -349,6 +565,78 @@ class NativeLLMProvider implements ILLMProvider {
     }
   }
 
+  private async tryGroqCompletion(request: LLMRequest): Promise<LLMResponse | null> {
+    if (!GROQ_API_KEY) {
+      return null;
+    }
+
+    const url = `${normalizeBase(GROQ_BASE_URL)}/v1/chat/completions`;
+    const groqRequest = { ...request, model: GROQ_MODEL };
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${GROQ_API_KEY}`,
+          },
+          body: JSON.stringify(toChatCompletionBody(groqRequest)),
+        });
+
+        if (response.status === 429) {
+          const errBody = await response.text().catch(() => "");
+          const waitMs = this.inferRetryDelayMs(errBody, response.headers.get("retry-after"));
+          console.warn(
+            `[LLM_GROQ_RATE_LIMIT] attempt ${attempt + 1}/3, waiting ${Math.ceil(waitMs / 1000)}s`,
+          );
+          await new Promise((r) => setTimeout(r, waitMs));
+          continue;
+        }
+
+        if (!response.ok) {
+          const errBody = await response.text().catch(() => "");
+          console.warn("[LLM_GROQ_ERROR]", JSON.stringify({ status: response.status, body: errBody.slice(0, 300), msgCount: request.messages?.length }));
+          return null;
+        }
+
+        const payload = (await response.json()) as Record<string, unknown>;
+        return normalizeChatCompletionResponse(payload);
+      } catch (err) {
+        console.warn("[LLM_GROQ_CATCH]", String(err));
+        return null;
+      }
+    }
+    return null;
+  }
+
+  private inferRetryDelayMs(
+    responseBody: string,
+    retryAfterHeader: string | null,
+  ): number {
+    const fromHeader = Number.parseFloat(String(retryAfterHeader || "").trim());
+    if (Number.isFinite(fromHeader) && fromHeader > 0) {
+      return this.clampRetryDelayMs(fromHeader * 1000);
+    }
+
+    const body = String(responseBody || "");
+    const bodyMatch = body.match(/try again in\s+([\d.]+)s/i);
+    if (bodyMatch) {
+      const seconds = Number.parseFloat(bodyMatch[1]);
+      if (Number.isFinite(seconds) && seconds > 0) {
+        return this.clampRetryDelayMs(seconds * 1000);
+      }
+    }
+
+    return 3000;
+  }
+
+  private clampRetryDelayMs(value: number): number {
+    if (!Number.isFinite(value) || value <= 0) {
+      return 3000;
+    }
+    return Math.max(3000, Math.min(Math.ceil(value), 60000));
+  }
+
   private async *streamOllamaFromUrl(
     url: string,
     request: LLMRequest,
@@ -419,6 +707,17 @@ class NativeLLMProvider implements ILLMProvider {
     for (const toolCall of collectedToolCalls) {
       yield { toolCall };
     }
+    if (this.shouldTraceDraftRequest(request)) {
+      console.info(
+        "[DRAFT_TRACE_LLM_STREAM_PARSED]",
+        JSON.stringify({
+          source: url,
+          finishReason,
+          toolCallCount: collectedToolCalls.length,
+          toolNames: collectedToolCalls.map((tc) => tc?.name || "unknown"),
+        }),
+      );
+    }
     yield { finishReason, done: true };
   }
 }
@@ -431,10 +730,22 @@ interface LLMRequest {
   maxTokens?: number;
 }
 
+interface ModelChoice {
+  model: string;
+  route: "auto" | "local_only";
+}
+
 function toChatCompletionBody(request: LLMRequest): Record<string, unknown> {
+  const messages = (request.messages ?? []).map((msg, idx) => {
+    if (msg.role === "tool") {
+      const { toolCallId, ...rest } = msg;
+      return { ...rest, tool_call_id: toolCallId || `tool_${idx}` };
+    }
+    return msg;
+  });
   return {
     model: request.model,
-    messages: request.messages,
+    messages,
     tools: request.tools,
     tool_choice: "auto",
     temperature: request.temperature,
