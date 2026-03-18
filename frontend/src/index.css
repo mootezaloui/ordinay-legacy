@@ -4448,18 +4448,7 @@ td[data-column-id="actions"] [data-table-action-button] {
 }
 
 .agent-session-active::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 10px;
-  bottom: 10px;
-  width: 2px;
-  border-radius: 999px;
-  background: #3b82f6;
-}
-
-.dark .agent-session-active::before {
-  background: #60a5fa;
+  display: none;
 }
 
 /* Scroll container smooth behavior */

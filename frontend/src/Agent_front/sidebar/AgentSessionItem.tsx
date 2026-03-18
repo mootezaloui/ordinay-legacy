@@ -23,6 +23,7 @@ interface AgentSessionItemProps {
   onRename: (title: string) => void;
   onDelete: () => void;
   getRelativeTime: (timestamp: Date) => string;
+  registerRef?: (el: HTMLDivElement | null) => void;
   isDragging?: boolean;
   isDropTarget?: boolean;
   onDragStart?: (e: React.DragEvent) => void;
@@ -46,6 +47,7 @@ export function AgentSessionItem({
   onDragOver,
   onDragLeave,
   onDrop,
+  registerRef,
 }: AgentSessionItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(session.title);
@@ -93,6 +95,7 @@ export function AgentSessionItem({
   return (
     <>
       <div
+        ref={(el) => registerRef?.(el)}
         draggable={!isEditing}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
@@ -100,12 +103,12 @@ export function AgentSessionItem({
         onDragLeave={onDragLeave}
         onDrop={onDrop}
         onClick={!isEditing ? onClick : undefined}
-        className={`group relative p-3 rounded-2xl cursor-pointer border border-transparent hover:bg-white/80 dark:hover:bg-white/[0.04] transition-all ${
+        className={`group relative z-[1] p-3 rounded-2xl cursor-pointer border border-transparent hover:scale-[1.02] hover:shadow-sm transition-all duration-200 ${
           isDragging ? "opacity-50 shadow-lg" : ""
         } ${
           isDropTarget ? "ring-2 ring-slate-300/50 dark:ring-slate-600/50 ring-inset" : ""
         } ${
-          active ? "agent-session-active bg-white/90 dark:bg-white/[0.05] border-black/[0.04] dark:border-white/[0.04]" : ""
+          active ? "agent-session-active" : ""
         }`}
       >
         <div className="flex items-start justify-between gap-2 mb-1">

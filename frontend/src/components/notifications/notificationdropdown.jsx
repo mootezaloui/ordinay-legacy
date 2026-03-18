@@ -256,11 +256,15 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
       </button>
 
       {!isMobile && (
-        <div className={`absolute right-0 mt-3 w-[26rem] bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl border border-slate-200/80 dark:border-slate-700/70 overflow-hidden z-50 origin-[90%_0%] ${
-            isOpen 
-                ? "opacity-100 scale-100 translate-y-0 pointer-events-auto shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]" 
-                : "opacity-0 scale-50 -translate-y-4 pointer-events-none shadow-none transition-all duration-200 ease-in-out"
-        }`}>
+        <div
+          className={`absolute right-0 mt-3 w-[26rem] bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl border border-slate-200/80 dark:border-slate-700/70 overflow-hidden z-50 shadow-2xl ${isOpen ? "pointer-events-auto" : "pointer-events-none"}`}
+          style={{
+            clipPath: isOpen ? "circle(150% at 90% 0%)" : "circle(0% at 90% 0%)",
+            transition: isOpen
+              ? "clip-path 420ms cubic-bezier(0.34, 1.3, 0.64, 1)"
+              : "clip-path 220ms cubic-bezier(0.4, 0, 1, 1)",
+          }}
+        >
           <div className="px-5 py-4 bg-slate-50/90 dark:bg-slate-800/70 border-b border-slate-200/70 dark:border-slate-700/60">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">

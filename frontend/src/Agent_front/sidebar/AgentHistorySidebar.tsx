@@ -65,6 +65,14 @@ export function AgentHistorySidebar({
   const [dropTargetSessionId, setDropTargetSessionId] = useState<string | null>(
     null
   );
+  // Animated indicator refs and state
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<Record<string, HTMLDivElement>>({});
+  const indicatorRef = useRef<HTMLDivElement>(null);
+  // Module-level: persists across component unmount/remount cycles
+  const lastIndicatorY = useRef<number | null>(null);
+  const lastIndicatorH = useRef<number | null>(null);
+
   // Pending folder creation state
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [pendingFolderName, setPendingFolderName] = useState("");
@@ -76,6 +84,99 @@ export function AgentHistorySidebar({
       pendingInputRef.current.select();
     }
   }, [isCreatingFolder]);
+
+  // Set item ref for animation
+  const setItemRef = useCallback((sessionId: string, el: HTMLDivElement | null) => {
+    if (el) {
+      itemRefs.current[sessionId] = el;
+    } else {
+      delete itemRefs.current[sessionId];
+    }
+  }, []);
+
+  // Measure where the current active item is
+  const measureActive = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container || !activeSessionId) return null;
+
+    const activeEl = itemRefs.current[activeSessionId];
+    if (!activeEl) return null;
+
+    const containerRect = container.getBoundingClientRect();
+    const activeRect = activeEl.getBoundingClientRect();
+
+    return {
+      y: activeRect.top - containerRect.top + container.scrollTop,
+      h: activeRect.height,
+    };
+  }, [activeSessionId]);
+
+  // Update animated indicator position
+  const updateIndicatorPosition = useCallback(() => {
+    const indicator = indicatorRef.current;
+    if (!indicator) return;
+
+    // Wait for DOM refs to be ready
+    requestAnimationFrame(() => {
+      const target = measureActive();
+      if (!target) {
+        indicator.style.opacity = "0";
+        return;
+      }
+
+      // Always set the final position immediately
+      indicator.style.transform = `translateY(${target.y}px)`;
+      indicator.style.height = `${target.h}px`;
+      indicator.style.opacity = "1";
+
+      if (lastIndicatorY.current !== null && Math.abs(lastIndicatorY.current - target.y) > 1) {
+        // Animate from old position to new using Web Animations API
+        indicator.animate(
+          [
+            {
+              transform: `translateY(${lastIndicatorY.current}px)`,
+              height: `${lastIndicatorH.current}px`,
+            },
+            {
+              transform: `translateY(${target.y}px)`,
+              height: `${target.h}px`,
+            },
+          ],
+          {
+            duration: 350,
+            easing: "cubic-bezier(0.34, 1.56, 0.64, 1)",
+            fill: "none",
+          }
+        );
+      }
+
+      // Store for next update
+      lastIndicatorY.current = target.y;
+      lastIndicatorH.current = target.h;
+    });
+  }, [measureActive]);
+
+  // Update indicator when active session changes
+  useEffect(() => {
+    updateIndicatorPosition();
+  }, [activeSessionId, updateIndicatorPosition]);
+
+  // Update indicator when window resizes
+  useEffect(() => {
+    const handleResize = () => {
+      const indicator = indicatorRef.current;
+      if (!indicator) return;
+      const target = measureActive();
+      if (!target) return;
+      indicator.style.transition = "none";
+      indicator.style.transform = `translateY(${target.y}px)`;
+      indicator.style.height = `${target.h}px`;
+      lastIndicatorY.current = target.y;
+      lastIndicatorH.current = target.h;
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [measureActive]);
 
   // Use ref for dragState to avoid stale closure issues in drag handlers
   const dragStateRef = useRef<DragState | null>(null);
@@ -348,8 +449,25 @@ export function AgentHistorySidebar({
         </button>
       </div>
 
-      {/* Scrollable content */}
-      <div className="agent-history-scroll flex-1 overflow-y-auto p-3 space-y-3">
+      {/* Scrollable content with animated indicator */}
+      <div
+        ref={scrollContainerRef}
+        className="agent-history-scroll flex-1 overflow-y-auto p-3 space-y-3 relative"
+      >
+        {/* Animated sliding indicator */}
+        <div
+          ref={indicatorRef}
+          className="absolute left-3 right-3 rounded-2xl pointer-events-none z-0"
+          style={{
+            top: 0,
+            height: 0,
+            opacity: 0,
+            willChange: "transform, height, opacity",
+          }}
+        >
+          <div className="absolute inset-0 rounded-2xl bg-white/90 dark:bg-white/[0.05] border border-black/[0.04] dark:border-white/[0.04] shadow-sm" />
+          <div className="absolute left-0 top-[10px] bottom-[10px] w-[2px] rounded-full bg-[#3b82f6] dark:bg-[#60a5fa]" />
+        </div>
         {/* Pending folder input */}
         {isCreatingFolder && (
           <div className="space-y-1 mb-4">
@@ -448,6 +566,7 @@ export function AgentHistorySidebar({
                       onRename={(title) => onRenameSession(session.id, title)}
                       onDelete={() => onDeleteSession(session.id)}
                       getRelativeTime={getRelativeTime}
+                      registerRef={(el) => setItemRef(session.id, el)}
                       isDragging={
                         dragState?.type === DRAG_TYPE_SESSION &&
                         dragState.id === session.id
@@ -498,6 +617,7 @@ export function AgentHistorySidebar({
                 onRename={(title) => onRenameSession(session.id, title)}
                 onDelete={() => onDeleteSession(session.id)}
                 getRelativeTime={getRelativeTime}
+                registerRef={(el) => setItemRef(session.id, el)}
                 isDragging={
                   dragState?.type === DRAG_TYPE_SESSION &&
                   dragState.id === session.id

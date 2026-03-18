@@ -87,7 +87,6 @@ export function AgentLayout({
 
   const handleSessionClick = (sessionId: string) => {
     if (sessionId !== activeSessionId) {
-      saveScrollPosition();
       setActiveSessionId(sessionId);
     }
   };

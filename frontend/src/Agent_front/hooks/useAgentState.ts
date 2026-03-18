@@ -202,6 +202,7 @@ export function useAgentState() {
   const streamSessionRef = useRef<string | null>(null);
   const lastMessageContentRef = useRef<string>("");
   const isUserScrolledUpRef = useRef(false);
+  const isSessionSwitchingRef = useRef(false);
   const isMountedRef = useRef(true);
 
   const pendingSessionKey = "__pending__";
@@ -253,14 +254,25 @@ export function useAgentState() {
     }
   }, []);
 
-  // Track user scroll position to detect if they scrolled up
+  // Track user scroll position — only RE-ENABLE auto-scroll when user reaches bottom
   const handleScroll = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
 
     const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-    // User is "scrolled up" if they're more than 100px from bottom
-    isUserScrolledUpRef.current = distanceFromBottom > 100;
+    if (isUserScrolledUpRef.current && distanceFromBottom <= 50) {
+      isUserScrolledUpRef.current = false;
+    }
+  }, []);
+
+  // Detect intentional user scroll-up and cancel any ongoing smooth scroll
+  const handleUserScrollUp = useCallback(() => {
+    if (isUserScrolledUpRef.current) return;
+    isUserScrolledUpRef.current = true;
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.scrollTo({ top: container.scrollTop });
+    }
   }, []);
 
   // Sync with any in-flight stream and avoid aborting on unmount/navigation
@@ -356,39 +368,55 @@ export function useAgentState() {
     const container = scrollContainerRef.current;
     if (!container) return;
 
-    container.addEventListener("scroll", handleScroll, { passive: true });
-    return () => container.removeEventListener("scroll", handleScroll);
-  }, [handleScroll]);
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY < 0) handleUserScrollUp();
+    };
+    const onTouchStart = () => handleUserScrollUp();
 
-  // Scroll to bottom when switching sessions (after a brief delay for render)
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    container.addEventListener("wheel", onWheel, { passive: true });
+    container.addEventListener("touchstart", onTouchStart, { passive: true });
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+      container.removeEventListener("wheel", onWheel);
+      container.removeEventListener("touchstart", onTouchStart);
+    };
+  }, [handleScroll, handleUserScrollUp]);
+
+  // Always scroll to bottom instantly when switching sessions
   useEffect(() => {
     if (!activeSessionId) return;
 
-    // Reset user scroll tracking when switching sessions
+    isSessionSwitchingRef.current = true;
     isUserScrolledUpRef.current = false;
 
-    // Small delay to ensure messages have rendered
-    const timer = setTimeout(() => {
-      const savedPos = scrollPositions.current[activeSessionId];
-      const container = scrollContainerRef.current;
+    const container = scrollContainerRef.current;
+    if (container) {
+      // Disable scroll-smooth so the jump is truly instant
+      container.style.scrollBehavior = "auto";
+      container.scrollTop = container.scrollHeight;
+    }
+
+    // Re-check after messages render, then restore smooth scrolling
+    const raf = requestAnimationFrame(() => {
       if (container) {
-        if (savedPos !== undefined) {
-          // Restore saved position
-          container.scrollTop = savedPos;
-        } else {
-          // No saved position, scroll to bottom (when opening a session)
-          scrollToBottom("smooth");
-        }
+        container.scrollTop = container.scrollHeight;
+        container.style.scrollBehavior = "";
       }
-    }, 50);
+      isSessionSwitchingRef.current = false;
+    });
 
-    return () => clearTimeout(timer);
-  }, [activeSessionId, scrollToBottom]);
+    return () => {
+      cancelAnimationFrame(raf);
+      if (container) container.style.scrollBehavior = "";
+      isSessionSwitchingRef.current = false;
+    };
+  }, [activeSessionId]);
 
-  // Scroll to bottom when new messages are added (not during streaming)
+  // Scroll to bottom when new messages are added (not during streaming or session switch)
   useEffect(() => {
+    if (isSessionSwitchingRef.current) return;
     if (conversation.length > 0 && !isLoading) {
-      // Only auto-scroll if user hasn't scrolled up
       if (!isUserScrolledUpRef.current) {
         scrollToBottom("smooth");
       }
@@ -397,6 +425,7 @@ export function useAgentState() {
 
   // Auto-scroll during streaming when content grows
   useEffect(() => {
+    if (isSessionSwitchingRef.current) return;
     if (!isLoading || conversation.length === 0) {
       lastMessageContentRef.current = "";
       return;
