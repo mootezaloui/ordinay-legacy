@@ -301,7 +301,7 @@ export function createAgentV2Runtime(): AgentV2Runtime {
   const classifier = new TurnClassifier();
   const pending = new PendingManager();
   const registry = new ToolRegistry();
-  bootstrapTools(registry, loadWave1ReadTools());
+  bootstrapTools(registry, [...loadWave1ReadTools(), ...loadDraftTools()]);
 
   const loop = new AgenticLoop(
     llmProvider,
@@ -382,6 +382,22 @@ function loadWave1ReadTools(): ToolDefinition[] {
   return listedRaw
     .filter((tool) => isV2SafeTool(tool))
     .map((tool) => adaptLegacyTool(tool));
+}
+
+function loadDraftTools(): ToolDefinition[] {
+  try {
+    const draftModule = require("../tools/draft") as {
+      getDraftTools?: () => ToolDefinition[];
+    };
+    if (typeof draftModule.getDraftTools === "function") {
+      return draftModule.getDraftTools();
+    }
+    return [];
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error || "unknown error");
+    console.warn(`[agent.tools.draft] Draft tools unavailable: ${message}`);
+    return [];
+  }
 }
 
 function loadPersistenceRepository(): SessionPersistenceBridge | undefined {

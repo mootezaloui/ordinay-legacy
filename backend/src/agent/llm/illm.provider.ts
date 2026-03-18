@@ -5,6 +5,7 @@ export interface LLMMessage {
   content: string;
   name?: string;
   toolCallId?: string;
+  tool_calls?: Array<{ id: string; type: "function"; function: { name: string; arguments: string } }>;
 }
 
 export interface LLMToolCall {

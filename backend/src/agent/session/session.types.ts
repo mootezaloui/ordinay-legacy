@@ -1,5 +1,6 @@
 import type {
   AgentMode,
+  DraftArtifact,
   EntityReference,
   PendingAction,
   SessionID,
@@ -44,6 +45,7 @@ export interface Session {
   turns: ConversationTurn[];
   history: HistoryEntry[];
   activeEntities: ActiveEntity[];
+  currentDraft?: DraftArtifact;
   summary?: string;
   createdAt: string;
   updatedAt: string;

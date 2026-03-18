@@ -1080,6 +1080,9 @@ function mapPriority(priority?: string): CollectionItem["priority"] {
 
 function isChatbotActionBlockType(dataType?: string): boolean {
   return (
+    dataType === "draft_v2" ||
+    dataType === "draft" ||
+    dataType === "document_draft" ||
     dataType === "proposal" ||
     dataType === "entity_creation_form" ||
     dataType === "document_generation_preview" ||
@@ -1202,10 +1205,18 @@ function MinimalChatbotTurn(props: {
   const { message } = props;
   const dataType = message.data?.type;
   const hasContent = Boolean(message.content && message.content.trim().length > 0);
+  const commentaryText =
+    typeof message.commentary?.message === "string"
+      ? message.commentary.message.trim()
+      : "";
+  const hasCommentaryText = commentaryText.length > 0;
   const suppressStandaloneChatBubble =
     (dataType === "proposal" && Boolean(message.data?.proposal)) ||
     dataType === "context_suggestion" ||
     dataType === "clarification";
+  const renderAttachmentFirst =
+    Boolean(dataType) &&
+    (dataType === "draft_v2" || dataType === "draft" || dataType === "document_draft");
   const mutationStatus = !isProposalMessageData(message.data) && message.chatbotTurn?.mutation ? (
     <ChatbotMutationStatus mutation={message.chatbotTurn.mutation} />
   ) : null;
@@ -1225,6 +1236,9 @@ function MinimalChatbotTurn(props: {
     return (
       <div className="space-y-2">
         {attachment}
+        {hasCommentaryText && !suppressStandaloneChatBubble ? (
+          <ChatArtifact content={commentaryText} />
+        ) : null}
         {mutationStatus}
         {proactiveSuggestionsEl}
       </div>
@@ -1235,6 +1249,9 @@ function MinimalChatbotTurn(props: {
     return (
       <div className="space-y-2">
         <ArtifactBody {...props} />
+        {hasCommentaryText && !suppressStandaloneChatBubble ? (
+          <ChatArtifact content={commentaryText} />
+        ) : null}
         {mutationStatus}
         {proactiveSuggestionsEl}
       </div>
@@ -1250,9 +1267,10 @@ function MinimalChatbotTurn(props: {
 
   return (
     <div className="space-y-2">
+      {renderAttachmentFirst ? attachment : null}
       {hasContent && !suppressStandaloneChatBubble ? <ChatArtifact content={message.content} /> : null}
       {mutationStatus}
-      {attachment}
+      {!renderAttachmentFirst ? attachment : null}
       {proactiveSuggestionsEl}
     </div>
   );
@@ -1395,6 +1413,7 @@ function ArtifactBody({
     return (
       <DraftArtifact
         data={message.data.draft}
+        isStreaming={message.status === "sending"}
         onSave={(sections) => {
           if (!activeSessionId || !activeSessionMessages) return;
           const updatedMessages = activeSessionMessages.map((msg) => {
@@ -1414,6 +1433,47 @@ function ArtifactBody({
                     closing: sections.closing,
                     signature: sections.signature,
                   },
+                },
+              },
+            };
+          });
+          if (updateSessionMessages) {
+            updateSessionMessages(activeSessionId, updatedMessages);
+          }
+        }}
+      />
+    );
+  }
+  if (dataType === "draft_v2" && !message.data?.draftV2) {
+    console.warn("[DRAFT_TRACE_RENDER_MISSING_DRAFT_V2]", {
+      messageId: message.id,
+      dataKeys: message.data ? Object.keys(message.data) : [],
+      stage: message.stage,
+      status: message.status,
+    });
+  }
+  if (dataType === "draft_v2" && message.data?.draftV2) {
+    return (
+      <DraftArtifact
+        data={message.data.draftV2}
+        isStreaming={message.status === "sending"}
+        onRegenerate={(instructions, _currentContent) => {
+          onSubmitMessage?.(`Revise the draft: ${instructions}`);
+        }}
+        onSave={(sections) => {
+          if (!activeSessionId || !activeSessionMessages) return;
+          const updatedMessages = activeSessionMessages.map((msg) => {
+            if (msg.id !== message.id) return msg;
+            if (msg.data?.type !== "draft_v2" || !msg.data?.draftV2) return msg;
+            return {
+              ...msg,
+              data: {
+                ...msg.data,
+                draftV2: {
+                  ...msg.data.draftV2,
+                  content: [sections.subject, sections.greeting, sections.body, sections.closing, sections.signature]
+                    .filter((l) => l && l.trim())
+                    .join("\n\n"),
                 },
               },
             };

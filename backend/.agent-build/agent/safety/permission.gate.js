@@ -29,6 +29,7 @@ class PermissionGate {
             return this.deny(types_1.AgentMode.DRAFT, tool, "DRAFT mode does not allow EXECUTE tools");
         }
         if (tool.category === tools_1.ToolCategory.READ ||
+            tool.category === tools_1.ToolCategory.DRAFT ||
             tool.category === tools_1.ToolCategory.EXTERNAL ||
             tool.category === tools_1.ToolCategory.PLAN) {
             return { allowed: true, requiresConfirmation: false };

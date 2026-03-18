@@ -43,6 +43,10 @@ export interface DataAccessPermissions {
 }
 
 export type WebSearchTrigger = 'explicit_language' | 'button' | 'user_confirmed';
+export type AgentModelPreference =
+  | 'gpt-oss:120b-cloud'
+  | 'deepseek-r1:8b'
+  | 'gemma3:1b';
 
 export interface ConfirmationPreviewChange {
   entityType: string;
@@ -112,6 +116,7 @@ export interface AgentRequestMetadata {
   webDeepSearchTrigger?: WebSearchTrigger;
   webDeepSearchQuery?: string;
   streamingEnabled?: boolean;
+  modelPreference?: AgentModelPreference;
 }
 
 // Agent request to backend
@@ -809,6 +814,19 @@ export interface DocumentDraftOutput {
   entityId?: number | null;
 }
 
+export interface DraftArtifactData {
+  type: 'draft_v2';
+  draftType: string;
+  title: string;
+  subtitle?: string;
+  metadata?: Record<string, string>;
+  content: string;
+  linkedEntityType?: string;
+  linkedEntityId?: number;
+  generatedAt: string;
+  version: number;
+}
+
 export interface WebSearchResultItem {
   id: string;
   title: string;
@@ -922,6 +940,7 @@ export type AgentOutput =
   | ExplanationOutput
   | RiskAnalysisOutput
   | DraftOutput
+  | DraftArtifactData
   | DocumentDraftOutput
   | DocumentGenerationPreviewOutput
   | DocumentGenerationMissingFieldsOutput
@@ -1398,6 +1417,7 @@ export interface StreamCallbacks {
   /** Streaming chunk for commentary message (for real-time display) */
   onCommentaryChunk?: (chunk: string) => void;
   onDone?: (data: { timestamp: string; fullContent?: string; mutationOutcome?: { status?: string; entityType?: string; entityId?: number | string; operation?: string } | null }) => void;
+  onDraftArtifact?: (artifact: DraftArtifactData) => void;
   onMutationEvent?: (event: EntityMutationSuccessEvent) => void;
   onError?: (error: string) => void;
   onCancelled?: () => void;
@@ -1464,6 +1484,7 @@ function createAgentV2TurnId(): string {
 function inferAgentV2Mode(params: {
   followUpIntent?: FollowUpIntent;
   metadata?: AgentRequestMetadata;
+  message?: string;
 }): AgentV2Mode {
   const intent = String(params.followUpIntent?.intent || '').trim().toUpperCase();
   const requestedAction =
@@ -1476,11 +1497,18 @@ function inferAgentV2Mode(params: {
   }
 
   if (
-    /(CREATE|UPDATE|DELETE|MUTATION|LINK|ATTACH|PROPOSE|CONFIRM|EXECUTE|GENERATE_DOCUMENT|ADD_NOTE|ENRICH_FIELD)/.test(
+    /(CREATE|UPDATE|DELETE|MUTATION|LINK|ATTACH|PROPOSE|CONFIRM|EXECUTE|GENERATE_DOCUMENT|ADD_NOTE|ENRICH_FIELD|DRAFT|WRITE|LETTER)/.test(
       intent,
     )
   ) {
     return 'DRAFT';
+  }
+
+  if (params.message) {
+    const msg = params.message.trim().toLowerCase();
+    if (/\b(write|draft|compose|prepare|redige[rz]?|rédige[rz]?|prépare[rz]?|اكتب|حضّر|صغ)\b/.test(msg)) {
+      return 'DRAFT';
+    }
   }
 
   return 'READ_ONLY';
@@ -1538,7 +1566,7 @@ export function streamAgentMessage(
   const abortController = new AbortController();
   const useAgentV2Stream = true;
   const v2TurnId = createAgentV2TurnId();
-  const v2Mode = inferAgentV2Mode({ followUpIntent, metadata });
+  const v2Mode = inferAgentV2Mode({ followUpIntent, metadata, message });
 
   const request: AgentRequest & {
     dataAccess?: DataAccessPermissions;
@@ -1763,6 +1791,18 @@ export function streamAgentMessage(
                 phase: 'tool_result',
               });
               break;
+            case 'draft_artifact':
+              if (data?.artifact) {
+                console.info("[DRAFT_TRACE_FRONT_SSE_EVENT]", {
+                  event: "draft_artifact",
+                  draftType: data.artifact?.draftType,
+                  title: data.artifact?.title,
+                  version: data.artifact?.version,
+                  contentLength: String(data.artifact?.content || "").length,
+                });
+                callbacks.onDraftArtifact?.({ ...data.artifact, type: 'draft_v2' });
+              }
+              break;
             case 'pending':
               callbacks.onStatus?.({
                 action: 'Pending action requires confirmation.',
@@ -1868,6 +1908,7 @@ export function streamAgentMessage(
             case 'text_delta':
             case 'tool_start':
             case 'tool_result':
+            case 'draft_artifact':
             case 'pending':
             case 'confirmed':
             case 'disambiguation':

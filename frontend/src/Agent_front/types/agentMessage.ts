@@ -2,6 +2,7 @@ import type {
   ExplanationOutput,
   RiskAnalysisOutput,
   DraftOutput,
+  DraftArtifactData,
   ActionProposal,
   FollowUpIntent,
   CommentaryOutput,
@@ -111,10 +112,11 @@ export interface AgentMessage {
 }
 
 export interface AgentMessageData {
-  type: "explanation" | "risks" | "draft" | "document_draft" | "actions" | "clarification" | "collection" | "context_suggestion" | "proposal" | "entity_creation_form" | "document_generation_preview" | "document_generation_missing_fields" | "web_search_results" | "web_deep_search_results" | "chat_context_summary" | "recovery" | "assist_suggestions" | "error";
+  type: "explanation" | "risks" | "draft" | "draft_v2" | "document_draft" | "actions" | "clarification" | "collection" | "context_suggestion" | "proposal" | "entity_creation_form" | "document_generation_preview" | "document_generation_missing_fields" | "web_search_results" | "web_deep_search_results" | "chat_context_summary" | "recovery" | "assist_suggestions" | "error";
   explanation?: ExplanationOutput;
   risks?: RiskAnalysisOutput;
   draft?: DraftOutput;
+  draftV2?: DraftArtifactData;
   documentDraft?: DocumentDraftOutput;
   actionProposals?: ActionProposal[];
   clarification?: ClarificationOutput;

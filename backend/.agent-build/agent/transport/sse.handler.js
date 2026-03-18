@@ -25,6 +25,9 @@ function createAgentV2StreamHandler(runtime) {
                 sessionId: input.sessionId,
                 turnId: input.turnId,
                 mode: input.mode,
+                modelPreference: typeof (toRecord(input.metadata)?.modelPreference) === "string"
+                    ? String(toRecord(input.metadata).modelPreference)
+                    : undefined,
                 messagePreview: truncateForDiagnostics(input.message, 140),
             }));
             const rateLimit = evaluateRateLimit(security, req, input);
@@ -77,6 +80,17 @@ function createAgentV2StreamHandler(runtime) {
                         deliveredLiveText = true;
                         emitter.emit({ type: "text_delta", delta });
                     },
+                    onDraftArtifact: (artifact) => {
+                        console.info("[DRAFT_TRACE_SSE_EMIT_DRAFT_ARTIFACT]", safeDiagnosticJson({
+                            sessionId: input.sessionId,
+                            turnId: input.turnId,
+                            draftType: artifact?.draftType,
+                            title: artifact?.title,
+                            version: artifact?.version,
+                            contentLength: String(artifact?.content || "").length,
+                        }));
+                        emitter.emit({ type: "draft_artifact", artifact });
+                    },
                 }), uxPreflight.metadata);
             const output = applyGroundingPostprocess(runtime, input, session, loopOutput);
             runtime.sessionStore.updateSession(session);
@@ -89,6 +103,16 @@ function createAgentV2StreamHandler(runtime) {
                 pendingAction: Boolean(output.pendingAction),
                 responseLength: String(output.responseText || "").length,
             }));
+            if (input.mode === types_1.AgentMode.DRAFT) {
+                const draftToolCalls = (output.toolCalls || []).filter((call) => String(call?.toolName || "").trim() === "generateDraft").length;
+                console.info("[DRAFT_TRACE_TURN_SUMMARY]", safeDiagnosticJson({
+                    sessionId: input.sessionId,
+                    turnId: input.turnId,
+                    draftToolCalls,
+                    totalToolCalls: Array.isArray(output.toolCalls) ? output.toolCalls.length : 0,
+                    responseLength: String(output.responseText || "").length,
+                }));
+            }
             emitOutput(emitter, output, deliveredLiveText);
             const disambiguation = detectDisambiguation(uxPreflight, output, session, input);
             if (disambiguation) {
@@ -185,13 +209,13 @@ function evaluateRateLimit(security, req, input) {
 }
 function evaluateAuthScope(security, req, input) {
     if (!security || typeof security.evaluateAuthScope !== "function") {
-        if (input.mode === types_1.AgentMode.READ_ONLY) {
+        if (input.mode === types_1.AgentMode.READ_ONLY || input.mode === types_1.AgentMode.DRAFT) {
             return { allowed: true, scope: "unknown" };
         }
         return {
             allowed: false,
             scope: "unknown",
-            reason: "Missing auth context only allows READ_ONLY mode.",
+            reason: "Missing auth context only allows READ_ONLY and DRAFT modes.",
         };
     }
     const user = getRequestUser(req);

@@ -9,6 +9,7 @@ import {
   AgentVersion,
   DataAccessPermissions,
   AgentRequestMetadata,
+  AgentModelPreference,
   FollowUpSuggestion,
   FollowUpIntent,
   ExplanationOutput,
@@ -49,6 +50,7 @@ const DEFAULT_DATA_ACCESS: DataAccessPermissions = {
 
 // Storage key for persisting data access permissions
 const DATA_ACCESS_STORAGE_KEY = 'ordinay_agent_data_access';
+const MODEL_PREFERENCE_STORAGE_KEY = "ordinay_agent_model_preference";
 const HISTORY_SIDEBAR_BREAKPOINT = 1024; // lg
 const CONTEXT_SIDEBAR_BREAKPOINT = 1536; // 2xl
 const HISTORY_SIDEBAR_STORAGE_KEY = "ordinay_agent_history_sidebar";
@@ -144,6 +146,33 @@ function saveDataAccessToStorage(dataAccess: DataAccessPermissions): void {
   }
 }
 
+function loadModelPreferenceFromStorage(): AgentModelPreference {
+  try {
+    const stored = String(localStorage.getItem(MODEL_PREFERENCE_STORAGE_KEY) || "").trim();
+    if (stored === "genna3:1b") {
+      return "gemma3:1b";
+    }
+    if (
+      stored === "gpt-oss:120b-cloud" ||
+      stored === "deepseek-r1:8b" ||
+      stored === "gemma3:1b"
+    ) {
+      return stored;
+    }
+  } catch {
+    // Ignore storage errors
+  }
+  return "gpt-oss:120b-cloud";
+}
+
+function saveModelPreferenceToStorage(value: AgentModelPreference): void {
+  try {
+    localStorage.setItem(MODEL_PREFERENCE_STORAGE_KEY, value);
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 function createMessageId(prefix: "u" | "a" | "i"): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -194,6 +223,9 @@ export function useAgentState() {
   const [contextScope, setContextScope] = useState<ContextScope>("GLOBAL");
   // CRITICAL: Load data access permissions from localStorage on init
   const [dataAccess, setDataAccess] = useState<DataAccessPermissions>(loadDataAccessFromStorage);
+  const [modelPreference, setModelPreference] = useState<AgentModelPreference>(
+    loadModelPreferenceFromStorage,
+  );
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const conversationEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -309,6 +341,10 @@ export function useAgentState() {
   useEffect(() => {
     saveDataAccessToStorage(dataAccess);
   }, [dataAccess]);
+
+  useEffect(() => {
+    saveModelPreferenceToStorage(modelPreference);
+  }, [modelPreference]);
 
   // Persist sidebar visibility
   useEffect(() => {
@@ -487,6 +523,14 @@ export function useAgentState() {
       return null;
     });
   }, []);
+
+  const withModelPreference = useCallback(
+    (metadata?: AgentRequestMetadata): AgentRequestMetadata => ({
+      ...(metadata || {}),
+      modelPreference,
+    }),
+    [modelPreference],
+  );
 
   // Collapse sidebars when the viewport gets too small.
   useEffect(() => {
@@ -680,7 +724,14 @@ export function useAgentState() {
     // Start streaming
       const abortController = streamAgentMessage(
         trimmed,
-        { contextScope, agentVersion, dataAccess, metadata, sessionId, documentIds: pendingDocumentIds },
+        {
+          contextScope,
+          agentVersion,
+          dataAccess,
+          metadata: withModelPreference(metadata),
+          sessionId,
+          documentIds: pendingDocumentIds,
+        },
         {
         onStart: (data) => {
           intent = data.intent;
@@ -756,6 +807,40 @@ export function useAgentState() {
           }
           clearSessionStatus(sessionId);
         },
+        onDraftArtifact: (artifact) => {
+          if (streamSessionRef.current !== sessionId) return;
+          const draftV2 = {
+            ...artifact,
+            type: "draft_v2",
+          } as import("../../services/api/agent").DraftArtifactData;
+          agentData = { type: "draft_v2", draftV2 } as AgentMessageData;
+          console.info("[DRAFT_TRACE_STATE_ON_ARTIFACT]", {
+            sessionId,
+            agentMessageId,
+            dataType: agentData?.type,
+            hasDraftV2Field: Boolean((agentData as AgentMessageData | undefined)?.draftV2),
+            artifactTitle: artifact?.title,
+            artifactVersion: artifact?.version,
+          });
+          streamedContent = "";
+          const updatedMessage: AgentMessage = {
+            id: agentMessageId,
+            role: "agent",
+            content: "",
+            timestamp: new Date(),
+            status: "sending",
+            stage: "artifact",
+            intent,
+            data: agentData,
+            chatbotTurn: chatbotTurnState,
+          };
+          if (hasAgentMessage) {
+            updateMessage(updatedMessage);
+          } else {
+            appendMessage(updatedMessage);
+            hasAgentMessage = true;
+          }
+        },
         onResult: (data) => {
           // ========== STAGE 3: ARTIFACT ==========
           // Non-streaming structured result (for non-chat intents)
@@ -779,9 +864,21 @@ export function useAgentState() {
           // TURN COMPLETION INVARIANT: Handle chat outputs defensively
           // The backend should send chat via chunks, but if it arrives as result, handle it
           if (output.type === "chat") {
-            streamedContent = (output as import("../../services/api/agent").ChatOutput).message || "";
-            // No artifact data for chat - it's purely conversational
-            agentData = undefined;
+            const chatMessage = (output as import("../../services/api/agent").ChatOutput).message || "";
+            if (agentData) {
+              // Preserve already-emitted artifact payloads (for example draft_v2).
+              // The chat text is treated as commentary instead of replacing the artifact view.
+              if (chatMessage.trim().length > 0 && !commentary) {
+                commentary = {
+                  message: chatMessage,
+                  source: "llm",
+                  signals: [],
+                };
+              }
+              streamedContent = "";
+            } else {
+              streamedContent = chatMessage;
+            }
           } else if (output.type === "explanation") {
             const explanation = output as ExplanationOutput;
             if (Array.isArray(explanation.followUps) && explanation.followUps.length > 0) {
@@ -1077,6 +1174,7 @@ export function useAgentState() {
     setSessionStatus,
     clearSessionStatus,
     safeSetIsLoading,
+    withModelPreference,
     registerStream,
     clearStreamRegistry,
   ]);
@@ -1186,6 +1284,7 @@ export function useAgentState() {
         agentVersion,
         dataAccess,
         followUpIntent: userMessage.followUpIntent,
+        metadata: withModelPreference(),
         sessionId,
       },
         {
@@ -1259,6 +1358,40 @@ export function useAgentState() {
           }
           clearSessionStatus(sessionId);
         },
+        onDraftArtifact: (artifact) => {
+          if (streamSessionRef.current !== sessionId) return;
+          const draftV2 = {
+            ...artifact,
+            type: "draft_v2",
+          } as import("../../services/api/agent").DraftArtifactData;
+          agentData = { type: "draft_v2", draftV2 } as AgentMessageData;
+          console.info("[DRAFT_TRACE_STATE_ON_ARTIFACT]", {
+            sessionId,
+            agentMessageId,
+            dataType: agentData?.type,
+            hasDraftV2Field: Boolean((agentData as AgentMessageData | undefined)?.draftV2),
+            artifactTitle: artifact?.title,
+            artifactVersion: artifact?.version,
+          });
+          streamedContent = "";
+          const updatedMessage: AgentMessage = {
+            id: agentMessageId,
+            role: "agent",
+            content: "",
+            timestamp: new Date(),
+            status: "sending",
+            stage: "artifact",
+            intent,
+            data: agentData,
+            chatbotTurn: chatbotTurnState,
+          };
+          if (hasAgentMessage) {
+            updateMessage(updatedMessage);
+          } else {
+            appendMessage(updatedMessage);
+            hasAgentMessage = true;
+          }
+        },
         onResult: (data) => {
           // ========== STAGE 3: ARTIFACT ==========
           if (streamSessionRef.current !== sessionId) return;
@@ -1280,8 +1413,21 @@ export function useAgentState() {
 
           // TURN COMPLETION INVARIANT: Handle chat outputs defensively
           if (output.type === "chat") {
-            streamedContent = (output as import("../../services/api/agent").ChatOutput).message || "";
-            agentData = undefined;
+            const chatMessage = (output as import("../../services/api/agent").ChatOutput).message || "";
+            if (agentData) {
+              // Preserve already-emitted artifact payloads (for example draft_v2).
+              // The chat text is treated as commentary instead of replacing the artifact view.
+              if (chatMessage.trim().length > 0 && !commentary) {
+                commentary = {
+                  message: chatMessage,
+                  source: "llm",
+                  signals: [],
+                };
+              }
+              streamedContent = "";
+            } else {
+              streamedContent = chatMessage;
+            }
           } else if (output.type === "explanation") {
             const explanation = output as ExplanationOutput;
             if (Array.isArray(explanation.followUps) && explanation.followUps.length > 0) {
@@ -1574,6 +1720,7 @@ export function useAgentState() {
     clearSessionStatus,
     t,
     safeSetIsLoading,
+    withModelPreference,
     registerStream,
     clearStreamRegistry,
   ]);
@@ -1723,7 +1870,7 @@ export function useAgentState() {
         agentVersion,
         dataAccess,
         followUpIntent: opts?.followUpIntent,
-        metadata: opts?.metadata,
+        metadata: withModelPreference(opts?.metadata),
         sessionId: activeSessionId,
       },
         {
@@ -1799,6 +1946,40 @@ export function useAgentState() {
           }
           clearSessionStatus(activeSessionId);
         },
+        onDraftArtifact: (artifact) => {
+          if (streamSessionRef.current !== activeSessionId) return;
+          const draftV2 = {
+            ...artifact,
+            type: "draft_v2",
+          } as import("../../services/api/agent").DraftArtifactData;
+          agentData = { type: "draft_v2", draftV2 } as AgentMessageData;
+          console.info("[DRAFT_TRACE_STATE_ON_ARTIFACT]", {
+            sessionId: activeSessionId,
+            agentMessageId,
+            dataType: agentData?.type,
+            hasDraftV2Field: Boolean((agentData as AgentMessageData | undefined)?.draftV2),
+            artifactTitle: artifact?.title,
+            artifactVersion: artifact?.version,
+          });
+          streamedContent = "";
+          const updatedMessage: AgentMessage = {
+            id: agentMessageId,
+            role: "agent",
+            content: "",
+            timestamp: new Date(),
+            status: "sending",
+            stage: "artifact",
+            intent,
+            data: agentData,
+            chatbotTurn: chatbotTurnState,
+          };
+          if (hasAgentMessage) {
+            updateMessage(updatedMessage);
+          } else {
+            appendMessage(updatedMessage);
+            hasAgentMessage = true;
+          }
+        },
         onResult: (data) => {
           // ========== STAGE 3: ARTIFACT ==========
           if (streamSessionRef.current !== activeSessionId) return;
@@ -1819,8 +2000,21 @@ export function useAgentState() {
 
           // TURN COMPLETION INVARIANT: Handle chat outputs defensively
           if (output.type === "chat") {
-            streamedContent = (output as import("../../services/api/agent").ChatOutput).message || "";
-            agentData = undefined;
+            const chatMessage = (output as import("../../services/api/agent").ChatOutput).message || "";
+            if (agentData) {
+              // Preserve already-emitted artifact payloads (for example draft_v2).
+              // The chat text is treated as commentary instead of replacing the artifact view.
+              if (chatMessage.trim().length > 0 && !commentary) {
+                commentary = {
+                  message: chatMessage,
+                  source: "llm",
+                  signals: [],
+                };
+              }
+              streamedContent = "";
+            } else {
+              streamedContent = chatMessage;
+            }
           } else if (output.type === "explanation") {
             const explanation = output as ExplanationOutput;
             if (Array.isArray(explanation.followUps) && explanation.followUps.length > 0) {
@@ -2106,6 +2300,7 @@ export function useAgentState() {
     setSessionStatus,
     clearSessionStatus,
     safeSetIsLoading,
+    withModelPreference,
     registerStream,
     clearStreamRegistry,
   ]);
@@ -2155,6 +2350,8 @@ export function useAgentState() {
     transientStatus: activeTransientStatus,
     agentVersion,
     setAgentVersion,
+    modelPreference,
+    setModelPreference,
     contextScope,
     setContextScope,
     dataAccess,

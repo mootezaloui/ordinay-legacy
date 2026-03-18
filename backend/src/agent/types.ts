@@ -50,6 +50,18 @@ export interface AuditRecord {
   data: Record<string, unknown>;
 }
 
+export interface DraftArtifact {
+  draftType: string;
+  title: string;
+  subtitle?: string;
+  metadata?: Record<string, string>;
+  content: string;
+  linkedEntityType?: string;
+  linkedEntityId?: number;
+  generatedAt: string;
+  version: number;
+}
+
 export interface AgentTurnInput {
   sessionId: SessionID;
   turnId: string;

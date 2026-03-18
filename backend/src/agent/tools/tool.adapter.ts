@@ -98,7 +98,7 @@ function normalizeLegacyCategory(
     case "EXTERNAL":
       return ToolCategory.EXTERNAL;
     case "DRAFT":
-      return ToolCategory.WRITE;
+      return ToolCategory.DRAFT;
     case "RESEARCH":
       return ToolCategory.EXTERNAL;
     default:

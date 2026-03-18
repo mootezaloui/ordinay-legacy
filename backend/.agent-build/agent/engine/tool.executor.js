@@ -56,6 +56,9 @@ class ToolExecutor {
         if (tool.category === tools_1.ToolCategory.READ) {
             this.logReadToolCall(tool.name, args, result, Date.now() - startedAt);
         }
+        if (tool.category === tools_1.ToolCategory.DRAFT) {
+            this.logDraftToolCall(tool.name, result, Date.now() - startedAt);
+        }
         return result;
     }
     logReadToolCall(toolName, args, result, executionMs) {
@@ -73,6 +76,12 @@ class ToolExecutor {
                 args,
             }));
         }
+    }
+    logDraftToolCall(toolName, result, executionMs) {
+        const draftType = isRecord(result.data) && isRecord(result.data.artifact)
+            ? result.data.artifact.draftType
+            : "unknown";
+        console.info("[DRAFT_TOOL_CALL]", safeStringify({ tool: toolName, draftType, ok: result.ok, execution_ms: executionMs }));
     }
 }
 exports.ToolExecutor = ToolExecutor;

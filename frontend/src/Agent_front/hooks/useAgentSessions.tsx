@@ -298,17 +298,9 @@ export function AgentSessionsProvider({ children }: { children: ReactNode }) {
         const filtered = prev.filter((s) => s.id !== id);
 
         if (id === activeSessionId) {
-          if (filtered.length === 0) {
-            // Don't create a new session - let it be created when user sends first message
-            setActiveSessionId("");
-            return [];
-          }
-          // Pick nearest sibling in same folder, or any session
-          const siblings = filtered.filter(
-            (s) => s.folderId === session?.folderId,
-          );
-          const target = siblings[0] || filtered[0];
-          setActiveSessionId(target.id);
+          // Return to chatbot home/options screen after deleting active session.
+          // A new session will be created only when the user sends a message.
+          setActiveSessionId("");
         }
 
         // Renumber sessions in the affected folder

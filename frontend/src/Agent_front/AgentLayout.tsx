@@ -63,6 +63,8 @@ export function AgentLayout({
     cancelStream,
     dataAccess,
     setDataAccess,
+    modelPreference,
+    setModelPreference,
     startFollowUpIntent,
     confirmWebSearch,
     startAgentStream,
@@ -186,6 +188,9 @@ export function AgentLayout({
             showContextSidebar={showContextSidebar}
             onToggleHistory={() => setShowHistorySidebar(!showHistorySidebar)}
             onToggleContext={() => setShowContextSidebar(!showContextSidebar)}
+            modelPreference={modelPreference}
+            onModelPreferenceChange={setModelPreference}
+            isStreaming={isLoading}
           />
         </div>
 

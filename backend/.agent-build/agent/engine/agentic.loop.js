@@ -5,13 +5,10 @@ const session_1 = require("../session");
 const safety_1 = require("../safety");
 const tools_1 = require("../tools");
 const types_1 = require("../types");
-let agentDocumentsService;
-try {
-    agentDocumentsService = require("../../../src/services/agentDocuments.service");
-}
-catch (_e) {
-    agentDocumentsService = { buildAgentDocumentContext: () => null };
-}
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const _path = require("path");
+// Resolve from backend root (works from both src/ and .agent-build/)
+const agentDocumentsService = require(_path.resolve(__dirname, "..", "..", "..", "src", "services", "agentDocuments.service"));
 const READ_POLICY_INSTRUCTIONS = [
     "DATA ACCESS POLICY",
     "",
@@ -73,9 +70,71 @@ const READ_POLICY_INSTRUCTIONS = [
     "These are system-internal values and must never appear in response text, tables, structured data, or field labels.",
     "When referring to entities, use their human-readable attributes: name, title, reference code, date, or description.",
     "This rule applies to all entity types without exception.",
+    "",
+    "AMBIGUITY RESOLUTION POLICY",
+    "",
+    "When a user references an entity by name and READ tools return multiple matching records:",
+    "",
+    "- Present the top candidates (up to 5) with distinguishing attributes such as name, reference code, date, and status.",
+    "- Ask the user to specify which one they meant.",
+    "- Never silently select one entity when multiple candidates match.",
+    "",
+    "When a user reference is vague or partial (e.g. a first name, a pronoun like 'it' or 'that'):",
+    "",
+    "- Always attempt to resolve using READ tools first (search by name, list by associated client).",
+    "- Use tool results to identify candidates before asking for clarification.",
+    "- If exactly one match is found, proceed with it and state the assumption explicitly.",
+    "- If multiple matches are found, list them with distinguishing details for the user to choose.",
+    "- If no matches are found, inform the user clearly.",
+    "",
+    "DRAFTING",
+    "",
+    "You can generate draft documents, letters, emails, summaries, and other text artifacts.",
+    "When the user asks you to write, draft, compose, or prepare any text:",
+    "",
+    "CRITICAL DRAFT OUTPUT RULE:",
+    "When generating ANY letter, email, memo, report, summary, notes, or document text, you MUST call generateDraft.",
+    "NEVER write full draft content directly in assistant response text.",
+    "NEVER paste the document body in your conversational reply.",
+    "The draft body must go inside generateDraft.content.",
+    "Your assistant reply must only be a short message about the draft (example: I prepared a draft, review it below).",
+    "If draft content is written without generateDraft, that is a failure.",
+    "This applies to all generated text artifacts longer than a few sentences.",
+    "",
+    "1. FIRST gather all necessary context using READ tools:",
+    "   - Who is the client? Get their details.",
+    "   - What case/dossier is this for? Get the full picture.",
+    "   - What are the relevant facts (dates, parties, court, case number)?",
+    "",
+    "2. THEN you MUST call the generateDraft tool with:",
+    "   - draftType: the category of document",
+    "   - title: a clear title",
+    "   - metadata: client name, dossier reference, language, tone (2-4 fields)",
+    "   - content: the complete text of the draft",
+    "   - linkedEntityType/Id: what entity this relates to",
+    "",
+    "3. After calling generateDraft, briefly tell the user you have prepared the draft and invite them to review, edit, or regenerate it. Do NOT repeat the draft content in your message.",
+    "",
+    "DRAFT CONTENT RULES:",
+    "- Write in the same language the user is using (French, Arabic, or English).",
+    "- Use appropriate legal register and terminology for the jurisdiction.",
+    "- Include all relevant factual details from the case data you retrieved.",
+    "- For letters: include proper headers, date, recipient, salutation, body, closing.",
+    "- For summaries: organize by sections with clear headings.",
+    "- NEVER invent facts. Only include information retrieved from READ tools.",
+    "- Use [placeholder] brackets for information you don't have (e.g., [Nom de l'avocat]).",
+    "",
+    "DRAFT SUGGESTIONS:",
+    "After answering a query or analyzing a case, consider suggesting a draft if it would be helpful:",
+    "- Upcoming deadline with no filing: suggest drafting the submission.",
+    "- Overdue item: suggest a follow-up letter.",
+    "- Case review: suggest a status summary for the client.",
+    "- New hearing scheduled: suggest hearing preparation notes.",
+    "Say: \"Would you like me to draft [specific thing]?\" — do not auto-generate.",
 ].join("\n");
 const DATABASE_ENTITY_QUERY_PATTERN = /\b(client|clients|dossier|dossiers|case|cases|task|tasks|document|documents|workload|lawsuit|lawsuits|session|sessions|financial|history|deadline|deadlines|notification|notifications)\b/i;
 const WORKLOAD_OR_CASES_QUERY_PATTERN = /\b(work\s*-?\s*load|workload|cases?|matters?)\b/i;
+const DRAFT_TOOL_ENFORCEMENT_MIN_TEXT_LENGTH = 500;
 class AgenticLoop {
     llm;
     registry;
@@ -244,6 +303,8 @@ class AgenticLoop {
         let invalidToolCallRecoveryAttempts = 0;
         let emptyFinalizationRecoveryAttempts = 0;
         let coverageRecoveryAttempts = 0;
+        let draftToolEnforcementAttempts = 0;
+        let savedDraftCandidateText = "";
         while (!responseText) {
             iteration += 1;
             stats.iterations = iteration;
@@ -251,8 +312,15 @@ class AgenticLoop {
             const response = await this.loopGuard.wrapTimeout(this.generateAssistantResponse({
                 messages,
                 tools: llmTools,
-                metadata: { sessionId: input.sessionId, turnId: input.turnId, iteration },
-            }, streamCallbacks), () => {
+                metadata: {
+                    sessionId: input.sessionId,
+                    turnId: input.turnId,
+                    iteration,
+                    modelPreference: isRecord(input.metadata) && typeof input.metadata.modelPreference === "string"
+                        ? input.metadata.modelPreference
+                        : undefined,
+                },
+            }, streamCallbacks, input.mode === "DRAFT"), () => {
                 console.warn("[AGENT_LOOP_TIMEOUT]", {
                     sessionId: input.sessionId,
                     turnId: input.turnId,
@@ -261,10 +329,38 @@ class AgenticLoop {
                     messagePreview: input.message.slice(0, 200),
                 });
             });
-            messages.push({ role: "assistant", content: response.text ?? "" });
+            if (input.mode === "DRAFT") {
+                console.info("[DRAFT_TRACE_LOOP_ITERATION]", this.safeJsonStringify({
+                    sessionId: input.sessionId,
+                    turnId: input.turnId,
+                    iteration,
+                    toolCalls: response.toolCalls.map((tc) => tc.name),
+                    responseTextLength: String(response.text || "").trim().length,
+                }));
+            }
+            const assistantMsg = { role: "assistant", content: response.text ?? "" };
+            if (response.toolCalls.length > 0) {
+                assistantMsg.tool_calls = response.toolCalls.map((tc) => ({
+                    id: tc.id,
+                    type: "function",
+                    function: { name: tc.name, arguments: JSON.stringify(tc.arguments) },
+                }));
+            }
+            messages.push(assistantMsg);
             if (response.toolCalls.length === 0) {
                 const candidateText = (response.text ?? "").trim();
                 if (candidateText) {
+                    if (input.mode === "DRAFT") {
+                        const hasDraftToolCallSoFar = toolCalls.some((call) => String(call?.toolName || "").trim() === "generateDraft");
+                        console.warn("[DRAFT_TRACE_FINAL_TEXT_WITHOUT_TOOL_CALL]", this.safeJsonStringify({
+                            sessionId: input.sessionId,
+                            turnId: input.turnId,
+                            iteration,
+                            candidateLength: candidateText.length,
+                            hasDraftToolCallSoFar,
+                            preview: this.truncate(candidateText, 240),
+                        }));
+                    }
                     const coverage = this.analyzeEntityCoverageForWorkloadQuery(input.mode, input.message, toolCalls);
                     if (coverage.hasGap && coverageRecoveryAttempts < 2) {
                         coverageRecoveryAttempts += 1;
@@ -291,6 +387,28 @@ class AgenticLoop {
                         messages.push({
                             role: "system",
                             content: this.buildFinalizationRecoveryInstruction(input.message),
+                        });
+                        continue;
+                    }
+                    if (this.shouldEnforceDraftToolCall({
+                        input,
+                        candidateText,
+                        toolCalls,
+                        attempts: draftToolEnforcementAttempts,
+                        sessionHasCurrentDraft: Boolean(session.currentDraft),
+                    })) {
+                        draftToolEnforcementAttempts += 1;
+                        savedDraftCandidateText = candidateText;
+                        console.warn("[DRAFT_TRACE_ENFORCE_TOOLCALL]", this.safeJsonStringify({
+                            sessionId: input.sessionId,
+                            turnId: input.turnId,
+                            iteration,
+                            attempts: draftToolEnforcementAttempts,
+                            candidateLength: candidateText.length,
+                        }));
+                        messages.push({
+                            role: "system",
+                            content: this.buildDraftToolEnforcementInstruction(input.message, candidateText),
                         });
                         continue;
                     }
@@ -340,6 +458,18 @@ class AgenticLoop {
                     toolCallsSoFar: stats.toolCalls,
                 });
                 if (candidateText && !rejectCandidateText) {
+                    if (input.mode === "DRAFT") {
+                        const hasDraftToolCallSoFar = toolCalls.some((call) => String(call?.toolName || "").trim() === "generateDraft");
+                        console.warn("[DRAFT_TRACE_FINAL_TEXT_AFTER_INVALID_TOOL_CALLS]", this.safeJsonStringify({
+                            sessionId: input.sessionId,
+                            turnId: input.turnId,
+                            iteration,
+                            invalidToolCalls: invalidToolCalls.map((call) => call?.name || "unknown"),
+                            candidateLength: candidateText.length,
+                            hasDraftToolCallSoFar,
+                            preview: this.truncate(candidateText, 240),
+                        }));
+                    }
                     const coverage = this.analyzeEntityCoverageForWorkloadQuery(input.mode, input.message, toolCalls);
                     if (coverage.hasGap && coverageRecoveryAttempts < 2) {
                         coverageRecoveryAttempts += 1;
@@ -356,6 +486,29 @@ class AgenticLoop {
                         messages.push({
                             role: "system",
                             content: this.buildCoverageRecoveryInstruction(input.message, coverage.missingTools),
+                        });
+                        continue;
+                    }
+                    if (this.shouldEnforceDraftToolCall({
+                        input,
+                        candidateText,
+                        toolCalls,
+                        attempts: draftToolEnforcementAttempts,
+                        sessionHasCurrentDraft: Boolean(session.currentDraft),
+                    })) {
+                        draftToolEnforcementAttempts += 1;
+                        savedDraftCandidateText = candidateText;
+                        console.warn("[DRAFT_TRACE_ENFORCE_TOOLCALL]", this.safeJsonStringify({
+                            sessionId: input.sessionId,
+                            turnId: input.turnId,
+                            iteration,
+                            attempts: draftToolEnforcementAttempts,
+                            candidateLength: candidateText.length,
+                            path: "after_invalid_tool_calls",
+                        }));
+                        messages.push({
+                            role: "system",
+                            content: this.buildDraftToolEnforcementInstruction(input.message, candidateText),
                         });
                         continue;
                     }
@@ -376,6 +529,9 @@ class AgenticLoop {
                 }
                 continue;
             }
+            if (validToolCalls.some((toolCall) => toolCall.name === "generateDraft")) {
+                savedDraftCandidateText = "";
+            }
             const processed = await this.processToolCalls(validToolCalls, {
                 input,
                 session,
@@ -386,6 +542,7 @@ class AgenticLoop {
                 warnings,
                 stats,
                 readCounters,
+                streamCallbacks,
             });
             if (processed.stopForConfirmation) {
                 responseText = processed.confirmationMessage ?? "I prepared a pending action.";
@@ -394,6 +551,18 @@ class AgenticLoop {
                 }
             }
         }
+        responseText = this.maybeSynthesizeDraftArtifactFromInlineText({
+            input,
+            session,
+            turnType,
+            responseText,
+            savedDraftCandidateText,
+            draftToolEnforcementAttempts,
+            toolCalls,
+            audit,
+            stats,
+            streamCallbacks,
+        });
         this.logNoToolReadWarningIfNeeded(input.message, toolCalls.length, readCounters);
         this.appendTurn(session, "assistant", responseText, turnType);
         this.pushAudit(audit, input, "assistant_response", {
@@ -451,6 +620,15 @@ class AgenticLoop {
             const decision = this.permissionGate.evaluate(context.session.mode, tool);
             const boundaryFailure = this.validatePermissionBoundary(context.input, context.session, tool.category, decision, toolName);
             if (boundaryFailure) {
+                console.warn("[DRAFT_TRACE_TOOL_DENIED]", this.safeJsonStringify({
+                    sessionId: context.input.sessionId,
+                    turnId: context.input.turnId,
+                    toolName,
+                    category: tool.category,
+                    stage: "security_boundary",
+                    errorCode: boundaryFailure.errorCode,
+                    reason: boundaryFailure.errorMessage,
+                }));
                 const record = this.createToolRecord(toolName, args, this.createExecutionContext(context.input, context.session), boundaryFailure);
                 record.id = callId;
                 context.toolCalls.push(record);
@@ -473,6 +651,15 @@ class AgenticLoop {
                     errorCode: "TOOL_PERMISSION_DENIED",
                     errorMessage: decision.reason ?? "Tool is not allowed.",
                 };
+                console.warn("[DRAFT_TRACE_TOOL_DENIED]", this.safeJsonStringify({
+                    sessionId: context.input.sessionId,
+                    turnId: context.input.turnId,
+                    toolName,
+                    category: tool.category,
+                    stage: "permission_gate",
+                    errorCode: result.errorCode,
+                    reason: result.errorMessage,
+                }));
                 const record = this.createToolRecord(toolName, args, this.createExecutionContext(context.input, context.session), result);
                 record.id = callId;
                 context.toolCalls.push(record);
@@ -536,19 +723,34 @@ class AgenticLoop {
             if (tool.category === tools_1.ToolCategory.READ) {
                 this.trackReadToolResult(result, context.readCounters);
             }
+            if (tool.category === tools_1.ToolCategory.DRAFT && result.ok) {
+                this.handleDraftToolResult(result, context);
+            }
             if (result.ok) {
                 this.trackToolEntities(context.session, result, toolName, context.input.turnId);
             }
             const record = this.createToolRecord(toolName, args, executionContext, result);
             record.id = callId;
             context.toolCalls.push(record);
+            // For DRAFT tools, return a minimal confirmation to the LLM instead of the
+            // full artifact content (which causes the LLM to loop and regenerate).
+            const toolMessageContent = (tool.category === tools_1.ToolCategory.DRAFT && result.ok)
+                ? JSON.stringify({
+                    tool: toolName,
+                    result: {
+                        ok: true,
+                        status: "draft_delivered",
+                        message: "Draft artifact has been delivered to the user. Do NOT call generateDraft again. Respond with a brief message about the draft.",
+                    },
+                })
+                : this.serializeToolMessage(toolName, result);
             context.messages.push({
                 role: "tool",
                 name: toolName,
                 toolCallId: callId,
-                content: this.serializeToolMessage(toolName, result),
+                content: toolMessageContent,
             });
-            this.appendTurn(context.session, "tool", this.serializeToolMessage(toolName, result), context.turnType, [record]);
+            this.appendTurn(context.session, "tool", toolMessageContent, context.turnType, [record]);
             this.pushAudit(context.audit, context.input, "tool_call_processed", {
                 toolName,
                 ok: result.ok,
@@ -557,7 +759,220 @@ class AgenticLoop {
         }
         return { stopForConfirmation: false };
     }
-    async generateAssistantResponse(params, streamCallbacks) {
+    handleDraftToolResult(result, context) {
+        const data = result.data;
+        const artifact = data?.artifact;
+        if (!artifact || typeof artifact.content !== "string") {
+            return;
+        }
+        this.publishDraftArtifact(artifact, {
+            input: context.input,
+            session: context.session,
+            streamCallbacks: context.streamCallbacks,
+        });
+    }
+    shouldEnforceDraftToolCall(params) {
+        if (params.attempts >= 1) {
+            return false;
+        }
+        if (params.input.mode !== "DRAFT") {
+            return false;
+        }
+        if (!this.isDraftTurnLikely(params.input.message, params.sessionHasCurrentDraft)) {
+            return false;
+        }
+        if (this.hasGenerateDraftToolCall(params.toolCalls)) {
+            return false;
+        }
+        if (!this.isDraftArtifactSizedResponse(params.candidateText)) {
+            return false;
+        }
+        return true;
+    }
+    hasGenerateDraftToolCall(toolCalls) {
+        return toolCalls.some((call) => String(call?.toolName || "").trim() === "generateDraft");
+    }
+    isDraftingIntent(message) {
+        const value = String(message || "");
+        return /\b(write|draft|compose|prepare|letter|email|summary|redige|rédige|prépare|اكتب|صغ)\b/i.test(value);
+    }
+    isDraftTurnLikely(message, sessionHasCurrentDraft) {
+        return sessionHasCurrentDraft || this.isDraftingIntent(message);
+    }
+    isDraftArtifactSizedResponse(text) {
+        const value = String(text || "").trim();
+        return value.length >= DRAFT_TOOL_ENFORCEMENT_MIN_TEXT_LENGTH;
+    }
+    buildDraftToolEnforcementInstruction(userMessage, candidateText) {
+        return [
+            "DRAFT TOOL ENFORCEMENT",
+            "You wrote draft content directly in assistant text, which is not allowed.",
+            "You MUST call generateDraft now.",
+            "Place the full draft text in generateDraft.content.",
+            "After the tool call, write only a short conversational message.",
+            "Use this exact draft text as content:",
+            "---BEGIN_DRAFT_TEXT---",
+            candidateText,
+            "---END_DRAFT_TEXT---",
+            `Original user request: ${userMessage}`,
+        ].join("\n");
+    }
+    maybeSynthesizeDraftArtifactFromInlineText(params) {
+        const fallbackContent = this.selectFallbackDraftContent(params);
+        if (!fallbackContent) {
+            return params.responseText;
+        }
+        const artifact = this.buildFallbackDraftArtifact(params.input.message, fallbackContent);
+        this.publishDraftArtifact(artifact, {
+            input: params.input,
+            session: params.session,
+            streamCallbacks: params.streamCallbacks,
+        });
+        const result = {
+            ok: true,
+            data: { artifact },
+            metadata: {
+                category: "DRAFT",
+                draftType: artifact.draftType,
+                fallbackInlineSynthesis: true,
+            },
+        };
+        const args = {
+            draftType: artifact.draftType,
+            title: artifact.title,
+            subtitle: artifact.subtitle,
+            metadata: artifact.metadata,
+            content: artifact.content,
+            linkedEntityType: artifact.linkedEntityType,
+            linkedEntityId: artifact.linkedEntityId,
+        };
+        const record = this.createToolRecord("generateDraft", args, this.createExecutionContext(params.input, params.session), result, { synthetic: true, fallbackInlineSynthesis: true });
+        params.toolCalls.push(record);
+        params.stats.toolCalls += 1;
+        const toolMessageContent = JSON.stringify({
+            tool: "generateDraft",
+            result: {
+                ok: true,
+                status: "draft_delivered",
+                message: "Draft artifact was synthesized from inline assistant text after missing generateDraft tool call.",
+            },
+        });
+        this.appendTurn(params.session, "tool", toolMessageContent, params.turnType, [record]);
+        console.warn("[DRAFT_TRACE_FALLBACK_ARTIFACT_SYNTHESIZED]", this.safeJsonStringify({
+            sessionId: params.input.sessionId,
+            turnId: params.input.turnId,
+            contentLength: fallbackContent.length,
+            enforcementAttempts: params.draftToolEnforcementAttempts,
+        }));
+        this.pushAudit(params.audit, params.input, "draft_fallback_artifact_synthesized", {
+            contentLength: fallbackContent.length,
+            enforcementAttempts: params.draftToolEnforcementAttempts,
+        });
+        return "I've prepared a draft for you. Review it below and tell me what to change.";
+    }
+    selectFallbackDraftContent(params) {
+        if (params.input.mode !== "DRAFT") {
+            return null;
+        }
+        if (this.hasGenerateDraftToolCall(params.toolCalls)) {
+            return null;
+        }
+        if (params.draftToolEnforcementAttempts < 1) {
+            return null;
+        }
+        if (!this.isDraftTurnLikely(params.input.message, Boolean(params.session.currentDraft))) {
+            return null;
+        }
+        const responseText = String(params.responseText || "").trim();
+        if (this.isDraftArtifactSizedResponse(responseText)) {
+            return responseText;
+        }
+        const savedCandidate = String(params.savedDraftCandidateText || "").trim();
+        if (this.isDraftArtifactSizedResponse(savedCandidate)) {
+            return savedCandidate;
+        }
+        return null;
+    }
+    buildFallbackDraftArtifact(userMessage, content) {
+        const draftType = this.inferFallbackDraftType(userMessage);
+        const metadata = {
+            source: "inline_fallback",
+        };
+        const language = this.detectLanguageHint(`${userMessage}\n${content}`);
+        if (language) {
+            metadata.language = language;
+        }
+        return {
+            draftType,
+            title: this.inferFallbackDraftTitle(userMessage, draftType),
+            subtitle: undefined,
+            metadata,
+            content,
+            linkedEntityType: undefined,
+            linkedEntityId: undefined,
+            generatedAt: new Date().toISOString(),
+            version: 1,
+        };
+    }
+    inferFallbackDraftType(message) {
+        const value = String(message || "");
+        if (/\b(email|mail)\b/i.test(value)) {
+            return "email";
+        }
+        if (/\b(summary|summarize|synth[eè]se|résumé)\b/i.test(value)) {
+            return "summary";
+        }
+        if (/\b(letter|judge|court|tribunal|hearing)\b/i.test(value)) {
+            return "court_letter";
+        }
+        return "other";
+    }
+    inferFallbackDraftTitle(message, draftType) {
+        const normalized = String(message || "").replace(/\s+/g, " ").trim();
+        if (normalized.length >= 12) {
+            return this.truncate(normalized, 80);
+        }
+        if (draftType === "court_letter") {
+            return "Court Letter Draft";
+        }
+        if (draftType === "email") {
+            return "Email Draft";
+        }
+        if (draftType === "summary") {
+            return "Summary Draft";
+        }
+        return "Generated Draft";
+    }
+    detectLanguageHint(value) {
+        const text = String(value || "");
+        if (/[\u0600-\u06FF]/.test(text)) {
+            return "ar";
+        }
+        if (/[àâçéèêëîïôûùüÿœ]/i.test(text) || /\b(le|la|de|des|pour|avec|tribunal)\b/i.test(text)) {
+            return "fr";
+        }
+        return "en";
+    }
+    publishDraftArtifact(artifact, params) {
+        const existing = params.session.currentDraft;
+        const nextVersion = existing ? (existing.version ?? 0) + 1 : 1;
+        artifact.version = nextVersion;
+        if (!artifact.generatedAt) {
+            artifact.generatedAt = new Date().toISOString();
+        }
+        params.session.currentDraft = artifact;
+        console.info("[DRAFT_TRACE_ARTIFACT_READY]", this.safeJsonStringify({
+            sessionId: params.input.sessionId,
+            turnId: params.input.turnId,
+            draftType: artifact.draftType,
+            title: artifact.title,
+            version: artifact.version,
+            contentLength: String(artifact.content || "").length,
+            callbackPresent: typeof params.streamCallbacks?.onDraftArtifact === "function",
+        }));
+        params.streamCallbacks?.onDraftArtifact?.(artifact);
+    }
+    async generateAssistantResponse(params, streamCallbacks, suppressTextDelta = false) {
         const textParts = [];
         const toolCallsById = new Map();
         let chunkIndex = 0;
@@ -568,7 +983,9 @@ class AgenticLoop {
                 streamed = true;
                 if (typeof chunk.deltaText === "string" && chunk.deltaText.length > 0) {
                     textParts.push(chunk.deltaText);
-                    streamCallbacks?.onTextDelta?.(chunk.deltaText);
+                    if (!suppressTextDelta) {
+                        streamCallbacks?.onTextDelta?.(chunk.deltaText);
+                    }
                 }
                 if (chunk.toolCall) {
                     const raw = chunk.toolCall;
@@ -647,6 +1064,20 @@ class AgenticLoop {
                     "There is a pending action awaiting confirmation.",
                     JSON.stringify(context.pendingAction, null, 2),
                     "User requested an amendment. Update the same tool proposal with revised args.",
+                ].join("\n"),
+            });
+        }
+        if (session.currentDraft) {
+            messages.push({
+                role: "system",
+                content: [
+                    "CURRENT DRAFT IN SESSION (version " + session.currentDraft.version + "):",
+                    "Type: " + session.currentDraft.draftType,
+                    "Title: " + session.currentDraft.title,
+                    "Content:",
+                    session.currentDraft.content,
+                    "",
+                    "If the user asks to regenerate or modify this draft, call generateDraft with the updated content.",
                 ].join("\n"),
             });
         }
@@ -778,8 +1209,8 @@ class AgenticLoop {
                 }
             }
         }
-        catch (_docErr) {
-            // Non-critical: continue without document context
+        catch (docErr) {
+            // Non-critical: if document loading fails, continue without document context
         }
         messages.push({ role: "user", content: input.message });
         return messages;

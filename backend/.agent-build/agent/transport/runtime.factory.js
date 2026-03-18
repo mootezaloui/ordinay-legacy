@@ -40,7 +40,7 @@ function createAgentV2Runtime() {
     const classifier = new engine_1.TurnClassifier();
     const pending = new engine_1.PendingManager();
     const registry = new tools_1.ToolRegistry();
-    (0, tools_1.bootstrapTools)(registry, loadWave1ReadTools());
+    (0, tools_1.bootstrapTools)(registry, [...loadWave1ReadTools(), ...loadDraftTools()]);
     const loop = new engine_1.AgenticLoop(llmProvider, registry, executor, classifier, pending, permissionGate, loopGuard, repository, memory);
     const runtime = {
         sessionStore,
@@ -94,6 +94,20 @@ function loadWave1ReadTools() {
     return listedRaw
         .filter((tool) => isV2SafeTool(tool))
         .map((tool) => (0, tools_1.adaptLegacyTool)(tool));
+}
+function loadDraftTools() {
+    try {
+        const draftModule = require("../tools/draft");
+        if (typeof draftModule.getDraftTools === "function") {
+            return draftModule.getDraftTools();
+        }
+        return [];
+    }
+    catch (error) {
+        const message = error instanceof Error ? error.message : String(error || "unknown error");
+        console.warn(`[agent.tools.draft] Draft tools unavailable: ${message}`);
+        return [];
+    }
 }
 function loadPersistenceRepository() {
     const persistence = loadOptionalAgentModule("persistence", "persistence");

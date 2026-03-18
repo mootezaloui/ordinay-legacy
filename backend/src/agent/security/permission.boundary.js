@@ -2,17 +2,19 @@
 
 const MODE_ALLOWED_CATEGORIES = {
   READ_ONLY: new Set(["READ", "EXTERNAL"]),
-  DRAFT: new Set(["READ", "EXTERNAL", "PLAN", "WRITE"]),
-  EXECUTE: new Set(["READ", "EXTERNAL", "PLAN", "WRITE", "EXECUTE"]),
-  AUTONOMOUS: new Set(["READ", "EXTERNAL", "PLAN", "WRITE", "EXECUTE"]),
+  DRAFT: new Set(["READ", "EXTERNAL", "PLAN", "WRITE", "DRAFT"]),
+  EXECUTE: new Set(["READ", "EXTERNAL", "PLAN", "WRITE", "DRAFT", "EXECUTE"]),
+  AUTONOMOUS: new Set(["READ", "EXTERNAL", "PLAN", "WRITE", "DRAFT", "EXECUTE"]),
 };
 
 const SCOPE_ALLOWED_CATEGORIES = {
-  unknown: new Set(["READ", "EXTERNAL"]),
+  // Unknown scope is allowed for READ_ONLY and DRAFT pre-auth flows.
+  // Keep EXECUTE blocked by mode/auth checks, but allow DRAFT-phase tools.
+  unknown: new Set(["READ", "EXTERNAL", "PLAN", "WRITE", "DRAFT"]),
   read: new Set(["READ", "EXTERNAL"]),
-  draft: new Set(["READ", "EXTERNAL", "PLAN", "WRITE"]),
-  execute: new Set(["READ", "EXTERNAL", "PLAN", "WRITE", "EXECUTE"]),
-  admin: new Set(["READ", "EXTERNAL", "PLAN", "WRITE", "EXECUTE"]),
+  draft: new Set(["READ", "EXTERNAL", "PLAN", "WRITE", "DRAFT"]),
+  execute: new Set(["READ", "EXTERNAL", "PLAN", "WRITE", "DRAFT", "EXECUTE"]),
+  admin: new Set(["READ", "EXTERNAL", "PLAN", "WRITE", "DRAFT", "EXECUTE"]),
 };
 
 function validatePermissionBoundary({ mode, authScope, toolCategory, permissionDecision } = {}) {
@@ -73,7 +75,7 @@ function normalizeMode(value) {
 
 function normalizeCategory(value) {
   const category = String(value || "").trim().toUpperCase();
-  return ["READ", "WRITE", "PLAN", "EXECUTE", "EXTERNAL"].includes(category)
+  return ["READ", "WRITE", "DRAFT", "PLAN", "EXECUTE", "EXTERNAL"].includes(category)
     ? category
     : null;
 }
@@ -90,4 +92,3 @@ function isRecord(value) {
 module.exports = {
   validatePermissionBoundary,
 };
-

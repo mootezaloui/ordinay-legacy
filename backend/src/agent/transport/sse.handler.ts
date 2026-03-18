@@ -83,6 +83,10 @@ export function createAgentV2StreamHandler(runtime: AgentV2Runtime) {
           sessionId: input.sessionId,
           turnId: input.turnId,
           mode: input.mode,
+          modelPreference:
+            typeof (toRecord(input.metadata)?.modelPreference) === "string"
+              ? String((toRecord(input.metadata) as Record<string, unknown>).modelPreference)
+              : undefined,
           messagePreview: truncateForDiagnostics(input.message, 140),
         }),
       );
@@ -143,6 +147,20 @@ export function createAgentV2StreamHandler(runtime: AgentV2Runtime) {
                 deliveredLiveText = true;
                 emitter.emit({ type: "text_delta", delta });
               },
+              onDraftArtifact: (artifact) => {
+                console.info(
+                  "[DRAFT_TRACE_SSE_EMIT_DRAFT_ARTIFACT]",
+                  safeDiagnosticJson({
+                    sessionId: input.sessionId,
+                    turnId: input.turnId,
+                    draftType: artifact?.draftType,
+                    title: artifact?.title,
+                    version: artifact?.version,
+                    contentLength: String(artifact?.content || "").length,
+                  }),
+                );
+                emitter.emit({ type: "draft_artifact", artifact });
+              },
             }),
             uxPreflight.metadata,
           );
@@ -160,6 +178,21 @@ export function createAgentV2StreamHandler(runtime: AgentV2Runtime) {
           responseLength: String(output.responseText || "").length,
         }),
       );
+      if (input.mode === AgentMode.DRAFT) {
+        const draftToolCalls = (output.toolCalls || []).filter(
+          (call) => String(call?.toolName || "").trim() === "generateDraft",
+        ).length;
+        console.info(
+          "[DRAFT_TRACE_TURN_SUMMARY]",
+          safeDiagnosticJson({
+            sessionId: input.sessionId,
+            turnId: input.turnId,
+            draftToolCalls,
+            totalToolCalls: Array.isArray(output.toolCalls) ? output.toolCalls.length : 0,
+            responseLength: String(output.responseText || "").length,
+          }),
+        );
+      }
 
       emitOutput(emitter, output, deliveredLiveText);
 
@@ -285,13 +318,13 @@ function evaluateAuthScope(
   input: AgentTurnInput,
 ): AuthScopeDecision {
   if (!security || typeof security.evaluateAuthScope !== "function") {
-    if (input.mode === AgentMode.READ_ONLY) {
+    if (input.mode === AgentMode.READ_ONLY || input.mode === AgentMode.DRAFT) {
       return { allowed: true, scope: "unknown" };
     }
     return {
       allowed: false,
       scope: "unknown",
-      reason: "Missing auth context only allows READ_ONLY mode.",
+      reason: "Missing auth context only allows READ_ONLY and DRAFT modes.",
     };
   }
 

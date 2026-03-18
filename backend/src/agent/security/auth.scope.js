@@ -31,7 +31,7 @@ function evaluateAuthScope({ user, mode, requestedAction } = {}) {
   const isMissingAuthContext = scope === "unknown";
 
   if (isMissingAuthContext) {
-    if (normalizedMode === "READ_ONLY") {
+    if (normalizedMode === "READ_ONLY" || normalizedMode === "DRAFT") {
       return {
         allowed: true,
         scope,
@@ -39,7 +39,7 @@ function evaluateAuthScope({ user, mode, requestedAction } = {}) {
     }
     return {
       allowed: false,
-      reason: "Missing auth context only allows READ_ONLY mode.",
+      reason: "Missing auth context only allows READ_ONLY and DRAFT modes.",
       scope,
     };
   }

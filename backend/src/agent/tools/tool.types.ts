@@ -3,6 +3,7 @@ import type { AgentMode, SessionID } from "../types";
 export enum ToolCategory {
   READ = "READ",
   WRITE = "WRITE",
+  DRAFT = "DRAFT",
   PLAN = "PLAN",
   EXECUTE = "EXECUTE",
   EXTERNAL = "EXTERNAL",

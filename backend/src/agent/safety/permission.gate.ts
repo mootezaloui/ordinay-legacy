@@ -45,6 +45,7 @@ export class PermissionGate {
 
     if (
       tool.category === ToolCategory.READ ||
+      tool.category === ToolCategory.DRAFT ||
       tool.category === ToolCategory.EXTERNAL ||
       tool.category === ToolCategory.PLAN
     ) {

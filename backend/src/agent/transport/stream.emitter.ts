@@ -1,9 +1,11 @@
 import { ENABLE_COMPAT_EVENTS } from "../config";
+import type { DraftArtifact } from "../types";
 
 export type StreamEvent =
   | { type: "text_delta"; delta: string }
   | { type: "tool_start"; toolName: string }
   | { type: "tool_result"; toolName: string; ok: boolean }
+  | { type: "draft_artifact"; artifact: DraftArtifact }
   | { type: "pending"; actionSummary: string }
   | { type: "confirmed"; actionSummary: string; ok: boolean }
   | { type: "disambiguation"; payload: Record<string, unknown> }
@@ -104,6 +106,9 @@ export class StreamEmitter {
     }
     if ("message" in event) {
       base.message = event.message;
+    }
+    if ("artifact" in event) {
+      base.artifact = event.artifact;
     }
     if ("payload" in event) {
       base.payload = event.payload;
