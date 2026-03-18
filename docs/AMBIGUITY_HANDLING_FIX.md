@@ -68,36 +68,36 @@ This means ambiguity handling short-circuited before the loop/tool phase, so the
 
 ### Phase 1: Core Behavior Fix (Required Before New Features)
 
-- [ ] `P1-01` Update V2 UX preflight to avoid ambiguity short-circuit in `READ_ONLY` when no pending action exists.
-- [ ] `P1-02` Preserve strict clarification blocking for high-risk ambiguous states in `DRAFT` / `EXECUTE` / `AUTONOMOUS`.
-- [ ] `P1-03` Ensure loop executes and READ tools can run for ambiguous read requests like “Leila dossier”.
-- [ ] `P1-04` Replace generic unclear-reference fallback phrasing with actionable clarification copy in V2.
-- [ ] `P1-05` Update V2 system/context instructions so ambiguity is resolved from tool results (not raw message text only).
+- [x] `P1-01` Update V2 UX preflight to avoid ambiguity short-circuit in `READ_ONLY` when no pending action exists.
+- [x] `P1-02` Preserve strict clarification blocking for high-risk ambiguous states in `DRAFT` / `EXECUTE` / `AUTONOMOUS`.
+- [x] `P1-03` Ensure loop executes and READ tools can run for ambiguous read requests like “Leila dossier”.
+- [x] `P1-04` Replace generic unclear-reference fallback phrasing with actionable clarification copy in V2.
+- [x] `P1-05` Update V2 system/context instructions so ambiguity is resolved from tool results (not raw message text only).
 
 ### Phase 2: Structured Disambiguation UX (Clickable Choices)
 
-- [ ] `P2-01` Add a V2 stream event path for structured disambiguation payloads (or equivalent compatible event strategy).
-- [ ] `P2-02` Update frontend stream parser to handle the new disambiguation event without falling to recovery/default error flow.
-- [ ] `P2-03` Map disambiguation payload to existing `context_suggestion` rendering path.
-- [ ] `P2-04` Ensure list supports:
+- [x] `P2-01` Add a V2 stream event path for structured disambiguation payloads (or equivalent compatible event strategy).
+- [x] `P2-02` Update frontend stream parser to handle the new disambiguation event without falling to recovery/default error flow.
+- [x] `P2-03` Map disambiguation payload to existing `context_suggestion` rendering path.
+- [x] `P2-04` Ensure list supports:
   - top relevant matches (cap to 5),
   - distinguishing attributes,
   - manual/free-text fallback hint.
-- [ ] `P2-05` Ensure user selection round-trips as follow-up intent (`RESOLVE_CONTEXT_AND_CONTINUE`) with stable scope data.
+- [x] `P2-05` Ensure user selection round-trips as follow-up intent (`RESOLVE_CONTEXT_AND_CONTINUE`) with stable scope data.
 
 ### Phase 3: Regression and Safety Tests
 
-- [ ] `P3-01` Add regression test: ambiguous read query must produce tool calls (`toolCallsCount > 0`) before clarification.
-- [ ] `P3-02` Add regression test: read ambiguity with multiple matches returns structured options (or equivalent response contract).
-- [ ] `P3-03` Add regression test: mutating ambiguity still blocks safely and asks clarification before write/execute.
-- [ ] `P3-04` Add stream parser test for disambiguation event handling (no unexpected recovery fallback).
-- [ ] `P3-05` Run and pass full Agent V2 scenario suite with updated ambiguity expectations.
+- [x] `P3-01` Add regression test: ambiguous read query must produce tool calls (`toolCallsCount > 0`) before clarification.
+- [x] `P3-02` Add regression test: read ambiguity with multiple matches returns structured options (or equivalent response contract).
+- [x] `P3-03` Add regression test: mutating ambiguity still blocks safely and asks clarification before write/execute.
+- [x] `P3-04` Add stream parser test for disambiguation event handling (no unexpected recovery fallback).
+- [x] `P3-05` Run and pass full Agent V2 scenario suite with updated ambiguity expectations.
 
 ### Phase 4: Cleanup and Migration Guardrails
 
-- [ ] `P4-01` Verify no new imports/references to `agent_Back` are introduced.
-- [ ] `P4-02` Remove/adjust obsolete ambiguity scenario assumptions that depended on pre-loop blocking in read mode.
-- [ ] `P4-03` Document final behavior in V2 docs with examples for: 1 match, 2-5 matches, >5 matches, 0 matches.
+- [x] `P4-01` Verify no new imports/references to `agent_Back` are introduced.
+- [x] `P4-02` Remove/adjust obsolete ambiguity scenario assumptions that depended on pre-loop blocking in read mode.
+- [x] `P4-03` Document final behavior in V2 docs with examples for: 1 match, 2-5 matches, >5 matches, 0 matches.
 
 ---
 
@@ -116,3 +116,65 @@ This means ambiguity handling short-circuited before the loop/tool phase, so the
 - Any fix in `agent_Back`.
 - Reintroducing old resolver/classifier/posture architecture.
 - Silent auto-selection of ambiguous legal entities in high-risk operations.
+
+---
+
+## Final Behavior Reference
+
+### By Mode
+
+| Mode | Ambiguity Detected | Behavior |
+|------|-------------------|----------|
+| `READ_ONLY` | Yes | UX preflight returns `handled: false` with `proceed_with_ambiguity`. Loop runs, READ tools execute, entity tracker populates `session.activeEntities`. Post-loop disambiguation event emitted if multiple same-type entities found. |
+| `DRAFT` / `EXECUTE` / `AUTONOMOUS` | Yes | UX preflight returns `handled: true` with `action: “ask”`. Loop does NOT run. Clarification text returned directly. No disambiguation event. |
+
+### By Match Count (READ_ONLY)
+
+**0 matches** — READ tools return empty results. LLM informs user no matching entities were found. No disambiguation event emitted.
+
+Example: “Show me the Martinez dossier” → tools find no client or dossier matching “Martinez” → agent responds: “I could not find any dossier matching 'Martinez'. Could you provide more details?”
+
+**1 match** — READ tools return exactly one entity. LLM proceeds with that entity and states the assumption explicitly. No disambiguation event emitted (requires ≥ 2 same-type entities).
+
+Example: “Show me Leila dossier” → tools find 1 client with 1 dossier → agent proceeds: “I found Leila Ben Youssef's dossier D-2026-101 (Land dispute)...”
+
+**2–5 matches** — READ tools return multiple entities. Entity tracker records them in `session.activeEntities`. Post-loop `detectDisambiguation` groups entities by type, finds the type with most matches, and emits a `disambiguation` SSE event with `context_suggestion` payload.
+
+Example: “Show me Leila dossier” → tools find 2 dossiers → disambiguation event:
+```json
+{
+  “type”: “context_suggestion”,
+  “suggestions”: [
+    { “label”: “Land dispute”, “subtitle”: “D-2026-101”, “metadata”: { “status”: “open” } },
+    { “label”: “Contract review”, “subtitle”: “D-2026-102”, “metadata”: { “status”: “open” } }
+  ],
+  “allowManualInput”: true,
+  “manualInputHint”: “Or provide more details to narrow your search.”
+}
+```
+
+Frontend renders clickable `ContextSuggestionRenderer`. User selection sends `RESOLVE_CONTEXT_AND_CONTINUE` intent.
+
+**>5 matches** — Same as 2–5, but suggestions are capped to the first 5 candidates (`MAX_DISAMBIGUATION_CANDIDATES = 5`). The `allowManualInput` hint allows users to refine manually if their target is not in the top 5.
+
+### SSE Event Sequence
+
+```
+text_delta (streamed LLM response)
+tool_start / tool_result (for each tool call)
+disambiguation (if ≥ 2 same-type entities found, READ_ONLY + proceed_with_ambiguity)
+done
+```
+
+### Key Implementation Files
+
+| File | Role |
+|------|------|
+| `agent/ux/index.js` | READ_ONLY bypass in `evaluatePreLoop` — returns `proceed_with_ambiguity` instead of blocking |
+| `agent/transport/sse.handler.ts` | `detectDisambiguation()` — post-loop entity grouping and `context_suggestion` payload construction |
+| `agent/transport/stream.emitter.ts` | `disambiguation` event type in `StreamEvent` union |
+| `agent/engine/agentic.loop.ts` | `AMBIGUITY RESOLUTION POLICY` in system prompt; entity tracking via `trackToolEntities` |
+| `agent/memory/entity.tracker.js` | Extracts entities from tool results into `session.activeEntities` |
+| `agent/ux/clarification.builder.js` | Updated fallback phrasing for `unclear_reference` |
+| `frontend/src/services/api/agent.ts` | `disambiguation` case in `dispatchEvent` → routes to `onResult` with `DISAMBIGUATION` intent |
+| `frontend/src/Agent_front/components/artifacts/ContextSuggestionRenderer.tsx` | Renders clickable suggestion rows |

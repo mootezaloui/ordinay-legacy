@@ -6,6 +6,7 @@ export type StreamEvent =
   | { type: "tool_result"; toolName: string; ok: boolean }
   | { type: "pending"; actionSummary: string }
   | { type: "confirmed"; actionSummary: string; ok: boolean }
+  | { type: "disambiguation"; payload: Record<string, unknown> }
   | { type: "done" }
   | { type: "error"; message: string };
 
@@ -103,6 +104,9 @@ export class StreamEmitter {
     }
     if ("message" in event) {
       base.message = event.message;
+    }
+    if ("payload" in event) {
+      base.payload = event.payload;
     }
     return base;
   }

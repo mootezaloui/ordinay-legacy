@@ -162,6 +162,12 @@ export function createAgentV2StreamHandler(runtime: AgentV2Runtime) {
       );
 
       emitOutput(emitter, output, deliveredLiveText);
+
+      const disambiguation = detectDisambiguation(uxPreflight, output, session, input);
+      if (disambiguation) {
+        emitter.emit({ type: "disambiguation", payload: disambiguation });
+      }
+
       emitter.emit({ type: "done" });
       emitter.close();
     } catch (error) {
@@ -939,4 +945,105 @@ function safeDiagnosticJson(value: unknown): string {
   } catch {
     return JSON.stringify({ error: "Unable to serialize diagnostic payload." });
   }
+}
+
+const MAX_DISAMBIGUATION_CANDIDATES = 5;
+
+function detectDisambiguation(
+  uxPreflight: UxPreflightResult,
+  output: AgentTurnOutput,
+  session: Session,
+  input: AgentTurnInput,
+): Record<string, unknown> | null {
+  const uxDecision = toRecord(uxPreflight.metadata?.uxDecision);
+  if (!uxDecision || uxDecision.action !== "proceed_with_ambiguity") {
+    return null;
+  }
+
+  const toolCallCount = Array.isArray(output.toolCalls) ? output.toolCalls.length : 0;
+  if (toolCallCount === 0) {
+    return null;
+  }
+
+  const entities = Array.isArray(session.activeEntities) ? session.activeEntities : [];
+  if (entities.length < 2) {
+    return null;
+  }
+
+  const byType = new Map<string, Array<Record<string, unknown>>>();
+  for (const entity of entities) {
+    const type = String(entity?.type || "").trim().toLowerCase();
+    if (!type) {
+      continue;
+    }
+    const list = byType.get(type) || [];
+    list.push(entity as unknown as Record<string, unknown>);
+    byType.set(type, list);
+  }
+
+  let disambiguationType = "";
+  let disambiguationEntities: Array<Record<string, unknown>> = [];
+  for (const [type, typeEntities] of byType) {
+    if (typeEntities.length > 1 && typeEntities.length > disambiguationEntities.length) {
+      disambiguationType = type;
+      disambiguationEntities = typeEntities;
+    }
+  }
+
+  if (disambiguationEntities.length < 2) {
+    return null;
+  }
+
+  const capped = disambiguationEntities.slice(0, MAX_DISAMBIGUATION_CANDIDATES);
+  const entityTypePlural =
+    disambiguationType.endsWith("s") ? disambiguationType : `${disambiguationType}s`;
+
+  return {
+    type: "context_suggestion",
+    message: `I found ${disambiguationEntities.length} ${entityTypePlural}. Which one did you mean?`,
+    entityType: disambiguationType,
+    reason: "multiple_matches",
+    originalMessage: input.message,
+    suggestions: capped.map((entity, index) => {
+      const entityId = entity.id ?? entity[`${disambiguationType}_id`] ?? index;
+      const label =
+        asString(entity.label) ||
+        asString(entity.name) ||
+        asString(entity.title) ||
+        asString(entity.reference) ||
+        `${disambiguationType} ${entityId}`;
+
+      const scope: Record<string, unknown> = {};
+      scope[`${disambiguationType}Id`] = entityId;
+      if (entity.client_id || entity.clientId) {
+        scope.clientId = entity.client_id ?? entity.clientId;
+      }
+
+      const metadata: Record<string, unknown> = {};
+      if (entity.status) {
+        metadata.status = String(entity.status);
+      }
+      if (entity.reference) {
+        metadata.reference = String(entity.reference);
+      }
+      if (entity.sourceTool) {
+        metadata.source = String(entity.sourceTool);
+      }
+
+      return {
+        id: `disamb_${index}_${String(entityId)}`,
+        entityType: disambiguationType,
+        entityId,
+        label,
+        subtitle: asString(entity.reference) || null,
+        metadata,
+        intent: "RESOLVE_CONTEXT_AND_CONTINUE",
+        scope,
+      };
+    }),
+    timestamp: new Date().toISOString(),
+    confidence: 0.7,
+    allowManualInput: true,
+    manualInputHint: "Or provide more details to narrow your search.",
+  };
 }

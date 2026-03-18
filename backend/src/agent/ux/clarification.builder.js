@@ -1,14 +1,30 @@
 "use strict";
 
-const DEFAULT_DETAIL_OPTIONS = ["email", "phone", "address", "status", "date", "amount"];
+const DEFAULT_DETAIL_OPTIONS = [
+  "email",
+  "phone",
+  "address",
+  "status",
+  "date",
+  "amount",
+];
 
-function buildClarificationResponse({ ambiguityResult, candidates, session } = {}) {
+function buildClarificationResponse({
+  ambiguityResult,
+  candidates,
+  session,
+} = {}) {
   const ambiguity = normalizeAmbiguityResult(ambiguityResult);
   const resolvedCandidates = normalizeCandidates(
-    Array.isArray(candidates) && candidates.length > 0 ? candidates : ambiguity.candidates,
+    Array.isArray(candidates) && candidates.length > 0
+      ? candidates
+      : ambiguity.candidates,
   );
 
-  if (ambiguity.kind === "multiple_candidates" && resolvedCandidates.length > 0) {
+  if (
+    ambiguity.kind === "multiple_candidates" &&
+    resolvedCandidates.length > 0
+  ) {
     return buildChoicesPrompt(resolvedCandidates);
   }
 
@@ -17,7 +33,7 @@ function buildClarificationResponse({ ambiguityResult, candidates, session } = {
     if (recentType) {
       return `Please identify the target ${recentType} before I continue the requested action.`;
     }
-    return "Please specify the exact target (ID or label) before I continue this action.";
+    return "Please specify the exact target before I continue this action.";
   }
 
   if (ambiguity.kind === "missing_action_detail") {
@@ -28,7 +44,7 @@ function buildClarificationResponse({ ambiguityResult, candidates, session } = {
   }
 
   if (ambiguity.kind === "unclear_reference") {
-    return "Your reference is ambiguous. Name the exact item (ID or label) so I can continue safely.";
+    return "I could not resolve your reference to a specific entity. Please provide the exact name or more details so I can proceed safely.";
   }
 
   return "Please provide the missing legal workflow details so I can proceed precisely.";
@@ -36,8 +52,11 @@ function buildClarificationResponse({ ambiguityResult, candidates, session } = {
 
 function buildChoicesPrompt(candidates) {
   const limited = candidates.slice(0, 5);
-  const entityType = normalizeOptionalString(limited[0] && limited[0].type) || "item";
-  const options = limited.map((candidate) => formatCandidate(candidate)).filter(Boolean);
+  const entityType =
+    normalizeOptionalString(limited[0] && limited[0].type) || "item";
+  const options = limited
+    .map((candidate) => formatCandidate(candidate))
+    .filter(Boolean);
   const plural = pluralize(entityType);
 
   if (options.length === 0) {
@@ -64,20 +83,24 @@ function formatCandidate(candidate) {
 }
 
 function inferRecentEntityType(session) {
-  const entities = Array.isArray(session && session.activeEntities) ? session.activeEntities : [];
+  const entities = Array.isArray(session && session.activeEntities)
+    ? session.activeEntities
+    : [];
   if (entities.length === 0) {
     return "";
   }
-  const latest = entities
-    .slice()
-    .sort((left, right) => {
-      const leftTime = Date.parse(String(left && left.lastMentionedAt ? left.lastMentionedAt : ""));
-      const rightTime = Date.parse(String(right && right.lastMentionedAt ? right.lastMentionedAt : ""));
-      if (Number.isFinite(rightTime) && Number.isFinite(leftTime)) {
-        return rightTime - leftTime;
-      }
-      return 0;
-    })[0];
+  const latest = entities.slice().sort((left, right) => {
+    const leftTime = Date.parse(
+      String(left && left.lastMentionedAt ? left.lastMentionedAt : ""),
+    );
+    const rightTime = Date.parse(
+      String(right && right.lastMentionedAt ? right.lastMentionedAt : ""),
+    );
+    if (Number.isFinite(rightTime) && Number.isFinite(leftTime)) {
+      return rightTime - leftTime;
+    }
+    return 0;
+  })[0];
 
   return normalizeOptionalString(latest && latest.type);
 }

@@ -134,7 +134,7 @@ const FIXTURES = Object.freeze({
 
   ambiguity_clarification: {
     id: "ambiguity_clarification",
-    description: "UX preflight asks clarification and bypasses loop/tool execution.",
+    description: "UX preflight handled=true blocks loop execution and returns clarification directly.",
     target: "sse_handler",
     input: buildInput("fx_ambiguity", "READ_ONLY", "Update the dossier"),
     setup(runtime, context) {

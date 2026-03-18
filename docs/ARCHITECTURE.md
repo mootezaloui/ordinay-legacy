@@ -60,8 +60,8 @@ Key relationships:
 - A Client has many Dossiers
 - A Dossier has many Lawsuits, Tasks, Missions, Sessions, Documents
 - A Lawsuit has many Sessions, Tasks, Missions, Documents
-- Tasks, Missions, Sessions can link to either Dossier OR Lawsuit (via foreign key)
-- Documents can link to Dossier, Lawsuit, Task, Mission, or Session
+- Tasks, Missions, Sessions should link to either Dossier OR Lawsuit (via foreign key)
+- Documents can link to Dossier, Lawsuit, Task, Mission, Session, etc
 
 ## 3. Agent Pipeline — Detailed
 

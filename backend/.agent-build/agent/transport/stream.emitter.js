@@ -71,6 +71,9 @@ class StreamEmitter {
         if ("message" in event) {
             base.message = event.message;
         }
+        if ("payload" in event) {
+            base.payload = event.payload;
+        }
         return base;
     }
     safeJson(value) {

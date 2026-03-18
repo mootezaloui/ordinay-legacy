@@ -1775,6 +1775,15 @@ export function streamAgentMessage(
                 phase: 'confirmed',
               });
               break;
+            case 'disambiguation':
+              hasResultEnvelope = true;
+              callbacks.onResult?.({
+                output: data?.payload || data,
+                intent: 'DISAMBIGUATION',
+                visibility: 'visible',
+                interactionMode: 'operational',
+              });
+              break;
             case 'done':
               hasDoneEnvelope = true;
               // Legacy chatbot mode (/agent/chat) can terminate with start -> chunk -> done
@@ -1833,7 +1842,7 @@ export function streamAgentMessage(
                 toolName: 'unknown',
                 ok: lower === 'true' || lower === 'ok' || lower === '1',
               };
-            } else if (currentEvent === 'pending' || currentEvent === 'confirmed') {
+            } else if (currentEvent === 'pending' || currentEvent === 'confirmed' || currentEvent === 'disambiguation') {
               data = {};
             } else {
               throw new Error(`Non-JSON payload for event "${currentEvent}"`);
@@ -1861,6 +1870,7 @@ export function streamAgentMessage(
             case 'tool_result':
             case 'pending':
             case 'confirmed':
+            case 'disambiguation':
             case 'done':
             case 'error':
               if (dispatchEvent(currentEvent, data)) {

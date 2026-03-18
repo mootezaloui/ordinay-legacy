@@ -108,6 +108,22 @@ const READ_POLICY_INSTRUCTIONS = [
   "These are system-internal values and must never appear in response text, tables, structured data, or field labels.",
   "When referring to entities, use their human-readable attributes: name, title, reference code, date, or description.",
   "This rule applies to all entity types without exception.",
+  "",
+  "AMBIGUITY RESOLUTION POLICY",
+  "",
+  "When a user references an entity by name and READ tools return multiple matching records:",
+  "",
+  "- Present the top candidates (up to 5) with distinguishing attributes such as name, reference code, date, and status.",
+  "- Ask the user to specify which one they meant.",
+  "- Never silently select one entity when multiple candidates match.",
+  "",
+  "When a user reference is vague or partial (e.g. a first name, a pronoun like 'it' or 'that'):",
+  "",
+  "- Always attempt to resolve using READ tools first (search by name, list by associated client).",
+  "- Use tool results to identify candidates before asking for clarification.",
+  "- If exactly one match is found, proceed with it and state the assumption explicitly.",
+  "- If multiple matches are found, list them with distinguishing details for the user to choose.",
+  "- If no matches are found, inform the user clearly.",
 ].join("\n");
 
 const DATABASE_ENTITY_QUERY_PATTERN =

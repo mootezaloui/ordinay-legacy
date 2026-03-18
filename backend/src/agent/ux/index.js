@@ -88,6 +88,32 @@ function evaluatePreLoop({
   });
 
   if (clarificationDecision.action === "ask" || clarificationDecision.action === "offer_choices") {
+    // In READ_ONLY mode, defer ambiguity resolution to tool-first grounding
+    const normalizedMode = String(input.mode || "").trim().toUpperCase();
+    if (normalizedMode === "READ_ONLY") {
+      const posture = selectResponsePosture({
+        ambiguityResult,
+        workflowOpportunity: null,
+        turnType: "NEW",
+        mode: input.mode,
+        researchMode: false,
+      });
+      return {
+        handled: false,
+        action: "proceed",
+        metadata: {
+          uxDecision: {
+            action: "proceed_with_ambiguity",
+            posture,
+            ambiguityKind: ambiguityResult.kind,
+            ambiguityConfidence: ambiguityResult.confidence,
+            workflowType: "none",
+            reason: "READ_ONLY ambiguity deferred to tool-first grounding.",
+          },
+        },
+      };
+    }
+
     const responseText = buildClarificationResponse({
       ambiguityResult,
       candidates: ambiguityResult.candidates,
