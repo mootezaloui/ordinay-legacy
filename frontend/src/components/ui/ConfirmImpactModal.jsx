@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from "react-i18next";
 import useBodyScrollLock from "../../hooks/useBodyScrollLock";
 
@@ -89,13 +90,21 @@ export default function ConfirmImpactModal({
     return line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-stretch md:items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 pt-[var(--titlebar-height)] md:pt-[calc(var(--titlebar-height)+16px)]"
+      className="fixed inset-0 z-[9999] flex items-stretch md:items-center justify-center p-0 md:p-4 pt-[var(--titlebar-height)] md:pt-[calc(var(--titlebar-height)+16px)] animate-in fade-in duration-300"
       onClick={onClose}
+      style={{
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+      }}
     >
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-900/50 via-slate-800/40 to-slate-900/50 dark:from-black/60 dark:via-slate-900/50 dark:to-black/60" />
       <div
-        className="relative bg-white dark:bg-slate-800 rounded-none md:rounded-lg shadow-2xl w-full h-full md:h-auto md:max-w-2xl md:max-h-[85vh] overflow-hidden flex flex-col mx-0 md:mx-4"
+        className="relative bg-white dark:bg-slate-800 rounded-none md:rounded-2xl shadow-2xl w-full h-full md:h-auto md:max-w-2xl md:max-h-[85vh] overflow-hidden flex flex-col animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 mx-0 md:mx-4"
+        style={{
+          boxShadow: '0 0 0 1px rgba(148, 163, 184, 0.1), 0 24px 48px -12px rgba(0, 0, 0, 0.25), 0 12px 24px -8px rgba(0, 0, 0, 0.15)',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -196,7 +205,7 @@ export default function ConfirmImpactModal({
             </button>
             <button
               onClick={onConfirm}
-              className="w-full sm:w-auto px-4 py-2 bg-amber-600 hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-600 text-white rounded-lg transition-colors font-medium"
+              className="w-full sm:w-auto px-4 py-2 bg-amber-600 hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-600 text-white rounded-lg transition-colors font-medium shadow-lg shadow-amber-500/25"
             >
               <i className="fas fa-check mr-2"></i>
               {t("dialog.impact.warning.confirm", { ns: "common" })}
@@ -204,6 +213,7 @@ export default function ConfirmImpactModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -532,6 +532,15 @@ export function useAgentState() {
     [modelPreference],
   );
 
+  const withRequestTrace = useCallback(
+    (metadata: AgentRequestMetadata | undefined, requestSource: string): AgentRequestMetadata => ({
+      ...(metadata || {}),
+      requestSource,
+      requestTriggerId: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    }),
+    [],
+  );
+
   // Collapse sidebars when the viewport gets too small.
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -728,7 +737,7 @@ export function useAgentState() {
           contextScope,
           agentVersion,
           dataAccess,
-          metadata: withModelPreference(metadata),
+          metadata: withModelPreference(withRequestTrace(metadata, "handle_submit")),
           sessionId,
           documentIds: pendingDocumentIds,
         },
@@ -1175,6 +1184,7 @@ export function useAgentState() {
     clearSessionStatus,
     safeSetIsLoading,
     withModelPreference,
+    withRequestTrace,
     registerStream,
     clearStreamRegistry,
   ]);
@@ -1284,7 +1294,7 @@ export function useAgentState() {
         agentVersion,
         dataAccess,
         followUpIntent: userMessage.followUpIntent,
-        metadata: withModelPreference(),
+        metadata: withModelPreference(withRequestTrace(undefined, "follow_up_intent")),
         sessionId,
       },
         {
@@ -1721,6 +1731,7 @@ export function useAgentState() {
     t,
     safeSetIsLoading,
     withModelPreference,
+    withRequestTrace,
     registerStream,
     clearStreamRegistry,
   ]);
@@ -1870,7 +1881,12 @@ export function useAgentState() {
         agentVersion,
         dataAccess,
         followUpIntent: opts?.followUpIntent,
-        metadata: withModelPreference(opts?.metadata),
+        metadata: withModelPreference(
+          withRequestTrace(
+            opts?.metadata,
+            opts?.retryOf || opts?.replaceMessageId ? "retry_or_regenerate" : "start_agent_stream",
+          ),
+        ),
         sessionId: activeSessionId,
       },
         {
@@ -1953,9 +1969,10 @@ export function useAgentState() {
             type: "draft_v2",
           } as import("../../services/api/agent").DraftArtifactData;
           agentData = { type: "draft_v2", draftV2 } as AgentMessageData;
+          const targetId = opts?.replaceMessageId || agentMessageId;
           console.info("[DRAFT_TRACE_STATE_ON_ARTIFACT]", {
             sessionId: activeSessionId,
-            agentMessageId,
+            agentMessageId: targetId,
             dataType: agentData?.type,
             hasDraftV2Field: Boolean((agentData as AgentMessageData | undefined)?.draftV2),
             artifactTitle: artifact?.title,
@@ -1963,7 +1980,7 @@ export function useAgentState() {
           });
           streamedContent = "";
           const updatedMessage: AgentMessage = {
-            id: agentMessageId,
+            id: targetId,
             role: "agent",
             content: "",
             timestamp: new Date(),
@@ -1972,6 +1989,7 @@ export function useAgentState() {
             intent,
             data: agentData,
             chatbotTurn: chatbotTurnState,
+            retryOf: opts?.retryOf,
           };
           if (hasAgentMessage) {
             updateMessage(updatedMessage);
@@ -2301,6 +2319,7 @@ export function useAgentState() {
     clearSessionStatus,
     safeSetIsLoading,
     withModelPreference,
+    withRequestTrace,
     registerStream,
     clearStreamRegistry,
   ]);

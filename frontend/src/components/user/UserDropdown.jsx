@@ -118,9 +118,11 @@ export default function UserDropdown({ isOpen, onToggle, onClose }) {
                         <div className="my-2 border-t border-slate-200/70 dark:border-slate-700/60"></div>
                     )}
                     <button
-                        onClick={() => {
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
                             if (item.action) {
-                                item.action();
+                                item.action(e);
                             } else if (item.path) {
                                 handleNavigation(item.path);
                             }

@@ -127,7 +127,7 @@ interface AgentWorkflowProps {
   onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
   onExampleClick?: (example: string) => void;
   onConfirmWebSearch?: (metadata: AgentRequestMetadata) => void;
-  onSubmitMessage?: (message: string) => void;
+  onSubmitMessage?: (message: string, metadata?: AgentRequestMetadata) => void;
 }
 
 /**
@@ -1197,7 +1197,7 @@ function MinimalChatbotTurn(props: {
   onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
   onExampleClick?: (example: string) => void;
   onConfirmWebSearch?: (metadata: AgentRequestMetadata) => void;
-  onSubmitMessage?: (message: string) => void;
+  onSubmitMessage?: (message: string, metadata?: AgentRequestMetadata) => void;
   activeSessionId?: string;
   activeSessionMessages?: AgentMessage[];
   updateSessionMessages?: (id: string, messages: AgentMessage[]) => void;
@@ -1294,7 +1294,7 @@ function ArtifactBody({
   onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
   onExampleClick?: (example: string) => void;
   onConfirmWebSearch?: (metadata: AgentRequestMetadata) => void;
-  onSubmitMessage?: (message: string) => void;
+  onSubmitMessage?: (message: string, metadata?: AgentRequestMetadata) => void;
   activeSessionId?: string;
   activeSessionMessages?: AgentMessage[];
   updateSessionMessages?: (id: string, messages: AgentMessage[]) => void;
@@ -1414,8 +1414,22 @@ function ArtifactBody({
       <DraftArtifact
         data={message.data.draft}
         isStreaming={message.status === "sending"}
-        onSave={(sections) => {
+        onSave={(next) => {
           if (!activeSessionId || !activeSessionMessages) return;
+          const findFirstText = (roles: string[]) =>
+            next.sections.find(
+              (section) => roles.includes(String(section.role || "").toLowerCase()) &&
+                String(section.text || "").trim().length > 0,
+            )?.text || "";
+          const collectBody = next.sections
+            .filter((section) =>
+              ["body", "list_item", "quote", "note", "highlight"].includes(
+                String(section.role || "").toLowerCase(),
+              ),
+            )
+            .map((section) => String(section.text || "").trim())
+            .filter(Boolean)
+            .join("\n\n");
           const updatedMessages = activeSessionMessages.map((msg) => {
             if (msg.id !== message.id) return msg;
             if (msg.data?.type !== "draft" || !msg.data?.draft) return msg;
@@ -1427,11 +1441,15 @@ function ArtifactBody({
                   ...msg.data.draft,
                   sections: {
                     ...msg.data.draft.sections,
-                    subject: sections.subject,
-                    greeting: sections.greeting,
-                    body: sections.body,
-                    closing: sections.closing,
-                    signature: sections.signature,
+                    subject: String(findFirstText(["subject", "heading"]) || msg.data.draft.sections?.subject || ""),
+                    greeting: String(findFirstText(["salutation"]) || msg.data.draft.sections?.greeting || ""),
+                    body: String(collectBody || msg.data.draft.sections?.body || ""),
+                    closing: String(findFirstText(["closing"]) || msg.data.draft.sections?.closing || ""),
+                    signature: String(
+                      findFirstText(["signature_name", "signature_title", "signature_detail"]) ||
+                        msg.data.draft.sections?.signature ||
+                        "",
+                    ),
                   },
                 },
               },
@@ -1457,10 +1475,13 @@ function ArtifactBody({
       <DraftArtifact
         data={message.data.draftV2}
         isStreaming={message.status === "sending"}
-        onRegenerate={(instructions, _currentContent) => {
-          onSubmitMessage?.(`Revise the draft: ${instructions}`);
+        onRegenerate={(instructions, snapshot) => {
+          onSubmitMessage?.(`Revise the draft: ${instructions}`, {
+            regenerateDraft: true,
+            draftSnapshot: snapshot,
+          });
         }}
-        onSave={(sections) => {
+        onSave={(next) => {
           if (!activeSessionId || !activeSessionMessages) return;
           const updatedMessages = activeSessionMessages.map((msg) => {
             if (msg.id !== message.id) return msg;
@@ -1471,9 +1492,9 @@ function ArtifactBody({
                 ...msg.data,
                 draftV2: {
                   ...msg.data.draftV2,
-                  content: [sections.subject, sections.greeting, sections.body, sections.closing, sections.signature]
-                    .filter((l) => l && l.trim())
-                    .join("\n\n"),
+                  sections: next.sections,
+                  layout: next.layout,
+                  content: next.content,
                 },
               },
             };

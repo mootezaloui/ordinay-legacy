@@ -18,7 +18,7 @@ interface AgentConversationProps {
   onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
   onExampleClick?: (example: string) => void;
   onConfirmWebSearch?: (metadata: AgentRequestMetadata) => void;
-  onSubmitMessage?: (message: string) => void;
+  onSubmitMessage?: (message: string, metadata?: AgentRequestMetadata) => void;
 }
 
 /**

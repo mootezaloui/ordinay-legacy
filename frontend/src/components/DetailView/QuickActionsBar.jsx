@@ -250,7 +250,15 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
                                 ) : showSuccess ? (
                                     <i className="fas fa-check text-green-600 dark:text-green-400"></i>
                                 ) : (
-                                    <i className={`fas fa-chevron-down text-[10px] opacity-60 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}></i>
+                                    <span 
+                                        style={{ 
+                                            transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+                                            transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+                                        }}
+                                        className="inline-flex items-center justify-center"
+                                    >
+                                        <i className="fas fa-chevron-down text-[10px] opacity-60"></i>
+                                    </span>
                                 )}
                             </div>
                         </button>
@@ -265,30 +273,32 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
                                 />
 
                                 {/* Options */}
-                                <div className="absolute top-full left-0 mt-1.5 w-full min-w-[200px] bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 z-50 p-1 max-h-60 overflow-y-auto">
-                                    {options.map((option) => (
-                                        <button
-                                            key={option.value}
-                                            onClick={() => handleChange(option.value)}
-                                            className={`
-                        w-full px-3 py-2 text-left text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors
-                        flex items-center gap-2
-                        ${option.value === value ? 'bg-blue-50 dark:bg-blue-900/20' : ''}
-                      `}
-                                        >
-                                            {action.colorMap && option.color ? (
-                                                <span className={`flex items-center gap-2 flex-1 ${option.color.split(' ').filter(c => c.startsWith('text-') || c.startsWith('dark:text-')).join(' ')}`}>
-                                                    <span className="w-2 h-2 rounded-full flex-shrink-0 bg-current" />
-                                                    <span className="text-sm font-medium">{option.label}</span>
-                                                </span>
-                                            ) : (
-                                                <span className="flex-1">{option.label}</span>
-                                            )}
-                                            {option.value === value && (
-                                                <i className="fas fa-check text-blue-600 dark:text-blue-400 text-xs"></i>
-                                            )}
-                                        </button>
-                                    ))}
+                                <div className="absolute top-full left-0 mt-1.5 w-full min-w-[200px] bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 z-50 overflow-hidden animate-liquid-reveal-down">
+                                    <div className="p-1 max-h-60 overflow-y-auto animate-liquid-content">
+                                        {options.map((option) => (
+                                            <button
+                                                key={option.value}
+                                                onClick={() => handleChange(option.value)}
+                                                className={`
+                            w-full px-3 py-2 text-left text-sm rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors
+                            flex items-center gap-2
+                            ${option.value === value ? 'bg-blue-50 dark:bg-blue-900/20' : ''}
+                          `}
+                                            >
+                                                {action.colorMap && option.color ? (
+                                                    <span className={`flex items-center gap-2 flex-1 ${option.color.split(' ').filter(c => c.startsWith('text-') || c.startsWith('dark:text-')).join(' ')}`}>
+                                                        <span className="w-2 h-2 rounded-full flex-shrink-0 bg-current" />
+                                                        <span className="text-sm font-medium">{option.label}</span>
+                                                    </span>
+                                                ) : (
+                                                    <span className="flex-1 text-slate-700 dark:text-slate-200">{option.label}</span>
+                                                )}
+                                                {option.value === value && (
+                                                    <i className="fas fa-check text-blue-600 dark:text-blue-400 text-xs"></i>
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             </>
                         )}

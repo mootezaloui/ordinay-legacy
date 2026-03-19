@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useToast } from "../../contexts/ToastContext";
 import { useConfirm } from "../../contexts/ConfirmContext";
@@ -103,6 +103,7 @@ export default function DetailView({ entityType }) {
   currentStepRef.current = tutorial?.currentStep;
   setWaitingForActionRef.current = tutorial?.setWaitingForAction;
 
+
   useEffect(() => {
     // When notification opens after creation, advance to the notification step
     // and hide the overlay until the user chooses send or ignore.
@@ -139,6 +140,7 @@ export default function DetailView({ entityType }) {
   const tabFromState = location.state?.tab;
   const defaultTab = tabFromUrl || tabFromState || config.tabs?.[0]?.id || "overview";
   const [activeTab, setActiveTab] = useState(defaultTab);
+  const [prevTabIndex, setPrevTabIndex] = useState(config.tabs.findIndex(t => t.id === defaultTab));
   const [data, setData] = useState(null);
   const [originalData, setOriginalData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -162,13 +164,23 @@ export default function DetailView({ entityType }) {
     latestContextRef.current = contextData;
   }, [contextData]);
 
-  // ✅ Sync activeTab with URL parameter
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab');
     if (tabFromUrl && tabFromUrl !== activeTab) {
+      const newIndex = config.tabs.findIndex(t => t.id === tabFromUrl);
+      const oldIndex = config.tabs.findIndex(t => t.id === activeTab);
+      setPrevTabIndex(oldIndex);
       setActiveTab(tabFromUrl);
     }
   }, [searchParams]);
+
+  const handleTabChange = (nextTabId) => {
+    const nextIndex = config.tabs.findIndex(t => t.id === nextTabId);
+    const oldIndex = config.tabs.findIndex(t => t.id === activeTab);
+    setPrevTabIndex(oldIndex);
+    setActiveTab(nextTabId);
+    setSearchParams({ tab: nextTabId }, { replace: true });
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -211,6 +223,55 @@ export default function DetailView({ entityType }) {
       isMounted = false;
     };
   }, [id, entityType]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Tabs Animation Logic
+  const navContainerRef = useRef(null);
+  const itemsRef = useRef({});
+  const indicatorRef = useRef(null);
+  const lastIndicatorX = useRef(0);
+  const lastIndicatorW = useRef(0);
+
+  const updateIndicator = useCallback(() => {
+    if (!navContainerRef.current || !indicatorRef.current) return;
+
+    const activeBtn = itemsRef.current[activeTab];
+    if (!activeBtn) return;
+
+    const containerRect = navContainerRef.current.getBoundingClientRect();
+    const btnRect = activeBtn.getBoundingClientRect();
+
+    const x = btnRect.left - containerRect.left;
+    const w = btnRect.width;
+
+    indicatorRef.current.animate(
+      [
+        { 
+          transform: `translateX(${lastIndicatorX.current}px)`, 
+          width: `${lastIndicatorW.current}px`,
+          opacity: lastIndicatorW.current === 0 ? 0 : 1 
+        },
+        { 
+          transform: `translateX(${x}px)`, 
+          width: `${w}px`,
+          opacity: 1 
+        },
+      ],
+      {
+        duration: 350,
+        easing: "cubic-bezier(0.34, 1.56, 0.64, 1)",
+        fill: "forwards",
+      }
+    );
+
+    lastIndicatorX.current = x;
+    lastIndicatorW.current = w;
+  }, [activeTab]);
+
+  useEffect(() => {
+    updateIndicator();
+    window.addEventListener('resize', updateIndicator);
+    return () => window.removeEventListener('resize', updateIndicator);
+  }, [updateIndicator]);
 
   // Show pending notification once data is loaded to avoid pre-navigation flicker
   useEffect(() => {
@@ -1144,11 +1205,7 @@ export default function DetailView({ entityType }) {
           </label>
           <select
             value={activeTab}
-            onChange={(e) => {
-              const nextTab = e.target.value;
-              setActiveTab(nextTab);
-              setSearchParams({ tab: nextTab }, { replace: true });
-            }}
+            onChange={(e) => handleTabChange(e.target.value)}
             className="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
           >
             {config.tabs.map((tab) => (
@@ -1160,8 +1217,18 @@ export default function DetailView({ entityType }) {
         </div>
 
         {/* Tabs */}
-        <div className="hidden md:block border-b border-slate-200 dark:border-slate-700 overflow-x-hidden">
-          <div className="flex flex-wrap gap-2">
+        <div className="hidden md:block border-b border-slate-200 dark:border-slate-700 relative">
+          <div 
+            ref={navContainerRef}
+            className="flex flex-nowrap overflow-x-auto scrollbar-hide gap-1"
+          >
+            {/* Animated Tab Indicator */}
+            <div
+              ref={indicatorRef}
+              className="absolute bottom-0 h-0.5 bg-blue-600 dark:bg-blue-400 z-10 pointer-events-none"
+              style={{ left: 0, opacity: 0 }}
+            />
+
             {config.tabs.map((tab) => {
               // Determine tutorial attribute based on entity type and tab id
               const getTutorialAttribute = () => {
@@ -1178,13 +1245,11 @@ export default function DetailView({ entityType }) {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => {
-                    setActiveTab(tab.id);
-                    setSearchParams({ tab: tab.id }, { replace: true });
-                  }}
-                  className={`px-4 py-3 font-medium transition-colors duration-200 border-b-2 flex items-center gap-2 min-w-0 whitespace-normal ${activeTab === tab.id
-                    ? "border-blue-600 text-blue-600 dark:text-blue-400"
-                    : "border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                  ref={(el) => (itemsRef.current[tab.id] = el)}
+                  onClick={() => handleTabChange(tab.id)}
+                  className={`px-4 py-3 font-medium transition-colors duration-200 border-b-2 border-transparent flex items-center gap-2 min-w-max whitespace-nowrap ${activeTab === tab.id
+                    ? "text-blue-600 dark:text-blue-400"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
                     }`}
                   data-tutorial={getTutorialAttribute()}
                 >
@@ -1202,7 +1267,22 @@ export default function DetailView({ entityType }) {
         </div>
 
         {/* Tab Content */}
-        {renderTabContent()}
+        <div 
+          key={activeTab} 
+          className={
+            config.tabs.findIndex(t => t.id === activeTab) >= prevTabIndex 
+              ? "animate-tab-content-right" 
+              : "animate-tab-content-left"
+          }
+          onAnimationEnd={(e) => {
+            // Only clear if it's the container's own animation
+            if (e.target === e.currentTarget) {
+              e.currentTarget.className = "";
+            }
+          }}
+        >
+          {renderTabContent()}
+        </div>
       </div>
 
       {/* Domain rule blocker modal */}

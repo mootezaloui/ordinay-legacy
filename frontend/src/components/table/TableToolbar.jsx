@@ -8,7 +8,7 @@
  * This is the standard pattern for floating UI in the app.
  */
 
-import { useState, useRef, useEffect, useLayoutEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -51,6 +51,11 @@ export default function TableToolbar({
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const columnButtonRef = useRef(null);
   const menuRef = useRef(null);
+  const navContainerRef = useRef(null);
+  const itemsRef = useRef({});
+  const indicatorRef = useRef(null);
+  const lastIndicatorX = useRef(0);
+  const lastIndicatorW = useRef(0);
   const resolvedImportLabel = importLabel || t("table.toolbar.import");
   const resolvedSearchPlaceholder = resolveContextualPlaceholder({
     t,
@@ -142,6 +147,48 @@ export default function TableToolbar({
     setShowColumnMenu(!showColumnMenu);
   };
 
+  const updateIndicator = useCallback(() => {
+    if (!navContainerRef.current || !indicatorRef.current) return;
+
+    const activeBtn = itemsRef.current[viewMode];
+    if (!activeBtn) return;
+
+    const containerRect = navContainerRef.current.getBoundingClientRect();
+    const btnRect = activeBtn.getBoundingClientRect();
+
+    const x = btnRect.left - containerRect.left;
+    const w = btnRect.width;
+
+    indicatorRef.current.animate(
+      [
+        { 
+          transform: `translateX(${lastIndicatorX.current}px)`, 
+          width: `${lastIndicatorW.current}px`,
+          opacity: lastIndicatorW.current === 0 ? 0 : 1 
+        },
+        { 
+          transform: `translateX(${x}px)`, 
+          width: `${w}px`,
+          opacity: 1 
+        },
+      ],
+      {
+        duration: 350,
+        easing: "cubic-bezier(0.34, 1.56, 0.64, 1)",
+        fill: "forwards",
+      }
+    );
+
+    lastIndicatorX.current = x;
+    lastIndicatorW.current = w;
+  }, [viewMode]);
+
+  useEffect(() => {
+    updateIndicator();
+    window.addEventListener('resize', updateIndicator);
+    return () => window.removeEventListener('resize', updateIndicator);
+  }, [updateIndicator]);
+
   const applyMobileSort = (columnId, direction) => {
     if (!onSort || !columnId) return;
     if (sortBy !== columnId) {
@@ -199,13 +246,24 @@ export default function TableToolbar({
       <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 hidden xl:inline">
         {t("table.toolbar.view", { defaultValue: "View" })}
       </span>
-      <div className="inline-flex items-center gap-1 rounded-2xl border border-slate-300 dark:border-slate-700/60 bg-white dark:bg-slate-900/70 p-1 shadow-sm">
+      <div 
+        ref={navContainerRef}
+        className="inline-flex items-center gap-1 rounded-2xl border border-slate-300 dark:border-slate-700/60 bg-white dark:bg-slate-900/70 p-1 shadow-sm relative overflow-hidden"
+      >
+        {/* Animated Indicator */}
+        <div
+          ref={indicatorRef}
+          className="absolute h-[calc(100%-8px)] rounded-xl bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800/50 shadow-sm pointer-events-none"
+          style={{ top: '4px', left: '0' }}
+        />
+
         <button
           type="button"
+          ref={(el) => (itemsRef.current["table"] = el)}
           onClick={() => onViewModeChange("table")}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1 ${viewMode === "table"
-            ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-            : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/70"
+          className={`relative z-10 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors duration-200 flex items-center gap-1 ${viewMode === "table"
+            ? "text-blue-700 dark:text-blue-300"
+            : "text-slate-600 dark:text-slate-300 hover:bg-slate-100/50 dark:hover:bg-slate-800/40"
             }`}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -215,10 +273,11 @@ export default function TableToolbar({
         </button>
         <button
           type="button"
+          ref={(el) => (itemsRef.current["grid"] = el)}
           onClick={() => onViewModeChange("grid")}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1 ${viewMode === "grid"
-            ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-            : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/70"
+          className={`relative z-10 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors duration-200 flex items-center gap-1 ${viewMode === "grid"
+            ? "text-blue-700 dark:text-blue-300"
+            : "text-slate-600 dark:text-slate-300 hover:bg-slate-100/50 dark:hover:bg-slate-800/40"
             }`}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -394,11 +394,15 @@ export default function InlineStatusSelector({
       >
         {currentStatus?.icon && <i className={`${currentStatus.icon} text-xs flex-shrink-0`}></i>}
         <span data-inline-selector-label className="whitespace-nowrap">{currentStatus?.label || value}</span>
-        {isOpen ? (
-          <i className="fas fa-chevron-up text-xs flex-shrink-0"></i>
-        ) : (
-          <i className="fas fa-chevron-down text-xs flex-shrink-0"></i>
-        )}
+        <span 
+          style={{ 
+            transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+            transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+          }}
+          className="inline-flex items-center justify-center"
+        >
+          <i className="fas fa-chevron-down text-[10px] flex-shrink-0"></i>
+        </span>
       </button>
 
       {isMobile ? (
@@ -418,7 +422,9 @@ export default function InlineStatusSelector({
       ) : (
         isOpen && menuPosition && createPortal(
           <div
-            className="fixed w-48 bg-white dark:bg-slate-800 rounded-lg shadow-2xl border border-slate-200 dark:border-slate-700 py-1"
+            className={`fixed w-48 bg-white dark:bg-slate-800 rounded-lg shadow-2xl border border-slate-200 dark:border-slate-700 py-1 overflow-hidden pointer-events-auto ${
+              menuPosition.top > (buttonRef.current?.getBoundingClientRect().bottom ?? 0) - 10 ? 'animate-liquid-reveal-down' : 'animate-liquid-reveal-up'
+            }`}
             style={{
               top: `${menuPosition.top}px`,
               left: `${menuPosition.left}px`,
@@ -426,7 +432,13 @@ export default function InlineStatusSelector({
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            {menuList}
+            <div className={
+              menuPosition.top > (buttonRef.current?.getBoundingClientRect().bottom ?? 0) - 10 
+                ? 'animate-liquid-content' 
+                : 'animate-liquid-content-up'
+            }>
+              {menuList}
+            </div>
           </div>,
           document.body
         )

@@ -8,14 +8,14 @@ import { SUPPORTED_CURRENCIES, getCurrencyDisplayLabel } from "../../utils/curre
 export default function SettingsGeneral() {
   const { settings, updateSettings } = useSettings();
   const currencyLocale = getLanguageLocale(settings.language);
-  const { setThemePreference } = useTheme();
+  const { setTheme } = useTheme();
   const { t } = useTranslation(["settings"]);
 
-  const handleChange = (field, value) => {
+  const handleChange = (field, value, e) => {
     updateSettings({ [field]: value });
 
     if (field === "theme") {
-      setThemePreference(value);
+      setTheme(value, e);
     }
 
     if (field === "language") {
@@ -111,7 +111,7 @@ export default function SettingsGeneral() {
             </div>
             <select
               value={settings.theme}
-              onChange={(e) => handleChange("theme", e.target.value)}
+              onChange={(e) => handleChange("theme", e.target.value, e)}
               className="w-full md:w-auto px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="light">{t("appearance.theme.options.light")}</option>

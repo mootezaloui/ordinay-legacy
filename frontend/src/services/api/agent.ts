@@ -108,6 +108,8 @@ export interface StructuredProposal {
 }
 
 export interface AgentRequestMetadata {
+  requestSource?: string;
+  requestTriggerId?: string;
   webSearchEnabled?: boolean;
   webSearchTrigger?: WebSearchTrigger;
   webSearchQuery?: string;
@@ -117,6 +119,17 @@ export interface AgentRequestMetadata {
   webDeepSearchQuery?: string;
   streamingEnabled?: boolean;
   modelPreference?: AgentModelPreference;
+  regenerateDraft?: boolean;
+  draftSnapshot?: {
+    draftType: string;
+    title: string;
+    subtitle?: string;
+    metadata?: Record<string, string>;
+    sections: DraftSectionData[];
+    layout: DraftLayoutData;
+    version?: number;
+    content?: string;
+  };
 }
 
 // Agent request to backend
@@ -814,13 +827,29 @@ export interface DocumentDraftOutput {
   entityId?: number | null;
 }
 
+export interface DraftSectionData {
+  id: string;
+  role: string;
+  text?: string;
+  label?: string;
+}
+
+export interface DraftLayoutData {
+  direction: 'ltr' | 'rtl';
+  language: string;
+  formality: 'formal' | 'standard' | 'casual';
+  documentClass: string;
+}
+
 export interface DraftArtifactData {
   type: 'draft_v2';
   draftType: string;
   title: string;
   subtitle?: string;
   metadata?: Record<string, string>;
-  content: string;
+  sections: DraftSectionData[];
+  layout: DraftLayoutData;
+  content?: string;
   linkedEntityType?: string;
   linkedEntityId?: number;
   generatedAt: string;
@@ -1613,6 +1642,17 @@ export function streamAgentMessage(
   (async () => {
     let clearSmoothingState: (() => void) | null = null;
     try {
+      console.info(
+        "[AGENT_FRONT_STREAM_REQUEST]",
+        JSON.stringify({
+          sessionId,
+          turnId: v2TurnId,
+          mode: v2Mode,
+          requestSource: metadata?.requestSource || "unknown",
+          requestTriggerId: metadata?.requestTriggerId || null,
+          messagePreview: String(message || "").slice(0, 140),
+        }),
+      );
       const fallbackToRecovery = async (reason: string) => {
         callbacks.onStart?.({
           intent: 'CHATBOT_AGENT_MODE',
@@ -1798,7 +1838,9 @@ export function streamAgentMessage(
                   draftType: data.artifact?.draftType,
                   title: data.artifact?.title,
                   version: data.artifact?.version,
-                  contentLength: String(data.artifact?.content || "").length,
+                  sectionCount: Array.isArray(data.artifact?.sections)
+                    ? data.artifact.sections.length
+                    : 0,
                 });
                 callbacks.onDraftArtifact?.({ ...data.artifact, type: 'draft_v2' });
               }
