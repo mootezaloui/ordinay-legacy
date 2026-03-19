@@ -481,7 +481,7 @@ export default function TableToolbar({
           {showColumnMenu && menuPosition && createPortal(
             <div
               ref={menuRef}
-              className="fixed w-64 bg-white dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-300 dark:border-slate-700/60 overflow-hidden"
+              className="fixed w-64 bg-white dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-300 dark:border-slate-700/60 overflow-hidden animate-dropdown-reveal-in"
               style={{
                 top: `${menuPosition.top}px`,
                 left: `${menuPosition.left}px`,
