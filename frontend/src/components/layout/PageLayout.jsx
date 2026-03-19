@@ -4,22 +4,48 @@
  * Handles consistent spacing and works with sidebar
  */
 
-import { useEffect, useLayoutEffect } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useSidebar } from "../../contexts/SidebarContext";
 import useBodyScrollLock from "../../hooks/useBodyScrollLock";
 import HeaderBar from "../ui/Header";
 import Sidebar from "../ui/Sidebar";
 
+// Persistence across remounts shared with AgentScreen
+// We use a property on window to allow sync across different layout files
+const NAVIGATION_ORDER = [
+  "/dashboard",
+  "/clients",
+  "/dossiers",
+  "/lawsuits",
+  "/tasks",
+  "/sessions",
+  "/personal-tasks",
+  "/officers",
+  "/accounting",
+  "/chatbot",
+  "/settings",
+  "/profile",
+  "/notifications"
+];
+
 export default function PageLayout({ children, fullHeight = false, noHeaderSpacer = false }) {
   const { isCollapsed, isMobileOpen, closeMobile } = useSidebar();
+  const location = useLocation();
   useBodyScrollLock(isMobileOpen);
+  const [animationClassState, setAnimationClassState] = useState("");
 
-  /* For full-height screens (Agent), prevent the viewport scrollbar
-     by locking overflow on <html>. Uses useLayoutEffect so the lock
-     is applied BEFORE the first paint — useEffect fires AFTER paint,
-     leaving a one-frame window where a scrollbar can appear, shift
-     viewport width past the md breakpoint, and flip the header from
-     fixed→sticky (changing its in-flow height by 56 px). */
+  // Determine navigation direction
+  const baseRoute = "/" + (location.pathname.split("/")[1] || "dashboard");
+  const currentIndex = NAVIGATION_ORDER.indexOf(baseRoute);
+  
+  // Share index via window object
+  const lastIdx = window._ordinayLastPageIndex ?? -1;
+  const animationClass = lastIdx === -1 
+    ? "animate-page-content-up" 
+    : currentIndex >= lastIdx ? "animate-page-content-up" : "animate-page-content-down";
+
+  // Lock overflow on <html> for full-height screens
   useLayoutEffect(() => {
     if (!fullHeight) return;
     const html = document.documentElement;
@@ -27,6 +53,12 @@ export default function PageLayout({ children, fullHeight = false, noHeaderSpace
     html.style.overflow = "hidden";
     return () => { html.style.overflow = prev; };
   }, [fullHeight]);
+
+  // Use effect to keep track of previous page index for next navigation
+  useEffect(() => {
+    window._ordinayLastPageIndex = currentIndex;
+    setAnimationClassState(animationClass);
+  }, [currentIndex, animationClass]);
 
   const rootClassName = fullHeight
     ? "w-full h-screen titlebar-offset-padding overflow-hidden"
@@ -47,19 +79,32 @@ export default function PageLayout({ children, fullHeight = false, noHeaderSpace
           className="fixed inset-0 z-30 bg-slate-900/50 backdrop-blur-sm md:hidden"
         />
       )}
-      {/* Fixed Sidebar */}
+      {/* Global Sidebar & Header */}
       <Sidebar />
+      <HeaderBar />
 
-      {/* Main content with dynamic left margin based on sidebar state */}
+      {/* Main content area with sidebar offset */}
       <div
-        className={`${fullHeight ? "h-full" : "min-h-full"} min-w-0 flex flex-col ${fullHeight ? "transition-[margin-left]" : "transition-all"} duration-300 ${isCollapsed ? "md:ml-20" : "md:ml-64"} ml-0`}
+        className={`${fullHeight ? "h-full" : "min-h-full"} min-w-0 flex flex-col transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+          isCollapsed ? "md:ml-[72px]" : "md:ml-64"
+        } ml-0`}
       >
-        {/* Header */}
-        <HeaderBar />
 
         {/* Content Area */}
         <main className={mainClassName}>
-          {children}
+          <div 
+            key={location.pathname} 
+            className={animationClassState}
+            onAnimationEnd={(e) => {
+              // Ensure that only the main page transition animation (and not nested child animations)
+              // triggers the cleanup of the animation class.
+              if (e.target === e.currentTarget) {
+                setAnimationClassState("");
+              }
+            }}
+          >
+            {children}
+          </div>
         </main>
       </div>
     </div>

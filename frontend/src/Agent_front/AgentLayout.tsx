@@ -102,10 +102,10 @@ export function AgentLayout({
   );
 
   const handleSubmitMessage = useCallback(
-    (message: string) => {
+    (message: string, metadata?: import("../services/api/agent").AgentRequestMetadata) => {
       const text = String(message || "").trim();
       if (!text) return;
-      startAgentStream(text);
+      startAgentStream(text, { metadata });
     },
     [startAgentStream],
   );
@@ -144,7 +144,7 @@ export function AgentLayout({
 
       {/* Desktop Sidebar with Animation */}
       <div 
-        className={`hidden lg:block h-full flex-shrink-0 overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)] ${
+        className={`hidden lg:block h-full flex-shrink-0 overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
           showHistorySidebar ? "w-72" : "w-0"
         }`}
       >
@@ -243,7 +243,7 @@ export function AgentLayout({
 
       {/* RIGHT SIDEBAR - Context Panel */}
       <div 
-        className={`hidden 2xl:block h-full flex-shrink-0 overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)] relative ${
+        className={`hidden 2xl:block h-full flex-shrink-0 overflow-hidden relative transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
           showContextSidebar ? "w-80" : "w-0"
         }`}
       >

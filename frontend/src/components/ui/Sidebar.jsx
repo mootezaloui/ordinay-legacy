@@ -195,7 +195,7 @@ export default function Sidebar() {
   return (
     <aside
       id="mobile-sidebar"
-      className={`sidebar-shell fixed left-0 flex flex-col transition-all duration-300 border-r z-40 titlebar-offset-top titlebar-offset-height bg-background text-foreground border-border ${isMobileOpen ? "translate-x-0" : "-translate-x-full"
+      className={`sidebar-shell fixed left-0 flex flex-col transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] border-r z-40 titlebar-offset-top titlebar-offset-height bg-background text-foreground border-border ${isMobileOpen ? "translate-x-0" : "-translate-x-full"
         } md:translate-x-0 ${isCollapsed ? "md:w-[72px]" : "md:w-64"} w-[84vw] max-w-[320px]`}
     >
       {/* Modern Edge-attached Sidebar Toggle Pill */}

@@ -42,7 +42,7 @@ export default function HeaderBar() {
   const pageTitle = resolvePageTitle();
 
   return (
-    <header className={`h-14 bg-[#f8fafc] dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 transition-all duration-300 z-50 titlebar-offset-top sticky inset-x-0 md:fixed ${isCollapsed ? "md:left-20" : "md:left-64"}`}>
+    <header className={`h-14 bg-[#f8fafc] dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] z-50 titlebar-offset-top sticky inset-x-0 md:fixed ${isCollapsed ? "md:left-[72px]" : "md:left-64"}`}>
       <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="relative flex items-center h-14 gap-3">
           {/* Left section */}
