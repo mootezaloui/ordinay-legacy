@@ -1,27 +1,37 @@
 import type { DraftSectionData, DraftLayoutData } from "../../../../services/api/agent";
-import { getSectionClass } from "./roleStyles";
+import { getSectionClass, getDocumentFontFamily } from "./roleStyles";
+import { stripMarkdown } from "./layoutUtils";
+
+const HEADING_ROLES = new Set(["heading", "subheading"]);
 
 export function SectionView({ section }: { section: DraftSectionData }) {
   if (section.role === "spacer") {
-    return <div className="h-4" />;
+    return <div className="h-3" />;
   }
   if (section.role === "separator") {
-    return <hr className="my-3 border-black/[0.08] dark:border-white/[0.08]" />;
+    return <hr className="my-4 border-black/[0.06] dark:border-white/[0.06]" />;
   }
   if (section.role === "page_break") {
-    return <div className="my-3 border-t border-dashed border-black/[0.12] dark:border-white/[0.12]" />;
+    return <div className="my-4 border-t border-dashed border-black/[0.1] dark:border-white/[0.1]" />;
   }
 
-  const label = String(section.label || "").trim();
-  const text = String(section.text || "");
+  const label = stripMarkdown(String(section.label || "")).trim();
+  const text = stripMarkdown(String(section.text || ""));
   if (!label && !text) {
     return null;
   }
 
+  const isLabelAccented = section.role === "subject" || section.role === "reference";
+  const isHeading = HEADING_ROLES.has(section.role);
+
   return (
-    <div className={getSectionClass(section.role)}>
-      {section.role === "list_item" ? <span className="me-2">•</span> : null}
-      {label ? <span className="font-semibold">{label} </span> : null}
+    <div className={`${getSectionClass(section.role)} ${isHeading ? "draft-section-heading" : ""}`}>
+      {section.role === "list_item" ? <span className="me-2 text-slate-400 dark:text-slate-500">•</span> : null}
+      {label ? (
+        <span className={isLabelAccented ? "font-semibold text-amber-600 dark:text-amber-500 me-1" : "font-semibold"}>
+          {label}{" "}
+        </span>
+      ) : null}
       <span className="whitespace-pre-wrap">{text}</span>
     </div>
   );
@@ -35,29 +45,34 @@ interface DraftRendererProps {
 
 export function DraftRenderer({ sections, layout, isStreaming }: DraftRendererProps) {
   const isRtl = layout.direction === "rtl";
+  const fontFamily = getDocumentFontFamily(layout);
 
   return (
-    <div
-      dir={isRtl ? "rtl" : "ltr"}
-      lang={layout.language}
-      className="relative rounded-lg border border-black/[0.06] dark:border-white/[0.06] bg-white dark:bg-[#0f172a]/70 p-4 max-h-[420px] overflow-y-auto shadow-sm"
-    >
-      <div className={`relative z-10 ${isRtl ? "text-right" : "text-left"} text-slate-700 dark:text-slate-300`}>
-        {sections.length > 0 ? (
-          sections.map((section, index) => (
-            <SectionView
-              key={section.id || `section_view_${index}`}
-              section={section}
-            />
-          ))
-        ) : isStreaming ? (
-          <span className="text-slate-500 dark:text-slate-400">
-            Draft is being written...
-          </span>
-        ) : (
-          <span className="text-slate-500 dark:text-slate-400">No draft content.</span>
-        )}
+    <>
+      <div
+        dir={isRtl ? "rtl" : "ltr"}
+        lang={layout.language}
+        style={{ fontFamily }}
+        className="draft-surface relative rounded-lg border border-slate-200 dark:border-[#30363d] bg-white dark:bg-[#1c2333] px-8 py-7 max-h-[800px] overflow-y-auto"
+      >
+        <div className={`relative z-10 ${isRtl ? "text-right" : "text-left"}`}>
+          {sections.length > 0 ? (
+            sections.map((section, index) => (
+              <SectionView
+                key={section.id || `section_view_${index}`}
+                section={section}
+              />
+            ))
+          ) : isStreaming ? (
+            <span className="text-slate-400 dark:text-slate-500 text-sm italic">
+              Draft is being written...
+            </span>
+          ) : (
+            <span className="text-slate-400 dark:text-slate-500 text-sm">No draft content.</span>
+          )}
+        </div>
       </div>
-    </div>
+      <div className="draft-surface-fade" />
+    </>
   );
 }

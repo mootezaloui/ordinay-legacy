@@ -398,6 +398,8 @@ class NativeLLMProvider {
         let buffer = "";
         const toolFragments = new Map();
         let finishReason = "stop";
+        const PARTIAL_YIELD_INTERVAL_MS = 350;
+        const PARTIAL_YIELD_MIN_GROWTH = 60;
         while (true) {
             const { done, value } = await reader.read();
             if (done)
@@ -441,7 +443,7 @@ class NativeLLMProvider {
                         const idx = Number(toolCall.index);
                         if (!Number.isFinite(idx))
                             continue;
-                        const current = toolFragments.get(idx) ?? { argumentsText: "" };
+                        const current = toolFragments.get(idx) ?? { argumentsText: "", lastYieldLen: 0, lastYieldTime: 0 };
                         if (typeof toolCall.id === "string" && toolCall.id.trim().length > 0) {
                             current.id = toolCall.id;
                         }
@@ -455,6 +457,37 @@ class NativeLLMProvider {
                             current.argumentsText += argChunk;
                         }
                         toolFragments.set(idx, current);
+                        // Progressive tool call streaming: yield partial chunks as args grow.
+                        // First yield when name is detected (empty placeholder), then periodic
+                        // updates using partial JSON repair so sections appear progressively.
+                        if (current.name && current.id) {
+                            const now = Date.now();
+                            const growth = current.argumentsText.length - current.lastYieldLen;
+                            const elapsed = now - current.lastYieldTime;
+                            const isFirst = current.lastYieldTime === 0;
+                            if (isFirst || (elapsed >= PARTIAL_YIELD_INTERVAL_MS && growth >= PARTIAL_YIELD_MIN_GROWTH)) {
+                                const partialArgs = repairPartialJson(current.argumentsText);
+                                console.info("[PROGRESSIVE_TOOL_CALL_YIELD]", JSON.stringify({
+                                    toolName: current.name,
+                                    toolId: current.id,
+                                    isFirst,
+                                    argTextLen: current.argumentsText.length,
+                                    growth,
+                                    elapsed,
+                                    parsedKeys: Object.keys(partialArgs),
+                                    sectionCount: Array.isArray(partialArgs.sections) ? partialArgs.sections.length : 0,
+                                }));
+                                yield {
+                                    toolCall: {
+                                        id: current.id,
+                                        name: current.name,
+                                        arguments: partialArgs,
+                                    },
+                                };
+                                current.lastYieldLen = current.argumentsText.length;
+                                current.lastYieldTime = now;
+                            }
+                        }
                     }
                     const stopReason = asString(choice?.finish_reason);
                     if (stopReason) {
@@ -803,7 +836,7 @@ class NativeLLMProvider {
         const decoder = new TextDecoder();
         let buffer = "";
         let finishReason = "stop";
-        const collectedToolCalls = [];
+        const yieldedToolCalls = [];
         while (true) {
             const { done, value } = await reader.read();
             if (done)
@@ -831,22 +864,23 @@ class NativeLLMProvider {
                 }
                 const parsedCalls = normalizeOllamaToolCalls(message?.tool_calls);
                 if (parsedCalls.length > 0) {
-                    collectedToolCalls.push(...parsedCalls);
+                    // Yield tool calls immediately instead of collecting
+                    for (const toolCall of parsedCalls) {
+                        yieldedToolCalls.push(toolCall);
+                        yield { toolCall };
+                    }
                 }
                 if (row.done === true) {
                     finishReason = parsedCalls.length > 0 ? "tool_calls" : "stop";
                 }
             }
         }
-        for (const toolCall of collectedToolCalls) {
-            yield { toolCall };
-        }
         if (this.shouldTraceDraftRequest(request)) {
             console.info("[DRAFT_TRACE_LLM_STREAM_PARSED]", JSON.stringify({
                 source: url,
                 finishReason,
-                toolCallCount: collectedToolCalls.length,
-                toolNames: collectedToolCalls.map((tc) => tc?.name || "unknown"),
+                toolCallCount: yieldedToolCalls.length,
+                toolNames: yieldedToolCalls.map((tc) => tc?.name || "unknown"),
             }));
         }
         yield { finishReason, done: true };
@@ -953,6 +987,73 @@ function parseArguments(value) {
         }
     }
     return {};
+}
+/**
+ * Attempt to repair incomplete JSON from streaming tool call arguments.
+ * Closes unclosed strings, arrays, and objects so JSON.parse can succeed
+ * on partial data, allowing progressive draft artifact updates.
+ */
+function repairPartialJson(text) {
+    if (!text || text.trim().length === 0)
+        return {};
+    // Try complete parse first
+    try {
+        const parsed = JSON.parse(text);
+        return toRecord(parsed) ?? {};
+    }
+    catch { /* expected for partial data */ }
+    let attempt = text.trimEnd();
+    // Strip trailing comma
+    if (attempt.endsWith(","))
+        attempt = attempt.slice(0, -1);
+    // Walk the string to find unclosed structures
+    let inString = false;
+    let escape = false;
+    let braces = 0;
+    let brackets = 0;
+    for (let i = 0; i < attempt.length; i++) {
+        const ch = attempt[i];
+        if (escape) {
+            escape = false;
+            continue;
+        }
+        if (ch === "\\") {
+            escape = true;
+            continue;
+        }
+        if (ch === '"') {
+            inString = !inString;
+            continue;
+        }
+        if (inString)
+            continue;
+        if (ch === "{")
+            braces++;
+        else if (ch === "}")
+            braces--;
+        else if (ch === "[")
+            brackets++;
+        else if (ch === "]")
+            brackets--;
+    }
+    // Close unclosed string
+    if (inString)
+        attempt += '"';
+    // Strip any trailing comma after closing the string
+    if (attempt.endsWith(","))
+        attempt = attempt.slice(0, -1);
+    // Close open brackets then braces
+    for (let i = 0; i < brackets; i++)
+        attempt += "]";
+    for (let i = 0; i < braces; i++)
+        attempt += "}";
+    try {
+        const parsed = JSON.parse(attempt);
+        return toRecord(parsed) ?? {};
+    }
+    catch {
+        return {};
+    }
 }
 function normalizeOpenAiBase(value) {
     const trimmed = normalizeBase(value);

@@ -52,7 +52,15 @@ const inputSchema = {
     sections: {
       type: "array",
       description:
-        "Semantic draft sections. Each section includes role + text (optional label).",
+        "Structured document sections. CRITICAL RULES: " +
+        "(1) Each paragraph MUST be its own section with role 'body'. " +
+        "(2) Each bullet point MUST be its own section with role 'list_item'. " +
+        "(3) Each heading/title MUST be its own section with role 'heading' or 'subheading'. " +
+        "(4) NEVER use markdown (no **, no ##, no •, no numbered lists) inside section text. " +
+        "(5) Use 'spacer' sections between logical groups. " +
+        "Available roles: date, sender, recipient, reference, subject, salutation, body, " +
+        "heading, subheading, list_item, quote, note, highlight, closing, " +
+        "signature_name, signature_title, signature_detail, spacer, separator.",
       items: {
         type: "object",
         properties: {
@@ -201,7 +209,7 @@ function normalizeSections(
       sections.push(section);
     }
     if (sections.length > 0) {
-      return sections;
+      return splitAndCleanSections(sections);
     }
   }
 
@@ -217,6 +225,123 @@ function normalizeSections(
       text,
     },
   ];
+}
+
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "$1")    // **bold** → bold
+    .replace(/\*(.+?)\*/g, "$1")         // *italic* → italic
+    .replace(/__(.+?)__/g, "$1")         // __bold__ → bold
+    .replace(/_(.+?)_/g, "$1")           // _italic_ → italic
+    .replace(/^#{1,6}\s+/gm, "")         // ## heading → heading
+    .replace(/`([^`]+)`/g, "$1")         // `code` → code
+    .trim();
+}
+
+const BULLET_PATTERN = /^[\s]*[-•–—]\s+/;
+const NUMBERED_PATTERN = /^[\s]*(\d+)[.)]\s+/;
+const HEADING_BOLD_PATTERN = /^\*\*(.+?)\*\*\s*[-–—:]?\s*$/;
+
+function splitAndCleanSections(sections: DraftSection[]): DraftSection[] {
+  const result: DraftSection[] = [];
+  let idCounter = 0;
+
+  const nextId = () => { idCounter += 1; return `sec_${idCounter}`; };
+
+  for (const section of sections) {
+    const text = String(section.text || "").trim();
+
+    // Structural roles pass through unchanged
+    if (section.role === "spacer" || section.role === "separator" || section.role === "page_break") {
+      result.push({ ...section, id: nextId() });
+      continue;
+    }
+
+    // Non-body roles: just strip markdown from text
+    if (section.role !== "body") {
+      result.push({
+        ...section,
+        id: nextId(),
+        text: stripMarkdown(text),
+        ...(section.label ? { label: stripMarkdown(section.label) } : {}),
+      });
+      continue;
+    }
+
+    // Body sections: split by lines and classify each line
+    if (!text) {
+      result.push({ ...section, id: nextId() });
+      continue;
+    }
+
+    const rawLines = text.split(/\n/).map((l) => l.trimEnd());
+    // Pre-split: when a bold heading is followed by content on the same line,
+    // break it into two lines so each can be classified independently.
+    const lines: string[] = [];
+    for (const raw of rawLines) {
+      const inlineMatch = raw.trim().match(/^(\*\*(.+?)\*\*\s*[-–—:]?)\s+(.+)/);
+      if (inlineMatch) {
+        lines.push(inlineMatch[1]);
+        lines.push(inlineMatch[3]);
+      } else {
+        lines.push(raw);
+      }
+    }
+    let bodyBuffer: string[] = [];
+
+    const flushBody = () => {
+      const joined = bodyBuffer.join(" ").trim();
+      if (joined) {
+        result.push({ id: nextId(), role: "body", text: stripMarkdown(joined) });
+      }
+      bodyBuffer = [];
+    };
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        flushBody();
+        continue;
+      }
+
+      // Line is a bold heading like "**Current Status**" or "**Next Steps:**"
+      const headingMatch = trimmed.match(HEADING_BOLD_PATTERN);
+      if (headingMatch) {
+        flushBody();
+        result.push({ id: nextId(), role: "heading", text: headingMatch[1].trim() });
+        continue;
+      }
+
+      // Line is a bullet point
+      if (BULLET_PATTERN.test(trimmed)) {
+        flushBody();
+        const itemText = trimmed.replace(BULLET_PATTERN, "");
+        result.push({ id: nextId(), role: "list_item", text: stripMarkdown(itemText) });
+        continue;
+      }
+
+      // Line is a numbered item
+      const numMatch = trimmed.match(NUMBERED_PATTERN);
+      if (numMatch) {
+        flushBody();
+        const itemText = trimmed.replace(NUMBERED_PATTERN, "");
+        result.push({
+          id: nextId(),
+          role: "list_item",
+          label: `${numMatch[1]}.`,
+          text: stripMarkdown(itemText),
+        });
+        continue;
+      }
+
+      // Regular text — accumulate into body
+      bodyBuffer.push(trimmed);
+    }
+
+    flushBody();
+  }
+
+  return result.length > 0 ? result : sections;
 }
 
 function normalizeLayout(params: {

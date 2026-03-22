@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
   Check,
   ChevronRight,
   Download,
   Edit2,
   FileText,
   Loader2,
+  Plus,
   RotateCcw,
   Send,
+  Trash2,
   X,
 } from "lucide-react";
 import type {
@@ -19,8 +23,8 @@ import type {
   DraftVersionEntry,
 } from "../../../services/api/agent";
 import { DraftRenderer, SectionView } from "./draft/DraftRenderer";
-import { MULTILINE_ROLES } from "./draft/roleStyles";
-import { detectLanguage, buildContentFromSections, ensureSectionId, normalizeDraftText } from "./draft/layoutUtils";
+import { MULTILINE_ROLES, ROLE_DISPLAY_NAMES, getDocumentFontFamily } from "./draft/roleStyles";
+import { detectLanguage, buildContentFromSections, ensureSectionId, normalizeDraftText, stripMarkdown } from "./draft/layoutUtils";
 
 type DraftMode = "view" | "edit";
 type DraftState = "pending" | "exported" | "discarded";
@@ -199,12 +203,22 @@ function normalizeDraft(data: DraftArtifactData | DraftOutput): NormalizedDraft 
 
 function SectionEdit({
   section,
+  index,
+  totalSections,
   onChange,
   onAutoSize,
+  onAdd,
+  onRemove,
+  onMove,
 }: {
   section: DraftSectionData;
+  index: number;
+  totalSections: number;
   onChange: (value: string) => void;
   onAutoSize: (el: HTMLTextAreaElement | null) => void;
+  onAdd: () => void;
+  onRemove: () => void;
+  onMove: (direction: -1 | 1) => void;
 }) {
   if (section.role === "spacer" || section.role === "separator" || section.role === "page_break") {
     return <SectionView section={section} />;
@@ -214,13 +228,33 @@ function SectionEdit({
   const baseClass =
     "w-full rounded-md border border-blue-500/30 dark:border-blue-500/30 bg-white dark:bg-[#0d1117] text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20";
 
+  const roleDisplayName = ROLE_DISPLAY_NAMES[section.role] || section.role;
+  const controlBtnClass = "p-0.5 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors";
+
   return (
-    <div className="mb-2">
-      {section.label ? (
-        <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
-          {section.label}
+    <div className="mb-2 group/section relative">
+      <div className="flex items-center justify-between mb-1">
+        <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+          {section.label || roleDisplayName}
         </div>
-      ) : null}
+        <div className="flex items-center gap-0.5 opacity-0 group-hover/section:opacity-100 transition-opacity">
+          {index > 0 ? (
+            <button type="button" className={controlBtnClass} onClick={() => onMove(-1)} title="Move up">
+              <ArrowUp className="w-3 h-3" />
+            </button>
+          ) : null}
+          {index < totalSections - 1 ? (
+            <button type="button" className={controlBtnClass} onClick={() => onMove(1)} title="Move down">
+              <ArrowDown className="w-3 h-3" />
+            </button>
+          ) : null}
+          {totalSections > 1 ? (
+            <button type="button" className={`${controlBtnClass} hover:text-red-500 dark:hover:text-red-400`} onClick={onRemove} title="Remove section">
+              <Trash2 className="w-3 h-3" />
+            </button>
+          ) : null}
+        </div>
+      </div>
       {multiline ? (
         <textarea
           ref={onAutoSize}
@@ -236,6 +270,16 @@ function SectionEdit({
           onChange={(event) => onChange(event.target.value)}
         />
       )}
+      <div className="flex justify-center -mb-1">
+        <button
+          type="button"
+          className="p-0.5 rounded text-slate-300 dark:text-slate-600 hover:text-blue-500 dark:hover:text-blue-400 opacity-0 group-hover/section:opacity-100 transition-opacity"
+          onClick={onAdd}
+          title="Add section below"
+        >
+          <Plus className="w-3.5 h-3.5" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -251,6 +295,7 @@ export function DraftArtifact({
   const [state, setState] = useState<DraftState>("pending");
   const [sections, setSections] = useState<DraftSectionData[]>(normalized.sections);
   const [regenText, setRegenText] = useState("");
+  const [regenOpen, setRegenOpen] = useState(false);
   const [viewingVersion, setViewingVersion] = useState<number | null>(null);
   const [regenPending, setRegenPending] = useState(false);
   const [contentFresh, setContentFresh] = useState(false);
@@ -265,6 +310,7 @@ export function DraftArtifact({
     setMode("view");
     setState("pending");
     setRegenText("");
+    setRegenOpen(false);
     setViewingVersion(null);
     if (regenPending && versionChanged) {
       setRegenPending(false);
@@ -295,6 +341,7 @@ export function DraftArtifact({
   }, [sections, mode]);
 
   const isRtl = normalized.layout.direction === "rtl";
+  const editFontFamily = getDocumentFontFamily(normalized.layout);
   const contentText = buildContentFromSections(sections);
   const hasHistory = normalized.versionHistory.length > 0;
 
@@ -320,6 +367,33 @@ export function DraftArtifact({
     );
   }, []);
 
+  const handleAddSection = useCallback((afterIndex: number) => {
+    setSections((prev) => {
+      const newId = `sec_new_${Date.now()}`;
+      const newSection: DraftSectionData = { id: newId, role: "body", text: "" };
+      const next = [...prev];
+      next.splice(afterIndex + 1, 0, newSection);
+      return next;
+    });
+  }, []);
+
+  const handleRemoveSection = useCallback((id: string) => {
+    setSections((prev) => {
+      if (prev.length <= 1) return prev;
+      return prev.filter((s) => s.id !== id);
+    });
+  }, []);
+
+  const handleMoveSection = useCallback((index: number, direction: -1 | 1) => {
+    setSections((prev) => {
+      const target = index + direction;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  }, []);
+
   const handleEditDone = useCallback(() => {
     onSave?.({
       sections,
@@ -343,6 +417,7 @@ export function DraftArtifact({
       content: contentText,
     };
     setRegenPending(true);
+    setRegenOpen(false);
     setMode("view");
     onRegenerate(instructions, snapshot);
     setRegenText("");
@@ -449,17 +524,30 @@ export function DraftArtifact({
         </div>
       ) : null}
 
-      {/* ── Title ── */}
-      <div className="px-4 py-3 border-b border-black/[0.05] dark:border-white/[0.06]">
-        <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 tracking-tight">
+      {/* ── Title + Meta ── */}
+      <div className="px-5 py-3 border-b border-black/[0.05] dark:border-white/[0.06]">
+        <div className="text-[15px] font-semibold text-slate-800 dark:text-slate-100 tracking-tight leading-snug">
           {browsingOld && browsedEntry ? browsedEntry.title : normalized.title}
         </div>
         {(() => {
           const sub = browsingOld && browsedEntry ? browsedEntry.subtitle : normalized.subtitle;
           return sub ? (
-            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{sub}</div>
+            <div className="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5">{sub}</div>
           ) : null;
         })()}
+        {normalized.metaFields.length > 0 && !browsingOld ? (
+          <div className="flex flex-wrap items-center gap-2 mt-2">
+            {normalized.metaFields.map((field, index) => (
+              <span
+                key={`${field.label}_${index}`}
+                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] bg-black/[0.03] dark:bg-white/[0.04] text-slate-600 dark:text-slate-400 border border-black/[0.04] dark:border-white/[0.06]"
+              >
+                <span className="font-mono text-[9px] text-slate-400 dark:text-slate-500 uppercase tracking-wider">{field.label}</span>
+                <span className="font-medium">{field.value}</span>
+              </span>
+            ))}
+          </div>
+        ) : null}
         {browsingOld ? (
           <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-mono text-amber-600 dark:text-amber-400">
             Viewing v{viewingVersion}
@@ -474,42 +562,29 @@ export function DraftArtifact({
         ) : null}
       </div>
 
-      {/* ── Meta Fields ── */}
-      {normalized.metaFields.length > 0 && !browsingOld ? (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 px-3 py-2 bg-black/[0.02] dark:bg-black/20 border-b border-black/[0.05] dark:border-white/[0.06]">
-          {normalized.metaFields.map((field, index) => (
-            <div
-              key={`${field.label}_${index}`}
-              className="flex flex-col gap-0.5 px-2.5 py-1.5 rounded-md bg-white/60 dark:bg-white/[0.03] border border-black/[0.04] dark:border-white/[0.06]"
-            >
-              <span className="text-[9px] font-mono text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                {field.label}
-              </span>
-              <span className="text-[11px] text-slate-700 dark:text-slate-300 font-medium truncate">
-                {field.value}
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : null}
-
       {/* ── Content Area ── */}
-      <div className="artifact-build-section artifact-build-section-1 px-4 py-4 relative">
+      <div className="artifact-build-section artifact-build-section-1 px-5 py-4 relative">
         {mode === "edit" && !browsingOld && !isRegenerating ? (
           <div
             dir={isRtl ? "rtl" : "ltr"}
             lang={normalized.layout.language}
-            className="relative rounded-lg border border-black/[0.06] dark:border-white/[0.06] bg-white dark:bg-[#0f172a]/70 p-4 max-h-[420px] overflow-y-auto shadow-sm"
+            style={{ fontFamily: editFontFamily }}
+            className="draft-edit-surface relative rounded-lg border border-blue-500/20 dark:border-[#30363d] bg-white dark:bg-[#1c2333] px-8 py-7 max-h-[800px] overflow-y-auto"
           >
             <div className={isRtl ? "text-right" : "text-left"}>
               {sections.map((section, index) => (
                 <SectionEdit
                   key={section.id || `section_${index}`}
                   section={section}
+                  index={index}
+                  totalSections={sections.length}
                   onChange={(value) => handleSectionChange(section.id, value)}
                   onAutoSize={(node) => {
                     textareaRefs.current[section.id] = node;
                   }}
+                  onAdd={() => handleAddSection(index)}
+                  onRemove={() => handleRemoveSection(section.id)}
+                  onMove={(dir) => handleMoveSection(index, dir)}
                 />
               ))}
             </div>
@@ -580,6 +655,16 @@ export function DraftArtifact({
             {mode === "edit" && !browsingOld && !isRegenerating ? <Check className="w-3.5 h-3.5" /> : <Edit2 className="w-3.5 h-3.5" />}
             {mode === "edit" && !browsingOld && !isRegenerating ? "Done" : "Edit"}
           </button>
+          {onRegenerate && !browsingOld && !isRegenerating ? (
+            <button
+              type="button"
+              className={`agent-action-btn ${regenOpen ? "agent-action-btn-primary" : "agent-action-btn-secondary"}`}
+              onClick={() => setRegenOpen((v) => !v)}
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Regenerate
+            </button>
+          ) : null}
           <button
             type="button"
             className="agent-action-btn agent-action-btn-secondary opacity-40 cursor-not-allowed"
@@ -618,22 +703,23 @@ export function DraftArtifact({
         </div>
       ) : null}
 
-      {/* ── Attached Regenerate Input ── */}
-      {onRegenerate && !browsingOld && !isRegenerating ? (
-        <div className="flex gap-2 items-center px-4 py-2.5 border-t border-black/[0.05] dark:border-white/[0.06] bg-black/[0.01] dark:bg-black/20">
+      {/* ── Regenerate Input (expandable) ── */}
+      {regenOpen && onRegenerate && !browsingOld && !isRegenerating ? (
+        <div className="flex gap-2 items-center px-5 py-2.5 border-t border-black/[0.04] dark:border-white/[0.04]">
           <input
-            className="flex-1 rounded-lg border border-black/[0.08] dark:border-white/[0.08] bg-white/90 dark:bg-[#0d1117] px-3 py-2 text-xs text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none focus:border-blue-500/50"
-            placeholder="Revision instructions... e.g. make it shorter, add urgency"
+            className="flex-1 rounded-lg border border-black/[0.08] dark:border-white/[0.08] bg-white/90 dark:bg-white/[0.04] px-3 py-2 text-sm text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none focus:border-amber-500/50"
+            placeholder="What should I change? e.g. make it shorter, add urgency, change tone..."
             value={regenText}
             onChange={(event) => setRegenText(event.target.value)}
             onKeyDown={(event) => event.key === "Enter" && handleRegen()}
+            autoFocus
           />
           <button
             type="button"
-            className={`flex items-center justify-center w-8 h-8 rounded-lg border border-black/[0.08] dark:border-white/[0.08] transition-colors ${
+            className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-colors ${
               regenText.trim()
                 ? "bg-amber-500 border-amber-500 text-white hover:bg-amber-600"
-                : "bg-white/90 dark:bg-[#21262d] text-slate-400 cursor-not-allowed"
+                : "bg-white/90 dark:bg-[#21262d] border-black/[0.08] dark:border-white/[0.08] text-slate-400 cursor-not-allowed"
             }`}
             onClick={handleRegen}
             disabled={!regenText.trim()}

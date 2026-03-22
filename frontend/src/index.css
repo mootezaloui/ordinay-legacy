@@ -1,3 +1,10 @@
+/* ── Document draft fonts ── */
+/* Google Fonts import removed — blocked by CSP (style-src 'self').
+   Draft renderer uses system font stacks as fallbacks:
+   - Formal/serif: Georgia, "Times New Roman", serif
+   - Arabic: "Noto Naskh Arabic", "Traditional Arabic", serif
+   - Default: system-ui, -apple-system, sans-serif               */
+
 /* Force user message text to white in user bubbles, even inside .prose */
 .user-message-bubble {
   color: #fff !important;
@@ -1553,7 +1560,7 @@ td[data-column-id="actions"] [data-table-action-button] {
 }
 
 .agent-artifact-card.is-draft {
-  --artifact-accent: rgba(59, 130, 246, 0.8);
+  --artifact-accent: rgba(187, 128, 9, 0.7);
 }
 
 .agent-artifact-card.is-explanation {
@@ -4483,14 +4490,14 @@ td[data-column-id="actions"] [data-table-action-button] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem 1.25rem;
-  background: rgba(248, 250, 252, 0.8);
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 0.625rem 1.25rem;
+  background: transparent;
+  border-top: 1px solid rgba(0, 0, 0, 0.04);
 }
 
 .dark .agent-artifact-footer {
-  background: rgba(15, 23, 42, 0.5);
-  border-top-color: rgba(255, 255, 255, 0.06);
+  background: transparent;
+  border-top-color: rgba(255, 255, 255, 0.04);
 }
 
 /* ── Current Activity Indicator ── */
@@ -6678,4 +6685,120 @@ input[type="week"]::-webkit-calendar-picker-indicator {
 .form-modal-card-reveal {
   transform-origin: top left;
   will-change: transform, opacity, filter, border-radius;
+}
+
+/* ── Draft Document Surface ── */
+
+.draft-surface {
+  position: relative;
+  border-left: 3px solid rgba(187, 128, 9, 0.35);
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.04),
+    0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.dark .draft-surface {
+  border-left-color: rgba(187, 128, 9, 0.25);
+  box-shadow:
+    inset 0 1px 4px rgba(0, 0, 0, 0.3),
+    0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.draft-surface::before {
+  content: "DRAFT";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-35deg);
+  font-size: 80px;
+  font-family: 'Crimson Pro', serif;
+  font-weight: 300;
+  letter-spacing: 0.18em;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+  color: rgba(0, 0, 0, 0.025);
+}
+
+.dark .draft-surface::before {
+  color: rgba(255, 255, 255, 0.018);
+}
+
+.draft-surface-fade {
+  height: 36px;
+  pointer-events: none;
+  position: relative;
+  z-index: 2;
+  margin-top: -36px;
+  border-radius: 0 0 8px 8px;
+  background: linear-gradient(to bottom, transparent, rgb(255 255 255));
+}
+
+.dark .draft-surface-fade {
+  background: linear-gradient(to bottom, transparent, #1c2333);
+}
+
+/* Custom scrollbar */
+.draft-surface::-webkit-scrollbar { width: 4px; }
+.draft-surface::-webkit-scrollbar-track { background: transparent; }
+.draft-surface::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.1); border-radius: 4px; }
+.dark .draft-surface::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); }
+
+/* Draft edit surface */
+.draft-edit-surface {
+  position: relative;
+  border-left: 3px solid rgba(59, 130, 246, 0.35);
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.04),
+    0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.dark .draft-edit-surface {
+  border-left-color: rgba(59, 130, 246, 0.3);
+  box-shadow:
+    inset 0 1px 4px rgba(0, 0, 0, 0.3),
+    0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.draft-edit-surface::before {
+  content: "EDITING";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-35deg);
+  font-size: 64px;
+  font-family: 'Crimson Pro', serif;
+  font-weight: 300;
+  letter-spacing: 0.18em;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+  color: rgba(59, 130, 246, 0.03);
+}
+
+.dark .draft-edit-surface::before {
+  color: rgba(59, 130, 246, 0.025);
+}
+
+/* Section role accents for headings */
+.draft-section-heading {
+  position: relative;
+  padding-left: 12px;
+}
+
+.draft-section-heading::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 2.5px;
+  border-radius: 2px;
+  background: rgba(187, 128, 9, 0.5);
+}
+
+.dark .draft-section-heading::before {
+  background: rgba(210, 153, 34, 0.4);
 }

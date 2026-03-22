@@ -247,6 +247,90 @@ const READ_POLICY_INSTRUCTIONS = [
   "NEVER generate a draft with placeholder content that you could have asked the user about.",
   "Placeholders like [reason] or [details] should only be used for information that genuinely is not in the system (like the lawyer's personal phone number or specific legal arguments the lawyer wants to make).",
   "",
+  "DRAFT OUTPUT FORMAT:",
+  "",
+  "When calling generateDraft, structure the document as an array of sections.",
+  "Each section has a \"role\" and \"text\" (and optional \"label\").",
+  "",
+  "Available roles:",
+  "  Header: date, sender, recipient, reference, subject",
+  "  Content: salutation, body, heading, subheading, list_item, quote, note, highlight",
+  "  Closing: closing, signature_name, signature_title, signature_detail",
+  "  Structure: spacer, separator, page_break",
+  "",
+  "Also provide layout hints:",
+  "  direction: \"ltr\" or \"rtl\" (based on document language)",
+  "  language: the document's language code (\"fr\", \"ar\", \"en\")",
+  "  formality: \"formal\" for legal/court documents, \"standard\" for business",
+  "  documentClass: the type of document (e.g. \"court_letter\", \"court_request\", \"client_letter\", \"email\", \"case_summary\")",
+  "",
+  "Example for a French court letter:",
+  "{",
+  "  sections: [",
+  "    { role: \"date\", text: \"Tunis, le 18 mars 2026\" },",
+  "    { role: \"recipient\", text: \"M. le Président du Tribunal de Première Instance de Tunis\" },",
+  "    { role: \"reference\", text: \"Affaire n° 2025/COM/1847\" },",
+  "    { role: \"subject\", label: \"Objet :\", text: \"Demande de report d'audience\" },",
+  "    { role: \"spacer\" },",
+  "    { role: \"salutation\", text: \"Monsieur le Président,\" },",
+  "    { role: \"spacer\" },",
+  "    { role: \"body\", text: \"Nous avons l'honneur...\" },",
+  "    { role: \"body\", text: \"En raison de...\" },",
+  "    { role: \"spacer\" },",
+  "    { role: \"closing\", text: \"Veuillez agréer...\" },",
+  "    { role: \"spacer\" },",
+  "    { role: \"signature_name\", text: \"Me. Karim Jebali\" },",
+  "    { role: \"signature_title\", text: \"Avocat au Barreau de Tunis\" },",
+  "    { role: \"signature_detail\", text: \"Tél : +216 XX XXX XXX\" }",
+  "  ],",
+  "  layout: { direction: \"ltr\", language: \"fr\", formality: \"formal\", documentClass: \"court_letter\" }",
+  "}",
+  "",
+  "Example for an Arabic court request:",
+  "{",
+  "  sections: [",
+  "    { role: \"heading\", text: \"بسم الله الرحمن الرحيم\" },",
+  "    { role: \"recipient\", text: \"السيد رئيس المحكمة الابتدائية بتونس\" },",
+  "    { role: \"reference\", label: \"الملف عدد:\", text: \"2025/1847\" },",
+  "    { role: \"subject\", label: \"الموضوع:\", text: \"طلب تأجيل الجلسة\" },",
+  "    { role: \"spacer\" },",
+  "    { role: \"salutation\", text: \"حضرة السيد الرئيس المحترم,\" },",
+  "    { role: \"spacer\" },",
+  "    { role: \"body\", text: \"يتشرف العارض...\" },",
+  "    { role: \"spacer\" },",
+  "    { role: \"closing\", text: \"وتفضلوا بقبول فائق الاحترام والتقدير\" },",
+  "    { role: \"spacer\" },",
+  "    { role: \"signature_name\", text: \"الأستاذ كريم الجبالي\" },",
+  "    { role: \"signature_title\", text: \"محامي لدى محكمة التعقيب\" }",
+  "  ],",
+  "  layout: { direction: \"rtl\", language: \"ar\", formality: \"formal\", documentClass: \"court_request\" }",
+  "}",
+  "",
+  "The renderer handles all visual formatting. You just provide the semantic structure and content.",
+  "Different document types use different combinations of roles - the renderer adapts automatically.",
+  "Use spacer sections between logical groups (after header, before closing, etc.).",
+  "",
+  "STRICT SECTION RULES (violations break the document display):",
+  "",
+  "1. ONE PARAGRAPH PER SECTION. Never put multiple paragraphs in one body section.",
+  "2. ONE BULLET PER SECTION. Each bullet point is a separate list_item section. Do NOT write bullet lists inside a body section.",
+  "3. HEADINGS ARE SECTIONS. Section titles like 'Current Status' or 'Next Steps' must be their own heading section, not bold text inside a body section.",
+  "4. NO MARKDOWN. Never use **, ##, *, •, or numbered list formatting (1. 2. 3.) inside section text. The renderer handles all formatting based on the role.",
+  "5. For numbered items, use list_item sections with the number in the label field: { role: \"list_item\", label: \"1.\", text: \"First item\" }",
+  "6. The signature block must use signature_name, signature_title, and signature_detail as separate sections.",
+  "",
+  "WRONG (everything in one body section with markdown):",
+  "  { role: \"body\", text: \"**Current Status** • Item 1 • Item 2\\n\\n**Next Steps** 1. Do this 2. Do that\" }",
+  "",
+  "CORRECT (each element is its own section):",
+  "  { role: \"heading\", text: \"Current Status\" },",
+  "  { role: \"list_item\", text: \"Item 1\" },",
+  "  { role: \"list_item\", text: \"Item 2\" },",
+  "  { role: \"spacer\" },",
+  "  { role: \"heading\", text: \"Next Steps\" },",
+  "  { role: \"list_item\", label: \"1.\", text: \"Do this\" },",
+  "  { role: \"list_item\", label: \"2.\", text: \"Do that\" },",
+  "",
   "SUMMARY OF THE FLOW:",
   "",
   "User request",
@@ -1965,7 +2049,7 @@ export class AgenticLoop {
         this.trackReadToolResult(result, context.readCounters);
       }
       if (tool.category === ToolCategory.DRAFT && result.ok) {
-        this.handleDraftToolResult(result, context);
+        await this.progressivelyRevealDraft(result, context);
       }
       if (result.ok) {
         this.trackToolEntities(context.session, result, toolName, context.input.turnId);
@@ -2076,10 +2160,10 @@ export class AgenticLoop {
     );
   }
 
-  private handleDraftToolResult(
+  private async progressivelyRevealDraft(
     result: ToolExecutionResult,
     context: ToolCallProcessingContext,
-  ): void {
+  ): Promise<void> {
     const data = result.data as Record<string, unknown> | undefined;
     const artifact = data?.artifact as DraftArtifact | undefined;
     const normalized = this.normalizeDraftArtifact(artifact);
@@ -2087,6 +2171,32 @@ export class AgenticLoop {
       return;
     }
 
+    const allSections = normalized.sections;
+    const REVEAL_DELAY_MS = 120;
+
+    // Reveal sections one by one so the user sees content filling in.
+    for (let i = 0; i < allSections.length; i++) {
+      const partial: DraftArtifact = {
+        ...normalized,
+        sections: allSections.slice(0, i + 1),
+        content: allSections
+          .slice(0, i + 1)
+          .map((s) => String(s.text || "").trim())
+          .filter(Boolean)
+          .join("\n\n"),
+      };
+      this.publishDraftArtifact(partial, {
+        input: context.input,
+        session: context.session,
+        streamCallbacks: context.streamCallbacks,
+        transient: true,
+      });
+      if (i < allSections.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, REVEAL_DELAY_MS));
+      }
+    }
+
+    // Final non-transient publish to persist the complete draft.
     this.publishDraftArtifact(normalized, {
       input: context.input,
       session: context.session,
@@ -2422,13 +2532,7 @@ export class AgenticLoop {
       metadata.language = language;
     }
 
-    const sections: DraftSection[] = [
-      {
-        id: "sec_1",
-        role: "body",
-        text: content,
-      },
-    ];
+    const sections: DraftSection[] = this.parseFallbackTextToSections(content);
     const layout: DraftLayout = {
       direction: language === "ar" ? "rtl" : "ltr",
       language: language || "en",
@@ -2449,6 +2553,86 @@ export class AgenticLoop {
       generatedAt: new Date().toISOString(),
       version: 1,
     };
+  }
+
+  private parseFallbackTextToSections(content: string): DraftSection[] {
+    const lines = content.split(/\n/).map((l) => l.trim()).filter(Boolean);
+    if (lines.length === 0) {
+      return [{ id: "sec_1", role: "body", text: content }];
+    }
+
+    const sections: DraftSection[] = [];
+    let secIndex = 0;
+    const push = (role: string, text: string, label?: string) => {
+      secIndex++;
+      const s: DraftSection = { id: `sec_${secIndex}`, role, text };
+      if (label) s.label = label;
+      sections.push(s);
+    };
+    const pushSpacer = () => {
+      secIndex++;
+      sections.push({ id: `sec_${secIndex}`, role: "spacer", text: "" });
+    };
+
+    // Pattern matchers
+    const datePattern = /^(tunis|le\s+\d|date\s*:|التاريخ|\d{1,2}[\s/.-]\w+[\s/.-]\d{2,4})/i;
+    const subjectPattern = /^(objet\s*:|sujet\s*:|subject\s*:|re\s*:|الموضوع\s*:)/i;
+    const referencePattern = /^(r[eé]f[eé]rence\s*:|ref\s*:|n°\s*|affaire\s*n|dossier\s*n|الملف\s*(عدد|رقم)\s*:)/i;
+    const greetingPattern = /^(monsieur|madame|cher|chère|dear|bonjour|حضرة|السيد|السيدة|إلى)/i;
+    const closingPattern = /^(veuillez\s+agr[eé]er|cordialement|sincèrement|respectueusement|regards|sincerely|best\s+regards|وتفضلوا|مع فائق)/i;
+    const signaturePattern = /^(me\.|maître|avocat|الأستاذ|محامي)/i;
+
+    let bodyBuffer: string[] = [];
+    const flushBody = () => {
+      if (bodyBuffer.length > 0) {
+        push("body", bodyBuffer.join("\n"));
+        bodyBuffer = [];
+      }
+    };
+
+    for (const line of lines) {
+      if (datePattern.test(line) && sections.length < 3) {
+        flushBody();
+        push("date", line);
+      } else if (referencePattern.test(line)) {
+        flushBody();
+        const colonIdx = line.indexOf(":");
+        if (colonIdx > 0) {
+          push("reference", line.substring(colonIdx + 1).trim(), line.substring(0, colonIdx + 1).trim());
+        } else {
+          push("reference", line);
+        }
+      } else if (subjectPattern.test(line)) {
+        flushBody();
+        const colonIdx = line.indexOf(":");
+        if (colonIdx > 0) {
+          push("subject", line.substring(colonIdx + 1).trim(), line.substring(0, colonIdx + 1).trim());
+        } else {
+          push("subject", line);
+        }
+        pushSpacer();
+      } else if (greetingPattern.test(line) && sections.length < 6 && bodyBuffer.length === 0) {
+        flushBody();
+        push("salutation", line);
+        pushSpacer();
+      } else if (closingPattern.test(line)) {
+        flushBody();
+        pushSpacer();
+        push("closing", line);
+        pushSpacer();
+      } else if (signaturePattern.test(line) && sections.length > 3) {
+        flushBody();
+        push("signature_name", line);
+      } else {
+        bodyBuffer.push(line);
+      }
+    }
+    flushBody();
+
+    if (sections.length <= 1) {
+      return [{ id: "sec_1", role: "body", text: content }];
+    }
+    return sections;
   }
 
   private inferFallbackDraftType(message: string): string {
@@ -2585,6 +2769,34 @@ export class AgenticLoop {
       streamCallbacks: context.streamCallbacks,
       transient: true,
     });
+  }
+
+  private buildProgressiveDraftPlaceholder(
+    args: Record<string, unknown>,
+  ): DraftArtifact | null {
+    const draftType = String(args.draftType ?? "").trim() || "document";
+    const title = String(args.title ?? "").trim() || "Generating draft…";
+    const sections = this.extractDraftSectionsFromArgs(args);
+    const metadata = isRecord(args.metadata)
+      ? Object.fromEntries(
+          Object.entries(args.metadata)
+            .filter(([, value]) => typeof value === "string")
+            .map(([key, value]) => [key, String(value)]),
+        )
+      : undefined;
+    const layout = this.extractDraftLayoutFromArgs(args, sections, draftType, metadata);
+
+    return {
+      draftType,
+      title,
+      subtitle: args.subtitle != null ? String(args.subtitle) : undefined,
+      metadata,
+      sections,
+      layout,
+      content: this.renderDraftContentFromSections(sections),
+      generatedAt: new Date().toISOString(),
+      version: 1,
+    };
   }
 
   private resolveDraftForTurn(
@@ -2833,6 +3045,11 @@ export class AgenticLoop {
     let finishReason = "stop";
     let streamed = false;
 
+    // Progressive draft streaming state
+    let draftPlaceholderEmitted = false;
+    let lastDraftEmitTime = 0;
+    const DRAFT_EMIT_INTERVAL_MS = 400;
+
     try {
       for await (const chunk of this.llm.stream(params)) {
         streamed = true;
@@ -2858,6 +3075,29 @@ export class AgenticLoop {
             existing.arguments = { ...(existing.arguments || {}), ...normalizedArgs };
           }
           toolCallsById.set(id, existing);
+
+          // Progressive draft artifact streaming: emit placeholders as args accumulate
+          if (existing.name === "generateDraft" && streamCallbacks?.onDraftArtifact) {
+            const now = Date.now();
+            if (!draftPlaceholderEmitted || now - lastDraftEmitTime >= DRAFT_EMIT_INTERVAL_MS) {
+              const args = (existing.arguments || {}) as Record<string, unknown>;
+              const placeholder = this.buildProgressiveDraftPlaceholder(args);
+              if (placeholder) {
+                console.info(
+                  "[PROGRESSIVE_DRAFT_PLACEHOLDER_EMIT]",
+                  JSON.stringify({
+                    isFirst: !draftPlaceholderEmitted,
+                    title: placeholder.title,
+                    sectionCount: placeholder.sections.length,
+                    elapsed: draftPlaceholderEmitted ? now - lastDraftEmitTime : 0,
+                  }),
+                );
+                streamCallbacks.onDraftArtifact(placeholder);
+                draftPlaceholderEmitted = true;
+                lastDraftEmitTime = now;
+              }
+            }
+          }
         }
 
         if (typeof chunk.finishReason === "string" && chunk.finishReason.trim().length > 0) {

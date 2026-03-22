@@ -9,6 +9,18 @@ export function normalizeDraftText(value: string): string {
     .replace(/\\t/g, "\t");
 }
 
+export function stripMarkdown(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/\*(.+?)\*/g, "$1")
+    .replace(/__(.+?)__/g, "$1")
+    .replace(/_(.+?)_/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/`([^`]+)`/g, "$1")
+    .trim();
+}
+
 export function detectLanguage(content: string): string {
   if (/[\u0600-\u06FF]/.test(content)) return "ar";
   if (/[àâçéèêëîïôûùüÿœ]/i.test(content)) return "fr";
@@ -33,8 +45,8 @@ export function ensureSectionId(
   section: Partial<DraftSectionData>,
   index: number,
 ): DraftSectionData {
-  const normalizedLabel = section.label != null ? normalizeDraftText(String(section.label)) : undefined;
-  const normalizedText = section.text != null ? normalizeDraftText(String(section.text)) : undefined;
+  const normalizedLabel = section.label != null ? stripMarkdown(normalizeDraftText(String(section.label))) : undefined;
+  const normalizedText = section.text != null ? stripMarkdown(normalizeDraftText(String(section.text))) : undefined;
 
   return {
     id: String(section.id || `sec_${index + 1}`),
