@@ -1476,9 +1476,11 @@ function ArtifactBody({
         data={message.data.draftV2}
         isStreaming={message.status === "sending"}
         onRegenerate={(instructions, snapshot) => {
-          onSubmitMessage?.(`Revise the draft: ${instructions}`, {
+          onSubmitMessage?.(`Regenerate the current draft and apply these instructions: ${instructions}`, {
             regenerateDraft: true,
+            regenInstruction: instructions,
             draftSnapshot: snapshot,
+            replaceMessageId: message.id,
           });
         }}
         onSave={(next) => {

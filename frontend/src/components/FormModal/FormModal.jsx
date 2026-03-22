@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import SearchableSelect from "./SearchableSelect";
 import InlineStatusSelector from "../InlineSelectors/InlineStatusSelector";
@@ -59,6 +59,10 @@ export default function FormModal({
   editingEntity = null,
   entities = null,
 }) {
+  const [openOrigin, setOpenOrigin] = useState(null);
+  const [cardAnimStyle, setCardAnimStyle] = useState({});
+  const [overlayAnimStyle, setOverlayAnimStyle] = useState({});
+  const modalCardRef = useRef(null);
   const [internalFormData, setInternalFormData] = useState({});
   const [errors, setErrors] = useState({});
   const [initialized, setInitialized] = useState(false);
@@ -132,6 +136,102 @@ export default function FormModal({
       }
     }
   }, [isOpen, externalOnFormDataChange]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setOpenOrigin(null);
+      return;
+    }
+
+    const fallbackOrigin = {
+      x: Math.round(window.innerWidth / 2),
+      y: Math.round(window.innerHeight / 2),
+      width: 72,
+      height: 40,
+      radius: 999,
+    };
+
+    const activeEl = document.activeElement;
+    if (!activeEl || typeof activeEl.getBoundingClientRect !== "function") {
+      setOpenOrigin(fallbackOrigin);
+      return;
+    }
+
+    const rect = activeEl.getBoundingClientRect();
+    const isUsable = rect.width > 0 && rect.height > 0;
+
+    if (!isUsable) {
+      setOpenOrigin(fallbackOrigin);
+      return;
+    }
+
+    setOpenOrigin({
+      x: Math.round(rect.left + rect.width / 2),
+      y: Math.round(rect.top + rect.height / 2),
+      width: Math.max(48, Math.round(rect.width)),
+      height: Math.max(32, Math.round(rect.height)),
+      radius: 999,
+    });
+  }, [isOpen]);
+
+  useLayoutEffect(() => {
+    if (!isOpen || !openOrigin || !modalCardRef.current) {
+      setCardAnimStyle({});
+      setOverlayAnimStyle({});
+      return;
+    }
+
+    const modalEl = modalCardRef.current;
+    const rect = modalEl.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return;
+    }
+
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) {
+      setCardAnimStyle({});
+      setOverlayAnimStyle({});
+      return;
+    }
+
+    const startLeft = openOrigin.x - openOrigin.width / 2;
+    const startTop = openOrigin.y - openOrigin.height / 2;
+    const deltaX = startLeft - rect.left;
+    const deltaY = startTop - rect.top;
+    const scaleX = Math.max(0.06, Math.min(1, openOrigin.width / rect.width));
+    const scaleY = Math.max(0.06, Math.min(1, openOrigin.height / rect.height));
+    setCardAnimStyle({
+      transformOrigin: "top left",
+      transform: `translate3d(${deltaX}px, ${deltaY}px, 0) scale(${scaleX}, ${scaleY})`,
+      opacity: 0.22,
+      transition: "none",
+    });
+    setOverlayAnimStyle({
+      opacity: 0,
+      transition: "none",
+    });
+
+    let raf1 = 0;
+    let raf2 = 0;
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        setCardAnimStyle({
+          transformOrigin: "top left",
+          transform: "translate3d(0, 0, 0) scale(1, 1)",
+          opacity: 1,
+          transition: "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms ease-out",
+        });
+        setOverlayAnimStyle({
+          opacity: 1,
+          transition: "opacity 160ms ease-out",
+        });
+      });
+    });
+
+    return () => {
+      if (raf1) cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
+    };
+  }, [isOpen, openOrigin]);
 
   const handleChange = (name, value) => {
     const newFormData = { ...formData, [name]: value };
@@ -258,16 +358,23 @@ export default function FormModal({
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-[9999] overflow-hidden animate-in fade-in duration-300"
+      className="fixed inset-0 z-[9999] overflow-hidden form-modal-overlay"
       style={{
         paddingTop: 'var(--titlebar-height, 0px)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
       }}
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-900/50 via-slate-800/40 to-slate-900/50 dark:from-black/60 dark:via-slate-900/50 dark:to-black/60" onClick={onClose} />
+      <div style={overlayAnimStyle} className="absolute inset-0 bg-gradient-to-br from-slate-900/50 via-slate-800/40 to-slate-900/50 dark:from-black/60 dark:via-slate-900/50 dark:to-black/60" onClick={onClose} />
       <div className="relative flex h-full items-stretch md:items-center justify-center p-0 md:p-6 overflow-hidden">
-        <div className={`relative w-full h-full md:h-auto ${modalSizeClass} bg-white dark:bg-slate-900 rounded-none md:rounded-2xl transform transition-all flex flex-col animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 overflow-hidden md:max-h-[calc(100vh-var(--titlebar-height)-48px)]`} style={{ boxShadow: '0 24px 48px -12px rgba(0, 0, 0, 0.25)' }}>
+        <div
+          ref={modalCardRef}
+          className={`relative w-full h-full md:h-auto ${modalSizeClass} bg-white dark:bg-slate-900 rounded-none md:rounded-2xl transform transition-all flex flex-col form-modal-card-reveal overflow-hidden md:max-h-[calc(100vh-var(--titlebar-height)-48px)]`}
+          style={{
+            boxShadow: '0 24px 48px -12px rgba(0, 0, 0, 0.25)',
+            ...cardAnimStyle,
+          }}
+        >
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent z-10" />
           <div className={`${compact ? 'px-5 py-4' : 'px-6 py-5'} border-b border-slate-200 dark:border-slate-800 flex-shrink-0 bg-slate-50/50 dark:bg-slate-800/50`}>
             <div className="flex items-center justify-between">

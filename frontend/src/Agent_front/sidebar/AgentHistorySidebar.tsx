@@ -86,39 +86,42 @@ export function AgentHistorySidebar({
   }, [isCreatingFolder]);
 
   // Set item ref for animation
-  const setItemRef = useCallback((sessionId: string, el: HTMLDivElement | null) => {
+  const setItemRef = useCallback((id: string, el: HTMLDivElement | null) => {
     if (el) {
-      itemRefs.current[sessionId] = el;
+      itemRefs.current[id] = el;
     } else {
-      delete itemRefs.current[sessionId];
+      delete itemRefs.current[id];
     }
   }, []);
 
-  // Measure where the current active item is
-  const measureActive = useCallback(() => {
+  // Measure where the target item is
+  const measureActive = useCallback((targetId: string | null) => {
     const container = scrollContainerRef.current;
-    if (!container || !activeSessionId) return null;
+    if (!container || !targetId) return null;
 
-    const activeEl = itemRefs.current[activeSessionId];
-    if (!activeEl) return null;
+    const targetEl = itemRefs.current[targetId];
+    if (!targetEl) return null;
 
     const containerRect = container.getBoundingClientRect();
-    const activeRect = activeEl.getBoundingClientRect();
+    const targetRect = targetEl.getBoundingClientRect();
 
     return {
-      y: activeRect.top - containerRect.top + container.scrollTop,
-      h: activeRect.height,
+      y: targetRect.top - containerRect.top + container.scrollTop,
+      h: targetRect.height,
     };
-  }, [activeSessionId]);
+  }, []);
 
   // Update animated indicator position
   const updateIndicatorPosition = useCallback(() => {
     const indicator = indicatorRef.current;
     if (!indicator) return;
 
+    // Target either the folder being created or the active session
+    const targetId = isCreatingFolder ? "__new_folder__" : activeSessionId;
+
     // Wait for DOM refs to be ready
     requestAnimationFrame(() => {
-      const target = measureActive();
+      const target = measureActive(targetId);
       if (!target) {
         indicator.style.opacity = "0";
         return;
@@ -129,7 +132,7 @@ export function AgentHistorySidebar({
       indicator.style.height = `${target.h}px`;
       indicator.style.opacity = "1";
 
-      if (lastIndicatorY.current !== null && Math.abs(lastIndicatorY.current - target.y) > 1) {
+      if (lastIndicatorY.current !== null && Math.abs(lastIndicatorY.current - target.y) > 0.5) {
         // Animate from old position to new using Web Animations API
         indicator.animate(
           [
@@ -154,19 +157,40 @@ export function AgentHistorySidebar({
       lastIndicatorY.current = target.y;
       lastIndicatorH.current = target.h;
     });
-  }, [measureActive]);
+  }, [isCreatingFolder, activeSessionId, measureActive]);
 
-  // Update indicator when active session changes
+  // Update indicator when active session or layout changes
+  // Added getSessionsInFolder to ensure we update when sessions are moved/reordered
   useEffect(() => {
     updateIndicatorPosition();
-  }, [activeSessionId, updateIndicatorPosition]);
+  }, [activeSessionId, folders, isCreatingFolder, updateIndicatorPosition, getSessionsInFolder]);
+
+  // Use MutationObserver for robust layout tracking (moves, expansions, header changes)
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const observer = new MutationObserver(() => {
+      updateIndicatorPosition();
+    });
+
+    observer.observe(container, {
+      childList: true,
+      subtree: true,
+      characterData: false,
+      attributes: true, // Watch for classes like 'expanded'
+    });
+
+    return () => observer.disconnect();
+  }, [updateIndicatorPosition]);
 
   // Update indicator when window resizes
   useEffect(() => {
     const handleResize = () => {
       const indicator = indicatorRef.current;
       if (!indicator) return;
-      const target = measureActive();
+      const targetId = isCreatingFolder ? "__new_folder__" : activeSessionId;
+      const target = measureActive(targetId);
       if (!target) return;
       indicator.style.transition = "none";
       indicator.style.transform = `translateY(${target.y}px)`;
@@ -176,7 +200,7 @@ export function AgentHistorySidebar({
     };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [measureActive]);
+  }, [measureActive, activeSessionId, isCreatingFolder]);
 
   // Use ref for dragState to avoid stale closure issues in drag handlers
   const dragStateRef = useRef<DragState | null>(null);
@@ -470,8 +494,11 @@ export function AgentHistorySidebar({
         </div>
         {/* Pending folder input */}
         {isCreatingFolder && (
-          <div className="space-y-1 mb-4">
-            <div className="flex items-center px-3 py-2 rounded-2xl bg-white/80 dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.05] shadow-sm gap-2">
+          <div className="space-y-1 mb-4 premium-panel-enter-center">
+            <div 
+              ref={(el) => setItemRef("__new_folder__", el)}
+              className="flex items-center px-3 py-2 rounded-2xl bg-white/80 dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.05] shadow-sm gap-2"
+            >
               <FolderPlus className="w-4.5 h-4.5 text-slate-500 flex-shrink-0" />
               <input
                 ref={pendingInputRef}
@@ -549,6 +576,7 @@ export function AgentHistorySidebar({
                     dragState.id === folder.id
                   }
                   isDropTarget={dropTargetFolderId === folder.id}
+                  registerRef={(el) => setItemRef(folder.id, el)}
                   onDragStart={(e) =>
                     handleFolderDragStart(e, folder, folderIndex)
                   }

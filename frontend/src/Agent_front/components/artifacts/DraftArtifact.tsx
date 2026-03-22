@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Check,
+  ChevronRight,
   Download,
   Edit2,
   FileText,
-  RefreshCw,
+  Loader2,
   RotateCcw,
   Send,
   X,
@@ -15,12 +16,13 @@ import type {
   DraftLayoutData,
   DraftOutput,
   DraftSectionData,
+  DraftVersionEntry,
 } from "../../../services/api/agent";
 import { DraftRenderer, SectionView } from "./draft/DraftRenderer";
-import { MULTILINE_ROLES, getDocumentFontFamily } from "./draft/roleStyles";
-import { detectLanguage, buildContentFromSections, ensureSectionId } from "./draft/layoutUtils";
+import { MULTILINE_ROLES } from "./draft/roleStyles";
+import { detectLanguage, buildContentFromSections, ensureSectionId, normalizeDraftText } from "./draft/layoutUtils";
 
-type DraftMode = "view" | "edit" | "regen";
+type DraftMode = "view" | "edit";
 type DraftState = "pending" | "exported" | "discarded";
 
 interface DraftRegenerationSnapshot {
@@ -55,6 +57,7 @@ interface NormalizedDraft {
   metaFields: Array<{ label: string; value: string }>;
   sections: DraftSectionData[];
   layout: DraftLayoutData;
+  versionHistory: DraftVersionEntry[];
 }
 
 function isDraftV2(data: DraftArtifactData | DraftOutput): data is DraftArtifactData {
@@ -110,6 +113,7 @@ function normalizeDraft(data: DraftArtifactData | DraftOutput): NormalizedDraft 
       metaFields,
       sections,
       layout,
+      versionHistory: Array.isArray(data.versionHistory) ? data.versionHistory : [],
     };
   }
 
@@ -118,18 +122,19 @@ function normalizeDraft(data: DraftArtifactData | DraftOutput): NormalizedDraft 
     sections.push({
       id: "sec_subject",
       role: "subject",
-      text: data.sections.subject,
+      text: normalizeDraftText(String(data.sections.subject)),
     });
   }
   if (data.sections?.greeting) {
     sections.push({
       id: "sec_greeting",
       role: "salutation",
-      text: data.sections.greeting,
+      text: normalizeDraftText(String(data.sections.greeting)),
     });
   }
   if (data.sections?.body) {
-    const parts = String(data.sections.body)
+    const normalizedBody = normalizeDraftText(String(data.sections.body));
+    const parts = normalizedBody
       .split(/\n\n+/)
       .map((item) => item.trim())
       .filter(Boolean);
@@ -137,7 +142,7 @@ function normalizeDraft(data: DraftArtifactData | DraftOutput): NormalizedDraft 
       sections.push({
         id: "sec_body_1",
         role: "body",
-        text: data.sections.body,
+        text: normalizedBody,
       });
     } else {
       parts.forEach((part, idx) => {
@@ -153,14 +158,14 @@ function normalizeDraft(data: DraftArtifactData | DraftOutput): NormalizedDraft 
     sections.push({
       id: "sec_closing",
       role: "closing",
-      text: data.sections.closing,
+      text: normalizeDraftText(String(data.sections.closing)),
     });
   }
   if (data.sections?.signature) {
     sections.push({
       id: "sec_signature",
       role: "signature_name",
-      text: data.sections.signature,
+      text: normalizeDraftText(String(data.sections.signature)),
     });
   }
 
@@ -188,6 +193,7 @@ function normalizeDraft(data: DraftArtifactData | DraftOutput): NormalizedDraft 
     metaFields,
     sections,
     layout,
+    versionHistory: [],
   };
 }
 
@@ -245,14 +251,40 @@ export function DraftArtifact({
   const [state, setState] = useState<DraftState>("pending");
   const [sections, setSections] = useState<DraftSectionData[]>(normalized.sections);
   const [regenText, setRegenText] = useState("");
+  const [viewingVersion, setViewingVersion] = useState<number | null>(null);
+  const [regenPending, setRegenPending] = useState(false);
+  const [contentFresh, setContentFresh] = useState(false);
   const textareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  const prevVersionRef = useRef(normalized.version);
 
   useEffect(() => {
+    // New data arrived (version changed or first mount) — clear regen state, apply content.
+    const versionChanged = normalized.version !== prevVersionRef.current;
+    prevVersionRef.current = normalized.version;
     setSections(normalized.sections);
     setMode("view");
     setState("pending");
     setRegenText("");
-  }, [normalized]);
+    setViewingVersion(null);
+    if (regenPending && versionChanged) {
+      setRegenPending(false);
+      setContentFresh(true);
+    }
+  }, [normalized]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clear regenPending when streaming ends (handles errors / no new data).
+  useEffect(() => {
+    if (!isStreaming && regenPending) setRegenPending(false);
+  }, [isStreaming]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fade-in timer — clear contentFresh flag after animation plays.
+  useEffect(() => {
+    if (!contentFresh) return;
+    const timer = setTimeout(() => setContentFresh(false), 500);
+    return () => clearTimeout(timer);
+  }, [contentFresh]);
+
+  const isRegenerating = isStreaming && regenPending;
 
   useEffect(() => {
     Object.values(textareaRefs.current).forEach((node) => {
@@ -264,6 +296,17 @@ export function DraftArtifact({
 
   const isRtl = normalized.layout.direction === "rtl";
   const contentText = buildContentFromSections(sections);
+  const hasHistory = normalized.versionHistory.length > 0;
+
+  // Resolve what to display based on viewingVersion
+  const browsingOld = viewingVersion !== null;
+  const browsedEntry = browsingOld
+    ? normalized.versionHistory.find((v) => v.version === viewingVersion)
+    : null;
+  const displaySections = browsedEntry
+    ? browsedEntry.sections.map((s, i) => ensureSectionId(s, i))
+    : sections;
+  const displayLayout = browsedEntry ? browsedEntry.layout : normalized.layout;
 
   const handleDiscard = useCallback(() => setState("discarded"), []);
   const handleRestore = useCallback(() => {
@@ -288,7 +331,7 @@ export function DraftArtifact({
 
   const handleRegen = useCallback(() => {
     const instructions = regenText.trim();
-    if (!instructions || !onRegenerate) return;
+    if (!instructions || !onRegenerate || isRegenerating) return;
     const snapshot: DraftRegenerationSnapshot = {
       draftType: normalized.draftType,
       title: normalized.title,
@@ -299,11 +342,14 @@ export function DraftArtifact({
       version: normalized.version,
       content: contentText,
     };
+    setRegenPending(true);
+    setMode("view");
     onRegenerate(instructions, snapshot);
     setRegenText("");
-    setMode("view");
+    setViewingVersion(null);
   }, [
     contentText,
+    isRegenerating,
     normalized.draftType,
     normalized.layout,
     normalized.metadata,
@@ -345,6 +391,7 @@ export function DraftArtifact({
 
   return (
     <div className="artifact-build agent-artifact-card is-draft">
+      {/* ── Header ── */}
       <div className="artifact-build-header agent-artifact-header agent-artifact-header-draft flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-mono text-slate-500 dark:text-slate-500 uppercase tracking-wider">
@@ -358,24 +405,77 @@ export function DraftArtifact({
         <span className="inline-flex items-center gap-1 text-[10px] font-mono text-slate-500 dark:text-slate-500">
           <RotateCcw className="w-3 h-3" />
           Reversible
-          {normalized.version > 1 ? (
-            <span className="ml-1 text-slate-400">v{normalized.version}</span>
-          ) : null}
         </span>
       </div>
 
+      {/* ── Version Strip ── */}
+      {hasHistory || isRegenerating ? (
+        <div className="flex items-center gap-1 px-4 py-1.5 border-b border-black/[0.05] dark:border-white/[0.06] bg-black/[0.01] dark:bg-black/20">
+          <span className="text-[9px] font-mono text-slate-400 dark:text-slate-500 uppercase tracking-wider mr-1">
+            Versions
+          </span>
+          {normalized.versionHistory.map((entry) => (
+            <button
+              key={entry.version}
+              type="button"
+              onClick={() => { if (!isRegenerating) setViewingVersion(entry.version); }}
+              disabled={isRegenerating}
+              className={`inline-flex items-center justify-center min-w-[28px] h-5 px-1.5 rounded text-[10px] font-mono font-semibold transition-colors ${
+                viewingVersion === entry.version
+                  ? "bg-slate-600 text-white dark:bg-slate-400 dark:text-slate-900"
+                  : "bg-slate-200/60 text-slate-500 hover:bg-slate-300/60 dark:bg-white/[0.06] dark:text-slate-400 dark:hover:bg-white/[0.1]"
+              } ${isRegenerating ? "opacity-60 cursor-not-allowed" : ""}`}
+            >
+              v{entry.version}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => { if (!isRegenerating) setViewingVersion(null); }}
+            disabled={isRegenerating}
+            className={`inline-flex items-center justify-center min-w-[28px] h-5 px-1.5 rounded text-[10px] font-mono font-semibold transition-colors ${
+              viewingVersion === null && !isRegenerating
+                ? "bg-amber-500 text-white"
+                : "bg-slate-200/60 text-slate-500 hover:bg-slate-300/60 dark:bg-white/[0.06] dark:text-slate-400 dark:hover:bg-white/[0.1]"
+            } ${isRegenerating ? "opacity-60 cursor-not-allowed" : ""}`}
+          >
+            v{normalized.version}
+          </button>
+          {isRegenerating ? (
+            <span className="inline-flex items-center justify-center min-w-[28px] h-5 px-1.5 rounded text-[10px] font-mono font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse">
+              v{normalized.version + 1}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* ── Title ── */}
       <div className="px-4 py-3 border-b border-black/[0.05] dark:border-white/[0.06]">
         <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 tracking-tight">
-          {normalized.title}
+          {browsingOld && browsedEntry ? browsedEntry.title : normalized.title}
         </div>
-        {normalized.subtitle ? (
-          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-            {normalized.subtitle}
+        {(() => {
+          const sub = browsingOld && browsedEntry ? browsedEntry.subtitle : normalized.subtitle;
+          return sub ? (
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{sub}</div>
+          ) : null;
+        })()}
+        {browsingOld ? (
+          <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-mono text-amber-600 dark:text-amber-400">
+            Viewing v{viewingVersion}
+            <button
+              type="button"
+              onClick={() => setViewingVersion(null)}
+              className="underline hover:no-underline ml-1"
+            >
+              Back to current
+            </button>
           </div>
         ) : null}
       </div>
 
-      {normalized.metaFields.length > 0 ? (
+      {/* ── Meta Fields ── */}
+      {normalized.metaFields.length > 0 && !browsingOld ? (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 px-3 py-2 bg-black/[0.02] dark:bg-black/20 border-b border-black/[0.05] dark:border-white/[0.06]">
           {normalized.metaFields.map((field, index) => (
             <div
@@ -393,13 +493,13 @@ export function DraftArtifact({
         </div>
       ) : null}
 
+      {/* ── Content Area ── */}
       <div className="artifact-build-section artifact-build-section-1 px-4 py-4 relative">
-        {mode === "edit" ? (
+        {mode === "edit" && !browsingOld && !isRegenerating ? (
           <div
             dir={isRtl ? "rtl" : "ltr"}
             lang={normalized.layout.language}
             className="relative rounded-lg border border-black/[0.06] dark:border-white/[0.06] bg-white dark:bg-[#0f172a]/70 p-4 max-h-[420px] overflow-y-auto shadow-sm"
-            style={{ fontFamily: getDocumentFontFamily(normalized.layout) }}
           >
             <div className={isRtl ? "text-right" : "text-left"}>
               {sections.map((section, index) => (
@@ -415,43 +515,50 @@ export function DraftArtifact({
             </div>
           </div>
         ) : (
-          <DraftRenderer
-            sections={sections}
-            layout={normalized.layout}
-            isStreaming={isStreaming}
-          />
+          <div className="relative">
+            <div
+              className={`transition-opacity duration-300 ${isRegenerating ? "opacity-30 pointer-events-none" : "opacity-100"} ${contentFresh ? "animate-[agent-fade-up_0.4s_ease-out]" : ""}`}
+            >
+              <DraftRenderer
+                sections={displaySections}
+                layout={displayLayout}
+                isStreaming={!browsingOld && isStreaming && sections.length === 0}
+              />
+            </div>
+            {isRegenerating ? (
+              <div className="absolute inset-0 rounded-lg flex items-center justify-center">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-white/80 dark:bg-[#0f172a]/90 border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
+                  <Loader2 className="w-3.5 h-3.5 text-amber-500 animate-spin" />
+                  <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">
+                    Regenerating draft...
+                  </span>
+                </div>
+              </div>
+            ) : null}
+          </div>
         )}
       </div>
 
-      {mode === "regen" ? (
-        <div className="flex gap-2 items-center px-4 pb-3">
-          <input
-            className="flex-1 rounded-lg border border-black/[0.08] dark:border-white/[0.08] bg-white/90 dark:bg-[#0d1117] px-3 py-2 text-xs text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none focus:border-blue-500/50"
-            placeholder="Instructions… e.g. make it shorter, add urgency"
-            value={regenText}
-            onChange={(event) => setRegenText(event.target.value)}
-            onKeyDown={(event) => event.key === "Enter" && handleRegen()}
-            autoFocus
-          />
-          <button
-            type="button"
-            className="flex items-center justify-center w-8 h-8 rounded-lg border border-black/[0.08] dark:border-white/[0.08] bg-white/90 dark:bg-[#21262d] text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
-            onClick={handleRegen}
-          >
-            <Send className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      ) : null}
-
+      {/* ── Footer Actions ── */}
       <div className="agent-artifact-footer">
         <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-          <AlertTriangle className="w-3 h-3" />
-          Review before exporting
+          {isRegenerating ? (
+            <>
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Generating new version...
+            </>
+          ) : (
+            <>
+              <AlertTriangle className="w-3 h-3" />
+              Review before exporting
+            </>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
-            className="agent-action-btn agent-action-btn-secondary text-red-500/70 hover:text-red-500 hover:border-red-500/30"
+            className={`agent-action-btn agent-action-btn-secondary text-red-500/70 hover:text-red-500 hover:border-red-500/30 ${isRegenerating ? "opacity-40 cursor-not-allowed" : ""}`}
+            disabled={isRegenerating}
             onClick={handleDiscard}
           >
             <X className="w-3.5 h-3.5" />
@@ -459,8 +566,10 @@ export function DraftArtifact({
           </button>
           <button
             type="button"
-            className={`agent-action-btn ${mode === "edit" ? "agent-action-btn-primary" : "agent-action-btn-secondary"}`}
+            className={`agent-action-btn ${mode === "edit" && !browsingOld && !isRegenerating ? "agent-action-btn-primary" : "agent-action-btn-secondary"} ${browsingOld || isRegenerating ? "opacity-40 cursor-not-allowed" : ""}`}
+            disabled={browsingOld || isRegenerating}
             onClick={() => {
+              if (browsingOld || isRegenerating) return;
               if (mode === "edit") {
                 handleEditDone();
               } else {
@@ -468,16 +577,8 @@ export function DraftArtifact({
               }
             }}
           >
-            {mode === "edit" ? <Check className="w-3.5 h-3.5" /> : <Edit2 className="w-3.5 h-3.5" />}
-            {mode === "edit" ? "Done" : "Edit"}
-          </button>
-          <button
-            type="button"
-            className={`agent-action-btn ${mode === "regen" ? "agent-action-btn-primary" : "agent-action-btn-secondary"}`}
-            onClick={() => setMode(mode === "regen" ? "view" : "regen")}
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            Regenerate
+            {mode === "edit" && !browsingOld && !isRegenerating ? <Check className="w-3.5 h-3.5" /> : <Edit2 className="w-3.5 h-3.5" />}
+            {mode === "edit" && !browsingOld && !isRegenerating ? "Done" : "Edit"}
           </button>
           <button
             type="button"
@@ -490,6 +591,57 @@ export function DraftArtifact({
           </button>
         </div>
       </div>
+
+      {/* ── Revision Log ── */}
+      {hasHistory ? (
+        <div className="border-t border-black/[0.05] dark:border-white/[0.06] px-4 py-2 bg-black/[0.01] dark:bg-black/20">
+          <div className="text-[9px] font-mono text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5">
+            Revision history
+          </div>
+          <div className="space-y-1">
+            {normalized.versionHistory.map((entry) => (
+              <div
+                key={entry.version}
+                className="flex items-start gap-2 text-[11px] text-slate-500 dark:text-slate-400"
+              >
+                <span className="inline-flex items-center gap-0.5 shrink-0 font-mono text-[10px] text-slate-400 dark:text-slate-500 mt-px">
+                  v{entry.version}
+                  <ChevronRight className="w-2.5 h-2.5" />
+                  v{entry.version + 1}
+                </span>
+                <span className="text-slate-600 dark:text-slate-300 leading-snug">
+                  {entry.instruction || "Regenerated"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── Attached Regenerate Input ── */}
+      {onRegenerate && !browsingOld && !isRegenerating ? (
+        <div className="flex gap-2 items-center px-4 py-2.5 border-t border-black/[0.05] dark:border-white/[0.06] bg-black/[0.01] dark:bg-black/20">
+          <input
+            className="flex-1 rounded-lg border border-black/[0.08] dark:border-white/[0.08] bg-white/90 dark:bg-[#0d1117] px-3 py-2 text-xs text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none focus:border-blue-500/50"
+            placeholder="Revision instructions... e.g. make it shorter, add urgency"
+            value={regenText}
+            onChange={(event) => setRegenText(event.target.value)}
+            onKeyDown={(event) => event.key === "Enter" && handleRegen()}
+          />
+          <button
+            type="button"
+            className={`flex items-center justify-center w-8 h-8 rounded-lg border border-black/[0.08] dark:border-white/[0.08] transition-colors ${
+              regenText.trim()
+                ? "bg-amber-500 border-amber-500 text-white hover:bg-amber-600"
+                : "bg-white/90 dark:bg-[#21262d] text-slate-400 cursor-not-allowed"
+            }`}
+            onClick={handleRegen}
+            disabled={!regenText.trim()}
+          >
+            <Send className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

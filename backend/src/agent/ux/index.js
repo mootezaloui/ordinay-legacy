@@ -5,6 +5,38 @@ const { buildClarificationResponse } = require("./clarification.builder");
 const { decideClarificationAction } = require("./clarification.policy");
 const { selectResponsePosture } = require("./response.posture");
 const { detectWorkflowOpportunity } = require("./workflow.guide");
+const PRONOUN_REFERENCE_MODES = new Set(["DRAFT"]);
+const ENTITY_HINT_STOPWORDS = new Set([
+  "a",
+  "an",
+  "the",
+  "my",
+  "our",
+  "his",
+  "her",
+  "their",
+  "this",
+  "that",
+  "same",
+  "current",
+  "client",
+  "dossier",
+  "case",
+  "lawsuit",
+  "matter",
+  "document",
+  "letter",
+  "email",
+  "summary",
+  "status",
+  "divorce",
+  "something",
+  "someone",
+  "quelqu",
+  "الملف",
+  "القضية",
+  "حالة",
+]);
 
 let _agentDocumentsService;
 try {
@@ -58,6 +90,32 @@ function evaluatePreLoop({
     };
   }
 
+  const inputMetadata =
+    input && typeof input.metadata === "object" && input.metadata !== null
+      ? input.metadata
+      : null;
+  const regenerateDraftRequested =
+    inputMetadata &&
+    inputMetadata.regenerateDraft === true &&
+    typeof inputMetadata.draftSnapshot === "object" &&
+    inputMetadata.draftSnapshot !== null;
+  if (regenerateDraftRequested) {
+    return {
+      handled: false,
+      action: "proceed",
+      metadata: {
+        uxDecision: {
+          action: "proceed",
+          posture: "drafting",
+          ambiguityKind: "none",
+          ambiguityConfidence: "low",
+          workflowType: "none",
+          reason: "Draft regeneration request bypasses ambiguity preflight.",
+        },
+      },
+    };
+  }
+
   // If session has attached documents, skip ambiguity detection — references like
   // "this file", "this image" clearly point to the attachment, not a DB entity.
   try {
@@ -88,6 +146,31 @@ function evaluatePreLoop({
   });
 
   if (clarificationDecision.action === "ask" || clarificationDecision.action === "offer_choices") {
+    if (shouldDeferPronounClarificationToLoop({ input, session, ambiguityResult })) {
+      const posture = selectResponsePosture({
+        ambiguityResult,
+        workflowOpportunity: null,
+        turnType: "NEW",
+        mode: input.mode,
+        researchMode: false,
+      });
+      return {
+        handled: false,
+        action: "proceed",
+        metadata: {
+          uxDecision: {
+            action: "proceed_with_recent_entity_hint",
+            posture,
+            ambiguityKind: ambiguityResult.kind,
+            ambiguityConfidence: ambiguityResult.confidence,
+            workflowType: "none",
+            reason:
+              "Unclear pronoun reference deferred because a recent explicit entity mention exists in session context.",
+          },
+        },
+      };
+    }
+
     // In READ_ONLY mode, defer ambiguity resolution to tool-first grounding
     const normalizedMode = String(input.mode || "").trim().toUpperCase();
     if (normalizedMode === "READ_ONLY") {
@@ -154,6 +237,16 @@ function evaluatePreLoop({
   });
 
   if (workflowOpportunity.detected) {
+    console.info(
+      "[AGENT_UX_WORKFLOW_GUIDANCE_TRIGGERED]",
+      JSON.stringify({
+        sessionId: String((input && input.sessionId) || (session && session.id) || ""),
+        turnId: String((input && input.turnId) || ""),
+        workflowType: workflowOpportunity.workflowType,
+        missingPieces: normalizeStringArray(workflowOpportunity.missingPieces),
+        messagePreview: normalizeOptionalString(input && input.message).slice(0, 180),
+      }),
+    );
     const posture = selectResponsePosture({
       ambiguityResult,
       workflowOpportunity,
@@ -256,6 +349,62 @@ function normalizeStringArray(value) {
   return rows
     .map((row) => String(row || "").trim())
     .filter(Boolean);
+}
+
+function shouldDeferPronounClarificationToLoop({ input, session, ambiguityResult } = {}) {
+  const mode = String(input && input.mode ? input.mode : "").trim().toUpperCase();
+  if (!PRONOUN_REFERENCE_MODES.has(mode)) {
+    return false;
+  }
+
+  const ambiguity = ensureRecord(ambiguityResult);
+  const kind = normalizeOptionalString(ambiguity.kind);
+  if (kind !== "unclear_reference") {
+    return false;
+  }
+
+  const candidates = Array.isArray(ambiguity.candidates) ? ambiguity.candidates : [];
+  if (candidates.length > 0) {
+    return false;
+  }
+
+  return hasRecentExplicitEntityMention(session);
+}
+
+function hasRecentExplicitEntityMention(session) {
+  if (!session || !Array.isArray(session.turns) || session.turns.length === 0) {
+    return false;
+  }
+
+  const recentUserMessages = session.turns
+    .filter((turn) => turn && turn.role === "user")
+    .slice(-3)
+    .map((turn) => String(turn.message || ""))
+    .filter(Boolean);
+
+  if (recentUserMessages.length === 0) {
+    return false;
+  }
+
+  const candidates = new Set();
+  for (const message of recentUserMessages) {
+    const normalized = normalizeOptionalString(message).toLowerCase();
+    if (!normalized) {
+      continue;
+    }
+
+    const regex = /\b(for|to|pour|client|dossier|case|lawsuit|affaire)\s+([\p{L}\p{N}'-]{2,})/giu;
+    let match;
+    while ((match = regex.exec(normalized)) !== null) {
+      const token = normalizeOptionalString(match[2]).toLowerCase();
+      if (!token || ENTITY_HINT_STOPWORDS.has(token)) {
+        continue;
+      }
+      candidates.add(token);
+    }
+  }
+
+  return candidates.size === 1;
 }
 
 module.exports = {

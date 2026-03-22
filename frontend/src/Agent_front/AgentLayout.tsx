@@ -105,7 +105,25 @@ export function AgentLayout({
     (message: string, metadata?: import("../services/api/agent").AgentRequestMetadata) => {
       const text = String(message || "").trim();
       if (!text) return;
-      startAgentStream(text, { metadata });
+      const replaceMessageId =
+        typeof metadata?.replaceMessageId === "string" && metadata.replaceMessageId.trim().length > 0
+          ? metadata.replaceMessageId.trim()
+          : undefined;
+      const cleanedMetadata = metadata
+        ? (() => {
+            const { replaceMessageId: _omit, ...rest } = metadata;
+            return rest;
+          })()
+        : undefined;
+      startAgentStream(text, {
+        metadata: cleanedMetadata,
+        ...(replaceMessageId
+          ? {
+              replaceMessageId,
+              retryOf: replaceMessageId,
+            }
+          : {}),
+      });
     },
     [startAgentStream],
   );

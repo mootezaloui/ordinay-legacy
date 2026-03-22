@@ -74,7 +74,6 @@ const TARGET_NOUNS = [
   "dossier",
   "client",
   "lawsuit",
-  "case",
   "invoice",
   "hearing",
   "notice",
@@ -272,7 +271,7 @@ function detectLikelyType(message) {
   if (containsAny(message, ["client", "person", "customer", "عميل"])) {
     return "client";
   }
-  if (containsAny(message, ["lawsuit", "case", "affaire", "قضية"])) {
+  if (containsAny(message, ["lawsuit", "affaire", "قضية"])) {
     return "lawsuit";
   }
   if (containsAny(message, ["invoice", "facture", "فاتورة"])) {

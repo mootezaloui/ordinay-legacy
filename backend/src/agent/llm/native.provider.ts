@@ -15,6 +15,13 @@ const LLM_MAX_OUTPUT_TOKENS = readOptionalPositiveInt(
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 const GROQ_MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
 const GROQ_BASE_URL = process.env.GROQ_BASE_URL || "https://api.groq.com/openai";
+const OPENROUTER_API_KEY =
+  process.env.OPENROUTER_API_KEY || process.env.LLM_OPENROUTER_API_KEY || "";
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "openai/gpt-oss-120b";
+const OPENROUTER_BASE_URL =
+  process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
+const OPENROUTER_HTTP_REFERER = process.env.OPENROUTER_HTTP_REFERER || "";
+const OPENROUTER_APP_NAME = process.env.OPENROUTER_APP_NAME || "";
 const GPT_OSS_MODEL = "gpt-oss:120b-cloud";
 const DEEPSEEK_R1_8B_MODEL = "deepseek-r1:8b";
 const GEMMA3_1B_MODEL = "gemma3:1b";
@@ -31,37 +38,65 @@ export function createNativeLLMProvider(): ILLMProvider {
 
 class NativeLLMProvider implements ILLMProvider {
   private lastStreamRetryAfterMs: number | null = null;
+  private lastStreamRateLimitKind: "tpd" | "other" | null = null;
   private readonly modelToolSupportCache = new Map<string, boolean>();
 
   async generate(params: LLMGenerateParams): Promise<LLMResponse> {
+    if (params.signal?.aborted) {
+      throw createAbortError();
+    }
     const modelChoice = await this.resolveModelChoice(
       params.metadata,
       Array.isArray(params.tools) && params.tools.length > 0,
     );
     const request = this.buildRequest(params, modelChoice.model);
+    console.info(
+      "[LLM_GENERATE_START]",
+      JSON.stringify({
+        model: request.model,
+        route: modelChoice.route,
+        messageCount: Array.isArray(request.messages) ? request.messages.length : 0,
+        toolCount: Array.isArray(request.tools) ? request.tools.length : 0,
+        hasOpenAiKey: Boolean(OPENAI_API_KEY),
+        hasOpenRouterKey: Boolean(OPENROUTER_API_KEY),
+        hasGroqKey: Boolean(GROQ_API_KEY),
+        llmBaseUrl: normalizeBase(LLM_BASE_URL),
+        openAiBaseUrl: normalizeOpenAiBase(OPENAI_BASE_URL),
+        openRouterBaseUrl: normalizeBase(OPENROUTER_BASE_URL),
+        groqBaseUrl: normalizeBase(GROQ_BASE_URL),
+      }),
+    );
 
     if (modelChoice.route !== "local_only") {
-      const openAi = await this.tryOpenAiCompletion(request);
+      const openAi = await this.tryOpenAiCompletion(request, params.signal);
       if (openAi) {
         this.logCompletionDiagnostics("openai.generate", request, openAi);
         return openAi;
       }
     }
 
-    const ollamaOpenAi = await this.tryOllamaOpenAiCompletion(request);
+    const ollamaOpenAi = await this.tryOllamaOpenAiCompletion(request, params.signal);
     if (ollamaOpenAi) {
       this.logCompletionDiagnostics("ollama-openai.generate", request, ollamaOpenAi);
       return ollamaOpenAi;
     }
 
-    const ollamaChat = await this.tryOllamaChatCompletion(request);
+    const ollamaChat = await this.tryOllamaChatCompletion(request, params.signal);
     if (ollamaChat) {
       this.logCompletionDiagnostics("ollama-chat.generate", request, ollamaChat);
       return ollamaChat;
     }
 
     if (modelChoice.route !== "local_only") {
-      const groq = await this.tryGroqCompletion(request);
+      const openRouter = await this.tryOpenRouterCompletion(request, params.signal);
+      if (openRouter) {
+        this.logCompletionDiagnostics("openrouter.generate", request, openRouter);
+        return openRouter;
+      }
+    }
+
+    if (modelChoice.route !== "local_only") {
+      const groq = await this.tryGroqCompletion(request, params.signal);
       if (groq) {
         this.logCompletionDiagnostics("groq.generate", request, groq);
         return groq;
@@ -74,11 +109,23 @@ class NativeLLMProvider implements ILLMProvider {
       finishReason: "error",
       raw: { source: "fallback" },
     };
+    console.warn(
+      "[LLM_GENERATE_ALL_PROVIDERS_FAILED]",
+      JSON.stringify({
+        model: request.model,
+        route: modelChoice.route,
+        messageCount: Array.isArray(request.messages) ? request.messages.length : 0,
+        toolCount: Array.isArray(request.tools) ? request.tools.length : 0,
+      }),
+    );
     this.logCompletionDiagnostics("fallback.generate", request, fallback);
     return fallback;
   }
 
   async *stream(params: LLMGenerateParams): AsyncIterable<LLMStreamChunk> {
+    if (params.signal?.aborted) {
+      return;
+    }
     const modelChoice = await this.resolveModelChoice(
       params.metadata,
       Array.isArray(params.tools) && params.tools.length > 0,
@@ -93,6 +140,7 @@ class NativeLLMProvider implements ILLMProvider {
         {
           ...(OPENAI_API_KEY ? { Authorization: `Bearer ${OPENAI_API_KEY}` } : {}),
         },
+        params.signal,
       )) {
         emitted = true;
         yield chunk;
@@ -107,6 +155,8 @@ class NativeLLMProvider implements ILLMProvider {
     for await (const chunk of this.streamOpenAiFromUrl(
       `${normalizeBase(LLM_BASE_URL)}/v1/chat/completions`,
       request,
+      undefined,
+      params.signal,
     )) {
       compatEmitted = true;
       yield chunk;
@@ -119,6 +169,7 @@ class NativeLLMProvider implements ILLMProvider {
     for await (const chunk of this.streamOllamaFromUrl(
       `${normalizeBase(LLM_BASE_URL)}/api/chat`,
       request,
+      params.signal,
     )) {
       ollamaEmitted = true;
       yield chunk;
@@ -127,15 +178,54 @@ class NativeLLMProvider implements ILLMProvider {
       return;
     }
 
+    if (modelChoice.route !== "local_only" && OPENROUTER_API_KEY) {
+      const openRouterRequest = { ...request, model: OPENROUTER_MODEL };
+      for (let openRouterAttempt = 0; openRouterAttempt < 3; openRouterAttempt++) {
+        this.lastStreamRetryAfterMs = null;
+        this.lastStreamRateLimitKind = null;
+        let openRouterEmitted = false;
+        for await (const chunk of this.streamOpenAiFromUrl(
+          `${normalizeBase(OPENROUTER_BASE_URL)}/chat/completions`,
+          openRouterRequest,
+          this.buildOpenRouterHeaders(),
+          params.signal,
+        )) {
+          openRouterEmitted = true;
+          yield chunk;
+        }
+        if (openRouterEmitted) {
+          return;
+        }
+        if (this.lastStreamRateLimitKind === "tpd") {
+          console.warn("[LLM_OPENROUTER_STREAM_RETRY_HALTED_TPD_LIMIT]");
+          break;
+        }
+        const waitMs = this.lastStreamRetryAfterMs ?? 3000;
+        console.warn(
+          `[LLM_OPENROUTER_STREAM_RETRY] attempt ${openRouterAttempt + 1}/3, waiting ${Math.ceil(waitMs / 1000)}s`,
+        );
+        try {
+          await this.sleepWithAbort(waitMs, params.signal);
+        } catch (error) {
+          if (isAbortError(error)) {
+            return;
+          }
+          throw error;
+        }
+      }
+    }
+
     if (modelChoice.route !== "local_only" && GROQ_API_KEY) {
       const groqRequest = { ...request, model: GROQ_MODEL };
       for (let groqAttempt = 0; groqAttempt < 3; groqAttempt++) {
         this.lastStreamRetryAfterMs = null;
+        this.lastStreamRateLimitKind = null;
         let groqEmitted = false;
         for await (const chunk of this.streamOpenAiFromUrl(
           `${normalizeBase(GROQ_BASE_URL)}/v1/chat/completions`,
           groqRequest,
           { Authorization: `Bearer ${GROQ_API_KEY}` },
+          params.signal,
         )) {
           groqEmitted = true;
           yield chunk;
@@ -143,14 +233,28 @@ class NativeLLMProvider implements ILLMProvider {
         if (groqEmitted) {
           return;
         }
+        if (this.lastStreamRateLimitKind === "tpd") {
+          console.warn("[LLM_GROQ_STREAM_RETRY_HALTED_TPD_LIMIT]");
+          break;
+        }
         const waitMs = this.lastStreamRetryAfterMs ?? 3000;
         console.warn(
           `[LLM_GROQ_STREAM_RETRY] attempt ${groqAttempt + 1}/3, waiting ${Math.ceil(waitMs / 1000)}s`,
         );
-        await new Promise((r) => setTimeout(r, waitMs));
+        try {
+          await this.sleepWithAbort(waitMs, params.signal);
+        } catch (error) {
+          if (isAbortError(error)) {
+            return;
+          }
+          throw error;
+        }
       }
     }
 
+    if (params.signal?.aborted) {
+      return;
+    }
     const response = await this.generate(params);
     this.logCompletionDiagnostics("stream.fallback_to_generate", request, response);
     if (response.text) {
@@ -305,8 +409,12 @@ class NativeLLMProvider implements ILLMProvider {
     }
   }
 
-  private async tryOpenAiCompletion(request: LLMRequest): Promise<LLMResponse | null> {
+  private async tryOpenAiCompletion(
+    request: LLMRequest,
+    signal?: AbortSignal,
+  ): Promise<LLMResponse | null> {
     if (!OPENAI_API_KEY) {
+      console.warn("[LLM_OPENAI_SKIPPED_NO_API_KEY]");
       return null;
     }
 
@@ -319,15 +427,30 @@ class NativeLLMProvider implements ILLMProvider {
           Authorization: `Bearer ${OPENAI_API_KEY}`,
         },
         body: JSON.stringify(toChatCompletionBody(request)),
+        signal,
       });
 
       if (!response.ok) {
+        const errBody = await response.text().catch(() => "");
+        console.warn(
+          "[LLM_OPENAI_HTTP_ERROR]",
+          JSON.stringify({
+            status: response.status,
+            body: errBody.slice(0, 300),
+            model: request.model,
+            messageCount: request.messages?.length ?? 0,
+          }),
+        );
         return null;
       }
 
       const payload = (await response.json()) as Record<string, unknown>;
       return normalizeChatCompletionResponse(payload);
-    } catch {
+    } catch (error) {
+      if (isAbortError(error)) {
+        return null;
+      }
+      console.warn("[LLM_OPENAI_FETCH_ERROR]", String(error));
       return null;
     }
   }
@@ -336,6 +459,7 @@ class NativeLLMProvider implements ILLMProvider {
     url: string,
     request: LLMRequest,
     extraHeaders?: Record<string, string>,
+    signal?: AbortSignal,
   ): AsyncIterable<LLMStreamChunk> {
     const response = await fetch(url, {
       method: "POST",
@@ -347,20 +471,39 @@ class NativeLLMProvider implements ILLMProvider {
         ...toChatCompletionBody(request),
         stream: true,
       }),
-    }).catch((err) => { console.warn("[LLM_STREAM_FETCH_ERROR]", url, String(err)); return null; });
+      signal,
+    }).catch((err) => {
+      if (isAbortError(err)) {
+        return null;
+      }
+      console.warn("[LLM_STREAM_FETCH_ERROR]", url, String(err));
+      return null;
+    });
 
     if (!response?.ok || !response.body) {
       if (response && !response.ok) {
         const errBody = await response.text().catch(() => "");
         if (response.status === 429) {
+          this.lastStreamRateLimitKind = this.classifyRateLimitKind(errBody);
           this.lastStreamRetryAfterMs = this.inferRetryDelayMs(
             errBody,
             response.headers.get("retry-after"),
           );
         } else {
+          this.lastStreamRateLimitKind = null;
           this.lastStreamRetryAfterMs = null;
         }
         console.warn("[LLM_STREAM_HTTP_ERROR]", JSON.stringify({ url, status: response.status, body: errBody.slice(0, 500), msgCount: request.messages?.length }));
+      } else {
+        console.warn(
+          "[LLM_STREAM_EMPTY_OR_UNREACHABLE]",
+          JSON.stringify({
+            url,
+            model: request.model,
+            messageCount: request.messages?.length ?? 0,
+            toolCount: request.tools?.length ?? 0,
+          }),
+        );
       }
       return;
     }
@@ -495,6 +638,7 @@ class NativeLLMProvider implements ILLMProvider {
 
   private async tryOllamaOpenAiCompletion(
     request: LLMRequest,
+    signal?: AbortSignal,
   ): Promise<LLMResponse | null> {
     const url = `${normalizeBase(LLM_BASE_URL)}/v1/chat/completions`;
     try {
@@ -504,6 +648,7 @@ class NativeLLMProvider implements ILLMProvider {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(toChatCompletionBody(request)),
+        signal,
       });
 
       if (!response.ok) {
@@ -515,12 +660,18 @@ class NativeLLMProvider implements ILLMProvider {
       const payload = (await response.json()) as Record<string, unknown>;
       return normalizeChatCompletionResponse(payload);
     } catch (err) {
+      if (isAbortError(err)) {
+        return null;
+      }
       console.warn("[LLM_OLLAMA_OPENAI_CATCH]", String(err));
       return null;
     }
   }
 
-  private async tryOllamaChatCompletion(request: LLMRequest): Promise<LLMResponse | null> {
+  private async tryOllamaChatCompletion(
+    request: LLMRequest,
+    signal?: AbortSignal,
+  ): Promise<LLMResponse | null> {
     const url = `${normalizeBase(LLM_BASE_URL)}/api/chat`;
     try {
       const response = await fetch(url, {
@@ -537,9 +688,10 @@ class NativeLLMProvider implements ILLMProvider {
             temperature: request.temperature,
             ...(typeof request.maxTokens === "number"
               ? { num_predict: request.maxTokens }
-              : {}),
+            : {}),
           },
         }),
+        signal,
       });
 
       if (!response.ok) {
@@ -560,12 +712,18 @@ class NativeLLMProvider implements ILLMProvider {
         raw: payload,
       };
     } catch (err) {
+      if (isAbortError(err)) {
+        return null;
+      }
       console.warn("[LLM_OLLAMA_CHAT_CATCH]", String(err));
       return null;
     }
   }
 
-  private async tryGroqCompletion(request: LLMRequest): Promise<LLMResponse | null> {
+  private async tryGroqCompletion(
+    request: LLMRequest,
+    signal?: AbortSignal,
+  ): Promise<LLMResponse | null> {
     if (!GROQ_API_KEY) {
       return null;
     }
@@ -581,15 +739,35 @@ class NativeLLMProvider implements ILLMProvider {
             Authorization: `Bearer ${GROQ_API_KEY}`,
           },
           body: JSON.stringify(toChatCompletionBody(groqRequest)),
+          signal,
         });
 
         if (response.status === 429) {
           const errBody = await response.text().catch(() => "");
+          const rateLimitKind = this.classifyRateLimitKind(errBody);
+          if (rateLimitKind === "tpd") {
+            console.warn(
+              "[LLM_GROQ_RATE_LIMIT_TPD_HALT]",
+              JSON.stringify({
+                attempt: attempt + 1,
+                status: response.status,
+                body: errBody.slice(0, 300),
+              }),
+            );
+            return null;
+          }
           const waitMs = this.inferRetryDelayMs(errBody, response.headers.get("retry-after"));
           console.warn(
             `[LLM_GROQ_RATE_LIMIT] attempt ${attempt + 1}/3, waiting ${Math.ceil(waitMs / 1000)}s`,
           );
-          await new Promise((r) => setTimeout(r, waitMs));
+          try {
+            await this.sleepWithAbort(waitMs, signal);
+          } catch (error) {
+            if (isAbortError(error)) {
+              return null;
+            }
+            throw error;
+          }
           continue;
         }
 
@@ -602,10 +780,88 @@ class NativeLLMProvider implements ILLMProvider {
         const payload = (await response.json()) as Record<string, unknown>;
         return normalizeChatCompletionResponse(payload);
       } catch (err) {
+        if (isAbortError(err)) {
+          return null;
+        }
         console.warn("[LLM_GROQ_CATCH]", String(err));
         return null;
       }
     }
+    return null;
+  }
+
+  private async tryOpenRouterCompletion(
+    request: LLMRequest,
+    signal?: AbortSignal,
+  ): Promise<LLMResponse | null> {
+    if (!OPENROUTER_API_KEY) {
+      return null;
+    }
+
+    const url = `${normalizeBase(OPENROUTER_BASE_URL)}/chat/completions`;
+    const openRouterRequest = { ...request, model: OPENROUTER_MODEL };
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: this.buildOpenRouterHeaders(),
+          body: JSON.stringify(toChatCompletionBody(openRouterRequest)),
+          signal,
+        });
+
+        if (response.status === 429) {
+          const errBody = await response.text().catch(() => "");
+          const rateLimitKind = this.classifyRateLimitKind(errBody);
+          if (rateLimitKind === "tpd") {
+            console.warn(
+              "[LLM_OPENROUTER_RATE_LIMIT_TPD_HALT]",
+              JSON.stringify({
+                attempt: attempt + 1,
+                status: response.status,
+                body: errBody.slice(0, 300),
+              }),
+            );
+            return null;
+          }
+          const waitMs = this.inferRetryDelayMs(errBody, response.headers.get("retry-after"));
+          console.warn(
+            `[LLM_OPENROUTER_RATE_LIMIT] attempt ${attempt + 1}/3, waiting ${Math.ceil(waitMs / 1000)}s`,
+          );
+          try {
+            await this.sleepWithAbort(waitMs, signal);
+          } catch (error) {
+            if (isAbortError(error)) {
+              return null;
+            }
+            throw error;
+          }
+          continue;
+        }
+
+        if (!response.ok) {
+          const errBody = await response.text().catch(() => "");
+          console.warn(
+            "[LLM_OPENROUTER_ERROR]",
+            JSON.stringify({
+              status: response.status,
+              body: errBody.slice(0, 300),
+              msgCount: request.messages?.length,
+            }),
+          );
+          return null;
+        }
+
+        const payload = (await response.json()) as Record<string, unknown>;
+        return normalizeChatCompletionResponse(payload);
+      } catch (err) {
+        if (isAbortError(err)) {
+          return null;
+        }
+        console.warn("[LLM_OPENROUTER_CATCH]", String(err));
+        return null;
+      }
+    }
+
     return null;
   }
 
@@ -619,6 +875,16 @@ class NativeLLMProvider implements ILLMProvider {
     }
 
     const body = String(responseBody || "");
+    const bodyMatchWithMinutes = body.match(/try again in\s+((\d+)m)?\s*([\d.]+)s/i);
+    if (bodyMatchWithMinutes) {
+      const minutes = Number.parseFloat(bodyMatchWithMinutes[2] || "0");
+      const seconds = Number.parseFloat(bodyMatchWithMinutes[3] || "0");
+      const totalSeconds = (Number.isFinite(minutes) ? minutes : 0) * 60 + (Number.isFinite(seconds) ? seconds : 0);
+      if (Number.isFinite(totalSeconds) && totalSeconds > 0) {
+        return this.clampRetryDelayMs(totalSeconds * 1000);
+      }
+    }
+
     const bodyMatch = body.match(/try again in\s+([\d.]+)s/i);
     if (bodyMatch) {
       const seconds = Number.parseFloat(bodyMatch[1]);
@@ -637,9 +903,32 @@ class NativeLLMProvider implements ILLMProvider {
     return Math.max(3000, Math.min(Math.ceil(value), 60000));
   }
 
+  private classifyRateLimitKind(responseBody: string): "tpd" | "other" {
+    const body = String(responseBody || "").toLowerCase();
+    if (body.includes("tokens per day") || body.includes("tpd")) {
+      return "tpd";
+    }
+    return "other";
+  }
+
+  private buildOpenRouterHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+    };
+    if (OPENROUTER_HTTP_REFERER.trim().length > 0) {
+      headers["HTTP-Referer"] = OPENROUTER_HTTP_REFERER.trim();
+    }
+    if (OPENROUTER_APP_NAME.trim().length > 0) {
+      headers["X-Title"] = OPENROUTER_APP_NAME.trim();
+    }
+    return headers;
+  }
+
   private async *streamOllamaFromUrl(
     url: string,
     request: LLMRequest,
+    signal?: AbortSignal,
   ): AsyncIterable<LLMStreamChunk> {
     const response = await fetch(url, {
       method: "POST",
@@ -658,9 +947,37 @@ class NativeLLMProvider implements ILLMProvider {
             : {}),
         },
       }),
-    }).catch(() => null);
+      signal,
+    }).catch((error) => {
+      if (isAbortError(error)) {
+        return null;
+      }
+      console.warn("[LLM_OLLAMA_STREAM_FETCH_ERROR]", JSON.stringify({ url, error: String(error) }));
+      return null;
+    });
 
     if (!response?.ok || !response.body) {
+      if (response && !response.ok) {
+        const errBody = await response.text().catch(() => "");
+        console.warn(
+          "[LLM_OLLAMA_STREAM_HTTP_ERROR]",
+          JSON.stringify({
+            status: response.status,
+            body: errBody.slice(0, 300),
+            model: request.model,
+            messageCount: request.messages?.length ?? 0,
+          }),
+        );
+      } else {
+        console.warn(
+          "[LLM_OLLAMA_STREAM_UNREACHABLE]",
+          JSON.stringify({
+            url,
+            model: request.model,
+            messageCount: request.messages?.length ?? 0,
+          }),
+        );
+      }
       return;
     }
 
@@ -719,6 +1036,28 @@ class NativeLLMProvider implements ILLMProvider {
       );
     }
     yield { finishReason, done: true };
+  }
+
+  private async sleepWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
+    if (!signal) {
+      await new Promise((resolve) => setTimeout(resolve, ms));
+      return;
+    }
+    if (signal.aborted) {
+      throw createAbortError();
+    }
+    await new Promise<void>((resolve, reject) => {
+      const handle = setTimeout(() => {
+        signal.removeEventListener("abort", onAbort);
+        resolve();
+      }, ms);
+      const onAbort = () => {
+        clearTimeout(handle);
+        signal.removeEventListener("abort", onAbort);
+        reject(createAbortError());
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+    });
   }
 }
 
@@ -853,6 +1192,19 @@ function readOptionalPositiveInt(value: string | undefined): number | undefined 
     return undefined;
   }
   return parsed;
+}
+
+function isAbortError(error: unknown): boolean {
+  if (error instanceof Error && error.name === "AbortError") {
+    return true;
+  }
+  return String(error || "").toLowerCase().includes("aborted");
+}
+
+function createAbortError(): Error {
+  const err = new Error("Aborted");
+  err.name = "AbortError";
+  return err;
 }
 
 function sanitizeToolCallCandidate(params: {

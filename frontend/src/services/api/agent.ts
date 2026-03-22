@@ -120,6 +120,7 @@ export interface AgentRequestMetadata {
   streamingEnabled?: boolean;
   modelPreference?: AgentModelPreference;
   regenerateDraft?: boolean;
+  regenInstruction?: string;
   draftSnapshot?: {
     draftType: string;
     title: string;
@@ -130,6 +131,9 @@ export interface AgentRequestMetadata {
     version?: number;
     content?: string;
   };
+  // Frontend-only helper used to replace an existing assistant artifact in-place
+  // during regenerate flows. It is stripped before backend request dispatch.
+  replaceMessageId?: string;
 }
 
 // Agent request to backend
@@ -841,6 +845,18 @@ export interface DraftLayoutData {
   documentClass: string;
 }
 
+export interface DraftVersionEntry {
+  version: number;
+  sections: DraftSectionData[];
+  layout: DraftLayoutData;
+  content?: string;
+  title: string;
+  subtitle?: string;
+  metadata?: Record<string, string>;
+  generatedAt: string;
+  instruction?: string;
+}
+
 export interface DraftArtifactData {
   type: 'draft_v2';
   draftType: string;
@@ -854,6 +870,7 @@ export interface DraftArtifactData {
   linkedEntityId?: number;
   generatedAt: string;
   version: number;
+  versionHistory?: DraftVersionEntry[];
 }
 
 export interface WebSearchResultItem {
@@ -1521,8 +1538,10 @@ function inferAgentV2Mode(params: {
       .trim()
       .toLowerCase();
 
-  if (requestedAction === 'execute' || requestedAction === 'autonomous') {
-    return requestedAction === 'autonomous' ? 'AUTONOMOUS' : 'EXECUTE';
+  if (requestedAction === 'execute' || requestedAction === 'autonomous' || requestedAction === 'draft') {
+    if (requestedAction === 'autonomous') return 'AUTONOMOUS';
+    if (requestedAction === 'execute') return 'EXECUTE';
+    return 'DRAFT';
   }
 
   if (
@@ -1535,7 +1554,13 @@ function inferAgentV2Mode(params: {
 
   if (params.message) {
     const msg = params.message.trim().toLowerCase();
-    if (/\b(write|draft|compose|prepare|redige[rz]?|rédige[rz]?|prépare[rz]?|اكتب|حضّر|صغ)\b/.test(msg)) {
+    if (
+      /\b(write|draft|compose|prepare|generate|create|redige[rz]?|rédige[rz]?|prépare[rz]?|اكتب|حضّر|صغ)\b/.test(msg) ||
+      /\b(letter|email|memo|notice|petition|contract|postponement)\b/.test(msg) ||
+      /\b(official request|request to)\b/.test(msg) ||
+      /\b(lettre|courriel|email|note|requ[eê]te|contrat)\b/.test(msg) ||
+      /(رسالة|طلب|مذكرة|عريضة|تأجيل)/.test(msg)
+    ) {
       return 'DRAFT';
     }
   }

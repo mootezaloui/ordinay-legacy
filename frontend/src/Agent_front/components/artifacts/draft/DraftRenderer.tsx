@@ -1,5 +1,5 @@
 import type { DraftSectionData, DraftLayoutData } from "../../../../services/api/agent";
-import { getSectionClass, getDocumentFontFamily } from "./roleStyles";
+import { getSectionClass } from "./roleStyles";
 
 export function SectionView({ section }: { section: DraftSectionData }) {
   if (section.role === "spacer") {
@@ -35,14 +35,12 @@ interface DraftRendererProps {
 
 export function DraftRenderer({ sections, layout, isStreaming }: DraftRendererProps) {
   const isRtl = layout.direction === "rtl";
-  const fontFamily = getDocumentFontFamily(layout);
 
   return (
     <div
       dir={isRtl ? "rtl" : "ltr"}
       lang={layout.language}
       className="relative rounded-lg border border-black/[0.06] dark:border-white/[0.06] bg-white dark:bg-[#0f172a]/70 p-4 max-h-[420px] overflow-y-auto shadow-sm"
-      style={{ fontFamily }}
     >
       <div className={`relative z-10 ${isRtl ? "text-right" : "text-left"} text-slate-700 dark:text-slate-300`}>
         {sections.length > 0 ? (

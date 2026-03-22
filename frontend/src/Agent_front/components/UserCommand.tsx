@@ -148,7 +148,7 @@ export function UserCommand({
   }
 
   return (
-    <div className="user-message-row w-full">
+    <div className="user-message-row w-full user-message-enter">
       <div className="user-message-wrapper group w-full max-w-[70%]">
         <div className="user-bubble agent-chat-text w-fit max-w-full break-words text-[15px] leading-relaxed">
           {/* Attachment previews */}

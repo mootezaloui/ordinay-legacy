@@ -298,9 +298,164 @@ test("P3-04: disambiguation event is followed by done without error fallback", a
 });
 
 // ---------------------------------------------------------------------------
+// P3-05: Generic draft ask must not force a generated artifact.
+//        The loop should deny generateDraft and ask clarification as text.
+// ---------------------------------------------------------------------------
+test("P3-05: generic draft prompt asks clarification instead of generating draft", async () => {
+  const fixture = createLoopFixture({
+    id: "ambiguity_generic_draft_clarification",
+    message: "Draft something for Leila",
+    mode: "DRAFT",
+    setup(runtime) {
+      installSyntheticReadTool(runtime, "listClients", async () => ({
+        ok: true,
+        data: { clients: [{ id: 7, name: "Leila Ben Youssef", email: "leila@example.test" }], count: 1 },
+      }));
+
+      return queueLlmResponses(runtime, [
+        {
+          text: "",
+          toolCalls: [
+            { id: "tc_1", name: "listClients", arguments: { query: "Leila", limit: 5 } },
+          ],
+        },
+        {
+          text: "",
+          toolCalls: [
+            {
+              id: "tc_2",
+              name: "generateDraft",
+              arguments: {
+                draftType: "client_letter",
+                title: "Update on Your Legal Matter",
+                sections: [{ role: "body", text: "Hallucinated case update body." }],
+                layout: { direction: "ltr", language: "en", formality: "formal", documentClass: "letter" },
+                linkedEntityType: "client",
+                linkedEntityId: 7,
+              },
+            },
+          ],
+        },
+        {
+          text: "What type of document do you want for Leila (for example a letter or an email), and what should it say?",
+          toolCalls: [],
+        },
+      ]);
+    },
+    assert(result) {
+      const toolCalls = result?.output?.toolCalls || [];
+      const deniedDetails = toolCalls.find(
+        (call) => call.toolName === "generateDraft" && call.errorCode === "DRAFT_DETAILS_REQUIRED",
+      );
+      assert.ok(deniedDetails, "Expected generateDraft denial with DRAFT_DETAILS_REQUIRED.");
+
+      const successfulDraft = toolCalls.find(
+        (call) => call.toolName === "generateDraft" && call.ok === true,
+      );
+      assert.equal(
+        Boolean(successfulDraft),
+        false,
+        "Did not expect a successful generateDraft call for generic prompt.",
+      );
+
+      const responseText = String(result?.output?.responseText || "").toLowerCase();
+      assert.ok(
+        responseText.includes("what type of document") || responseText.includes("what should it say"),
+        `Expected clarification response text, got: ${result?.output?.responseText || ""}`,
+      );
+    },
+  });
+
+  await runScenario(fixture);
+});
+
+// ---------------------------------------------------------------------------
+// P3-06: DRAFT follow-up with pronoun reference should not be blocked
+//        by preflight when prior user turn already named a single entity.
+// ---------------------------------------------------------------------------
+test("P3-06: DRAFT pronoun follow-up proceeds to loop when prior entity mention exists", async () => {
+  const fixture = createSseFixture({
+    id: "ambiguity_draft_pronoun_followup_proceeds",
+    message: "write a letter for current status of her divorce case and outline next steps",
+    mode: "DRAFT",
+    preSession(session) {
+      const now = new Date().toISOString();
+      session.metadata = {};
+      session.turns = [
+        {
+          id: "prev_user_1",
+          role: "user",
+          turnType: "NEW",
+          message: "draft something for leila",
+          createdAt: now,
+        },
+        {
+          id: "prev_assistant_1",
+          role: "assistant",
+          turnType: "NEW",
+          message: "Could you clarify what kind of draft you need?",
+          createdAt: now,
+        },
+      ];
+    },
+    setup(runtime) {
+      // Allow DRAFT mode through auth scope check
+      runtime.security = {
+        sanitizeAgentInput: (raw) => ({ ok: true, value: raw }),
+        evaluateAuthScope: () => ({ allowed: true, scope: "draft" }),
+        checkRateLimit: () => ({ allowed: true, remaining: 100, resetAt: 0 }),
+      };
+
+      installSyntheticReadTool(runtime, "listClients", async () => ({
+        ok: true,
+        data: { clients: [{ id: 10, name: "Leila Mansouri" }], count: 1 },
+      }));
+
+      return queueLlmResponses(runtime, [
+        {
+          text: "",
+          toolCalls: [
+            { id: "tc_1", name: "listClients", arguments: { query: "Leila", limit: 5 } },
+          ],
+        },
+        {
+          text: "I found Leila Mansouri. Should I draft a client status letter for her divorce case?",
+          toolCalls: [],
+        },
+      ]);
+    },
+    assert(result) {
+      assert.ok(
+        result?.capturedLoopInput,
+        "Expected loop to run; preflight should not fully handle this follow-up.",
+      );
+
+      const toolEvents = (result?.events || []).filter((event) => event.event === "tool_start");
+      const usedListClients = toolEvents.some(
+        (event) => String(event?.data?.toolName || "") === "listClients",
+      );
+      assert.equal(
+        usedListClients,
+        true,
+        "Expected tool-first grounding (listClients) for pronoun follow-up.",
+      );
+
+      const fullText = String(result?.derived?.responseText || "");
+      assert.equal(
+        fullText.includes("I could not resolve your reference to a specific entity."),
+        false,
+        "Expected no generic unresolved-entity preflight response.",
+      );
+    },
+  });
+
+  await runScenario(fixture);
+});
+
+// ---------------------------------------------------------------------------
 // Helpers — mirror read.audit.test.js conventions
 // ---------------------------------------------------------------------------
-function createLoopFixture({ id, message, setup, assert: assertFn }) {
+function createLoopFixture({ id, message, mode, setup, preSession, assert: assertFn }) {
   return {
     id,
     target: "loop_core",
@@ -308,15 +463,16 @@ function createLoopFixture({ id, message, setup, assert: assertFn }) {
       sessionId: `${id}_session`,
       turnId: `${id}_turn_1`,
       message,
-      mode: "READ_ONLY",
+      mode: mode || "READ_ONLY",
       metadata: {},
     },
     setup,
+    preSession,
     assert: assertFn,
   };
 }
 
-function createSseFixture({ id, message, mode, setup, assert: assertFn }) {
+function createSseFixture({ id, message, mode, setup, preSession, assert: assertFn }) {
   return {
     id,
     target: "sse_handler",
@@ -328,6 +484,7 @@ function createSseFixture({ id, message, mode, setup, assert: assertFn }) {
       metadata: mode === "DRAFT" ? { security: { authScope: "draft" } } : {},
     },
     setup,
+    preSession,
     assert: assertFn,
   };
 }

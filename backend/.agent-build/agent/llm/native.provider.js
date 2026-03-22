@@ -11,37 +11,72 @@ const LLM_MAX_OUTPUT_TOKENS = readOptionalPositiveInt(process.env.LLM_MAX_OUTPUT
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 const GROQ_MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
 const GROQ_BASE_URL = process.env.GROQ_BASE_URL || "https://api.groq.com/openai";
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || process.env.LLM_OPENROUTER_API_KEY || "";
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "openai/gpt-oss-120b";
+const OPENROUTER_BASE_URL = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
+const OPENROUTER_HTTP_REFERER = process.env.OPENROUTER_HTTP_REFERER || "";
+const OPENROUTER_APP_NAME = process.env.OPENROUTER_APP_NAME || "";
 const GPT_OSS_MODEL = "gpt-oss:120b-cloud";
 const DEEPSEEK_R1_8B_MODEL = "deepseek-r1:8b";
 const GEMMA3_1B_MODEL = "gemma3:1b";
 const LEGACY_GENNA3_1B_MODEL = "genna3:1b";
+const MODEL_TOOL_SUPPORT_HINTS = {
+    [GPT_OSS_MODEL]: true,
+    [GEMMA3_1B_MODEL]: false,
+    [LEGACY_GENNA3_1B_MODEL]: false,
+};
 function createNativeLLMProvider() {
     return new NativeLLMProvider();
 }
 class NativeLLMProvider {
     lastStreamRetryAfterMs = null;
+    lastStreamRateLimitKind = null;
+    modelToolSupportCache = new Map();
     async generate(params) {
-        const modelChoice = this.resolveModelChoice(params.metadata);
+        if (params.signal?.aborted) {
+            throw createAbortError();
+        }
+        const modelChoice = await this.resolveModelChoice(params.metadata, Array.isArray(params.tools) && params.tools.length > 0);
         const request = this.buildRequest(params, modelChoice.model);
+        console.info("[LLM_GENERATE_START]", JSON.stringify({
+            model: request.model,
+            route: modelChoice.route,
+            messageCount: Array.isArray(request.messages) ? request.messages.length : 0,
+            toolCount: Array.isArray(request.tools) ? request.tools.length : 0,
+            hasOpenAiKey: Boolean(OPENAI_API_KEY),
+            hasOpenRouterKey: Boolean(OPENROUTER_API_KEY),
+            hasGroqKey: Boolean(GROQ_API_KEY),
+            llmBaseUrl: normalizeBase(LLM_BASE_URL),
+            openAiBaseUrl: normalizeOpenAiBase(OPENAI_BASE_URL),
+            openRouterBaseUrl: normalizeBase(OPENROUTER_BASE_URL),
+            groqBaseUrl: normalizeBase(GROQ_BASE_URL),
+        }));
         if (modelChoice.route !== "local_only") {
-            const openAi = await this.tryOpenAiCompletion(request);
+            const openAi = await this.tryOpenAiCompletion(request, params.signal);
             if (openAi) {
                 this.logCompletionDiagnostics("openai.generate", request, openAi);
                 return openAi;
             }
         }
-        const ollamaOpenAi = await this.tryOllamaOpenAiCompletion(request);
+        const ollamaOpenAi = await this.tryOllamaOpenAiCompletion(request, params.signal);
         if (ollamaOpenAi) {
             this.logCompletionDiagnostics("ollama-openai.generate", request, ollamaOpenAi);
             return ollamaOpenAi;
         }
-        const ollamaChat = await this.tryOllamaChatCompletion(request);
+        const ollamaChat = await this.tryOllamaChatCompletion(request, params.signal);
         if (ollamaChat) {
             this.logCompletionDiagnostics("ollama-chat.generate", request, ollamaChat);
             return ollamaChat;
         }
         if (modelChoice.route !== "local_only") {
-            const groq = await this.tryGroqCompletion(request);
+            const openRouter = await this.tryOpenRouterCompletion(request, params.signal);
+            if (openRouter) {
+                this.logCompletionDiagnostics("openrouter.generate", request, openRouter);
+                return openRouter;
+            }
+        }
+        if (modelChoice.route !== "local_only") {
+            const groq = await this.tryGroqCompletion(request, params.signal);
             if (groq) {
                 this.logCompletionDiagnostics("groq.generate", request, groq);
                 return groq;
@@ -53,17 +88,26 @@ class NativeLLMProvider {
             finishReason: "error",
             raw: { source: "fallback" },
         };
+        console.warn("[LLM_GENERATE_ALL_PROVIDERS_FAILED]", JSON.stringify({
+            model: request.model,
+            route: modelChoice.route,
+            messageCount: Array.isArray(request.messages) ? request.messages.length : 0,
+            toolCount: Array.isArray(request.tools) ? request.tools.length : 0,
+        }));
         this.logCompletionDiagnostics("fallback.generate", request, fallback);
         return fallback;
     }
     async *stream(params) {
-        const modelChoice = this.resolveModelChoice(params.metadata);
+        if (params.signal?.aborted) {
+            return;
+        }
+        const modelChoice = await this.resolveModelChoice(params.metadata, Array.isArray(params.tools) && params.tools.length > 0);
         const request = this.buildRequest(params, modelChoice.model);
         if (modelChoice.route !== "local_only" && OPENAI_API_KEY) {
             let emitted = false;
             for await (const chunk of this.streamOpenAiFromUrl(`${normalizeOpenAiBase(OPENAI_BASE_URL)}/chat/completions`, request, {
                 ...(OPENAI_API_KEY ? { Authorization: `Bearer ${OPENAI_API_KEY}` } : {}),
-            })) {
+            }, params.signal)) {
                 emitted = true;
                 yield chunk;
             }
@@ -73,7 +117,7 @@ class NativeLLMProvider {
         }
         // OpenAI-compatible endpoint served by local/remote LLM gateway (no API key required).
         let compatEmitted = false;
-        for await (const chunk of this.streamOpenAiFromUrl(`${normalizeBase(LLM_BASE_URL)}/v1/chat/completions`, request)) {
+        for await (const chunk of this.streamOpenAiFromUrl(`${normalizeBase(LLM_BASE_URL)}/v1/chat/completions`, request, undefined, params.signal)) {
             compatEmitted = true;
             yield chunk;
         }
@@ -81,29 +125,75 @@ class NativeLLMProvider {
             return;
         }
         let ollamaEmitted = false;
-        for await (const chunk of this.streamOllamaFromUrl(`${normalizeBase(LLM_BASE_URL)}/api/chat`, request)) {
+        for await (const chunk of this.streamOllamaFromUrl(`${normalizeBase(LLM_BASE_URL)}/api/chat`, request, params.signal)) {
             ollamaEmitted = true;
             yield chunk;
         }
         if (ollamaEmitted) {
             return;
         }
+        if (modelChoice.route !== "local_only" && OPENROUTER_API_KEY) {
+            const openRouterRequest = { ...request, model: OPENROUTER_MODEL };
+            for (let openRouterAttempt = 0; openRouterAttempt < 3; openRouterAttempt++) {
+                this.lastStreamRetryAfterMs = null;
+                this.lastStreamRateLimitKind = null;
+                let openRouterEmitted = false;
+                for await (const chunk of this.streamOpenAiFromUrl(`${normalizeBase(OPENROUTER_BASE_URL)}/chat/completions`, openRouterRequest, this.buildOpenRouterHeaders(), params.signal)) {
+                    openRouterEmitted = true;
+                    yield chunk;
+                }
+                if (openRouterEmitted) {
+                    return;
+                }
+                if (this.lastStreamRateLimitKind === "tpd") {
+                    console.warn("[LLM_OPENROUTER_STREAM_RETRY_HALTED_TPD_LIMIT]");
+                    break;
+                }
+                const waitMs = this.lastStreamRetryAfterMs ?? 3000;
+                console.warn(`[LLM_OPENROUTER_STREAM_RETRY] attempt ${openRouterAttempt + 1}/3, waiting ${Math.ceil(waitMs / 1000)}s`);
+                try {
+                    await this.sleepWithAbort(waitMs, params.signal);
+                }
+                catch (error) {
+                    if (isAbortError(error)) {
+                        return;
+                    }
+                    throw error;
+                }
+            }
+        }
         if (modelChoice.route !== "local_only" && GROQ_API_KEY) {
             const groqRequest = { ...request, model: GROQ_MODEL };
             for (let groqAttempt = 0; groqAttempt < 3; groqAttempt++) {
                 this.lastStreamRetryAfterMs = null;
+                this.lastStreamRateLimitKind = null;
                 let groqEmitted = false;
-                for await (const chunk of this.streamOpenAiFromUrl(`${normalizeBase(GROQ_BASE_URL)}/v1/chat/completions`, groqRequest, { Authorization: `Bearer ${GROQ_API_KEY}` })) {
+                for await (const chunk of this.streamOpenAiFromUrl(`${normalizeBase(GROQ_BASE_URL)}/v1/chat/completions`, groqRequest, { Authorization: `Bearer ${GROQ_API_KEY}` }, params.signal)) {
                     groqEmitted = true;
                     yield chunk;
                 }
                 if (groqEmitted) {
                     return;
                 }
+                if (this.lastStreamRateLimitKind === "tpd") {
+                    console.warn("[LLM_GROQ_STREAM_RETRY_HALTED_TPD_LIMIT]");
+                    break;
+                }
                 const waitMs = this.lastStreamRetryAfterMs ?? 3000;
                 console.warn(`[LLM_GROQ_STREAM_RETRY] attempt ${groqAttempt + 1}/3, waiting ${Math.ceil(waitMs / 1000)}s`);
-                await new Promise((r) => setTimeout(r, waitMs));
+                try {
+                    await this.sleepWithAbort(waitMs, params.signal);
+                }
+                catch (error) {
+                    if (isAbortError(error)) {
+                        return;
+                    }
+                    throw error;
+                }
             }
+        }
+        if (params.signal?.aborted) {
+            return;
         }
         const response = await this.generate(params);
         this.logCompletionDiagnostics("stream.fallback_to_generate", request, response);
@@ -151,23 +241,81 @@ class NativeLLMProvider {
             maxTokens: typeof params.maxTokens === "number" ? params.maxTokens : LLM_MAX_OUTPUT_TOKENS,
         };
     }
-    resolveModelChoice(metadata) {
+    async resolveModelChoice(metadata, requiresTools = false) {
         const preferred = String(metadata?.modelPreference || "").trim();
+        let model = LLM_MODEL;
+        let route = "auto";
         if (preferred === DEEPSEEK_R1_8B_MODEL ||
             preferred === GEMMA3_1B_MODEL ||
             preferred === LEGACY_GENNA3_1B_MODEL) {
-            return {
-                model: preferred === LEGACY_GENNA3_1B_MODEL ? GEMMA3_1B_MODEL : preferred,
-                route: "local_only",
-            };
+            model = preferred === LEGACY_GENNA3_1B_MODEL ? GEMMA3_1B_MODEL : preferred;
+            route = "local_only";
         }
-        if (preferred === GPT_OSS_MODEL) {
-            return { model: GPT_OSS_MODEL, route: "auto" };
+        else if (preferred === GPT_OSS_MODEL) {
+            model = GPT_OSS_MODEL;
+            route = "auto";
         }
-        return { model: LLM_MODEL, route: "auto" };
+        if (requiresTools) {
+            const supportsTools = await this.modelSupportsTools(model);
+            if (!supportsTools) {
+                const fallbackRoute = route === "local_only" ? "local_only" : "auto";
+                console.warn("[LLM_MODEL_FALLBACK_NO_TOOL_SUPPORT]", JSON.stringify({
+                    requestedModel: model,
+                    fallbackModel: GPT_OSS_MODEL,
+                    fallbackRoute,
+                }));
+                return { model: GPT_OSS_MODEL, route: fallbackRoute };
+            }
+        }
+        return { model, route };
     }
-    async tryOpenAiCompletion(request) {
+    async modelSupportsTools(model) {
+        const normalizedModel = String(model || "").trim().toLowerCase();
+        if (!normalizedModel) {
+            return true;
+        }
+        const cached = this.modelToolSupportCache.get(normalizedModel);
+        if (typeof cached === "boolean") {
+            return cached;
+        }
+        const hint = MODEL_TOOL_SUPPORT_HINTS[normalizedModel];
+        if (typeof hint === "boolean") {
+            this.modelToolSupportCache.set(normalizedModel, hint);
+            return hint;
+        }
+        try {
+            const response = await fetch(`${normalizeBase(LLM_BASE_URL)}/api/show`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ model }),
+            });
+            if (!response.ok) {
+                const errBody = await response.text().catch(() => "");
+                console.warn("[LLM_MODEL_CAPS_UNAVAILABLE]", JSON.stringify({ model, status: response.status, body: errBody.slice(0, 200) }));
+                return true;
+            }
+            const payload = (await response.json());
+            const capabilities = Array.isArray(payload.capabilities)
+                ? payload.capabilities
+                    .map((value) => String(value || "").trim().toLowerCase())
+                    .filter(Boolean)
+                : [];
+            if (capabilities.length === 0) {
+                this.modelToolSupportCache.set(normalizedModel, true);
+                return true;
+            }
+            const supportsTools = capabilities.includes("tools");
+            this.modelToolSupportCache.set(normalizedModel, supportsTools);
+            return supportsTools;
+        }
+        catch (error) {
+            console.warn("[LLM_MODEL_CAPS_CHECK_ERROR]", JSON.stringify({ model, error: String(error) }));
+            return true;
+        }
+    }
+    async tryOpenAiCompletion(request, signal) {
         if (!OPENAI_API_KEY) {
+            console.warn("[LLM_OPENAI_SKIPPED_NO_API_KEY]");
             return null;
         }
         const url = `${normalizeOpenAiBase(OPENAI_BASE_URL)}/chat/completions`;
@@ -179,18 +327,30 @@ class NativeLLMProvider {
                     Authorization: `Bearer ${OPENAI_API_KEY}`,
                 },
                 body: JSON.stringify(toChatCompletionBody(request)),
+                signal,
             });
             if (!response.ok) {
+                const errBody = await response.text().catch(() => "");
+                console.warn("[LLM_OPENAI_HTTP_ERROR]", JSON.stringify({
+                    status: response.status,
+                    body: errBody.slice(0, 300),
+                    model: request.model,
+                    messageCount: request.messages?.length ?? 0,
+                }));
                 return null;
             }
             const payload = (await response.json());
             return normalizeChatCompletionResponse(payload);
         }
-        catch {
+        catch (error) {
+            if (isAbortError(error)) {
+                return null;
+            }
+            console.warn("[LLM_OPENAI_FETCH_ERROR]", String(error));
             return null;
         }
     }
-    async *streamOpenAiFromUrl(url, request, extraHeaders) {
+    async *streamOpenAiFromUrl(url, request, extraHeaders, signal) {
         const response = await fetch(url, {
             method: "POST",
             headers: {
@@ -201,17 +361,34 @@ class NativeLLMProvider {
                 ...toChatCompletionBody(request),
                 stream: true,
             }),
-        }).catch((err) => { console.warn("[LLM_STREAM_FETCH_ERROR]", url, String(err)); return null; });
+            signal,
+        }).catch((err) => {
+            if (isAbortError(err)) {
+                return null;
+            }
+            console.warn("[LLM_STREAM_FETCH_ERROR]", url, String(err));
+            return null;
+        });
         if (!response?.ok || !response.body) {
             if (response && !response.ok) {
                 const errBody = await response.text().catch(() => "");
                 if (response.status === 429) {
+                    this.lastStreamRateLimitKind = this.classifyRateLimitKind(errBody);
                     this.lastStreamRetryAfterMs = this.inferRetryDelayMs(errBody, response.headers.get("retry-after"));
                 }
                 else {
+                    this.lastStreamRateLimitKind = null;
                     this.lastStreamRetryAfterMs = null;
                 }
                 console.warn("[LLM_STREAM_HTTP_ERROR]", JSON.stringify({ url, status: response.status, body: errBody.slice(0, 500), msgCount: request.messages?.length }));
+            }
+            else {
+                console.warn("[LLM_STREAM_EMPTY_OR_UNREACHABLE]", JSON.stringify({
+                    url,
+                    model: request.model,
+                    messageCount: request.messages?.length ?? 0,
+                    toolCount: request.tools?.length ?? 0,
+                }));
             }
             return;
         }
@@ -335,7 +512,7 @@ class NativeLLMProvider {
         }
         yield { finishReason, done: true };
     }
-    async tryOllamaOpenAiCompletion(request) {
+    async tryOllamaOpenAiCompletion(request, signal) {
         const url = `${normalizeBase(LLM_BASE_URL)}/v1/chat/completions`;
         try {
             const response = await fetch(url, {
@@ -344,6 +521,7 @@ class NativeLLMProvider {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify(toChatCompletionBody(request)),
+                signal,
             });
             if (!response.ok) {
                 const errBody = await response.text().catch(() => "");
@@ -354,11 +532,14 @@ class NativeLLMProvider {
             return normalizeChatCompletionResponse(payload);
         }
         catch (err) {
+            if (isAbortError(err)) {
+                return null;
+            }
             console.warn("[LLM_OLLAMA_OPENAI_CATCH]", String(err));
             return null;
         }
     }
-    async tryOllamaChatCompletion(request) {
+    async tryOllamaChatCompletion(request, signal) {
         const url = `${normalizeBase(LLM_BASE_URL)}/api/chat`;
         try {
             const response = await fetch(url, {
@@ -378,6 +559,7 @@ class NativeLLMProvider {
                             : {}),
                     },
                 }),
+                signal,
             });
             if (!response.ok) {
                 const errBody = await response.text().catch(() => "");
@@ -396,11 +578,14 @@ class NativeLLMProvider {
             };
         }
         catch (err) {
+            if (isAbortError(err)) {
+                return null;
+            }
             console.warn("[LLM_OLLAMA_CHAT_CATCH]", String(err));
             return null;
         }
     }
-    async tryGroqCompletion(request) {
+    async tryGroqCompletion(request, signal) {
         if (!GROQ_API_KEY) {
             return null;
         }
@@ -415,12 +600,30 @@ class NativeLLMProvider {
                         Authorization: `Bearer ${GROQ_API_KEY}`,
                     },
                     body: JSON.stringify(toChatCompletionBody(groqRequest)),
+                    signal,
                 });
                 if (response.status === 429) {
                     const errBody = await response.text().catch(() => "");
+                    const rateLimitKind = this.classifyRateLimitKind(errBody);
+                    if (rateLimitKind === "tpd") {
+                        console.warn("[LLM_GROQ_RATE_LIMIT_TPD_HALT]", JSON.stringify({
+                            attempt: attempt + 1,
+                            status: response.status,
+                            body: errBody.slice(0, 300),
+                        }));
+                        return null;
+                    }
                     const waitMs = this.inferRetryDelayMs(errBody, response.headers.get("retry-after"));
                     console.warn(`[LLM_GROQ_RATE_LIMIT] attempt ${attempt + 1}/3, waiting ${Math.ceil(waitMs / 1000)}s`);
-                    await new Promise((r) => setTimeout(r, waitMs));
+                    try {
+                        await this.sleepWithAbort(waitMs, signal);
+                    }
+                    catch (error) {
+                        if (isAbortError(error)) {
+                            return null;
+                        }
+                        throw error;
+                    }
                     continue;
                 }
                 if (!response.ok) {
@@ -432,7 +635,70 @@ class NativeLLMProvider {
                 return normalizeChatCompletionResponse(payload);
             }
             catch (err) {
+                if (isAbortError(err)) {
+                    return null;
+                }
                 console.warn("[LLM_GROQ_CATCH]", String(err));
+                return null;
+            }
+        }
+        return null;
+    }
+    async tryOpenRouterCompletion(request, signal) {
+        if (!OPENROUTER_API_KEY) {
+            return null;
+        }
+        const url = `${normalizeBase(OPENROUTER_BASE_URL)}/chat/completions`;
+        const openRouterRequest = { ...request, model: OPENROUTER_MODEL };
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+                const response = await fetch(url, {
+                    method: "POST",
+                    headers: this.buildOpenRouterHeaders(),
+                    body: JSON.stringify(toChatCompletionBody(openRouterRequest)),
+                    signal,
+                });
+                if (response.status === 429) {
+                    const errBody = await response.text().catch(() => "");
+                    const rateLimitKind = this.classifyRateLimitKind(errBody);
+                    if (rateLimitKind === "tpd") {
+                        console.warn("[LLM_OPENROUTER_RATE_LIMIT_TPD_HALT]", JSON.stringify({
+                            attempt: attempt + 1,
+                            status: response.status,
+                            body: errBody.slice(0, 300),
+                        }));
+                        return null;
+                    }
+                    const waitMs = this.inferRetryDelayMs(errBody, response.headers.get("retry-after"));
+                    console.warn(`[LLM_OPENROUTER_RATE_LIMIT] attempt ${attempt + 1}/3, waiting ${Math.ceil(waitMs / 1000)}s`);
+                    try {
+                        await this.sleepWithAbort(waitMs, signal);
+                    }
+                    catch (error) {
+                        if (isAbortError(error)) {
+                            return null;
+                        }
+                        throw error;
+                    }
+                    continue;
+                }
+                if (!response.ok) {
+                    const errBody = await response.text().catch(() => "");
+                    console.warn("[LLM_OPENROUTER_ERROR]", JSON.stringify({
+                        status: response.status,
+                        body: errBody.slice(0, 300),
+                        msgCount: request.messages?.length,
+                    }));
+                    return null;
+                }
+                const payload = (await response.json());
+                return normalizeChatCompletionResponse(payload);
+            }
+            catch (err) {
+                if (isAbortError(err)) {
+                    return null;
+                }
+                console.warn("[LLM_OPENROUTER_CATCH]", String(err));
                 return null;
             }
         }
@@ -444,6 +710,15 @@ class NativeLLMProvider {
             return this.clampRetryDelayMs(fromHeader * 1000);
         }
         const body = String(responseBody || "");
+        const bodyMatchWithMinutes = body.match(/try again in\s+((\d+)m)?\s*([\d.]+)s/i);
+        if (bodyMatchWithMinutes) {
+            const minutes = Number.parseFloat(bodyMatchWithMinutes[2] || "0");
+            const seconds = Number.parseFloat(bodyMatchWithMinutes[3] || "0");
+            const totalSeconds = (Number.isFinite(minutes) ? minutes : 0) * 60 + (Number.isFinite(seconds) ? seconds : 0);
+            if (Number.isFinite(totalSeconds) && totalSeconds > 0) {
+                return this.clampRetryDelayMs(totalSeconds * 1000);
+            }
+        }
         const bodyMatch = body.match(/try again in\s+([\d.]+)s/i);
         if (bodyMatch) {
             const seconds = Number.parseFloat(bodyMatch[1]);
@@ -459,7 +734,27 @@ class NativeLLMProvider {
         }
         return Math.max(3000, Math.min(Math.ceil(value), 60000));
     }
-    async *streamOllamaFromUrl(url, request) {
+    classifyRateLimitKind(responseBody) {
+        const body = String(responseBody || "").toLowerCase();
+        if (body.includes("tokens per day") || body.includes("tpd")) {
+            return "tpd";
+        }
+        return "other";
+    }
+    buildOpenRouterHeaders() {
+        const headers = {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        };
+        if (OPENROUTER_HTTP_REFERER.trim().length > 0) {
+            headers["HTTP-Referer"] = OPENROUTER_HTTP_REFERER.trim();
+        }
+        if (OPENROUTER_APP_NAME.trim().length > 0) {
+            headers["X-Title"] = OPENROUTER_APP_NAME.trim();
+        }
+        return headers;
+    }
+    async *streamOllamaFromUrl(url, request, signal) {
         const response = await fetch(url, {
             method: "POST",
             headers: {
@@ -477,8 +772,31 @@ class NativeLLMProvider {
                         : {}),
                 },
             }),
-        }).catch(() => null);
+            signal,
+        }).catch((error) => {
+            if (isAbortError(error)) {
+                return null;
+            }
+            console.warn("[LLM_OLLAMA_STREAM_FETCH_ERROR]", JSON.stringify({ url, error: String(error) }));
+            return null;
+        });
         if (!response?.ok || !response.body) {
+            if (response && !response.ok) {
+                const errBody = await response.text().catch(() => "");
+                console.warn("[LLM_OLLAMA_STREAM_HTTP_ERROR]", JSON.stringify({
+                    status: response.status,
+                    body: errBody.slice(0, 300),
+                    model: request.model,
+                    messageCount: request.messages?.length ?? 0,
+                }));
+            }
+            else {
+                console.warn("[LLM_OLLAMA_STREAM_UNREACHABLE]", JSON.stringify({
+                    url,
+                    model: request.model,
+                    messageCount: request.messages?.length ?? 0,
+                }));
+            }
             return;
         }
         const reader = response.body.getReader();
@@ -532,6 +850,27 @@ class NativeLLMProvider {
             }));
         }
         yield { finishReason, done: true };
+    }
+    async sleepWithAbort(ms, signal) {
+        if (!signal) {
+            await new Promise((resolve) => setTimeout(resolve, ms));
+            return;
+        }
+        if (signal.aborted) {
+            throw createAbortError();
+        }
+        await new Promise((resolve, reject) => {
+            const handle = setTimeout(() => {
+                signal.removeEventListener("abort", onAbort);
+                resolve();
+            }, ms);
+            const onAbort = () => {
+                clearTimeout(handle);
+                signal.removeEventListener("abort", onAbort);
+                reject(createAbortError());
+            };
+            signal.addEventListener("abort", onAbort, { once: true });
+        });
     }
 }
 function toChatCompletionBody(request) {
@@ -637,6 +976,17 @@ function readOptionalPositiveInt(value) {
         return undefined;
     }
     return parsed;
+}
+function isAbortError(error) {
+    if (error instanceof Error && error.name === "AbortError") {
+        return true;
+    }
+    return String(error || "").toLowerCase().includes("aborted");
+}
+function createAbortError() {
+    const err = new Error("Aborted");
+    err.name = "AbortError";
+    return err;
 }
 function sanitizeToolCallCandidate(params) {
     const rawName = String(params.name || "").trim();

@@ -56,6 +56,50 @@ const READ_POLICY_INSTRUCTIONS = [
     "",
     "Avoid shallow traversal when the user asks about workload, cases, or related activity.",
     "",
+    "DEEP READING PATTERN",
+    "",
+    "You have two levels of reading tools:",
+    "",
+    "1. ENTITY GRAPH (getEntityGraph) gives you a MAP of an entity and all its relationships.",
+    "   It returns slim summary nodes (id, title, status, dates, flags) for each related entity.",
+    "   Use this FIRST to understand the structure.",
+    "",
+    "2. SINGLE ENTITY tools (getClient, getDossier, getLawsuit, getTask, getSession, getMission, getDocument)",
+    "   give you FULL details of one specific entity including description, notes, assignee, and all fields.",
+    "",
+    "For comprehensive summaries, case overviews, or any question that requires understanding entity content:",
+    "",
+    "  Step 1: Call getEntityGraph to see the full structure and relationships.",
+    "  Step 2: Call get[Entity] for items that need detailed reading.",
+    "  Step 3: Synthesize everything into your response.",
+    "",
+    "You do NOT need to drill into every entity. Be selective based on what matters:",
+    "",
+    "  - Read ACTIVE lawsuits in detail (skip closed ones unless asked).",
+    "  - Read OVERDUE or URGENT tasks in detail (skip completed ones).",
+    "  - Read UPCOMING sessions in detail (skip past ones).",
+    "  - Document titles from the graph are usually enough (don't drill into each).",
+    "  - Read financial entries if the question involves money, costs, or invoices.",
+    "  - Skip missions/bailiff details unless specifically asked.",
+    "",
+    "EFFICIENCY: When you need multiple entity details after viewing the graph,",
+    "call ALL the get[Entity] tools in a SINGLE response rather than one at a time.",
+    "The system executes them in parallel, which is much faster.",
+    "",
+    "Example - User asks 'summarize dossier D-42':",
+    "  Iteration 1: call getEntityGraph('dossier', 42, depth: 2)",
+    "  Iteration 2: call getLawsuit(101), getLawsuit(102), getTask(201), getSession(301) - ALL AT ONCE",
+    "  Iteration 3: generate the summary from all gathered data",
+    "",
+    "LARGE CASES: If the entity graph shows 50+ total children across all categories,",
+    "do not try to read everything. Use depth: 1, focus on active items with filtered",
+    "list tools (e.g. listTasks with status filter), and tell the user what you focused on.",
+    "",
+    "IMPORTANT: The entity graph alone is NOT enough for a summary or case overview.",
+    "Graph nodes only contain titles and statuses. To report on actual content like",
+    "lawsuit details, task notes, financial amounts, or session outcomes, you MUST",
+    "drill into the relevant entities with their individual get tools.",
+    "",
     "PRESENTATION QUALITY GUIDELINES",
     "",
     "Use the format (table, bullets, or concise prose) that is most readable for the current answer.",
@@ -89,52 +133,111 @@ const READ_POLICY_INSTRUCTIONS = [
     "",
     "DRAFTING",
     "",
-    "You can generate draft documents, letters, emails, summaries, and other text artifacts.",
-    "When the user asks you to write, draft, compose, or prepare any text:",
+    "DRAFTING DOCUMENTS:",
     "",
-    "CRITICAL DRAFT OUTPUT RULE:",
-    "When generating ANY letter, email, memo, report, summary, notes, or document text, you MUST call generateDraft.",
-    "NEVER write full draft content directly in assistant response text.",
-    "NEVER paste the document body in your conversational reply.",
-    "The draft body must go inside generateDraft.content.",
-    "Your assistant reply must only be a short message about the draft (example: I prepared a draft, review it below).",
-    "If draft content is written without generateDraft, that is a failure.",
-    "This applies to all generated text artifacts longer than a few sentences.",
+    "When the user asks you to write, draft, compose, or prepare a document, follow this sequence.",
+    "Do NOT skip steps. Do NOT call generateDraft until you have enough information.",
     "",
-    "1. FIRST gather all necessary context using READ tools:",
-    "   - Who is the client? Get their details.",
-    "   - What case/dossier is this for? Get the full picture.",
-    "   - What are the relevant facts (dates, parties, court, case number)?",
+    "STEP 1 - RESOLVE THE ENTITY",
     "",
-    "2. THEN you MUST call the generateDraft tool with:",
-    "   - draftType: the category of document",
-    "   - title: a clear title",
-    "   - metadata: client name, dossier reference, language, tone (2-4 fields)",
-    "   - content: the complete text of the draft",
-    "   - linkedEntityType/Id: what entity this relates to",
+    "The user may reference a client, dossier, or lawsuit. Search for it.",
     "",
-    "3. After calling generateDraft, briefly tell the user you have prepared the draft and invite them to review, edit, or regenerate it. Do NOT repeat the draft content in your message.",
+    "If CLEAR (one match): proceed to Step 2.",
+    "If AMBIGUOUS (multiple matches): present options and ask the user to choose.",
+    "\"I found 3 dossiers for Leila:",
+    "1. D-51 - Mansouri v. SARL Atlas (Commercial) - Active",
+    "2. D-52 - Property claim (Civil) - Active",
+    "3. D-53 - Employment dispute (Labor) - Closed",
+    "Which one is this draft for?\"",
+    "If MISSING (user did not specify any entity): ask.",
+    "\"I can help you draft something. Which client or dossier is this for?\"",
     "",
-    "DRAFT CONTENT RULES:",
-    "- Write in the same language the user is using (French, Arabic, or English).",
-    "- Use appropriate legal register and terminology for the jurisdiction.",
-    "- Include all relevant factual details from the case data you retrieved.",
-    "- For letters: include proper headers, date, recipient, salutation, body, closing.",
-    "- For summaries: organize by sections with clear headings.",
-    "- NEVER invent facts. Only include information retrieved from READ tools.",
-    "- Use [placeholder] brackets for information you don't have (e.g., [Nom de l'avocat]).",
+    "Wait for the user's response before continuing.",
     "",
-    "DRAFT SUGGESTIONS:",
-    "After answering a query or analyzing a case, consider suggesting a draft if it would be helpful:",
-    "- Upcoming deadline with no filing: suggest drafting the submission.",
-    "- Overdue item: suggest a follow-up letter.",
-    "- Case review: suggest a status summary for the client.",
-    "- New hearing scheduled: suggest hearing preparation notes.",
-    "Say: \"Would you like me to draft [specific thing]?\" — do not auto-generate.",
+    "STEP 2 - DETERMINE THE DOCUMENT TYPE",
+    "",
+    "Does the user's request clearly specify what type of document they want?",
+    "",
+    "If CLEAR: the user said \"letter to the judge\" or \"case summary\" or \"email to the client\" - you know the type. Proceed to Step 3.",
+    "",
+    "If VAGUE: the user said \"draft something\" or \"prepare a document\" or \"write something for this case\" - you do NOT know the type.",
+    "",
+    "When the type is vague, gather context first (call getEntityGraph or relevant READ tools), then SUGGEST document types based on what you see:",
+    "",
+    "\"I've reviewed dossier D-51 (Mansouri v. SARL Atlas). Based on the current status, I could draft:",
+    "1. A hearing preparation summary (next hearing is March 25)",
+    "2. A follow-up letter to the court about the pending motion",
+    "3. A status update letter for the client",
+    "4. A case summary report",
+    "Which would be most helpful? Or describe what you need.\"",
+    "",
+    "Base your suggestions on ACTUAL case data:",
+    "- Upcoming hearing -> suggest hearing prep or court letter",
+    "- Overdue tasks -> suggest follow-up letter or reminder",
+    "- Recent session -> suggest session notes or post-hearing summary",
+    "- Financial issues -> suggest payment reminder or invoice",
+    "- New dossier with little activity -> suggest engagement letter or intake summary",
+    "",
+    "Wait for the user's response before continuing.",
+    "",
+    "STEP 3 - GATHER CONTEXT FOR THE DRAFT",
+    "",
+    "Now you know the entity AND the document type. Gather the specific data needed for this draft:",
+    "",
+    "For a COURT LETTER: get lawsuit details (case number, court, judge), session details (hearing date, purpose), client details.",
+    "For a CLIENT LETTER: get client contact info, dossier status, recent activities, financial status if relevant.",
+    "For a CASE SUMMARY: get full entity graph, drill into active lawsuits, open tasks, upcoming sessions.",
+    "For HEARING PREP: get session details, lawsuit details, recent tasks, related documents.",
+    "For an EMAIL: get recipient context, relevant dossier/lawsuit details.",
+    "",
+    "Use READ tools to gather this data. Batch your tool calls when possible.",
+    "",
+    "STEP 4 - GENERATE THE DRAFT",
+    "",
+    "ONLY NOW call generateDraft with structured sections.",
+    "You should have: the entity context, the document type, the relevant data points, and enough information to produce a meaningful document.",
+    "",
+    "If at any point you realize you are missing critical information that you cannot find in the database (for example, the reason for a postponement, specific instructions from the user), ASK before generating:",
+    "\"I have the case details ready. Before I draft the postponement letter, could you tell me the reason for the postponement request?",
+    "(for example, client unavailability, need more preparation time, etc.)\"",
+    "",
+    "NEVER generate a draft with placeholder content that you could have asked the user about.",
+    "Placeholders like [reason] or [details] should only be used for information that genuinely is not in the system (like the lawyer's personal phone number or specific legal arguments the lawyer wants to make).",
+    "",
+    "SUMMARY OF THE FLOW:",
+    "",
+    "User request",
+    "|",
+    "v",
+    "Can I identify the entity? ---- No --> ASK which entity",
+    "| Yes                               (search + present options)",
+    "v",
+    "Do I know the document type? -- No --> READ context, then SUGGEST types",
+    "| Yes                               (based on actual case data)",
+    "v",
+    "Do I have enough context? ----- No --> READ more with specific tools",
+    "| Yes                               ASK user if info is not in DB",
+    "v",
+    "Call generateDraft",
+    "",
+    "NEVER skip straight to generateDraft. NEVER generate empty or generic drafts.",
+    "If you do not have enough information, ASK.",
+    "The user expects a thoughtful, context-rich document - not a template with blanks.",
+    "",
+    "LANGUAGE",
+    "",
+    "Respond in the same language the user writes in. You support French, Arabic (including Tunisian dialect), and English.",
+    "If the user switches languages, follow their lead.",
+    "",
+    "Entity data from the database may be in any language. Present it as-is, do not translate names, titles, or references.",
+    "",
+    "For legal documents: use the appropriate legal register and terminology for the jurisdiction and language of the document.",
 ].join("\n");
 const DATABASE_ENTITY_QUERY_PATTERN = /\b(client|clients|dossier|dossiers|case|cases|task|tasks|document|documents|workload|lawsuit|lawsuits|session|sessions|financial|history|deadline|deadlines|notification|notifications)\b/i;
 const WORKLOAD_OR_CASES_QUERY_PATTERN = /\b(work\s*-?\s*load|workload|cases?|matters?)\b/i;
 const DRAFT_TOOL_ENFORCEMENT_MIN_TEXT_LENGTH = 500;
+const DRAFT_DETAILS_RECOVERY_MAX_ATTEMPTS = 2;
+const DRAFT_METADATA_SNAPSHOT_KEY = "draftSnapshot";
 class AgenticLoop {
     llm;
     registry;
@@ -304,11 +407,28 @@ class AgenticLoop {
         let emptyFinalizationRecoveryAttempts = 0;
         let coverageRecoveryAttempts = 0;
         let draftToolEnforcementAttempts = 0;
+        let draftDetailsRecoveryAttempts = 0;
         let savedDraftCandidateText = "";
+        let iterationBufferedText = "";
         while (!responseText) {
             iteration += 1;
             stats.iterations = iteration;
             this.loopGuard.assertIteration(iteration);
+            iterationBufferedText = "";
+            const iterationAbortController = new AbortController();
+            const bufferedStreamCallbacks = streamCallbacks
+                ? {
+                    onTextDelta: (delta) => {
+                        if (typeof delta !== "string" || delta.length === 0) {
+                            return;
+                        }
+                        iterationBufferedText += delta;
+                    },
+                    onDraftArtifact: (artifact) => {
+                        streamCallbacks.onDraftArtifact?.(artifact);
+                    },
+                }
+                : undefined;
             const response = await this.loopGuard.wrapTimeout(this.generateAssistantResponse({
                 messages,
                 tools: llmTools,
@@ -320,7 +440,9 @@ class AgenticLoop {
                         ? input.metadata.modelPreference
                         : undefined,
                 },
-            }, streamCallbacks, input.mode === "DRAFT"), () => {
+                signal: iterationAbortController.signal,
+            }, bufferedStreamCallbacks, input.mode === "DRAFT"), () => {
+                iterationAbortController.abort();
                 console.warn("[AGENT_LOOP_TIMEOUT]", {
                     sessionId: input.sessionId,
                     turnId: input.turnId,
@@ -338,6 +460,14 @@ class AgenticLoop {
                     responseTextLength: String(response.text || "").trim().length,
                 }));
             }
+            console.info("[AGENT_LOOP_ITERATION_BUFFERED_TEXT]", this.safeJsonStringify({
+                sessionId: input.sessionId,
+                turnId: input.turnId,
+                iteration,
+                bufferedLength: iterationBufferedText.length,
+                responseTextLength: String(response.text || "").trim().length,
+                finishReason: response.finishReason,
+            }));
             const assistantMsg = { role: "assistant", content: response.text ?? "" };
             if (response.toolCalls.length > 0) {
                 assistantMsg.tool_calls = response.toolCalls.map((tc) => ({
@@ -349,9 +479,44 @@ class AgenticLoop {
             messages.push(assistantMsg);
             if (response.toolCalls.length === 0) {
                 const candidateText = (response.text ?? "").trim();
+                const providerFailure = this.isProviderFailureCandidate(candidateText, response.finishReason);
                 if (candidateText) {
+                    if (providerFailure) {
+                        responseText = candidateText;
+                        warnings.push("LLM provider returned terminal error fallback.");
+                        break;
+                    }
+                    if (this.isInternalMetaLeakCandidate(candidateText)) {
+                        console.warn("[AGENT_OUTPUT_META_LEAK_BLOCKED]", this.safeJsonStringify({
+                            sessionId: input.sessionId,
+                            turnId: input.turnId,
+                            iteration,
+                            path: "no_tool_calls",
+                            preview: this.truncate(candidateText, 220),
+                        }));
+                        warnings.push("Model returned internal meta/reasoning scaffolding. Triggering sanitized recovery.");
+                        messages.push({
+                            role: "system",
+                            content: this.buildUserFacingOnlyRecoveryInstruction(input.message),
+                        });
+                        this.clearLastAssistantMessageForRecovery(messages);
+                        this.logBufferedTextDiscard(input, iteration, "internal_meta_leak_recovery", iterationBufferedText);
+                        const sanitized = this.extractUserFacingTextFromMetaLeak(candidateText);
+                        if (sanitized) {
+                            console.info("[AGENT_OUTPUT_META_LEAK_SANITIZED]", this.safeJsonStringify({
+                                sessionId: input.sessionId,
+                                turnId: input.turnId,
+                                iteration,
+                                sanitizedLength: sanitized.length,
+                            }));
+                            this.flushAcceptedBufferedText(streamCallbacks, sanitized);
+                            responseText = sanitized;
+                            break;
+                        }
+                        continue;
+                    }
                     if (input.mode === "DRAFT") {
-                        const hasDraftToolCallSoFar = toolCalls.some((call) => String(call?.toolName || "").trim() === "generateDraft");
+                        const hasDraftToolCallSoFar = this.hasSuccessfulGenerateDraftToolCall(toolCalls);
                         console.warn("[DRAFT_TRACE_FINAL_TEXT_WITHOUT_TOOL_CALL]", this.safeJsonStringify({
                             sessionId: input.sessionId,
                             turnId: input.turnId,
@@ -360,6 +525,38 @@ class AgenticLoop {
                             hasDraftToolCallSoFar,
                             preview: this.truncate(candidateText, 240),
                         }));
+                        if (this.isGenericDraftPrompt(input.message) &&
+                            !hasDraftToolCallSoFar &&
+                            !this.isClarificationRequestText(candidateText)) {
+                            if (draftDetailsRecoveryAttempts >= DRAFT_DETAILS_RECOVERY_MAX_ATTEMPTS) {
+                                const fallbackClarification = this.coerceDraftDetailsClarification(input.message, candidateText);
+                                console.warn("[DRAFT_TRACE_DETAILS_RECOVERY_CAPPED]", this.safeJsonStringify({
+                                    sessionId: input.sessionId,
+                                    turnId: input.turnId,
+                                    iteration,
+                                    attempts: draftDetailsRecoveryAttempts,
+                                    candidateLength: candidateText.length,
+                                }));
+                                this.flushAcceptedBufferedText(streamCallbacks, iterationBufferedText);
+                                responseText = fallbackClarification;
+                                break;
+                            }
+                            draftDetailsRecoveryAttempts += 1;
+                            console.warn("[DRAFT_TRACE_ENFORCE_CLARIFICATION_TEXT]", this.safeJsonStringify({
+                                sessionId: input.sessionId,
+                                turnId: input.turnId,
+                                iteration,
+                                attempts: draftDetailsRecoveryAttempts,
+                                candidateLength: candidateText.length,
+                            }));
+                            messages.push({
+                                role: "system",
+                                content: this.buildDraftDetailsRecoveryInstruction(input.message),
+                            });
+                            this.clearLastAssistantMessageForRecovery(messages);
+                            this.logBufferedTextDiscard(input, iteration, "draft_details_recovery", iterationBufferedText);
+                            continue;
+                        }
                     }
                     const coverage = this.analyzeEntityCoverageForWorkloadQuery(input.mode, input.message, toolCalls);
                     if (coverage.hasGap && coverageRecoveryAttempts < 2) {
@@ -378,6 +575,8 @@ class AgenticLoop {
                             role: "system",
                             content: this.buildCoverageRecoveryInstruction(input.message, coverage.missingTools),
                         });
+                        this.clearLastAssistantMessageForRecovery(messages);
+                        this.logBufferedTextDiscard(input, iteration, "coverage_recovery", iterationBufferedText);
                         continue;
                     }
                     if (this.isLikelyPlaceholderCompletion(candidateText) &&
@@ -388,6 +587,8 @@ class AgenticLoop {
                             role: "system",
                             content: this.buildFinalizationRecoveryInstruction(input.message),
                         });
+                        this.clearLastAssistantMessageForRecovery(messages);
+                        this.logBufferedTextDiscard(input, iteration, "finalization_recovery", iterationBufferedText);
                         continue;
                     }
                     if (this.shouldEnforceDraftToolCall({
@@ -410,8 +611,11 @@ class AgenticLoop {
                             role: "system",
                             content: this.buildDraftToolEnforcementInstruction(input.message, candidateText),
                         });
+                        this.clearLastAssistantMessageForRecovery(messages);
+                        this.logBufferedTextDiscard(input, iteration, "draft_tool_enforcement", iterationBufferedText);
                         continue;
                     }
+                    this.flushAcceptedBufferedText(streamCallbacks, iterationBufferedText);
                     responseText = candidateText;
                     break;
                 }
@@ -421,6 +625,8 @@ class AgenticLoop {
                         role: "system",
                         content: this.buildFinalizationRecoveryInstruction(input.message),
                     });
+                    this.clearLastAssistantMessageForRecovery(messages);
+                    this.logBufferedTextDiscard(input, iteration, "empty_finalization_recovery", iterationBufferedText);
                     continue;
                 }
                 responseText =
@@ -451,6 +657,7 @@ class AgenticLoop {
             }
             if (validToolCalls.length === 0) {
                 const candidateText = (response.text ?? "").trim();
+                const providerFailure = this.isProviderFailureCandidate(candidateText, response.finishReason);
                 const rejectCandidateText = this.shouldRejectMalformedCandidateText({
                     candidateText,
                     userMessage: input.message,
@@ -458,8 +665,42 @@ class AgenticLoop {
                     toolCallsSoFar: stats.toolCalls,
                 });
                 if (candidateText && !rejectCandidateText) {
+                    if (providerFailure) {
+                        responseText = candidateText;
+                        warnings.push("LLM provider returned terminal error fallback.");
+                        break;
+                    }
+                    if (this.isInternalMetaLeakCandidate(candidateText)) {
+                        console.warn("[AGENT_OUTPUT_META_LEAK_BLOCKED]", this.safeJsonStringify({
+                            sessionId: input.sessionId,
+                            turnId: input.turnId,
+                            iteration,
+                            path: "after_invalid_tool_calls",
+                            preview: this.truncate(candidateText, 220),
+                        }));
+                        warnings.push("Model returned internal meta/reasoning scaffolding after invalid tool call. Triggering sanitized recovery.");
+                        messages.push({
+                            role: "system",
+                            content: this.buildUserFacingOnlyRecoveryInstruction(input.message),
+                        });
+                        this.clearLastAssistantMessageForRecovery(messages);
+                        this.logBufferedTextDiscard(input, iteration, "internal_meta_leak_recovery_after_invalid", iterationBufferedText);
+                        const sanitized = this.extractUserFacingTextFromMetaLeak(candidateText);
+                        if (sanitized) {
+                            console.info("[AGENT_OUTPUT_META_LEAK_SANITIZED]", this.safeJsonStringify({
+                                sessionId: input.sessionId,
+                                turnId: input.turnId,
+                                iteration,
+                                sanitizedLength: sanitized.length,
+                            }));
+                            this.flushAcceptedBufferedText(streamCallbacks, sanitized);
+                            responseText = sanitized;
+                            break;
+                        }
+                        continue;
+                    }
                     if (input.mode === "DRAFT") {
-                        const hasDraftToolCallSoFar = toolCalls.some((call) => String(call?.toolName || "").trim() === "generateDraft");
+                        const hasDraftToolCallSoFar = this.hasSuccessfulGenerateDraftToolCall(toolCalls);
                         console.warn("[DRAFT_TRACE_FINAL_TEXT_AFTER_INVALID_TOOL_CALLS]", this.safeJsonStringify({
                             sessionId: input.sessionId,
                             turnId: input.turnId,
@@ -469,6 +710,40 @@ class AgenticLoop {
                             hasDraftToolCallSoFar,
                             preview: this.truncate(candidateText, 240),
                         }));
+                        if (this.isGenericDraftPrompt(input.message) &&
+                            !hasDraftToolCallSoFar &&
+                            !this.isClarificationRequestText(candidateText)) {
+                            if (draftDetailsRecoveryAttempts >= DRAFT_DETAILS_RECOVERY_MAX_ATTEMPTS) {
+                                const fallbackClarification = this.coerceDraftDetailsClarification(input.message, candidateText);
+                                console.warn("[DRAFT_TRACE_DETAILS_RECOVERY_CAPPED]", this.safeJsonStringify({
+                                    sessionId: input.sessionId,
+                                    turnId: input.turnId,
+                                    iteration,
+                                    path: "after_invalid_tool_calls",
+                                    attempts: draftDetailsRecoveryAttempts,
+                                    candidateLength: candidateText.length,
+                                }));
+                                this.flushAcceptedBufferedText(streamCallbacks, iterationBufferedText);
+                                responseText = fallbackClarification;
+                                break;
+                            }
+                            draftDetailsRecoveryAttempts += 1;
+                            console.warn("[DRAFT_TRACE_ENFORCE_CLARIFICATION_TEXT]", this.safeJsonStringify({
+                                sessionId: input.sessionId,
+                                turnId: input.turnId,
+                                iteration,
+                                path: "after_invalid_tool_calls",
+                                attempts: draftDetailsRecoveryAttempts,
+                                candidateLength: candidateText.length,
+                            }));
+                            messages.push({
+                                role: "system",
+                                content: this.buildDraftDetailsRecoveryInstruction(input.message),
+                            });
+                            this.clearLastAssistantMessageForRecovery(messages);
+                            this.logBufferedTextDiscard(input, iteration, "draft_details_recovery_after_invalid", iterationBufferedText);
+                            continue;
+                        }
                     }
                     const coverage = this.analyzeEntityCoverageForWorkloadQuery(input.mode, input.message, toolCalls);
                     if (coverage.hasGap && coverageRecoveryAttempts < 2) {
@@ -487,6 +762,8 @@ class AgenticLoop {
                             role: "system",
                             content: this.buildCoverageRecoveryInstruction(input.message, coverage.missingTools),
                         });
+                        this.clearLastAssistantMessageForRecovery(messages);
+                        this.logBufferedTextDiscard(input, iteration, "coverage_recovery_after_invalid", iterationBufferedText);
                         continue;
                     }
                     if (this.shouldEnforceDraftToolCall({
@@ -510,8 +787,11 @@ class AgenticLoop {
                             role: "system",
                             content: this.buildDraftToolEnforcementInstruction(input.message, candidateText),
                         });
+                        this.clearLastAssistantMessageForRecovery(messages);
+                        this.logBufferedTextDiscard(input, iteration, "draft_tool_enforcement_after_invalid", iterationBufferedText);
                         continue;
                     }
+                    this.flushAcceptedBufferedText(streamCallbacks, iterationBufferedText);
                     responseText = candidateText;
                     warnings.push("Model returned malformed tool calls before final response.");
                     break;
@@ -521,6 +801,8 @@ class AgenticLoop {
                     role: "system",
                     content: this.buildToolCallRecoveryInstruction(invalidToolCalls, input.message),
                 });
+                this.clearLastAssistantMessageForRecovery(messages);
+                this.logBufferedTextDiscard(input, iteration, "invalid_toolcall_recovery", iterationBufferedText);
                 if (invalidToolCallRecoveryAttempts >= 4) {
                     responseText =
                         "I could not process malformed tool-call output from the model. Please retry.";
@@ -570,10 +852,165 @@ class AgenticLoop {
             responseText,
         });
         this.collectAssistantWarnings(responseText, warnings);
+        if (this.hasSuccessfulGenerateDraftToolCall(toolCalls)) {
+            const finalizedDraft = this.normalizeDraftArtifact(session.currentDraft);
+            if (finalizedDraft) {
+                metadata.draftArtifact = finalizedDraft;
+            }
+        }
         this.touchSession(session, turnType);
         return this.buildOutput(input, session, turnType, responseText, toolCalls, audit, metadata, warnings);
     }
+    canParallelizeReadToolCalls(llmToolCalls) {
+        if (llmToolCalls.length <= 1)
+            return false;
+        return llmToolCalls.every((tc) => {
+            const tool = this.registry.get(tc.name);
+            return tool && tool.category === tools_1.ToolCategory.READ;
+        });
+    }
+    async processReadToolCallsInParallel(llmToolCalls, context) {
+        console.info("[PARALLEL_READ_BATCH]", this.safeJsonStringify({
+            sessionId: context.input.sessionId,
+            turnId: context.input.turnId,
+            count: llmToolCalls.length,
+            tools: llmToolCalls.map((tc) => tc.name),
+        }));
+        // Pre-validate all tools and collect valid ones
+        const validCalls = [];
+        for (const llmToolCall of llmToolCalls) {
+            context.stats.toolCalls += 1;
+            const toolName = llmToolCall.name;
+            console.info("[LLM_TOOL_CALL_RAW]", this.safeJsonStringify({
+                sessionId: context.input.sessionId,
+                turnId: context.input.turnId,
+                toolCallId: llmToolCall.id || null,
+                toolName,
+                rawArguments: llmToolCall.arguments,
+            }));
+            const args = this.normalizeArgs(llmToolCall.arguments);
+            const callId = llmToolCall.id || this.createId("tool_call");
+            const tool = this.registry.get(toolName);
+            if (!tool) {
+                const result = {
+                    ok: false,
+                    errorCode: "TOOL_NOT_FOUND",
+                    errorMessage: `Tool "${toolName}" is not registered`,
+                };
+                const record = this.createToolRecord(toolName, args, this.createExecutionContext(context.input, context.session), result);
+                record.id = callId;
+                context.toolCalls.push(record);
+                context.messages.push({
+                    role: "tool",
+                    name: toolName,
+                    toolCallId: callId,
+                    content: this.serializeToolMessage(toolName, result),
+                });
+                this.pushAudit(context.audit, context.input, "tool_call_failed", {
+                    toolName,
+                    errorCode: result.errorCode,
+                });
+                continue;
+            }
+            this.collectPreExecutionReadDiagnostics(tool.name, args, context.readCounters);
+            const decision = this.permissionGate.evaluate(context.session.mode, tool);
+            const boundaryFailure = this.validatePermissionBoundary(context.input, context.session, tool.category, decision, toolName);
+            if (boundaryFailure) {
+                const record = this.createToolRecord(toolName, args, this.createExecutionContext(context.input, context.session), boundaryFailure);
+                record.id = callId;
+                context.toolCalls.push(record);
+                context.messages.push({
+                    role: "tool",
+                    name: toolName,
+                    toolCallId: callId,
+                    content: this.serializeToolMessage(toolName, boundaryFailure),
+                });
+                this.pushAudit(context.audit, context.input, "tool_call_security_blocked", {
+                    toolName,
+                    errorCode: boundaryFailure.errorCode,
+                    reason: boundaryFailure.errorMessage,
+                });
+                continue;
+            }
+            if (!decision.allowed) {
+                const result = {
+                    ok: false,
+                    errorCode: "TOOL_PERMISSION_DENIED",
+                    errorMessage: decision.reason ?? "Tool is not allowed.",
+                };
+                const record = this.createToolRecord(toolName, args, this.createExecutionContext(context.input, context.session), result);
+                record.id = callId;
+                context.toolCalls.push(record);
+                context.messages.push({
+                    role: "tool",
+                    name: toolName,
+                    toolCallId: callId,
+                    content: this.serializeToolMessage(toolName, result),
+                });
+                this.pushAudit(context.audit, context.input, "tool_call_denied", {
+                    toolName,
+                    reason: result.errorMessage,
+                });
+                continue;
+            }
+            validCalls.push({ llmToolCall, tool, args, callId });
+        }
+        // Execute all valid READ tools in parallel
+        const startTime = Date.now();
+        const executionResults = await Promise.all(validCalls.map(async ({ tool, args, callId }) => {
+            const executionContext = this.createExecutionContext(context.input, context.session);
+            try {
+                const result = await this.executor.execute(tool, executionContext, args);
+                return { tool, args, callId, executionContext, result };
+            }
+            catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error || "unknown error");
+                const result = {
+                    ok: false,
+                    errorCode: "TOOL_EXECUTION_ERROR",
+                    errorMessage,
+                };
+                return { tool, args, callId, executionContext, result };
+            }
+        }));
+        const parallelDuration = Date.now() - startTime;
+        console.info("[PARALLEL_READ_COMPLETE]", this.safeJsonStringify({
+            sessionId: context.input.sessionId,
+            turnId: context.input.turnId,
+            count: executionResults.length,
+            durationMs: parallelDuration,
+        }));
+        // Process results sequentially (message ordering matters)
+        for (const { tool, args, callId, executionContext, result } of executionResults) {
+            this.collectToolWarnings(result, context.warnings);
+            this.trackReadToolResult(result, context.readCounters);
+            if (result.ok) {
+                this.trackToolEntities(context.session, result, tool.name, context.input.turnId);
+            }
+            const record = this.createToolRecord(tool.name, args, executionContext, result);
+            record.id = callId;
+            context.toolCalls.push(record);
+            const toolMessageContent = this.serializeToolMessage(tool.name, result);
+            context.messages.push({
+                role: "tool",
+                name: tool.name,
+                toolCallId: callId,
+                content: toolMessageContent,
+            });
+            this.appendTurn(context.session, "tool", this.summarizeToolMessageForHistory(tool.name, toolMessageContent), context.turnType, [record]);
+            this.pushAudit(context.audit, context.input, "tool_call_processed", {
+                toolName: tool.name,
+                ok: result.ok,
+                errorCode: result.errorCode,
+            });
+        }
+        return { stopForConfirmation: false };
+    }
     async processToolCalls(llmToolCalls, context) {
+        // Fast path: if all calls are READ tools, execute in parallel
+        if (this.canParallelizeReadToolCalls(llmToolCalls)) {
+            return this.processReadToolCallsInParallel(llmToolCalls, context);
+        }
         for (const llmToolCall of llmToolCalls) {
             context.stats.toolCalls += 1;
             const toolName = llmToolCall.name;
@@ -718,6 +1155,291 @@ class AgenticLoop {
                 };
             }
             const executionContext = this.createExecutionContext(context.input, context.session);
+            if (tool.category === tools_1.ToolCategory.DRAFT && toolName === "generateDraft") {
+                const currentTurnReadTools = this.listReadToolNamesInCurrentTurn(context.toolCalls);
+                const clarificationMessage = this.extractClarificationMessageFromDraftArgs(args);
+                if (clarificationMessage) {
+                    const result = {
+                        ok: false,
+                        errorCode: "DRAFT_CLARIFICATION_REQUIRED",
+                        errorMessage: "Clarification prompts must be returned as assistant text, not as draft artifacts.",
+                        metadata: {
+                            category: "DRAFT",
+                            stage: "draft_clarification_guard",
+                        },
+                    };
+                    console.warn("[DRAFT_TRACE_TOOL_DENIED]", this.safeJsonStringify({
+                        sessionId: context.input.sessionId,
+                        turnId: context.input.turnId,
+                        toolName,
+                        category: tool.category,
+                        stage: "draft_clarification_guard",
+                        errorCode: result.errorCode,
+                        reason: result.errorMessage,
+                        clarificationLength: clarificationMessage.length,
+                    }));
+                    const record = this.createToolRecord(toolName, args, executionContext, result);
+                    record.id = callId;
+                    context.toolCalls.push(record);
+                    context.messages.push({
+                        role: "tool",
+                        name: toolName,
+                        toolCallId: callId,
+                        content: this.serializeToolMessage(toolName, result),
+                    });
+                    context.messages.push({
+                        role: "system",
+                        content: this.buildDraftClarificationGuardInstruction(context.input.message, clarificationMessage),
+                    });
+                    this.pushAudit(context.audit, context.input, "tool_call_denied", {
+                        toolName,
+                        reason: result.errorMessage,
+                        errorCode: result.errorCode,
+                        stage: "draft_clarification_guard",
+                    });
+                    return {
+                        stopForConfirmation: true,
+                        confirmationMessage: clarificationMessage,
+                    };
+                }
+                const genericDraftPrompt = this.isGenericDraftPrompt(context.input.message);
+                console.info("[DRAFT_TRACE_DETAILS_GUARD_EVAL]", this.safeJsonStringify({
+                    sessionId: context.input.sessionId,
+                    turnId: context.input.turnId,
+                    genericDraftPrompt,
+                    hasCurrentDraftInSession: Boolean(context.session.currentDraft),
+                    currentTurnReadTools,
+                }));
+                if (genericDraftPrompt) {
+                    const result = {
+                        ok: false,
+                        errorCode: "DRAFT_DETAILS_REQUIRED",
+                        errorMessage: "Draft request is underspecified. Clarify document type and purpose before generating a draft.",
+                        metadata: {
+                            category: "DRAFT",
+                            stage: "draft_details_guard",
+                        },
+                    };
+                    console.warn("[DRAFT_TRACE_TOOL_DENIED]", this.safeJsonStringify({
+                        sessionId: context.input.sessionId,
+                        turnId: context.input.turnId,
+                        toolName,
+                        category: tool.category,
+                        stage: "draft_details_guard",
+                        errorCode: result.errorCode,
+                        reason: result.errorMessage,
+                    }));
+                    const record = this.createToolRecord(toolName, args, executionContext, result);
+                    record.id = callId;
+                    context.toolCalls.push(record);
+                    context.messages.push({
+                        role: "tool",
+                        name: toolName,
+                        toolCallId: callId,
+                        content: this.serializeToolMessage(toolName, result),
+                    });
+                    context.messages.push({
+                        role: "system",
+                        content: this.buildDraftDetailsRecoveryInstruction(context.input.message),
+                    });
+                    this.pushAudit(context.audit, context.input, "tool_call_denied", {
+                        toolName,
+                        reason: result.errorMessage,
+                        errorCode: result.errorCode,
+                        stage: "draft_details_guard",
+                    });
+                    continue;
+                }
+                const latestClientSnapshot = this.extractLatestListClientsSnapshot(context.messages);
+                const latestDossierSnapshot = this.extractLatestListDossiersSnapshot(context.messages);
+                const mentionsClient = this.isClientMentionedInDraftRequest(context.input.message, args);
+                const explicitClientSelection = latestClientSnapshot &&
+                    latestClientSnapshot.candidates.length > 0 &&
+                    this.hasExplicitClientSelectionInMessage(context.input.message, latestClientSnapshot.candidates);
+                console.info("[DRAFT_TRACE_GUARD_INPUTS]", this.safeJsonStringify({
+                    sessionId: context.input.sessionId,
+                    turnId: context.input.turnId,
+                    messagePreview: this.truncate(String(context.input.message || ""), 180),
+                    draftType: String(args.draftType || "").trim() || "unknown",
+                    linkedEntityType: String(args.linkedEntityType || "").trim() || null,
+                    hasLinkedEntityId: typeof args.linkedEntityId === "number" ||
+                        (typeof args.linkedEntityId === "string" && args.linkedEntityId.trim().length > 0),
+                    isDraftingIntent: this.isDraftingIntent(context.input.message),
+                    mentionsClient,
+                    latestListClientsCount: latestClientSnapshot?.count ?? null,
+                    latestListClientsCandidateNames: latestClientSnapshot?.candidates.slice(0, 5).map((row) => row.name) ?? [],
+                    explicitClientSelectionInMessage: Boolean(explicitClientSelection),
+                    latestListDossiersCount: latestDossierSnapshot?.count ?? null,
+                    latestListDossierRefs: latestDossierSnapshot?.dossiers.slice(0, 5).map((row) => row.reference || row.title || String(row.id || "")) ?? [],
+                    currentTurnReadTools,
+                }));
+                const draftAmbiguity = this.detectDraftClientAmbiguity({
+                    userMessage: context.input.message,
+                    args,
+                    messages: context.messages,
+                });
+                console.info("[DRAFT_TRACE_AMBIGUITY_DECISION]", this.safeJsonStringify({
+                    sessionId: context.input.sessionId,
+                    turnId: context.input.turnId,
+                    required: Boolean(draftAmbiguity?.required),
+                    reason: this.explainDraftAmbiguityDecision({
+                        userMessage: context.input.message,
+                        args,
+                        latestClientSnapshot,
+                        explicitClientSelectionInMessage: Boolean(explicitClientSelection),
+                    }),
+                    candidateCount: draftAmbiguity?.candidates.length ?? 0,
+                }));
+                if (draftAmbiguity?.required) {
+                    const result = {
+                        ok: false,
+                        errorCode: "DRAFT_AMBIGUOUS_TARGET",
+                        errorMessage: "Multiple client matches found. Ask user to select the target client before drafting.",
+                        metadata: {
+                            category: "DRAFT",
+                            stage: "draft_ambiguity_guard",
+                            candidateCount: draftAmbiguity.candidates.length,
+                        },
+                    };
+                    console.warn("[DRAFT_TRACE_TOOL_DENIED]", this.safeJsonStringify({
+                        sessionId: context.input.sessionId,
+                        turnId: context.input.turnId,
+                        toolName,
+                        category: tool.category,
+                        stage: "draft_ambiguity_guard",
+                        errorCode: result.errorCode,
+                        reason: result.errorMessage,
+                        candidateCount: draftAmbiguity.candidates.length,
+                    }));
+                    const record = this.createToolRecord(toolName, args, executionContext, result);
+                    record.id = callId;
+                    context.toolCalls.push(record);
+                    context.messages.push({
+                        role: "tool",
+                        name: toolName,
+                        toolCallId: callId,
+                        content: this.serializeToolMessage(toolName, result),
+                    });
+                    const disambiguationPrompt = this.buildDraftClientDisambiguationMessage(draftAmbiguity.candidates);
+                    context.messages.push({
+                        role: "system",
+                        content: this.buildDraftAmbiguityRecoveryInstruction(context.input.message, disambiguationPrompt),
+                    });
+                    this.pushAudit(context.audit, context.input, "tool_call_denied", {
+                        toolName,
+                        reason: result.errorMessage,
+                        errorCode: result.errorCode,
+                        candidateCount: draftAmbiguity.candidates.length,
+                    });
+                    continue;
+                }
+                const readGroundingDiagnostics = this.getDraftReadGroundingDiagnostics(context.input, args);
+                const requiresReadGrounding = readGroundingDiagnostics.requiresReadGrounding;
+                const hasReadGrounding = this.hasReadGroundingInCurrentTurn(context.toolCalls);
+                console.info("[DRAFT_TRACE_CONTEXT_GUARD_EVAL]", this.safeJsonStringify({
+                    sessionId: context.input.sessionId,
+                    turnId: context.input.turnId,
+                    hasReadGrounding,
+                    ...readGroundingDiagnostics,
+                    currentTurnReadTools: this.listReadToolNamesInCurrentTurn(context.toolCalls),
+                }));
+                if (requiresReadGrounding && !hasReadGrounding) {
+                    const result = {
+                        ok: false,
+                        errorCode: "DRAFT_CONTEXT_REQUIRED",
+                        errorMessage: "This draft requires factual case context from READ tools. " +
+                            "Call READ tools first (for example listDossiers/getDossier/getClient), then call generateDraft.",
+                        metadata: {
+                            category: "DRAFT",
+                            stage: "draft_context_guard",
+                        },
+                    };
+                    console.warn("[DRAFT_TRACE_TOOL_DENIED]", this.safeJsonStringify({
+                        sessionId: context.input.sessionId,
+                        turnId: context.input.turnId,
+                        toolName,
+                        category: tool.category,
+                        stage: "draft_context_guard",
+                        errorCode: result.errorCode,
+                        reason: result.errorMessage,
+                    }));
+                    const record = this.createToolRecord(toolName, args, executionContext, result);
+                    record.id = callId;
+                    context.toolCalls.push(record);
+                    context.messages.push({
+                        role: "tool",
+                        name: toolName,
+                        toolCallId: callId,
+                        content: this.serializeToolMessage(toolName, result),
+                    });
+                    context.messages.push({
+                        role: "system",
+                        content: this.buildDraftContextRecoveryInstruction(context.input.message),
+                    });
+                    this.pushAudit(context.audit, context.input, "tool_call_denied", {
+                        toolName,
+                        reason: result.errorMessage,
+                        errorCode: result.errorCode,
+                    });
+                    continue;
+                }
+                const caseSpecificDraft = this.draftAppearsCaseSpecific(args);
+                const regenerateDraftRequested = isRecord(context.input.metadata) && context.input.metadata?.regenerateDraft === true;
+                const draftContextForTurn = this.resolveDraftForTurn(context.input, this.normalizeDraftArtifact(context.session.currentDraft) ?? undefined);
+                const hasCaseGroundingFromCurrentDraft = regenerateDraftRequested &&
+                    this.hasCaseGroundingFromDraftArtifact(draftContextForTurn);
+                const hasCaseGrounding = this.hasCaseGroundingReadTool(currentTurnReadTools) || hasCaseGroundingFromCurrentDraft;
+                console.info("[DRAFT_TRACE_CASE_GROUNDING_GUARD_EVAL]", this.safeJsonStringify({
+                    sessionId: context.input.sessionId,
+                    turnId: context.input.turnId,
+                    caseSpecificDraft,
+                    hasCaseGrounding,
+                    hasCaseGroundingFromCurrentDraft,
+                    regenerateDraftRequested,
+                    currentTurnReadTools,
+                }));
+                if (caseSpecificDraft && !hasCaseGrounding) {
+                    const result = {
+                        ok: false,
+                        errorCode: "DRAFT_CASE_CONTEXT_REQUIRED",
+                        errorMessage: "Draft includes case-specific claims without dossier/lawsuit/session context from READ tools.",
+                        metadata: {
+                            category: "DRAFT",
+                            stage: "draft_case_grounding_guard",
+                        },
+                    };
+                    console.warn("[DRAFT_TRACE_TOOL_DENIED]", this.safeJsonStringify({
+                        sessionId: context.input.sessionId,
+                        turnId: context.input.turnId,
+                        toolName,
+                        category: tool.category,
+                        stage: "draft_case_grounding_guard",
+                        errorCode: result.errorCode,
+                        reason: result.errorMessage,
+                    }));
+                    const record = this.createToolRecord(toolName, args, executionContext, result);
+                    record.id = callId;
+                    context.toolCalls.push(record);
+                    context.messages.push({
+                        role: "tool",
+                        name: toolName,
+                        toolCallId: callId,
+                        content: this.serializeToolMessage(toolName, result),
+                    });
+                    context.messages.push({
+                        role: "system",
+                        content: this.buildDraftCaseGroundingRecoveryInstruction(context.input.message),
+                    });
+                    this.pushAudit(context.audit, context.input, "tool_call_denied", {
+                        toolName,
+                        reason: result.errorMessage,
+                        errorCode: result.errorCode,
+                        stage: "draft_case_grounding_guard",
+                    });
+                    continue;
+                }
+                this.publishDraftPlaceholderFromArgs(args, context);
+            }
             const result = await this.executor.execute(tool, executionContext, args);
             this.collectToolWarnings(result, context.warnings);
             if (tool.category === tools_1.ToolCategory.READ) {
@@ -750,7 +1472,7 @@ class AgenticLoop {
                 toolCallId: callId,
                 content: toolMessageContent,
             });
-            this.appendTurn(context.session, "tool", toolMessageContent, context.turnType, [record]);
+            this.appendTurn(context.session, "tool", this.summarizeToolMessageForHistory(toolName, toolMessageContent), context.turnType, [record]);
             this.pushAudit(context.audit, context.input, "tool_call_processed", {
                 toolName,
                 ok: result.ok,
@@ -759,13 +1481,57 @@ class AgenticLoop {
         }
         return { stopForConfirmation: false };
     }
+    clearLastAssistantMessageForRecovery(messages) {
+        const last = messages[messages.length - 1];
+        if (!last || last.role !== "assistant") {
+            return;
+        }
+        const hasToolCalls = Array.isArray(last.tool_calls) && last.tool_calls.length > 0;
+        if (hasToolCalls) {
+            return;
+        }
+        last.content = "";
+    }
+    flushAcceptedBufferedText(streamCallbacks, bufferedText) {
+        const text = String(bufferedText || "");
+        if (!text) {
+            return;
+        }
+        streamCallbacks?.onTextDelta?.(text);
+    }
+    logBufferedTextDiscard(input, iteration, reason, bufferedText) {
+        const discardedLength = String(bufferedText || "").length;
+        if (discardedLength <= 0) {
+            return;
+        }
+        console.info("[AGENT_LOOP_BUFFERED_TEXT_DISCARDED]", this.safeJsonStringify({
+            sessionId: input.sessionId,
+            turnId: input.turnId,
+            iteration,
+            reason,
+            discardedLength,
+        }));
+    }
+    isProviderFailureCandidate(text, finishReason) {
+        if (String(finishReason || "").trim().toLowerCase() === "error") {
+            return true;
+        }
+        const normalized = String(text || "").trim().toLowerCase();
+        if (!normalized) {
+            return false;
+        }
+        return (normalized.includes("cannot access the language model right now") ||
+            normalized.includes("please try again") ||
+            normalized.includes("could not generate a valid response"));
+    }
     handleDraftToolResult(result, context) {
         const data = result.data;
         const artifact = data?.artifact;
-        if (!artifact || typeof artifact.content !== "string") {
+        const normalized = this.normalizeDraftArtifact(artifact);
+        if (!normalized) {
             return;
         }
-        this.publishDraftArtifact(artifact, {
+        this.publishDraftArtifact(normalized, {
             input: context.input,
             session: context.session,
             streamCallbacks: context.streamCallbacks,
@@ -781,7 +1547,16 @@ class AgenticLoop {
         if (!this.isDraftTurnLikely(params.input.message, params.sessionHasCurrentDraft)) {
             return false;
         }
-        if (this.hasGenerateDraftToolCall(params.toolCalls)) {
+        if (this.isGenericDraftPrompt(params.input.message)) {
+            return false;
+        }
+        if (this.isClarificationRequestText(params.candidateText)) {
+            return false;
+        }
+        if (this.hasDraftGuardDenial(params.toolCalls)) {
+            return false;
+        }
+        if (this.hasSuccessfulGenerateDraftToolCall(params.toolCalls)) {
             return false;
         }
         if (!this.isDraftArtifactSizedResponse(params.candidateText)) {
@@ -789,8 +1564,65 @@ class AgenticLoop {
         }
         return true;
     }
-    hasGenerateDraftToolCall(toolCalls) {
-        return toolCalls.some((call) => String(call?.toolName || "").trim() === "generateDraft");
+    hasDraftGuardDenial(toolCalls) {
+        const draftGuardErrorCodes = new Set([
+            "DRAFT_DETAILS_REQUIRED",
+            "DRAFT_AMBIGUOUS_TARGET",
+            "DRAFT_CONTEXT_REQUIRED",
+            "DRAFT_CASE_CONTEXT_REQUIRED",
+            "DRAFT_CLARIFICATION_REQUIRED",
+        ]);
+        return toolCalls.some((call) => {
+            if (String(call?.toolName || "").trim() !== "generateDraft") {
+                return false;
+            }
+            const code = String(call?.errorCode || "").trim();
+            return code.length > 0 && draftGuardErrorCodes.has(code);
+        });
+    }
+    hasSuccessfulGenerateDraftToolCall(toolCalls) {
+        return toolCalls.some((call) => String(call?.toolName || "").trim() === "generateDraft" && Boolean(call?.ok));
+    }
+    hasReadGroundingInCurrentTurn(toolCalls) {
+        return toolCalls.some((call) => {
+            if (!call?.ok) {
+                return false;
+            }
+            const toolDef = this.registry.get(String(call.toolName || "").trim());
+            return toolDef?.category === tools_1.ToolCategory.READ;
+        });
+    }
+    draftRequiresReadGrounding(input, args) {
+        return this.getDraftReadGroundingDiagnostics(input, args).requiresReadGrounding;
+    }
+    getDraftReadGroundingDiagnostics(input, args) {
+        const mode = String(input.mode || "").trim().toUpperCase();
+        if (input.mode !== "DRAFT") {
+            return {
+                requiresReadGrounding: false,
+                mode,
+                userMessageHasDatabaseEntitySignal: false,
+                linkedEntityType: "",
+                hasLinkedEntityId: false,
+                looksCaseBound: false,
+            };
+        }
+        const userMessage = String(input.message || "");
+        const linkedEntityType = String(args.linkedEntityType || "").trim().toLowerCase();
+        const hasLinkedEntityId = typeof args.linkedEntityId === "number" ||
+            (typeof args.linkedEntityId === "string" && args.linkedEntityId.trim().length > 0);
+        const userMessageHasDatabaseEntitySignal = DATABASE_ENTITY_QUERY_PATTERN.test(userMessage);
+        const looksCaseBound = userMessageHasDatabaseEntitySignal ||
+            linkedEntityType.length > 0 ||
+            hasLinkedEntityId;
+        return {
+            requiresReadGrounding: looksCaseBound,
+            mode,
+            userMessageHasDatabaseEntitySignal,
+            linkedEntityType,
+            hasLinkedEntityId,
+            looksCaseBound,
+        };
     }
     isDraftingIntent(message) {
         const value = String(message || "");
@@ -808,12 +1640,46 @@ class AgenticLoop {
             "DRAFT TOOL ENFORCEMENT",
             "You wrote draft content directly in assistant text, which is not allowed.",
             "You MUST call generateDraft now.",
-            "Place the full draft text in generateDraft.content.",
+            "Place the draft in generateDraft.sections and generateDraft.layout.",
+            "Use one body section if you only have plain text.",
             "After the tool call, write only a short conversational message.",
-            "Use this exact draft text as content:",
+            "Use this exact draft text as the body section text:",
             "---BEGIN_DRAFT_TEXT---",
             candidateText,
             "---END_DRAFT_TEXT---",
+            `Original user request: ${userMessage}`,
+        ].join("\n");
+    }
+    buildDraftClarificationGuardInstruction(userMessage, clarificationMessage) {
+        return [
+            "DRAFT CLARIFICATION GUARD",
+            "The previous generateDraft call contained a clarification request, not a draft artifact.",
+            "Do not call generateDraft for clarification prompts.",
+            "Return the clarification to the user as assistant text.",
+            "Only call generateDraft once sufficient details/context are available.",
+            `Original user request: ${userMessage}`,
+            "Clarification message to return:",
+            clarificationMessage,
+        ].join("\n");
+    }
+    buildDraftDetailsRecoveryInstruction(userMessage) {
+        return [
+            "DRAFT DETAILS REQUIRED",
+            "The user's request is underspecified for generating a draft.",
+            "Do not call generateDraft in this turn.",
+            "Ask a concise clarification question in the user's language.",
+            "Request these details: document type, purpose/main message, preferred tone, and key facts/dates/reference.",
+            "Keep the response user-facing only; no internal analysis labels or role tags.",
+            `Original user request: ${userMessage}`,
+        ].join("\n");
+    }
+    buildDraftCaseGroundingRecoveryInstruction(userMessage) {
+        return [
+            "DRAFT CASE GROUNDING REQUIRED",
+            "The attempted draft contains case-specific claims but the turn does not have dossier/lawsuit/session grounding yet.",
+            "Do not call generateDraft in this turn.",
+            "Ask the user for the exact dossier/case reference, or ask permission to fetch and resolve it first.",
+            "Respond in user-facing language only.",
             `Original user request: ${userMessage}`,
         ].join("\n");
     }
@@ -842,6 +1708,8 @@ class AgenticLoop {
             title: artifact.title,
             subtitle: artifact.subtitle,
             metadata: artifact.metadata,
+            sections: artifact.sections,
+            layout: artifact.layout,
             content: artifact.content,
             linkedEntityType: artifact.linkedEntityType,
             linkedEntityId: artifact.linkedEntityId,
@@ -861,10 +1729,12 @@ class AgenticLoop {
         console.warn("[DRAFT_TRACE_FALLBACK_ARTIFACT_SYNTHESIZED]", this.safeJsonStringify({
             sessionId: params.input.sessionId,
             turnId: params.input.turnId,
+            sectionCount: Array.isArray(artifact.sections) ? artifact.sections.length : 0,
             contentLength: fallbackContent.length,
             enforcementAttempts: params.draftToolEnforcementAttempts,
         }));
         this.pushAudit(params.audit, params.input, "draft_fallback_artifact_synthesized", {
+            sectionCount: Array.isArray(artifact.sections) ? artifact.sections.length : 0,
             contentLength: fallbackContent.length,
             enforcementAttempts: params.draftToolEnforcementAttempts,
         });
@@ -874,7 +1744,7 @@ class AgenticLoop {
         if (params.input.mode !== "DRAFT") {
             return null;
         }
-        if (this.hasGenerateDraftToolCall(params.toolCalls)) {
+        if (this.hasSuccessfulGenerateDraftToolCall(params.toolCalls)) {
             return null;
         }
         if (params.draftToolEnforcementAttempts < 1) {
@@ -884,10 +1754,16 @@ class AgenticLoop {
             return null;
         }
         const responseText = String(params.responseText || "").trim();
+        if (this.isClarificationRequestText(responseText)) {
+            return null;
+        }
         if (this.isDraftArtifactSizedResponse(responseText)) {
             return responseText;
         }
         const savedCandidate = String(params.savedDraftCandidateText || "").trim();
+        if (this.isClarificationRequestText(savedCandidate)) {
+            return null;
+        }
         if (this.isDraftArtifactSizedResponse(savedCandidate)) {
             return savedCandidate;
         }
@@ -902,12 +1778,27 @@ class AgenticLoop {
         if (language) {
             metadata.language = language;
         }
+        const sections = [
+            {
+                id: "sec_1",
+                role: "body",
+                text: content,
+            },
+        ];
+        const layout = {
+            direction: language === "ar" ? "rtl" : "ltr",
+            language: language || "en",
+            formality: "formal",
+            documentClass: draftType,
+        };
         return {
             draftType,
             title: this.inferFallbackDraftTitle(userMessage, draftType),
             subtitle: undefined,
             metadata,
-            content,
+            sections,
+            layout,
+            content: this.renderDraftContentFromSections(sections),
             linkedEntityType: undefined,
             linkedEntityId: undefined,
             generatedAt: new Date().toISOString(),
@@ -954,23 +1845,240 @@ class AgenticLoop {
         return "en";
     }
     publishDraftArtifact(artifact, params) {
-        const existing = params.session.currentDraft;
-        const nextVersion = existing ? (existing.version ?? 0) + 1 : 1;
-        artifact.version = nextVersion;
-        if (!artifact.generatedAt) {
-            artifact.generatedAt = new Date().toISOString();
+        const normalized = this.normalizeDraftArtifact(artifact);
+        if (!normalized) {
+            return;
         }
-        params.session.currentDraft = artifact;
+        const existing = params.session.currentDraft;
+        const isTransient = params.transient === true;
+        const nextVersion = isTransient
+            ? existing?.version ?? normalized.version ?? 1
+            : existing
+                ? (existing.version ?? 0) + 1
+                : 1;
+        normalized.version = nextVersion;
+        if (!normalized.generatedAt) {
+            normalized.generatedAt = new Date().toISOString();
+        }
+        if (!isTransient) {
+            params.session.currentDraft = normalized;
+        }
         console.info("[DRAFT_TRACE_ARTIFACT_READY]", this.safeJsonStringify({
             sessionId: params.input.sessionId,
             turnId: params.input.turnId,
-            draftType: artifact.draftType,
-            title: artifact.title,
-            version: artifact.version,
-            contentLength: String(artifact.content || "").length,
+            draftType: normalized.draftType,
+            title: normalized.title,
+            version: normalized.version,
+            sectionCount: Array.isArray(normalized.sections) ? normalized.sections.length : 0,
             callbackPresent: typeof params.streamCallbacks?.onDraftArtifact === "function",
+            transient: isTransient,
         }));
-        params.streamCallbacks?.onDraftArtifact?.(artifact);
+        params.streamCallbacks?.onDraftArtifact?.(normalized);
+    }
+    publishDraftPlaceholderFromArgs(args, context) {
+        const draftType = String(args.draftType ?? "").trim();
+        const title = String(args.title ?? "").trim();
+        if (!draftType || !title) {
+            return;
+        }
+        const metadata = isRecord(args.metadata)
+            ? Object.fromEntries(Object.entries(args.metadata)
+                .filter(([, value]) => typeof value === "string")
+                .map(([key, value]) => [key, String(value)]))
+            : undefined;
+        const sections = this.extractDraftSectionsFromArgs(args);
+        const layout = this.extractDraftLayoutFromArgs(args, sections, draftType, metadata);
+        const placeholder = {
+            draftType,
+            title,
+            subtitle: args.subtitle != null ? String(args.subtitle) : undefined,
+            metadata,
+            sections,
+            layout,
+            content: this.renderDraftContentFromSections(sections),
+            linkedEntityType: args.linkedEntityType != null ? String(args.linkedEntityType) : undefined,
+            linkedEntityId: typeof args.linkedEntityId === "number"
+                ? args.linkedEntityId
+                : Number.isFinite(Number(args.linkedEntityId))
+                    ? Number(args.linkedEntityId)
+                    : undefined,
+            generatedAt: new Date().toISOString(),
+            version: context.session.currentDraft?.version ?? 1,
+        };
+        this.publishDraftArtifact(placeholder, {
+            input: context.input,
+            session: context.session,
+            streamCallbacks: context.streamCallbacks,
+            transient: true,
+        });
+    }
+    resolveDraftForTurn(input, sessionDraft) {
+        const metadata = isRecord(input.metadata) ? input.metadata : null;
+        const snapshotRaw = metadata?.[DRAFT_METADATA_SNAPSHOT_KEY];
+        const snapshot = this.normalizeDraftArtifact(isRecord(snapshotRaw) ? snapshotRaw : undefined);
+        if (snapshot) {
+            return snapshot;
+        }
+        return this.normalizeDraftArtifact(sessionDraft);
+    }
+    normalizeDraftArtifact(artifact) {
+        if (!artifact || !isRecord(artifact)) {
+            return null;
+        }
+        const draftType = String(artifact.draftType || "").trim();
+        const title = String(artifact.title || "").trim();
+        if (!draftType || !title) {
+            return null;
+        }
+        const sections = this.normalizeDraftSections(artifact.sections, String(artifact.content || ""));
+        const metadata = isRecord(artifact.metadata)
+            ? Object.fromEntries(Object.entries(artifact.metadata)
+                .filter(([, value]) => typeof value === "string")
+                .map(([key, value]) => [key, String(value)]))
+            : undefined;
+        const layout = this.normalizeDraftLayout(artifact.layout, sections, draftType, metadata);
+        const content = String(artifact.content || "").trim() ||
+            this.renderDraftContentFromSections(sections);
+        return {
+            draftType,
+            title,
+            subtitle: artifact.subtitle != null
+                ? String(artifact.subtitle)
+                : undefined,
+            metadata,
+            sections,
+            layout,
+            content,
+            linkedEntityType: artifact.linkedEntityType != null
+                ? String(artifact.linkedEntityType)
+                : undefined,
+            linkedEntityId: artifact.linkedEntityId != null
+                ? Number(artifact.linkedEntityId)
+                : undefined,
+            generatedAt: artifact.generatedAt != null &&
+                String(artifact.generatedAt).trim().length > 0
+                ? String(artifact.generatedAt)
+                : new Date().toISOString(),
+            version: artifact.version != null
+                ? Number(artifact.version)
+                : 1,
+        };
+    }
+    extractDraftSectionsFromArgs(args) {
+        return this.normalizeDraftSections(args.sections, String(args.content || ""));
+    }
+    normalizeDraftSections(rawSections, legacyContent) {
+        if (Array.isArray(rawSections) && rawSections.length > 0) {
+            const sections = [];
+            for (let i = 0; i < rawSections.length; i += 1) {
+                const row = rawSections[i];
+                if (!isRecord(row)) {
+                    continue;
+                }
+                const role = String(row.role || "").trim() || "body";
+                const id = String(row.id || "").trim() || `sec_${i + 1}`;
+                const section = {
+                    id,
+                    role,
+                };
+                if (row.label != null) {
+                    section.label = String(row.label);
+                }
+                if (row.text != null) {
+                    section.text = String(row.text);
+                }
+                sections.push(section);
+            }
+            if (sections.length > 0) {
+                return sections;
+            }
+        }
+        const fallback = String(legacyContent || "").trim();
+        if (!fallback) {
+            return [];
+        }
+        return [
+            {
+                id: "sec_1",
+                role: "body",
+                text: fallback,
+            },
+        ];
+    }
+    extractDraftLayoutFromArgs(args, sections, draftType, metadata) {
+        return this.normalizeDraftLayout(args.layout, sections, draftType, metadata);
+    }
+    normalizeDraftLayout(rawLayout, sections, draftType, metadata) {
+        const layout = isRecord(rawLayout) ? rawLayout : null;
+        const content = this.renderDraftContentFromSections(sections);
+        const language = this.detectDraftLanguage(layout?.language, metadata?.language, content);
+        const direction = this.detectDraftDirection(layout?.direction, language, content);
+        const formality = this.detectDraftFormality(layout?.formality);
+        const documentClass = (layout?.documentClass != null && String(layout.documentClass).trim()) ||
+            draftType ||
+            "other";
+        return {
+            direction,
+            language,
+            formality,
+            documentClass: String(documentClass),
+        };
+    }
+    detectDraftLanguage(primary, secondary, content) {
+        const first = String(primary || "").trim().toLowerCase();
+        if (first)
+            return first;
+        const second = String(secondary || "").trim().toLowerCase();
+        if (second)
+            return second;
+        const inferred = this.detectLanguageHint(content);
+        return inferred || "en";
+    }
+    detectDraftDirection(value, language, content) {
+        const normalized = String(value || "").trim().toLowerCase();
+        if (normalized === "rtl")
+            return "rtl";
+        if (normalized === "ltr")
+            return "ltr";
+        if (language === "ar" || /[\u0600-\u06FF]/.test(content)) {
+            return "rtl";
+        }
+        return "ltr";
+    }
+    detectDraftFormality(value) {
+        const normalized = String(value || "").trim().toLowerCase();
+        if (normalized === "formal" ||
+            normalized === "standard" ||
+            normalized === "casual") {
+            return normalized;
+        }
+        return "formal";
+    }
+    renderDraftContentFromSections(sections) {
+        return sections
+            .map((section) => {
+            const label = String(section.label || "").trim();
+            const text = String(section.text || "").trim();
+            if (!label && !text)
+                return "";
+            if (!label)
+                return text;
+            if (!text)
+                return label;
+            return `${label} ${text}`.trim();
+        })
+            .filter(Boolean)
+            .join("\n\n");
+    }
+    buildDraftSummaryForPrompt(artifact) {
+        return {
+            sections: artifact.sections.slice(0, 40).map((section) => ({
+                id: section.id,
+                role: section.role,
+                ...(section.label ? { label: section.label } : {}),
+                ...(section.text ? { text: this.truncate(String(section.text), 400) } : {}),
+            })),
+        };
     }
     async generateAssistantResponse(params, streamCallbacks, suppressTextDelta = false) {
         const textParts = [];
@@ -1010,7 +2118,10 @@ class AgenticLoop {
                 }
             }
         }
-        catch {
+        catch (error) {
+            if (isAbortError(error)) {
+                throw error;
+            }
             streamed = false;
         }
         if (!streamed) {
@@ -1067,17 +2178,33 @@ class AgenticLoop {
                 ].join("\n"),
             });
         }
-        if (session.currentDraft) {
+        const currentDraftForTurn = this.resolveDraftForTurn(input, session.currentDraft);
+        if (currentDraftForTurn) {
+            const summary = this.buildDraftSummaryForPrompt(currentDraftForTurn);
             messages.push({
                 role: "system",
                 content: [
-                    "CURRENT DRAFT IN SESSION (version " + session.currentDraft.version + "):",
-                    "Type: " + session.currentDraft.draftType,
-                    "Title: " + session.currentDraft.title,
-                    "Content:",
-                    session.currentDraft.content,
+                    "CURRENT DRAFT IN SESSION (version " + currentDraftForTurn.version + "):",
+                    "Type: " + currentDraftForTurn.draftType,
+                    "Title: " + currentDraftForTurn.title,
+                    "Layout: " + JSON.stringify(currentDraftForTurn.layout),
+                    "Sections JSON:",
+                    JSON.stringify(summary, null, 2),
                     "",
-                    "If the user asks to regenerate or modify this draft, call generateDraft with the updated content.",
+                    "If the user asks to regenerate or modify this draft, call generateDraft with updated sections and layout.",
+                ].join("\n"),
+            });
+        }
+        const regenerateRequested = isRecord(input.metadata) && input.metadata?.regenerateDraft === true;
+        if (regenerateRequested && currentDraftForTurn) {
+            messages.push({
+                role: "system",
+                content: [
+                    "DRAFT REGENERATION MODE",
+                    "The user asked to regenerate/modify the current draft.",
+                    "Use the CURRENT DRAFT IN SESSION as the baseline and apply only the user's new instructions.",
+                    "Do not ask to re-select client/dossier/case unless the user explicitly requests changing target context.",
+                    "Call generateDraft exactly once with updated sections and layout, then return a short confirmation.",
                 ].join("\n"),
             });
         }
@@ -1613,6 +2740,73 @@ class AgenticLoop {
     serializeToolMessage(toolName, result) {
         return this.safeJsonStringify({ tool: toolName, result });
     }
+    summarizeToolMessageForHistory(toolName, serialized) {
+        if (serialized.length < 2000)
+            return serialized;
+        let parsed = null;
+        try {
+            parsed = JSON.parse(serialized);
+        }
+        catch {
+            return serialized;
+        }
+        if (!parsed || !parsed.result || !parsed.result.ok)
+            return serialized;
+        const data = parsed.result.data;
+        if (!data || typeof data !== "object")
+            return serialized;
+        // Entity graph results: keep root, parents, metrics; summarize children
+        if (toolName === "getEntityGraph") {
+            const graph = data;
+            const summarizedChildren = {};
+            const children = graph.children;
+            if (children && typeof children === "object") {
+                for (const [key, items] of Object.entries(children)) {
+                    if (Array.isArray(items)) {
+                        const ids = items.slice(0, 5).map((item) => {
+                            if (item && typeof item === "object" && "id" in item)
+                                return item.id;
+                            return "?";
+                        });
+                        summarizedChildren[key] = `${items.length} items (IDs: ${ids.join(", ")}${items.length > 5 ? "..." : ""})`;
+                    }
+                }
+            }
+            return this.safeJsonStringify({
+                tool: toolName,
+                result: {
+                    ok: true,
+                    data: {
+                        root: graph.root,
+                        parents: graph.parents,
+                        metrics: graph.metrics,
+                        meta: graph.meta,
+                        children_summary: summarizedChildren,
+                        generatedAt: graph.generatedAt,
+                    },
+                    _summarized: true,
+                },
+            });
+        }
+        // List tool results: if data contains an array with 10+ items, summarize
+        for (const [key, value] of Object.entries(data)) {
+            if (Array.isArray(value) && value.length > 10) {
+                const summarizedData = { ...data };
+                summarizedData[key] = value.slice(0, 5);
+                summarizedData[`${key}_count`] = value.length;
+                return this.safeJsonStringify({
+                    tool: toolName,
+                    result: {
+                        ok: true,
+                        data: summarizedData,
+                        _summarized: true,
+                        _note: `Showing 5 of ${value.length} ${key}`,
+                    },
+                });
+            }
+        }
+        return serialized;
+    }
     truncate(value, maxLength) {
         if (value.length <= maxLength) {
             return value;
@@ -1792,6 +2986,37 @@ class AgenticLoop {
             `Registered tools: ${allowedToolNames.join(", ")}`,
         ].join("\n");
     }
+    buildUserFacingOnlyRecoveryInstruction(userMessage) {
+        return [
+            "USER-FACING RESPONSE ONLY",
+            "Do not output chain-of-thought, analysis labels, role tags, tool wrappers, or internal traces.",
+            "Never output prefixes like analysis, assistantcommentary, assistantfinal, or to=functions.*",
+            "Provide only the final assistant response in plain natural language for the user.",
+            `Original user request: ${userMessage}`,
+        ].join("\n");
+    }
+    buildDraftContextRecoveryInstruction(userMessage) {
+        return [
+            "DRAFT CONTEXT REQUIRED",
+            "A generateDraft call was denied because READ grounding is missing.",
+            "Before calling generateDraft, gather factual context using READ tools.",
+            "If the user reference is ambiguous (for example only a first name), resolve with listClients/listDossiers and ask clarification if multiple matches exist.",
+            "If no case context is available yet, ask one concise clarification question in user-facing language.",
+            "Do not output internal analysis labels or role tags.",
+            `Original user request: ${userMessage}`,
+        ].join("\n");
+    }
+    buildDraftAmbiguityRecoveryInstruction(userMessage, disambiguationPrompt) {
+        return [
+            "DRAFT AMBIGUITY RESOLUTION REQUIRED",
+            "Multiple clients match the user's reference. Do not draft yet.",
+            "Do not call generateDraft until the user explicitly selects one client.",
+            "Ask a concise clarification question and present candidate options.",
+            "Do not output internal analysis labels or role tags.",
+            disambiguationPrompt,
+            `Original user request: ${userMessage}`,
+        ].join("\n");
+    }
     buildFinalizationRecoveryInstruction(userMessage) {
         return [
             "FINAL RESPONSE REQUIRED",
@@ -1808,6 +3033,9 @@ class AgenticLoop {
             return true;
         }
         if (this.isLikelyPlaceholderCompletion(candidate)) {
+            return true;
+        }
+        if (this.isInternalMetaLeakCandidate(candidate)) {
             return true;
         }
         const hasInvalidToolCalls = Array.isArray(params.invalidToolCalls) && params.invalidToolCalls.length > 0;
@@ -1831,6 +3059,418 @@ class AgenticLoop {
             normalized === "done." ||
             normalized === "done" ||
             normalized.includes("malformed tool-call output"));
+    }
+    isInternalMetaLeakCandidate(text) {
+        const normalized = String(text || "").trim().toLowerCase();
+        if (!normalized) {
+            return false;
+        }
+        const prefixedMetaLeak = normalized.startsWith("analysis") ||
+            normalized.startsWith("assistantcommentary") ||
+            normalized.startsWith("assistantfinal");
+        const hasMetaMarkers = /\bassistantcommentary\b/i.test(normalized) ||
+            /\bassistantfinal\b/i.test(normalized) ||
+            /\bto=functions\./i.test(normalized) ||
+            /\bassistant(?:commentary|final)\s+to=/i.test(normalized);
+        return prefixedMetaLeak || hasMetaMarkers;
+    }
+    isClarificationRequestText(text) {
+        const raw = String(text || "").trim();
+        if (!raw) {
+            return false;
+        }
+        const compact = this.normalizeIntentText(raw);
+        const englishClarificationSignals = [
+            "could you let me know",
+            "i need more information",
+            "i'll need",
+            "please provide",
+            "what kind of",
+            "what type of",
+            "once i have",
+            "to proceed, i need",
+            "i still need",
+        ];
+        const frenchClarificationSignals = [
+            "pourriez-vous",
+            "pouvez-vous",
+            "merci de preciser",
+            "precisez",
+            "quel type de document",
+            "quelles informations",
+            "j'ai besoin de",
+            "pour rediger",
+            "pour preparer le brouillon",
+        ];
+        const arabicClarificationSignals = [
+            "يرجى",
+            "من فضلك",
+            "هل يمكنك",
+            "ما نوع",
+            "ما الغرض",
+            "ما الهدف",
+            "أحتاج",
+            "احتاج",
+            "لصياغة",
+            "لإعداد",
+            "لاعداد",
+            "المسودة",
+        ];
+        const hasSignal = englishClarificationSignals.some((signal) => compact.includes(signal)) ||
+            frenchClarificationSignals.some((signal) => compact.includes(signal)) ||
+            arabicClarificationSignals.some((signal) => compact.includes(signal)) ||
+            /\b(could|can)\s+you\s+(let\s+me\s+know|clarify|specify)\b/i.test(compact) ||
+            /\bwhat\s+(kind|type)\s+of\b/i.test(compact) ||
+            /\b(pourriez|pouvez)\s*-\s*vous\b/i.test(compact) ||
+            /\bquel\s+type\s+de\s+document\b/i.test(compact) ||
+            /(ما\s+نوع|هل\s+يمكنك|يرجى)/i.test(compact);
+        if (!hasSignal) {
+            return false;
+        }
+        const hasQuestion = /[?؟]/.test(raw);
+        const numberedPrompt = /\b1\.\s+\*\*/.test(compact) || /\b1\.\s+/.test(compact);
+        const bulletPrompt = /\n\s*[-*]\s+/.test(raw);
+        if (hasQuestion || numberedPrompt || bulletPrompt) {
+            return true;
+        }
+        return (compact.includes("could you") ||
+            compact.includes("can you") ||
+            compact.includes("pourriez-vous") ||
+            compact.includes("pouvez-vous") ||
+            compact.includes("what type of") ||
+            compact.includes("quel type de document") ||
+            compact.includes("هل يمكنك") ||
+            compact.includes("ما نوع"));
+    }
+    normalizeIntentText(value) {
+        return String(value || "")
+            .replace(/\u2019/g, "'")
+            .replace(/[\u2010-\u2015\u2212]/g, "-")
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/\s+/g, " ")
+            .trim();
+    }
+    coerceDraftDetailsClarification(userMessage, candidateText) {
+        const cleaned = String(candidateText || "").trim();
+        if (this.isClarificationRequestText(cleaned) && cleaned.length > 0) {
+            return cleaned;
+        }
+        const language = this.detectLanguageHint(`${userMessage}\n${cleaned}`) || "en";
+        if (language === "fr") {
+            return "Pour préparer le brouillon, précisez le type de document, l'objectif principal, le ton souhaité et les faits clés (dates/références) à inclure.";
+        }
+        if (language === "ar") {
+            return "لتحضير المسودة، يرجى تحديد نوع المستند، الهدف الأساسي، النبرة المطلوبة، والوقائع الأساسية (التواريخ/المراجع) التي تريد تضمينها.";
+        }
+        return "To prepare the draft, please specify the document type, main purpose, preferred tone, and key facts to include (dates/references).";
+    }
+    isGenericDraftPrompt(message) {
+        const normalized = String(message || "").trim().toLowerCase();
+        if (!normalized || !this.isDraftingIntent(message)) {
+            return false;
+        }
+        const genericMarkers = [
+            "draft something",
+            "write something",
+            "compose something",
+            "prepare something",
+            "something for",
+            "anything for",
+            "quelque chose",
+            "شيء",
+            "شيئا",
+            "حاجة",
+        ];
+        const hasGenericMarker = genericMarkers.some((marker) => normalized.includes(marker));
+        if (!hasGenericMarker) {
+            return false;
+        }
+        const explicitTypeHints = [
+            "letter",
+            "email",
+            "notice",
+            "memo",
+            "contract",
+            "petition",
+            "request",
+            "report",
+            "brief",
+            "summary",
+            "رسالة",
+            "طلب",
+            "lettre",
+            "courriel",
+            "contrat",
+        ];
+        const hasTypeHint = explicitTypeHints.some((hint) => normalized.includes(hint));
+        return !hasTypeHint;
+    }
+    extractUserFacingTextFromMetaLeak(text) {
+        const value = String(text || "").trim();
+        if (!value) {
+            return null;
+        }
+        const finalMatch = /assistantfinal([\s\S]*)$/i.exec(value);
+        if (finalMatch) {
+            const cleaned = String(finalMatch[1] || "").trim();
+            return cleaned.length > 0 ? cleaned : null;
+        }
+        const commentaryMatch = /assistantcommentary([\s\S]*)$/i.exec(value);
+        if (commentaryMatch) {
+            const cleaned = String(commentaryMatch[1] || "").trim();
+            return cleaned.length > 0 ? cleaned : null;
+        }
+        return null;
+    }
+    extractClarificationMessageFromDraftArgs(args) {
+        const sections = this.normalizeDraftSections(args.sections, String(args.content || ""));
+        const text = this.renderDraftContentFromSections(sections).trim();
+        if (!text) {
+            return null;
+        }
+        if (!this.isClarificationRequestText(text)) {
+            return null;
+        }
+        return this.truncate(text, 2000);
+    }
+    draftAppearsCaseSpecific(args) {
+        const sections = this.normalizeDraftSections(args.sections, String(args.content || ""));
+        const content = this.renderDraftContentFromSections(sections).toLowerCase();
+        if (!content) {
+            return false;
+        }
+        const caseSignals = [
+            "case progress",
+            "hearing",
+            "court",
+            "filing",
+            "dossier",
+            "lawsuit",
+            "tribunal",
+            "audience",
+            "جلسة",
+            "محكمة",
+            "قضية",
+            "ملف",
+        ];
+        return caseSignals.some((signal) => content.includes(signal));
+    }
+    hasCaseGroundingReadTool(readToolNames) {
+        const names = new Set((readToolNames || []).map((name) => String(name || "").trim()));
+        const caseGroundingTools = [
+            "listDossiers",
+            "getDossier",
+            "listLawsuits",
+            "getLawsuit",
+            "listSessions",
+            "getEntityGraph",
+            "getTimeline",
+        ];
+        return caseGroundingTools.some((tool) => names.has(tool));
+    }
+    hasCaseGroundingFromDraftArtifact(artifact) {
+        if (!artifact) {
+            return false;
+        }
+        const linkedEntityType = String(artifact.linkedEntityType || "").trim().toLowerCase();
+        const hasLinkedEntityId = typeof artifact.linkedEntityId === "number" && Number.isFinite(artifact.linkedEntityId);
+        if (!hasLinkedEntityId) {
+            return false;
+        }
+        return linkedEntityType === "dossier" || linkedEntityType === "lawsuit" || linkedEntityType === "session";
+    }
+    detectDraftClientAmbiguity(params) {
+        if (!this.isDraftingIntent(params.userMessage)) {
+            return null;
+        }
+        const mentionsClient = this.isClientMentionedInDraftRequest(params.userMessage, params.args);
+        if (!mentionsClient) {
+            return null;
+        }
+        const snapshot = this.extractLatestListClientsSnapshot(params.messages);
+        if (!snapshot || snapshot.count <= 1 || snapshot.candidates.length <= 1) {
+            return null;
+        }
+        const userExplicitSelection = this.hasExplicitClientSelectionInMessage(params.userMessage, snapshot.candidates);
+        if (userExplicitSelection) {
+            return null;
+        }
+        return {
+            required: true,
+            candidates: snapshot.candidates.slice(0, 5),
+        };
+    }
+    extractLatestListClientsSnapshot(messages) {
+        for (let i = messages.length - 1; i >= 0; i -= 1) {
+            const message = messages[i];
+            if (message.role !== "tool" || String(message.name || "").trim() !== "listClients") {
+                continue;
+            }
+            const parsed = this.parseToolMessageContent(message.content);
+            const result = isRecord(parsed?.result) ? parsed.result : null;
+            if (!result || result.ok !== true) {
+                continue;
+            }
+            const data = isRecord(result.data) ? result.data : null;
+            if (!data) {
+                continue;
+            }
+            const clientsRaw = Array.isArray(data.clients) ? data.clients : [];
+            const candidates = clientsRaw
+                .map((row) => this.toClientCandidate(row))
+                .filter((row) => Boolean(row));
+            const count = typeof data.count === "number" && Number.isFinite(data.count)
+                ? Math.max(0, Math.floor(data.count))
+                : candidates.length;
+            return { count, candidates };
+        }
+        return null;
+    }
+    parseToolMessageContent(content) {
+        const raw = String(content || "").trim();
+        if (!raw) {
+            return null;
+        }
+        try {
+            const parsed = JSON.parse(raw);
+            return isRecord(parsed) ? parsed : null;
+        }
+        catch {
+            return null;
+        }
+    }
+    toClientCandidate(value) {
+        if (!isRecord(value)) {
+            return null;
+        }
+        const name = String(value.name || "").trim();
+        if (!name) {
+            return null;
+        }
+        const id = typeof value.id === "number"
+            ? value.id
+            : Number.isFinite(Number(value.id))
+                ? Number(value.id)
+                : undefined;
+        const email = String(value.email || "").trim() || undefined;
+        return { id, name, email };
+    }
+    hasExplicitClientSelectionInMessage(userMessage, candidates) {
+        const normalizedMessage = this.normalizeForComparison(userMessage);
+        if (!normalizedMessage) {
+            return false;
+        }
+        let matches = 0;
+        for (const candidate of candidates) {
+            const normalizedName = this.normalizeForComparison(candidate.name);
+            if (!normalizedName || normalizedName.split(" ").length < 2) {
+                continue;
+            }
+            if (normalizedMessage.includes(normalizedName)) {
+                matches += 1;
+            }
+            if (matches > 1) {
+                return false;
+            }
+        }
+        return matches === 1;
+    }
+    normalizeForComparison(value) {
+        return String(value || "")
+            .toLowerCase()
+            .replace(/[^a-z0-9\u00C0-\u024F\u0600-\u06FF\s]+/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+    }
+    buildDraftClientDisambiguationMessage(candidates) {
+        const lines = candidates.slice(0, 5).map((candidate, index) => {
+            const emailPart = candidate.email ? ` - ${candidate.email}` : "";
+            return `${index + 1}. ${candidate.name}${emailPart}`;
+        });
+        return [
+            "I found multiple matching clients. Which one should I draft for?",
+            ...lines,
+            "Reply with the number or full client name, then I will generate the draft.",
+        ].join("\n");
+    }
+    isClientMentionedInDraftRequest(userMessage, args) {
+        const linkedEntityType = String(args.linkedEntityType || "").trim().toLowerCase();
+        return (linkedEntityType === "client" ||
+            /\b(for|to)\s+[a-z\u00C0-\u024F][a-z\u00C0-\u024F'\-]{1,}\b/i.test(String(userMessage || "")));
+    }
+    explainDraftAmbiguityDecision(params) {
+        if (!this.isDraftingIntent(params.userMessage)) {
+            return "not_drafting_intent";
+        }
+        if (!this.isClientMentionedInDraftRequest(params.userMessage, params.args)) {
+            return "no_client_reference_detected";
+        }
+        if (!params.latestClientSnapshot) {
+            return "no_listClients_result_in_context";
+        }
+        if (params.latestClientSnapshot.count <= 1 || params.latestClientSnapshot.candidates.length <= 1) {
+            return "single_or_no_client_match";
+        }
+        if (params.explicitClientSelectionInMessage) {
+            return "explicit_client_selection_present";
+        }
+        return "multiple_client_candidates_requires_selection";
+    }
+    extractLatestListDossiersSnapshot(messages) {
+        for (let i = messages.length - 1; i >= 0; i -= 1) {
+            const message = messages[i];
+            if (message.role !== "tool" || String(message.name || "").trim() !== "listDossiers") {
+                continue;
+            }
+            const parsed = this.parseToolMessageContent(message.content);
+            const result = isRecord(parsed?.result) ? parsed.result : null;
+            if (!result || result.ok !== true) {
+                continue;
+            }
+            const data = isRecord(result.data) ? result.data : null;
+            if (!data) {
+                continue;
+            }
+            const dossiersRaw = Array.isArray(data.dossiers) ? data.dossiers : [];
+            const dossiers = dossiersRaw
+                .map((row) => this.toDossierCandidate(row))
+                .filter((row) => Boolean(row));
+            const count = typeof data.count === "number" && Number.isFinite(data.count)
+                ? Math.max(0, Math.floor(data.count))
+                : dossiers.length;
+            return { count, dossiers };
+        }
+        return null;
+    }
+    toDossierCandidate(value) {
+        if (!isRecord(value)) {
+            return null;
+        }
+        const id = typeof value.id === "number"
+            ? value.id
+            : Number.isFinite(Number(value.id))
+                ? Number(value.id)
+                : undefined;
+        const reference = String(value.reference || "").trim() || undefined;
+        const title = String(value.title || "").trim() || undefined;
+        if (id == null && !reference && !title) {
+            return null;
+        }
+        return { id, reference, title };
+    }
+    listReadToolNamesInCurrentTurn(toolCalls) {
+        return (toolCalls || [])
+            .filter((call) => Boolean(call?.ok))
+            .map((call) => String(call?.toolName || "").trim())
+            .filter((name) => {
+            if (!name) {
+                return false;
+            }
+            const toolDef = this.registry.get(name);
+            return toolDef?.category === tools_1.ToolCategory.READ;
+        });
     }
     analyzeEntityCoverageForWorkloadQuery(mode, userMessage, toolCalls) {
         const normalizedMessage = String(userMessage || "");
@@ -1978,4 +3618,10 @@ class AgenticLoop {
 exports.AgenticLoop = AgenticLoop;
 function isRecord(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function isAbortError(error) {
+    if (error instanceof Error && error.name === "AbortError") {
+        return true;
+    }
+    return String(error || "").toLowerCase().includes("aborted");
 }

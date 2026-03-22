@@ -83,9 +83,13 @@ router.use((req, _res, next) => {
     (routePath === "/agent/chat" || routePath === "/agent/v2/stream")
   ) {
     const body = req.body && typeof req.body === "object" ? req.body : {};
+    const metadata =
+      body.metadata && typeof body.metadata === "object" ? body.metadata : {};
     const conversationId = asString(body.conversationId) || asString(body.sessionId) || null;
     const turnId = asString(body.turnId) || null;
     const mode = asString(body.mode) || null;
+    const requestSource = asString(metadata.requestSource) || null;
+    const requestTriggerId = asString(metadata.requestTriggerId) || null;
     console.warn(
       "[AGENT_ROUTE_HIT]",
       JSON.stringify({
@@ -94,6 +98,8 @@ router.use((req, _res, next) => {
         conversationId,
         turnId,
         mode,
+        requestSource,
+        requestTriggerId,
         legacyAgentMounted: Boolean(agentRouter),
         agentV2Mounted: Boolean(agentV2Router),
       }),

@@ -35,6 +35,7 @@ export interface LLMGenerateParams {
   temperature?: number;
   maxTokens?: number;
   metadata?: Record<string, unknown>;
+  signal?: AbortSignal;
 }
 
 export interface ILLMProvider {

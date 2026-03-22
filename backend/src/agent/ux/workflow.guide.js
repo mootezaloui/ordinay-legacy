@@ -24,7 +24,7 @@ function detectWorkflowOpportunity({ input, session, activeEntities, turnType } 
       ? session.activeEntities
       : [];
 
-  if (containsAny(message, ["lawsuit", "case", "file lawsuit", "قضية", "affaire"])) {
+  if (containsAny(message, ["lawsuit", "file lawsuit", "قضية", "affaire"])) {
     return buildCreateLawsuitWorkflow(message, entities);
   }
   if (containsAny(message, ["notice", "notification", "formal notice", "اخطار", "mise en demeure"])) {

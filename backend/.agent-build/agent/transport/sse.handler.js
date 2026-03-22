@@ -28,6 +28,12 @@ function createAgentV2StreamHandler(runtime) {
                 modelPreference: typeof (toRecord(input.metadata)?.modelPreference) === "string"
                     ? String(toRecord(input.metadata).modelPreference)
                     : undefined,
+                requestSource: typeof (toRecord(input.metadata)?.requestSource) === "string"
+                    ? String(toRecord(input.metadata).requestSource)
+                    : undefined,
+                requestTriggerId: typeof (toRecord(input.metadata)?.requestTriggerId) === "string"
+                    ? String(toRecord(input.metadata).requestTriggerId)
+                    : undefined,
                 messagePreview: truncateForDiagnostics(input.message, 140),
             }));
             const rateLimit = evaluateRateLimit(security, req, input);
@@ -69,7 +75,25 @@ function createAgentV2StreamHandler(runtime) {
             }
             runtime.grounding?.beginTurn?.(input.turnId);
             let deliveredLiveText = false;
+            let deliveredDraftArtifact = false;
             const uxPreflight = evaluateUxPreflight(runtime, input, session);
+            if (uxPreflight.handled) {
+                console.info("[AGENT_V2_UX_PREFLIGHT_HANDLED]", safeDiagnosticJson({
+                    sessionId: input.sessionId,
+                    turnId: input.turnId,
+                    action: uxPreflight.action,
+                    responsePreview: truncateForDiagnostics(uxPreflight.responseText || "", 180),
+                }));
+            }
+            else {
+                const uxDecision = toRecord(uxPreflight.metadata)?.uxDecision;
+                console.info("[AGENT_V2_UX_PREFLIGHT_PASSTHROUGH]", safeDiagnosticJson({
+                    sessionId: input.sessionId,
+                    turnId: input.turnId,
+                    action: asString(toRecord(uxDecision)?.action) ?? "proceed",
+                    reason: truncateForDiagnostics(asString(toRecord(uxDecision)?.reason) || "", 180),
+                }));
+            }
             const loopOutput = uxPreflight.handled
                 ? buildUxHandledOutput(input, session, uxPreflight)
                 : mergePreflightMetadata(await runtime.loop.run(input, session, {
@@ -81,13 +105,14 @@ function createAgentV2StreamHandler(runtime) {
                         emitter.emit({ type: "text_delta", delta });
                     },
                     onDraftArtifact: (artifact) => {
+                        deliveredDraftArtifact = true;
                         console.info("[DRAFT_TRACE_SSE_EMIT_DRAFT_ARTIFACT]", safeDiagnosticJson({
                             sessionId: input.sessionId,
                             turnId: input.turnId,
                             draftType: artifact?.draftType,
                             title: artifact?.title,
                             version: artifact?.version,
-                            contentLength: String(artifact?.content || "").length,
+                            sectionCount: Array.isArray(artifact?.sections) ? artifact.sections.length : 0,
                         }));
                         emitter.emit({ type: "draft_artifact", artifact });
                     },
@@ -112,6 +137,23 @@ function createAgentV2StreamHandler(runtime) {
                     totalToolCalls: Array.isArray(output.toolCalls) ? output.toolCalls.length : 0,
                     responseLength: String(output.responseText || "").length,
                 }));
+            }
+            if (!deliveredDraftArtifact) {
+                const fallbackDraftArtifact = extractDraftArtifactFromOutput(output);
+                if (fallbackDraftArtifact) {
+                    deliveredDraftArtifact = true;
+                    console.info("[DRAFT_TRACE_SSE_EMIT_DRAFT_ARTIFACT_FALLBACK]", safeDiagnosticJson({
+                        sessionId: input.sessionId,
+                        turnId: input.turnId,
+                        draftType: fallbackDraftArtifact.draftType,
+                        title: fallbackDraftArtifact.title,
+                        version: fallbackDraftArtifact.version,
+                        sectionCount: Array.isArray(fallbackDraftArtifact.sections)
+                            ? fallbackDraftArtifact.sections.length
+                            : 0,
+                    }));
+                    emitter.emit({ type: "draft_artifact", artifact: fallbackDraftArtifact });
+                }
             }
             emitOutput(emitter, output, deliveredLiveText);
             const disambiguation = detectDisambiguation(uxPreflight, output, session, input);
@@ -303,6 +345,29 @@ function emitOutput(emitter, output, deliveredLiveText) {
             ok: confirmedResult.ok === true,
         });
     }
+}
+function extractDraftArtifactFromOutput(output) {
+    const metadata = toRecord(output?.metadata);
+    const artifact = toRecord(metadata?.draftArtifact);
+    if (!artifact) {
+        return null;
+    }
+    const draftType = asString(artifact.draftType);
+    const title = asString(artifact.title);
+    const generatedAt = asString(artifact.generatedAt);
+    const sections = Array.isArray(artifact.sections) ? artifact.sections : null;
+    const layout = toRecord(artifact.layout);
+    const versionRaw = Number(artifact.version);
+    if (!draftType ||
+        !title ||
+        !generatedAt ||
+        !sections ||
+        !layout ||
+        !Number.isFinite(versionRaw) ||
+        versionRaw <= 0) {
+        return null;
+    }
+    return artifact;
 }
 function parseInput(payload) {
     const body = toRecord(payload);

@@ -93,6 +93,10 @@ class InMemorySessionStore {
         loaded.turns = Array.isArray(loaded.turns) ? loaded.turns : [];
         loaded.history = Array.isArray(loaded.history) ? loaded.history : [];
         loaded.activeEntities = Array.isArray(loaded.activeEntities) ? loaded.activeEntities : [];
+        loaded.currentDraft =
+            loaded.currentDraft && typeof loaded.currentDraft === "object" && !Array.isArray(loaded.currentDraft)
+                ? loaded.currentDraft
+                : undefined;
         loaded.createdAt = loaded.createdAt || new Date().toISOString();
         loaded.updatedAt = loaded.updatedAt || loaded.createdAt;
         this.cacheStats.loads += 1;

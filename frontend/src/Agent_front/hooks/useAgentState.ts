@@ -1788,21 +1788,50 @@ export function useAgentState() {
 
     // If this is a regenerate/retry replacement, clear existing assistant message content in place
     // so the old answer disappears immediately and the new stream reuses the same slot.
+    // For draft_v2 messages, preserve the draft data so the card stays mounted (shimmer in place).
+    // Version history is accumulated here (not in the component) to avoid React state batching races.
+    let preservedVersionHistory: import("../../services/api/agent").DraftVersionEntry[] | undefined;
+    let preservedDraftData: AgentMessageData | undefined;
     if (opts?.replaceMessageId) {
-      workingMessages = workingMessages.map((m) =>
-        m.id === opts.replaceMessageId
-          ? {
-              ...m,
-              content: "",
-              status: "sending",
-              stage: "commentary",
-              data: undefined,
-              commentary: undefined,
-              retryOf: opts?.retryOf,
-              timestamp: new Date(),
-            }
-          : m
-      );
+      const oldMessage = workingMessages.find((m) => m.id === opts.replaceMessageId);
+      if (oldMessage?.data?.type === "draft_v2" && oldMessage.data.draftV2) {
+        const oldDraft = oldMessage.data.draftV2;
+        const existingHistory = oldDraft.versionHistory || [];
+        const regenInstruction = opts?.metadata?.regenInstruction;
+        // Build the version entry from the current (fresh) message data.
+        const currentEntry: import("../../services/api/agent").DraftVersionEntry = {
+          version: oldDraft.version || 1,
+          sections: oldDraft.sections,
+          layout: oldDraft.layout,
+          content: oldDraft.content,
+          title: oldDraft.title,
+          subtitle: oldDraft.subtitle,
+          metadata: oldDraft.metadata,
+          generatedAt: oldDraft.generatedAt,
+          instruction: regenInstruction,
+        };
+        preservedVersionHistory = [...existingHistory, currentEntry];
+        // Build preserved data WITH the accumulated history so the card shows versions while regenerating.
+        preservedDraftData = {
+          ...oldMessage.data,
+          draftV2: { ...oldDraft, versionHistory: preservedVersionHistory },
+        } as AgentMessageData;
+      }
+      workingMessages = workingMessages.map((m) => {
+        if (m.id !== opts.replaceMessageId) return m;
+        const isDraftRegen = m.data?.type === "draft_v2" && m.data.draftV2;
+        return {
+          ...m,
+          content: "",
+          status: "sending" as const,
+          stage: isDraftRegen ? ("artifact" as const) : ("commentary" as const),
+          // Use preservedDraftData (with accumulated versionHistory) during regen.
+          data: isDraftRegen ? preservedDraftData : undefined,
+          commentary: undefined,
+          retryOf: opts?.retryOf,
+          timestamp: new Date(),
+        };
+      });
     }
 
     updateSessionMessages(activeSessionId, workingMessages);
@@ -1834,7 +1863,8 @@ export function useAgentState() {
 
       let streamedContent = "";
       let intent = "GENERAL_CHAT";
-      let agentData: AgentMessageData | undefined;
+      // Seed agentData from preserved draft so onChunk doesn't clear the card during regen.
+      let agentData: AgentMessageData | undefined = preservedDraftData;
       let deferredFollowUps: FollowUpSuggestion[] | null = null;
       let commentary: CommentaryOutput | undefined;
       let hasAgentMessage = false;
@@ -1967,6 +1997,7 @@ export function useAgentState() {
           const draftV2 = {
             ...artifact,
             type: "draft_v2",
+            ...(preservedVersionHistory ? { versionHistory: preservedVersionHistory } : {}),
           } as import("../../services/api/agent").DraftArtifactData;
           agentData = { type: "draft_v2", draftV2 } as AgentMessageData;
           const targetId = opts?.replaceMessageId || agentMessageId;

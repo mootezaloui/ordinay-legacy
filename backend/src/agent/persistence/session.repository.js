@@ -99,6 +99,7 @@ function createSessionRepository(sqliteClient, options = {}) {
       turns: rebuildConversationTurns(turnRows),
       history: historyRows.map((entry, index) => rebuildHistoryEntry(entry, index)),
       activeEntities: Array.isArray(metadata.activeEntities) ? metadata.activeEntities : [],
+      currentDraft: isRecord(metadata.currentDraft) ? metadata.currentDraft : undefined,
       summary: normalizeNullableText(row.summary) || undefined,
       createdAt: normalizeDate(row.created_at),
       updatedAt: normalizeDate(row.updated_at),
@@ -122,6 +123,7 @@ function createSessionRepository(sqliteClient, options = {}) {
           },
           activeEntities: Array.isArray(session?.activeEntities) ? session.activeEntities : [],
           metadata: isRecord(session?.metadata) ? session.metadata : undefined,
+          currentDraft: isRecord(session?.currentDraft) ? session.currentDraft : undefined,
         }),
       };
 

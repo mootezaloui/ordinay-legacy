@@ -32,6 +32,7 @@ interface AgentFolderItemProps {
   onDragOver?: (e: React.DragEvent) => void;
   onDragLeave?: (e: React.DragEvent) => void;
   onDrop?: (e: React.DragEvent) => void;
+  registerRef?: (el: HTMLDivElement | null) => void;
 }
 
 export function AgentFolderItem({
@@ -49,6 +50,7 @@ export function AgentFolderItem({
   onDragOver,
   onDragLeave,
   onDrop,
+  registerRef,
 }: AgentFolderItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(folder.title);
@@ -95,6 +97,7 @@ export function AgentFolderItem({
       >
         {/* Folder header - this is the draggable part and drop target for moving sessions into folder */}
         <div
+          ref={(el) => registerRef?.(el)}
           draggable={!isEditing}
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}

@@ -5,6 +5,7 @@ import {
   type AgentTurnInput,
   type AgentTurnOutput,
 } from "../types";
+import type { DraftArtifact } from "../types";
 import { StreamEmitter } from "./stream.emitter";
 import { createAgentV2Runtime, type AgentV2Runtime } from "./runtime.factory";
 
@@ -87,6 +88,14 @@ export function createAgentV2StreamHandler(runtime: AgentV2Runtime) {
             typeof (toRecord(input.metadata)?.modelPreference) === "string"
               ? String((toRecord(input.metadata) as Record<string, unknown>).modelPreference)
               : undefined,
+          requestSource:
+            typeof (toRecord(input.metadata)?.requestSource) === "string"
+              ? String((toRecord(input.metadata) as Record<string, unknown>).requestSource)
+              : undefined,
+          requestTriggerId:
+            typeof (toRecord(input.metadata)?.requestTriggerId) === "string"
+              ? String((toRecord(input.metadata) as Record<string, unknown>).requestTriggerId)
+              : undefined,
           messagePreview: truncateForDiagnostics(input.message, 140),
         }),
       );
@@ -135,7 +144,30 @@ export function createAgentV2StreamHandler(runtime: AgentV2Runtime) {
       }
       runtime.grounding?.beginTurn?.(input.turnId);
       let deliveredLiveText = false;
+      let deliveredDraftArtifact = false;
       const uxPreflight = evaluateUxPreflight(runtime, input, session);
+      if (uxPreflight.handled) {
+        console.info(
+          "[AGENT_V2_UX_PREFLIGHT_HANDLED]",
+          safeDiagnosticJson({
+            sessionId: input.sessionId,
+            turnId: input.turnId,
+            action: uxPreflight.action,
+            responsePreview: truncateForDiagnostics(uxPreflight.responseText || "", 180),
+          }),
+        );
+      } else {
+        const uxDecision = toRecord(uxPreflight.metadata)?.uxDecision;
+        console.info(
+          "[AGENT_V2_UX_PREFLIGHT_PASSTHROUGH]",
+          safeDiagnosticJson({
+            sessionId: input.sessionId,
+            turnId: input.turnId,
+            action: asString(toRecord(uxDecision)?.action) ?? "proceed",
+            reason: truncateForDiagnostics(asString(toRecord(uxDecision)?.reason) || "", 180),
+          }),
+        );
+      }
       const loopOutput = uxPreflight.handled
         ? buildUxHandledOutput(input, session, uxPreflight)
         : mergePreflightMetadata(
@@ -148,6 +180,7 @@ export function createAgentV2StreamHandler(runtime: AgentV2Runtime) {
                 emitter.emit({ type: "text_delta", delta });
               },
               onDraftArtifact: (artifact) => {
+                deliveredDraftArtifact = true;
                 console.info(
                   "[DRAFT_TRACE_SSE_EMIT_DRAFT_ARTIFACT]",
                   safeDiagnosticJson({
@@ -156,7 +189,7 @@ export function createAgentV2StreamHandler(runtime: AgentV2Runtime) {
                     draftType: artifact?.draftType,
                     title: artifact?.title,
                     version: artifact?.version,
-                    contentLength: String(artifact?.content || "").length,
+                    sectionCount: Array.isArray(artifact?.sections) ? artifact.sections.length : 0,
                   }),
                 );
                 emitter.emit({ type: "draft_artifact", artifact });
@@ -192,6 +225,26 @@ export function createAgentV2StreamHandler(runtime: AgentV2Runtime) {
             responseLength: String(output.responseText || "").length,
           }),
         );
+      }
+      if (!deliveredDraftArtifact) {
+        const fallbackDraftArtifact = extractDraftArtifactFromOutput(output);
+        if (fallbackDraftArtifact) {
+          deliveredDraftArtifact = true;
+          console.info(
+            "[DRAFT_TRACE_SSE_EMIT_DRAFT_ARTIFACT_FALLBACK]",
+            safeDiagnosticJson({
+              sessionId: input.sessionId,
+              turnId: input.turnId,
+              draftType: fallbackDraftArtifact.draftType,
+              title: fallbackDraftArtifact.title,
+              version: fallbackDraftArtifact.version,
+              sectionCount: Array.isArray(fallbackDraftArtifact.sections)
+                ? fallbackDraftArtifact.sections.length
+                : 0,
+            }),
+          );
+          emitter.emit({ type: "draft_artifact", artifact: fallbackDraftArtifact });
+        }
       }
 
       emitOutput(emitter, output, deliveredLiveText);
@@ -435,6 +488,34 @@ function emitOutput(
       ok: confirmedResult.ok === true,
     });
   }
+}
+
+function extractDraftArtifactFromOutput(output: AgentTurnOutput): DraftArtifact | null {
+  const metadata = toRecord(output?.metadata);
+  const artifact = toRecord(metadata?.draftArtifact);
+  if (!artifact) {
+    return null;
+  }
+
+  const draftType = asString(artifact.draftType);
+  const title = asString(artifact.title);
+  const generatedAt = asString(artifact.generatedAt);
+  const sections = Array.isArray(artifact.sections) ? artifact.sections : null;
+  const layout = toRecord(artifact.layout);
+  const versionRaw = Number(artifact.version);
+  if (
+    !draftType ||
+    !title ||
+    !generatedAt ||
+    !sections ||
+    !layout ||
+    !Number.isFinite(versionRaw) ||
+    versionRaw <= 0
+  ) {
+    return null;
+  }
+
+  return artifact as unknown as DraftArtifact;
 }
 
 function parseInput(payload: unknown):

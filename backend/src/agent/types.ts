@@ -50,12 +50,29 @@ export interface AuditRecord {
   data: Record<string, unknown>;
 }
 
+export interface DraftSection {
+  id: string;
+  role: string;
+  text?: string;
+  label?: string;
+}
+
+export interface DraftLayout {
+  direction: "ltr" | "rtl";
+  language: string;
+  formality: "formal" | "standard" | "casual";
+  documentClass: string;
+}
+
 export interface DraftArtifact {
   draftType: string;
   title: string;
   subtitle?: string;
   metadata?: Record<string, string>;
-  content: string;
+  sections: DraftSection[];
+  layout: DraftLayout;
+  // Transition fallback for legacy sessions/components.
+  content?: string;
   linkedEntityType?: string;
   linkedEntityId?: number;
   generatedAt: string;
