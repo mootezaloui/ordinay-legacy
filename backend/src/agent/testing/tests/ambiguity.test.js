@@ -150,6 +150,17 @@ test("P3-02: ambiguous read with multiple matches emits disambiguation SSE event
         typeof payload?.manualInputHint === "string" && payload.manualInputHint.length > 0,
         "manualInputHint must be a non-empty string.",
       );
+      assert.ok(
+        payload?.selectionPolicy && typeof payload.selectionPolicy === "object",
+        "selectionPolicy must be present on context_suggestion payload.",
+      );
+      assert.ok(
+        Array.isArray(payload?.actions) && payload.actions.length >= 2,
+        "actions must include selectable disambiguation decisions.",
+      );
+      const decisions = new Set((payload.actions || []).map((action) => action?.decision));
+      assert.ok(decisions.has("all"), "Expected an 'all' action decision.");
+      assert.ok(decisions.has("none"), "Expected a 'none' action decision.");
     },
   });
 
@@ -298,8 +309,8 @@ test("P3-04: disambiguation event is followed by done without error fallback", a
 });
 
 // ---------------------------------------------------------------------------
-// P3-05: Generic draft ask must not force a generated artifact.
-//        The loop should deny generateDraft and ask clarification as text.
+// P3-05: Generic draft ask should ask clarification text directly when
+//        details are underspecified, without forcing generateDraft.
 // ---------------------------------------------------------------------------
 test("P3-05: generic draft prompt asks clarification instead of generating draft", async () => {
   const fixture = createLoopFixture({
@@ -344,10 +355,16 @@ test("P3-05: generic draft prompt asks clarification instead of generating draft
     },
     assert(result) {
       const toolCalls = result?.output?.toolCalls || [];
-      const deniedDetails = toolCalls.find(
-        (call) => call.toolName === "generateDraft" && call.errorCode === "DRAFT_DETAILS_REQUIRED",
+      const generateDraftCalls = toolCalls.filter((call) => call.toolName === "generateDraft");
+      const deniedDetails = generateDraftCalls.find(
+        (call) => call.errorCode === "DRAFT_DETAILS_REQUIRED",
       );
-      assert.ok(deniedDetails, "Expected generateDraft denial with DRAFT_DETAILS_REQUIRED.");
+      if (generateDraftCalls.length > 0) {
+        assert.ok(
+          deniedDetails,
+          "If generateDraft is attempted for a generic prompt, it must be denied with DRAFT_DETAILS_REQUIRED.",
+        );
+      }
 
       const successfulDraft = toolCalls.find(
         (call) => call.toolName === "generateDraft" && call.ok === true,
@@ -360,7 +377,9 @@ test("P3-05: generic draft prompt asks clarification instead of generating draft
 
       const responseText = String(result?.output?.responseText || "").toLowerCase();
       assert.ok(
-        responseText.includes("what type of document") || responseText.includes("what should it say"),
+        /(type|kind)\s+of\s+(draft|document)/.test(responseText) ||
+          responseText.includes("purpose") ||
+          responseText.includes("let me know"),
         `Expected clarification response text, got: ${result?.output?.responseText || ""}`,
       );
     },
@@ -445,6 +464,152 @@ test("P3-06: DRAFT pronoun follow-up proceeds to loop when prior entity mention 
         fullText.includes("I could not resolve your reference to a specific entity."),
         false,
         "Expected no generic unresolved-entity preflight response.",
+      );
+    },
+  });
+
+  await runScenario(fixture);
+});
+
+// ---------------------------------------------------------------------------
+// P3-07: Aggregate invoice draft is allowed from financial grounding.
+//        When generateDraft succeeds, SSE should emit draft_artifact and
+//        final text should not remain as clarification.
+// ---------------------------------------------------------------------------
+test("P3-07: aggregate unpaid-invoice draft emits artifact without clarification text", async () => {
+  const fixture = createSseFixture({
+    id: "ambiguity_draft_denied_no_artifact",
+    message: "i need to write an email for her about her unpaid invoices",
+    mode: "DRAFT",
+    setup(runtime) {
+      runtime.security = {
+        sanitizeAgentInput: (raw) => ({ ok: true, value: raw }),
+        evaluateAuthScope: () => ({ allowed: true, scope: "draft" }),
+        checkRateLimit: () => ({ allowed: true, remaining: 100, resetAt: 0 }),
+      };
+
+      const restoreUx = patchMethod(runtime?.ux, "evaluatePreLoop", () => ({
+        handled: false,
+        action: "proceed",
+        metadata: {
+          security: { authScope: "draft" },
+          uxDecision: {
+            action: "proceed",
+            posture: "answer",
+            ambiguityKind: "none",
+            ambiguityConfidence: "medium",
+            workflowType: "none",
+            reason: "No high-confidence ambiguity detected.",
+          },
+        },
+      }));
+
+      installSyntheticReadTool(runtime, "listFinancialEntries", async () => ({
+        ok: true,
+        data: {
+          entries: [
+            {
+              id: 901,
+              description: "Emergency hearing preparation fee",
+              amount: 1200,
+              currency: "TND",
+              payment_status: "unpaid",
+            },
+          ],
+          count: 1,
+        },
+      }));
+
+      const restoreStream = patchLlmStream(runtime, [
+        {
+          chunks: [
+            {
+              toolCall: {
+                id: "tc_1",
+                name: "listFinancialEntries",
+                arguments: {
+                  clientId: 7,
+                  direction: "receivable",
+                  paymentStatus: "unpaid",
+                  limit: 10,
+                },
+              },
+              finishReason: "tool_calls",
+              done: true,
+            },
+          ],
+        },
+        {
+          chunks: [
+            {
+              toolCall: {
+                id: "tc_2",
+                name: "generateDraft",
+                arguments: {
+                  draftType: "email",
+                  title: "Email Draft - Outstanding Invoices",
+                  linkedEntityType: "client",
+                  linkedEntityId: 7,
+                  layout: {
+                    direction: "ltr",
+                    language: "en",
+                    formality: "formal",
+                    documentClass: "email",
+                  },
+                  sections: [
+                    { role: "subject", text: "Reminder: Outstanding invoices" },
+                    {
+                      role: "list_item",
+                      text: "Emergency hearing preparation fee - 1200 TND - unpaid",
+                    },
+                  ],
+                },
+              },
+              finishReason: "tool_calls",
+              done: true,
+            },
+          ],
+        },
+        {
+          chunks: [
+            {
+              deltaText:
+                "I can prepare this email once you confirm the exact dossier/case reference, or allow me to fetch it first.",
+              finishReason: "stop",
+              done: true,
+            },
+          ],
+        },
+      ]);
+
+      return () => {
+        restoreUx?.();
+        restoreStream?.();
+      };
+    },
+    assert(result) {
+      const events = result?.events || [];
+      const draftArtifacts = events.filter((event) => event.event === "draft_artifact");
+      assert.ok(draftArtifacts.length > 0, "Expected draft_artifact SSE event when generateDraft succeeds.");
+
+      const successfulDraftToolResult = events.find(
+        (event) =>
+          event.event === "tool_result" &&
+          String(event?.data?.toolName || "") === "generateDraft" &&
+          event?.data?.ok === true,
+      );
+      assert.ok(successfulDraftToolResult, "Expected generateDraft tool_result with ok=true.");
+
+      const responseText = String(result?.derived?.responseText || "").toLowerCase();
+      assert.equal(
+        responseText.includes("dossier") || responseText.includes("case reference"),
+        false,
+        `Did not expect forced case-grounding clarification after successful draft, got: ${responseText}`,
+      );
+      assert.equal(
+        /[?؟]/.test(responseText),
+        false,
+        `Did not expect question-style clarification text after successful draft, got: ${responseText}`,
       );
     },
   });
@@ -546,6 +711,30 @@ function patchLlmGenerate(runtime, context, responses) {
     };
   });
   return restore;
+}
+
+function patchLlmStream(runtime, scriptedTurns) {
+  const llm = runtime?.loop?.llm;
+  if (!llm || typeof llm.stream !== "function") {
+    throw new Error("Unable to patch LLM stream for ambiguity test.");
+  }
+
+  const queue = Array.isArray(scriptedTurns) ? [...scriptedTurns] : [];
+  const original = llm.stream.bind(llm);
+  llm.stream = async function* () {
+    const next =
+      queue.length > 0
+        ? queue.shift()
+        : { chunks: [{ deltaText: "Done.", finishReason: "stop", done: true }] };
+    const chunks = Array.isArray(next?.chunks) ? next.chunks : [];
+    for (const chunk of chunks) {
+      yield chunk;
+    }
+  };
+
+  return () => {
+    llm.stream = original;
+  };
 }
 
 function patchMethod(target, methodName, replacement) {

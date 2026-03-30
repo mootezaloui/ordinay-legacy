@@ -190,6 +190,9 @@ function evaluatePreLoop({
             posture,
             ambiguityKind: ambiguityResult.kind,
             ambiguityConfidence: ambiguityResult.confidence,
+            ambiguityCandidates: Array.isArray(ambiguityResult.candidates)
+              ? ambiguityResult.candidates.slice(0, 12)
+              : [],
             workflowType: "none",
             reason: "READ_ONLY ambiguity deferred to tool-first grounding.",
           },

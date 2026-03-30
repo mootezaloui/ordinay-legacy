@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, type ReactElement } from "react";
 import {
   Check,
   Loader2,
@@ -1100,44 +1100,45 @@ function isProposalMessageData(
 
 function buildGenericContextRows(message: AgentMessage): Array<{ label: string; value: string }> {
   const rows: Array<{ label: string; value: string }> = [];
-  const dataType = message.data?.type;
-  if (!dataType) return rows;
+  const data = message.data;
+  const dataType = data?.type;
+  if (!dataType || !data) return rows;
   rows.push({ label: "Type", value: dataType.replace(/_/g, " ") });
 
   if (dataType === "web_search_results" || dataType === "web_deep_search_results") {
-    const data = message.data.webSearchResults;
-    if (data) {
-      rows.push({ label: "Sources", value: String(data.results?.length || 0) });
-      if (data.query) rows.push({ label: "Query", value: String(data.query) });
-      if (data.status) rows.push({ label: "Status", value: String(data.status) });
+    const searchData = data.webSearchResults;
+    if (searchData) {
+      rows.push({ label: "Sources", value: String(searchData.results?.length || 0) });
+      if (searchData.query) rows.push({ label: "Query", value: String(searchData.query) });
+      if (searchData.status) rows.push({ label: "Status", value: String(searchData.status) });
     }
     return rows;
   }
 
-  if (dataType === "collection" && message.data.collection) {
-    rows.push({ label: "Items", value: String(message.data.collection.items?.length || 0) });
-    if (message.data.collection.entityType) {
-      rows.push({ label: "Entity", value: String(message.data.collection.entityType) });
+  if (dataType === "collection" && data.collection) {
+    rows.push({ label: "Items", value: String(data.collection.items?.length || 0) });
+    if (data.collection.entityType) {
+      rows.push({ label: "Entity", value: String(data.collection.entityType) });
     }
     return rows;
   }
 
-  if (dataType === "explanation" && message.data.explanation) {
-    if (message.data.explanation.entityType) {
-      rows.push({ label: "Entity", value: String(message.data.explanation.entityType) });
+  if (dataType === "explanation" && data.explanation) {
+    if (data.explanation.entityType) {
+      rows.push({ label: "Entity", value: String(data.explanation.entityType) });
     }
-    if (message.data.explanation.entityId) {
-      rows.push({ label: "Reference", value: String(message.data.explanation.entityId) });
+    if (data.explanation.entityId) {
+      rows.push({ label: "Reference", value: String(data.explanation.entityId) });
     }
-    const detailCount = message.data.explanation.facts?.details?.length || 0;
+    const detailCount = data.explanation.facts?.details?.length || 0;
     if (detailCount > 0) rows.push({ label: "Facts", value: String(detailCount) });
     return rows;
   }
 
-  if (dataType === "recovery" && message.data.recovery) {
+  if (dataType === "recovery" && data.recovery) {
     rows.push({
       label: "Retry",
-      value: message.data.recovery.canRetry ? "available" : "not available",
+      value: data.recovery.canRetry ? "available" : "not available",
     });
     return rows;
   }
@@ -1221,7 +1222,7 @@ function MinimalChatbotTurn(props: {
     <ChatbotMutationStatus mutation={message.chatbotTurn.mutation} />
   ) : null;
 
-  let attachment: JSX.Element | null = null;
+  let attachment: ReactElement | null = null;
   if (message.data) {
     if (isChatbotActionBlockType(dataType)) {
       attachment = <ArtifactBody {...props} />;
@@ -1327,59 +1328,100 @@ function ArtifactBody({
   // ── CLEAN CONTRACT: Context Suggestions ──
   // Driven ONLY by output.type, no nested field inspection
   if (dataType === "context_suggestion" && message.data?.contextSuggestion) {
+    const contextSuggestion = message.data.contextSuggestion;
     return (
       <ContextSuggestionRenderer
-        data={message.data.contextSuggestion}
-        onSelect={(suggestion) => {
-          const resolvedSuggestionEntityId = coerceSuggestionEntityId(suggestion);
-          const selectionDisplayLabel = String(suggestion.label || "").trim();
-          const selectionCategory = message.data?.contextSuggestion?.category;
+        data={contextSuggestion}
+        onResolve={({ decision, selected }) => {
+          const selectedSuggestions = Array.isArray(selected) ? selected : [];
+          const fallbackSuggestion = contextSuggestion?.suggestions?.[0];
+          const primarySuggestion = selectedSuggestions[0] || fallbackSuggestion;
+          const resolvedSuggestionEntityId = primarySuggestion
+            ? coerceSuggestionEntityId(primarySuggestion)
+            : null;
+          const selectionDisplayLabel = String(primarySuggestion?.label || "").trim();
+          const selectionCategory = contextSuggestion?.category;
           const isInvoiceSelection = selectionCategory === "invoice_selection";
-          const selectionClientId = suggestion.scope?.clientId;
+          const selectionClientId = primarySuggestion?.scope?.clientId;
+          const normalizedSelections = selectedSuggestions.map((item) => ({
+            entityType: item.entityType,
+            entityId: coerceSuggestionEntityId(item) ?? item.entityId,
+            label: String(item.label || "").trim() || undefined,
+            scope: item.scope,
+          }));
+          const defaultEntityType = String(
+            primarySuggestion?.entityType || contextSuggestion?.entityType || "context",
+          ).trim();
+          const defaultEntityId =
+            resolvedSuggestionEntityId ??
+            (primarySuggestion?.entityId as number | string | undefined) ??
+            (decision === "none" ? "none" : "selection");
           const resolvedEntity =
-            isInvoiceSelection && selectionClientId
+            isInvoiceSelection && selectionClientId && decision !== "none"
               ? {
                   type: "client",
                   id: selectionClientId,
-                  label: selectionDisplayLabel || suggestion.label || "Selected client",
+                  label:
+                    selectionDisplayLabel ||
+                    String(primarySuggestion?.label || "").trim() ||
+                    "Selected client",
                 }
               : {
-                  type: suggestion.entityType,
-                  id: resolvedSuggestionEntityId ?? suggestion.entityId,
-                  label: selectionDisplayLabel || suggestion.label,
+                  type: defaultEntityType,
+                  id: defaultEntityId,
+                  label:
+                    selectionDisplayLabel ||
+                    String(primarySuggestion?.label || "").trim() ||
+                    (decision === "none" ? "None selected" : "Selected context"),
                 };
           // Send resolution payload preserving original intent
           const payload = {
             intent: "RESOLVE_CONTEXT_AND_CONTINUE",
-            originalIntent: message.data.contextSuggestion.originalIntent,
-            originalDraftType: message.data.contextSuggestion.originalDraftType,
-            originalMessage: message.data.contextSuggestion.originalMessage,
-            pendingOperationId: message.data.contextSuggestion.pendingOperationId,
+            originalIntent: contextSuggestion.originalIntent,
+            originalDraftType: contextSuggestion.originalDraftType,
+            originalMessage: contextSuggestion.originalMessage,
+            pendingOperationId: contextSuggestion.pendingOperationId,
             resolvedEntity,
-            entityType: suggestion.entityType,
-            entityId: resolvedSuggestionEntityId ?? suggestion.entityId,
-            scope: suggestion.scope,
+            entityType: defaultEntityType,
+            entityId: defaultEntityId,
+            scope: primarySuggestion?.scope || {},
             resolutionInput: {
-              entityType: suggestion.entityType,
-              id: resolvedSuggestionEntityId ?? suggestion.entityId,
-              reference: suggestion.subtitle || undefined,
-              name: suggestion.label || undefined,
+              entityType: defaultEntityType,
+              id: defaultEntityId,
+              reference: primarySuggestion?.subtitle || undefined,
+              name: primarySuggestion?.label || undefined,
             },
-            label: selectionDisplayLabel || suggestion.label,
+            label:
+              selectionDisplayLabel ||
+              String(primarySuggestion?.label || "").trim() ||
+              (decision === "none" ? "None selected" : "Selected context"),
             selectionId: isInvoiceSelection
-              ? String(resolvedSuggestionEntityId ?? suggestion.entityId ?? suggestion.id)
-              : suggestion.id,
+              ? String(
+                  resolvedSuggestionEntityId ??
+                    primarySuggestion?.entityId ??
+                    primarySuggestion?.id ??
+                    "selection",
+                )
+              : primarySuggestion?.id || "selection",
             selectionCategory,
-            reason: "User selected context suggestion",
+            reason: "User resolved context suggestion",
+            resolution: {
+              decision,
+              selected: normalizedSelections,
+            },
             origin: {
-              entity: suggestion.entityType.toUpperCase(),
-              entityId: resolvedSuggestionEntityId ?? suggestion.entityId ?? suggestion.id,
+              entity: defaultEntityType.toUpperCase(),
+              entityId:
+                defaultEntityId ??
+                primarySuggestion?.entityId ??
+                primarySuggestion?.id ??
+                "selection",
             },
           };
           console.log("[DEBUG] Sending context resolution payload:", payload);
           console.log(
             "[DEBUG] contextSuggestion data:",
-            message.data.contextSuggestion,
+            contextSuggestion,
           );
           onFollowUpClick?.(payload);
         }}
@@ -1768,12 +1810,13 @@ function ArtifactBody({
     );
   }
   if (isProposalMessageData(message.data)) {
+    const proposalData = message.data.proposal;
     return (
       <SemanticConfirmationErrorBoundary>
         <ProposalArtifact
-          data={message.data.proposal}
+          data={proposalData}
           onConfirm={async (proposalId, options) => {
-            const sessionId = message.data.proposal.sessionId;
+            const sessionId = proposalData.sessionId;
             const execResult = await confirmProposal(proposalId, sessionId, options);
             if (activeSessionId && activeSessionMessages && updateSessionMessages) {
               const safeMsg =

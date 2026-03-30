@@ -1,7 +1,7 @@
 "use strict";
 
 const db = require("../../db/connection");
-const { streamLLM } = require("../../agent_Back/llm/stream.provider");
+const { streamLLM } = require("./stream.provider");
 const { scanForPlaceholders } = require("./placeholderGuard");
 const { renderMarkdownToHtml } = require("./markdownRender.service");
 const {

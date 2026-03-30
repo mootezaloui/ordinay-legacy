@@ -503,6 +503,7 @@ export function useAgentState() {
       resolvedEntity: followUp.resolvedEntity,
       selectionId: followUp.selectionId,
       selectionCategory: followUp.selectionCategory,
+      resolution: followUp.resolution,
     }),
     []
   );
@@ -1774,7 +1775,8 @@ export function useAgentState() {
         workingMessages = workingMessages.filter((m, idx) => {
           if (idx <= editedMsgIndex) return true;
           // Remove all agent/assistant messages until we hit another user message
-          if (m.role === 'agent' || m.role === 'assistant') return false;
+          const role = String((m as { role?: string }).role || "").toLowerCase();
+          if (role === "agent" || role === "assistant") return false;
           return true;
         });
       }

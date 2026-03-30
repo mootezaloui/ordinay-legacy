@@ -1062,6 +1062,8 @@ function safeDiagnosticJson(value: unknown): string {
 }
 
 const MAX_DISAMBIGUATION_CANDIDATES = 5;
+const AGGREGATE_SELECTION_PATTERN =
+  /\b(all|every|latest|recent|multiple|several|many|unpaid|overdue|open invoices?|all invoices?)\b/i;
 
 function detectDisambiguation(
   uxPreflight: UxPreflightResult,
@@ -1070,94 +1072,344 @@ function detectDisambiguation(
   input: AgentTurnInput,
 ): Record<string, unknown> | null {
   const uxDecision = toRecord(uxPreflight.metadata?.uxDecision);
-  if (!uxDecision || uxDecision.action !== "proceed_with_ambiguity") {
+  const draftAmbiguity = extractDraftAmbiguityFromToolCalls(output.toolCalls);
+  const uxAllowsDisambiguation = uxDecision && uxDecision.action === "proceed_with_ambiguity";
+  if (!uxAllowsDisambiguation && draftAmbiguity.candidates.length < 2) {
     return null;
   }
 
   const toolCallCount = Array.isArray(output.toolCalls) ? output.toolCalls.length : 0;
-  if (toolCallCount === 0) {
+  if (toolCallCount === 0 && draftAmbiguity.candidates.length < 2) {
     return null;
   }
 
-  const entities = Array.isArray(session.activeEntities) ? session.activeEntities : [];
-  if (entities.length < 2) {
+  const decisionCandidates = normalizeDisambiguationCandidates(uxDecision?.ambiguityCandidates);
+  const draftCandidates = normalizeDisambiguationCandidates(draftAmbiguity.candidates);
+  const sessionCandidates = normalizeSessionDisambiguationCandidates(session.activeEntities);
+  const candidatePool =
+    decisionCandidates.length > 0
+      ? decisionCandidates
+      : draftCandidates.length > 0
+      ? draftCandidates
+      : sessionCandidates;
+  if (candidatePool.length < 2) {
     return null;
   }
 
-  const byType = new Map<string, Array<Record<string, unknown>>>();
-  for (const entity of entities) {
-    const type = String(entity?.type || "").trim().toLowerCase();
-    if (!type) {
+  const byType = new Map<string, DisambiguationCandidate[]>();
+  for (const candidate of candidatePool) {
+    if (!candidate.entityType) {
       continue;
     }
-    const list = byType.get(type) || [];
-    list.push(entity as unknown as Record<string, unknown>);
-    byType.set(type, list);
+    const list = byType.get(candidate.entityType) || [];
+    list.push(candidate);
+    byType.set(candidate.entityType, list);
   }
 
   let disambiguationType = "";
-  let disambiguationEntities: Array<Record<string, unknown>> = [];
+  let disambiguationCandidates: DisambiguationCandidate[] = [];
   for (const [type, typeEntities] of byType) {
-    if (typeEntities.length > 1 && typeEntities.length > disambiguationEntities.length) {
+    if (typeEntities.length > 1 && typeEntities.length > disambiguationCandidates.length) {
       disambiguationType = type;
-      disambiguationEntities = typeEntities;
+      disambiguationCandidates = typeEntities;
     }
   }
 
-  if (disambiguationEntities.length < 2) {
+  if (disambiguationCandidates.length < 2) {
     return null;
   }
 
-  const capped = disambiguationEntities.slice(0, MAX_DISAMBIGUATION_CANDIDATES);
+  const capped = disambiguationCandidates.slice(0, MAX_DISAMBIGUATION_CANDIDATES);
   const entityTypePlural =
     disambiguationType.endsWith("s") ? disambiguationType : `${disambiguationType}s`;
+  const selectionPolicy = buildDisambiguationSelectionPolicy(
+    input.message,
+    draftAmbiguity.selectionMode,
+  );
+  const actions = buildDisambiguationActions(selectionPolicy);
 
   return {
     type: "context_suggestion",
-    message: `I found ${disambiguationEntities.length} ${entityTypePlural}. Which one did you mean?`,
+    message: `I found ${disambiguationCandidates.length} ${entityTypePlural}. Which one did you mean?`,
     entityType: disambiguationType,
     reason: "multiple_matches",
     originalMessage: input.message,
-    suggestions: capped.map((entity, index) => {
-      const entityId = entity.id ?? entity[`${disambiguationType}_id`] ?? index;
+    suggestions: capped.map((candidate, index) =>
+      buildDisambiguationSuggestion(candidate, disambiguationType, index),
+    ),
+    timestamp: new Date().toISOString(),
+    confidence: 0.7,
+    allowManualInput: true,
+    manualInputHint: "Or provide more details to narrow your search.",
+    selectionPolicy,
+    actions,
+    source:
+      decisionCandidates.length > 0
+        ? "ux_candidates"
+        : draftCandidates.length > 0
+        ? "draft_guard"
+        : "session_entities",
+  };
+}
+
+function extractDraftAmbiguityFromToolCalls(
+  value: unknown,
+): { candidates: unknown[]; selectionMode: "single" | "multi" | null } {
+  const rows = Array.isArray(value) ? value : [];
+  for (let i = rows.length - 1; i >= 0; i -= 1) {
+    const call = toRecord(rows[i]);
+    if (!call) {
+      continue;
+    }
+    const toolName = asString(call.toolName);
+    const errorCode = asString(call.errorCode);
+    if (toolName !== "generateDraft" || errorCode !== "DRAFT_AMBIGUOUS_TARGET") {
+      continue;
+    }
+    const metadata = toRecord(call.metadata);
+    const candidates = Array.isArray(metadata?.candidates) ? metadata.candidates : [];
+    const selectionRaw = asString(metadata?.selectionMode);
+    const selectionMode =
+      selectionRaw === "single" || selectionRaw === "multi" ? selectionRaw : null;
+    return { candidates, selectionMode };
+  }
+  return { candidates: [], selectionMode: null };
+}
+
+interface DisambiguationCandidate {
+  entityType: string;
+  entityId: string | number;
+  label: string;
+  subtitle?: string | null;
+  metadata?: Record<string, unknown>;
+  scope?: Record<string, unknown>;
+}
+
+function normalizeDisambiguationCandidates(value: unknown): DisambiguationCandidate[] {
+  const rows = Array.isArray(value) ? value : [];
+  return rows
+    .map((row) => {
+      const candidate = toRecord(row);
+      if (!candidate) {
+        return null;
+      }
+      const entityType = normalizeDisambiguationEntityType(
+        candidate.type ?? candidate.entityType,
+      );
+      const entityId = candidate.id ?? candidate.entityId;
+      if (!entityType || (typeof entityId !== "number" && typeof entityId !== "string")) {
+        return null;
+      }
+      const label =
+        asString(candidate.label) ||
+        asString(candidate.name) ||
+        asString(candidate.title) ||
+        asString(candidate.reference) ||
+        `${entityType} ${String(entityId)}`;
+      return {
+        entityType,
+        entityId,
+        label,
+        subtitle: asString(candidate.reference) || null,
+        metadata: {
+          ...(asString(candidate.sourceTool)
+            ? { source: asString(candidate.sourceTool) }
+            : asString(toRecord(candidate.metadata)?.source)
+            ? { source: asString(toRecord(candidate.metadata)?.source) }
+            : {}),
+          ...(asString(toRecord(candidate.metadata)?.status)
+            ? { status: asString(toRecord(candidate.metadata)?.status) }
+            : {}),
+          ...(asString(toRecord(candidate.metadata)?.reference)
+            ? { reference: asString(toRecord(candidate.metadata)?.reference) }
+            : {}),
+        },
+      } as DisambiguationCandidate;
+    })
+    .filter((row): row is DisambiguationCandidate => Boolean(row));
+}
+
+function normalizeSessionDisambiguationCandidates(value: unknown): DisambiguationCandidate[] {
+  const rows = Array.isArray(value) ? value : [];
+  return rows
+    .map((row) => {
+      const entity = toRecord(row);
+      if (!entity) {
+        return null;
+      }
+      const entityType = normalizeDisambiguationEntityType(entity.type);
+      const entityId = entity.id;
+      if (!entityType || (typeof entityId !== "number" && typeof entityId !== "string")) {
+        return null;
+      }
       const label =
         asString(entity.label) ||
         asString(entity.name) ||
         asString(entity.title) ||
         asString(entity.reference) ||
-        `${disambiguationType} ${entityId}`;
-
-      const scope: Record<string, unknown> = {};
-      scope[`${disambiguationType}Id`] = entityId;
-      if (entity.client_id || entity.clientId) {
-        scope.clientId = entity.client_id ?? entity.clientId;
-      }
-
+        `${entityType} ${String(entityId)}`;
       const metadata: Record<string, unknown> = {};
-      if (entity.status) {
-        metadata.status = String(entity.status);
+      if (asString(entity.sourceTool)) {
+        metadata.source = asString(entity.sourceTool);
       }
-      if (entity.reference) {
-        metadata.reference = String(entity.reference);
+      if (asString(entity.status)) {
+        metadata.status = asString(entity.status);
       }
-      if (entity.sourceTool) {
-        metadata.source = String(entity.sourceTool);
+      if (asString(entity.reference)) {
+        metadata.reference = asString(entity.reference);
       }
-
+      const scope: Record<string, unknown> = {};
+      const numericId = Number(entityId);
+      if (Number.isFinite(numericId) && numericId > 0) {
+        applyScopedEntityId(scope, entityType, numericId);
+      }
+      if (entity.client_id || entity.clientId) {
+        scope.clientId = Number(entity.client_id ?? entity.clientId);
+      }
       return {
-        id: `disamb_${index}_${String(entityId)}`,
-        entityType: disambiguationType,
+        entityType,
         entityId,
         label,
         subtitle: asString(entity.reference) || null,
         metadata,
-        intent: "RESOLVE_CONTEXT_AND_CONTINUE",
         scope,
-      };
-    }),
-    timestamp: new Date().toISOString(),
-    confidence: 0.7,
-    allowManualInput: true,
-    manualInputHint: "Or provide more details to narrow your search.",
+      } as DisambiguationCandidate;
+    })
+    .filter((row): row is DisambiguationCandidate => Boolean(row));
+}
+
+function normalizeDisambiguationEntityType(value: unknown): string {
+  const raw = String(value || "").trim().toLowerCase().replace(/\s+/g, "_");
+  if (!raw) {
+    return "";
+  }
+  if (raw === "invoice" || raw === "invoices" || raw === "financial" || raw === "financial_entries") {
+    return "financial_entry";
+  }
+  if (raw === "personal-task" || raw === "personaltask" || raw === "personal_tasks") {
+    return "personal_task";
+  }
+  if (raw === "documents") {
+    return "document";
+  }
+  if (raw === "clients") {
+    return "client";
+  }
+  if (raw === "dossiers") {
+    return "dossier";
+  }
+  if (raw === "lawsuits") {
+    return "lawsuit";
+  }
+  if (raw === "sessions") {
+    return "session";
+  }
+  if (raw === "tasks") {
+    return "task";
+  }
+  if (raw === "missions") {
+    return "mission";
+  }
+  if (raw === "notifications") {
+    return "notification";
+  }
+  if (raw === "officers") {
+    return "officer";
+  }
+  return raw;
+}
+
+function buildDisambiguationSuggestion(
+  candidate: DisambiguationCandidate,
+  disambiguationType: string,
+  index: number,
+): Record<string, unknown> {
+  const scope: Record<string, unknown> = { ...(toRecord(candidate.scope) ?? {}) };
+  const numericId = Number(candidate.entityId);
+  if (Number.isFinite(numericId) && numericId > 0) {
+    applyScopedEntityId(scope, disambiguationType, numericId);
+  }
+  return {
+    id: `disamb_${index}_${String(candidate.entityId)}`,
+    entityType: disambiguationType,
+    entityId: candidate.entityId,
+    label: candidate.label,
+    subtitle: candidate.subtitle ?? null,
+    metadata: toRecord(candidate.metadata) ?? {},
+    intent: "RESOLVE_CONTEXT_AND_CONTINUE",
+    scope,
   };
+}
+
+function applyScopedEntityId(scope: Record<string, unknown>, entityType: string, numericId: number): void {
+  switch (entityType) {
+    case "client":
+      scope.clientId = numericId;
+      break;
+    case "dossier":
+      scope.dossierId = numericId;
+      break;
+    case "lawsuit":
+      scope.lawsuitId = numericId;
+      break;
+    case "session":
+      scope.sessionId = numericId;
+      break;
+    case "task":
+      scope.taskId = numericId;
+      break;
+    case "mission":
+      scope.missionId = numericId;
+      break;
+    case "personal_task":
+      scope.personalTaskId = numericId;
+      break;
+    case "financial_entry":
+      scope.financialEntryId = numericId;
+      break;
+    default:
+      break;
+  }
+}
+
+function buildDisambiguationSelectionPolicy(
+  message: string,
+  preferredMode?: "single" | "multi" | null,
+): Record<string, unknown> {
+  const normalized = String(message || "").toLowerCase();
+  const isAggregate = AGGREGATE_SELECTION_PATTERN.test(normalized);
+  const mode =
+    preferredMode === "multi" || preferredMode === "single"
+      ? preferredMode
+      : isAggregate
+      ? "multi"
+      : "single";
+  return {
+    mode,
+    allowAll: true,
+    allowNone: true,
+    maxChoices: MAX_DISAMBIGUATION_CANDIDATES,
+  };
+}
+
+function buildDisambiguationActions(
+  selectionPolicy: Record<string, unknown>,
+): Array<Record<string, unknown>> {
+  const mode = asString(selectionPolicy.mode) === "multi" ? "multi" : "single";
+  const allowAll = selectionPolicy.allowAll === true;
+  const allowNone = selectionPolicy.allowNone === true;
+  const actions: Array<Record<string, unknown>> = [
+    {
+      id: mode === "multi" ? "use_selected_multi" : "use_selected_single",
+      label: mode === "multi" ? "Continue with selected" : "Continue with selection",
+      decision: mode,
+    },
+  ];
+  if (allowAll) {
+    actions.push({ id: "use_all", label: "Use all matches", decision: "all" });
+  }
+  if (allowNone) {
+    actions.push({ id: "use_none", label: "None of these", decision: "none" });
+  }
+  return actions;
 }

@@ -9,6 +9,7 @@ const types_1 = require("../types");
 const _path = require("path");
 // Resolve from backend root (works from both src/ and .agent-build/)
 const agentDocumentsService = require(_path.resolve(__dirname, "..", "..", "..", "src", "services", "agentDocuments.service"));
+const { detectAmbiguity: detectGenericAmbiguity } = require(_path.resolve(__dirname, "..", "..", "..", "src", "agent", "ux", "ambiguity.detector"));
 const READ_POLICY_INSTRUCTIONS = [
     "DATA ACCESS POLICY",
     "",
@@ -562,7 +563,7 @@ class AgenticLoop {
             }
             messages.push(assistantMsg);
             if (response.toolCalls.length === 0) {
-                const candidateText = (response.text ?? "").trim();
+                let candidateText = (response.text ?? "").trim();
                 const providerFailure = this.isProviderFailureCandidate(candidateText, response.finishReason);
                 if (candidateText) {
                     if (providerFailure) {
@@ -609,6 +610,17 @@ class AgenticLoop {
                             hasDraftToolCallSoFar,
                             preview: this.truncate(candidateText, 240),
                         }));
+                        if (hasDraftToolCallSoFar && this.isPostDraftClarificationCandidate(candidateText)) {
+                            const normalized = this.coerceDraftReadyAcknowledgement(input.message, candidateText);
+                            console.warn("[DRAFT_TRACE_CLARIFICATION_AFTER_DRAFT_SUPPRESSED]", this.safeJsonStringify({
+                                sessionId: input.sessionId,
+                                turnId: input.turnId,
+                                iteration,
+                                originalLength: candidateText.length,
+                                normalizedLength: normalized.length,
+                            }));
+                            candidateText = normalized;
+                        }
                         if (this.isGenericDraftPrompt(input.message) &&
                             !hasDraftToolCallSoFar &&
                             !this.isClarificationRequestText(candidateText)) {
@@ -740,7 +752,7 @@ class AgenticLoop {
                 }));
             }
             if (validToolCalls.length === 0) {
-                const candidateText = (response.text ?? "").trim();
+                let candidateText = (response.text ?? "").trim();
                 const providerFailure = this.isProviderFailureCandidate(candidateText, response.finishReason);
                 const rejectCandidateText = this.shouldRejectMalformedCandidateText({
                     candidateText,
@@ -794,6 +806,18 @@ class AgenticLoop {
                             hasDraftToolCallSoFar,
                             preview: this.truncate(candidateText, 240),
                         }));
+                        if (hasDraftToolCallSoFar && this.isPostDraftClarificationCandidate(candidateText)) {
+                            const normalized = this.coerceDraftReadyAcknowledgement(input.message, candidateText);
+                            console.warn("[DRAFT_TRACE_CLARIFICATION_AFTER_DRAFT_SUPPRESSED]", this.safeJsonStringify({
+                                sessionId: input.sessionId,
+                                turnId: input.turnId,
+                                iteration,
+                                path: "after_invalid_tool_calls",
+                                originalLength: candidateText.length,
+                                normalizedLength: normalized.length,
+                            }));
+                            candidateText = normalized;
+                        }
                         if (this.isGenericDraftPrompt(input.message) &&
                             !hasDraftToolCallSoFar &&
                             !this.isClarificationRequestText(candidateText)) {
@@ -1240,7 +1264,7 @@ class AgenticLoop {
             }
             const executionContext = this.createExecutionContext(context.input, context.session);
             if (tool.category === tools_1.ToolCategory.DRAFT && toolName === "generateDraft") {
-                const currentTurnReadTools = this.listReadToolNamesInCurrentTurn(context.toolCalls);
+                let currentTurnReadTools = this.listReadToolNamesInCurrentTurn(context.toolCalls);
                 const clarificationMessage = this.extractClarificationMessageFromDraftArgs(args);
                 if (clarificationMessage) {
                     const result = {
@@ -1334,12 +1358,15 @@ class AgenticLoop {
                     });
                     continue;
                 }
-                const latestClientSnapshot = this.extractLatestListClientsSnapshot(context.messages);
-                const latestDossierSnapshot = this.extractLatestListDossiersSnapshot(context.messages);
-                const mentionsClient = this.isClientMentionedInDraftRequest(context.input.message, args);
-                const explicitClientSelection = latestClientSnapshot &&
-                    latestClientSnapshot.candidates.length > 0 &&
-                    this.hasExplicitClientSelectionInMessage(context.input.message, latestClientSnapshot.candidates);
+                const genericCandidates = this.extractLatestListCandidates(context.messages);
+                const aggregateDraftIntent = this.isAggregateDraftIntent(context.input.message, args);
+                const draftAmbiguity = this.detectDraftEntityAmbiguity({
+                    userMessage: context.input.message,
+                    args,
+                    candidates: genericCandidates,
+                    mode: context.input.mode,
+                    aggregateIntent: aggregateDraftIntent,
+                });
                 console.info("[DRAFT_TRACE_GUARD_INPUTS]", this.safeJsonStringify({
                     sessionId: context.input.sessionId,
                     turnId: context.input.turnId,
@@ -1349,40 +1376,32 @@ class AgenticLoop {
                     hasLinkedEntityId: typeof args.linkedEntityId === "number" ||
                         (typeof args.linkedEntityId === "string" && args.linkedEntityId.trim().length > 0),
                     isDraftingIntent: this.isDraftingIntent(context.input.message),
-                    mentionsClient,
-                    latestListClientsCount: latestClientSnapshot?.count ?? null,
-                    latestListClientsCandidateNames: latestClientSnapshot?.candidates.slice(0, 5).map((row) => row.name) ?? [],
-                    explicitClientSelectionInMessage: Boolean(explicitClientSelection),
-                    latestListDossiersCount: latestDossierSnapshot?.count ?? null,
-                    latestListDossierRefs: latestDossierSnapshot?.dossiers.slice(0, 5).map((row) => row.reference || row.title || String(row.id || "")) ?? [],
+                    aggregateDraftIntent,
+                    candidateCount: genericCandidates.length,
+                    candidateTypes: Array.from(new Set(genericCandidates.map((row) => row.entityType))).slice(0, 8),
+                    ambiguityRequired: Boolean(draftAmbiguity.required),
+                    ambiguityReason: draftAmbiguity.reason,
                     currentTurnReadTools,
                 }));
-                const draftAmbiguity = this.detectDraftClientAmbiguity({
-                    userMessage: context.input.message,
-                    args,
-                    messages: context.messages,
-                });
                 console.info("[DRAFT_TRACE_AMBIGUITY_DECISION]", this.safeJsonStringify({
                     sessionId: context.input.sessionId,
                     turnId: context.input.turnId,
                     required: Boolean(draftAmbiguity?.required),
-                    reason: this.explainDraftAmbiguityDecision({
-                        userMessage: context.input.message,
-                        args,
-                        latestClientSnapshot,
-                        explicitClientSelectionInMessage: Boolean(explicitClientSelection),
-                    }),
+                    reason: draftAmbiguity.reason,
                     candidateCount: draftAmbiguity?.candidates.length ?? 0,
+                    selectionMode: draftAmbiguity.selectionMode,
                 }));
                 if (draftAmbiguity?.required) {
                     const result = {
                         ok: false,
                         errorCode: "DRAFT_AMBIGUOUS_TARGET",
-                        errorMessage: "Multiple client matches found. Ask user to select the target client before drafting.",
+                        errorMessage: "Multiple entity matches found. Ask the user to select the intended target before drafting.",
                         metadata: {
                             category: "DRAFT",
                             stage: "draft_ambiguity_guard",
                             candidateCount: draftAmbiguity.candidates.length,
+                            candidates: draftAmbiguity.candidates,
+                            selectionMode: draftAmbiguity.selectionMode,
                         },
                     };
                     console.warn("[DRAFT_TRACE_TOOL_DENIED]", this.safeJsonStringify({
@@ -1404,7 +1423,7 @@ class AgenticLoop {
                         toolCallId: callId,
                         content: this.serializeToolMessage(toolName, result),
                     });
-                    const disambiguationPrompt = this.buildDraftClientDisambiguationMessage(draftAmbiguity.candidates);
+                    const disambiguationPrompt = this.buildDraftEntityDisambiguationMessage(draftAmbiguity.candidates, draftAmbiguity.selectionMode);
                     context.messages.push({
                         role: "system",
                         content: this.buildDraftAmbiguityRecoveryInstruction(context.input.message, disambiguationPrompt),
@@ -1419,7 +1438,7 @@ class AgenticLoop {
                 }
                 const readGroundingDiagnostics = this.getDraftReadGroundingDiagnostics(context.input, args);
                 const requiresReadGrounding = readGroundingDiagnostics.requiresReadGrounding;
-                const hasReadGrounding = this.hasReadGroundingInCurrentTurn(context.toolCalls);
+                let hasReadGrounding = this.hasReadGroundingInCurrentTurn(context.toolCalls);
                 console.info("[DRAFT_TRACE_CONTEXT_GUARD_EVAL]", this.safeJsonStringify({
                     sessionId: context.input.sessionId,
                     turnId: context.input.turnId,
@@ -1427,6 +1446,26 @@ class AgenticLoop {
                     ...readGroundingDiagnostics,
                     currentTurnReadTools: this.listReadToolNamesInCurrentTurn(context.toolCalls),
                 }));
+                if (requiresReadGrounding && !hasReadGrounding) {
+                    const probeOutcome = await this.runAdaptiveDraftReadProbes({
+                        userMessage: context.input.message,
+                        args,
+                        context,
+                        executionContext,
+                        stage: "draft_context_autoprobe",
+                        currentTurnReadTools,
+                    });
+                    currentTurnReadTools = this.listReadToolNamesInCurrentTurn(context.toolCalls);
+                    hasReadGrounding = this.hasReadGroundingInCurrentTurn(context.toolCalls);
+                    console.info("[DRAFT_TRACE_AUTOPROBE_RESULT]", this.safeJsonStringify({
+                        sessionId: context.input.sessionId,
+                        turnId: context.input.turnId,
+                        stage: "draft_context_autoprobe",
+                        executedTools: probeOutcome.executedTools,
+                        hasReadGroundingAfterProbe: hasReadGrounding,
+                        currentTurnReadTools,
+                    }));
+                }
                 if (requiresReadGrounding && !hasReadGrounding) {
                     const result = {
                         ok: false,
@@ -1472,7 +1511,7 @@ class AgenticLoop {
                 const draftContextForTurn = this.resolveDraftForTurn(context.input, this.normalizeDraftArtifact(context.session.currentDraft) ?? undefined);
                 const hasCaseGroundingFromCurrentDraft = regenerateDraftRequested &&
                     this.hasCaseGroundingFromDraftArtifact(draftContextForTurn);
-                const hasCaseGrounding = this.hasCaseGroundingReadTool(currentTurnReadTools) || hasCaseGroundingFromCurrentDraft;
+                let hasCaseGrounding = this.hasCaseGroundingReadTool(currentTurnReadTools) || hasCaseGroundingFromCurrentDraft;
                 console.info("[DRAFT_TRACE_CASE_GROUNDING_GUARD_EVAL]", this.safeJsonStringify({
                     sessionId: context.input.sessionId,
                     turnId: context.input.turnId,
@@ -1483,6 +1522,64 @@ class AgenticLoop {
                     currentTurnReadTools,
                 }));
                 if (caseSpecificDraft && !hasCaseGrounding) {
+                    const probeOutcome = await this.runAdaptiveDraftReadProbes({
+                        userMessage: context.input.message,
+                        args,
+                        context,
+                        executionContext,
+                        stage: "draft_case_grounding_autoprobe",
+                        currentTurnReadTools,
+                    });
+                    currentTurnReadTools = this.listReadToolNamesInCurrentTurn(context.toolCalls);
+                    hasCaseGrounding =
+                        this.hasCaseGroundingReadTool(currentTurnReadTools) || hasCaseGroundingFromCurrentDraft;
+                    console.info("[DRAFT_TRACE_AUTOPROBE_RESULT]", this.safeJsonStringify({
+                        sessionId: context.input.sessionId,
+                        turnId: context.input.turnId,
+                        stage: "draft_case_grounding_autoprobe",
+                        executedTools: probeOutcome.executedTools,
+                        hasCaseGroundingAfterProbe: hasCaseGrounding,
+                        currentTurnReadTools,
+                    }));
+                }
+                if (caseSpecificDraft && !hasCaseGrounding) {
+                    const caseCandidates = this.extractCaseDisambiguationCandidates(context.messages);
+                    if (caseCandidates.length > 1 && !aggregateDraftIntent) {
+                        const result = {
+                            ok: false,
+                            errorCode: "DRAFT_AMBIGUOUS_TARGET",
+                            errorMessage: "Multiple case candidates match the draft context. Ask the user to choose one before drafting.",
+                            metadata: {
+                                category: "DRAFT",
+                                stage: "draft_case_disambiguation_guard",
+                                candidateCount: caseCandidates.length,
+                                candidates: caseCandidates,
+                                selectionMode: "single",
+                            },
+                        };
+                        const record = this.createToolRecord(toolName, args, executionContext, result);
+                        record.id = callId;
+                        context.toolCalls.push(record);
+                        context.messages.push({
+                            role: "tool",
+                            name: toolName,
+                            toolCallId: callId,
+                            content: this.serializeToolMessage(toolName, result),
+                        });
+                        const disambiguationPrompt = this.buildDraftEntityDisambiguationMessage(caseCandidates, "single");
+                        context.messages.push({
+                            role: "system",
+                            content: this.buildDraftAmbiguityRecoveryInstruction(context.input.message, disambiguationPrompt),
+                        });
+                        this.pushAudit(context.audit, context.input, "tool_call_denied", {
+                            toolName,
+                            reason: result.errorMessage,
+                            errorCode: result.errorCode,
+                            stage: "draft_case_disambiguation_guard",
+                            candidateCount: caseCandidates.length,
+                        });
+                        continue;
+                    }
                     const result = {
                         ok: false,
                         errorCode: "DRAFT_CASE_CONTEXT_REQUIRED",
@@ -2293,10 +2390,6 @@ class AgenticLoop {
         let chunkIndex = 0;
         let finishReason = "stop";
         let streamed = false;
-        // Progressive draft streaming state
-        let draftPlaceholderEmitted = false;
-        let lastDraftEmitTime = 0;
-        const DRAFT_EMIT_INTERVAL_MS = 400;
         try {
             for await (const chunk of this.llm.stream(params)) {
                 streamed = true;
@@ -2320,25 +2413,6 @@ class AgenticLoop {
                         existing.arguments = { ...(existing.arguments || {}), ...normalizedArgs };
                     }
                     toolCallsById.set(id, existing);
-                    // Progressive draft artifact streaming: emit placeholders as args accumulate
-                    if (existing.name === "generateDraft" && streamCallbacks?.onDraftArtifact) {
-                        const now = Date.now();
-                        if (!draftPlaceholderEmitted || now - lastDraftEmitTime >= DRAFT_EMIT_INTERVAL_MS) {
-                            const args = (existing.arguments || {});
-                            const placeholder = this.buildProgressiveDraftPlaceholder(args);
-                            if (placeholder) {
-                                console.info("[PROGRESSIVE_DRAFT_PLACEHOLDER_EMIT]", JSON.stringify({
-                                    isFirst: !draftPlaceholderEmitted,
-                                    title: placeholder.title,
-                                    sectionCount: placeholder.sections.length,
-                                    elapsed: draftPlaceholderEmitted ? now - lastDraftEmitTime : 0,
-                                }));
-                                streamCallbacks.onDraftArtifact(placeholder);
-                                draftPlaceholderEmitted = true;
-                                lastDraftEmitTime = now;
-                            }
-                        }
-                    }
                 }
                 if (typeof chunk.finishReason === "string" && chunk.finishReason.trim().length > 0) {
                     finishReason = chunk.finishReason;
@@ -2569,8 +2643,55 @@ class AgenticLoop {
         catch (docErr) {
             // Non-critical: if document loading fails, continue without document context
         }
+        const followUpResolutionInstruction = this.buildFollowUpResolutionSystemInstruction(input.metadata);
+        if (followUpResolutionInstruction) {
+            messages.push({
+                role: "system",
+                content: followUpResolutionInstruction,
+            });
+        }
         messages.push({ role: "user", content: input.message });
         return messages;
+    }
+    buildFollowUpResolutionSystemInstruction(metadata) {
+        const root = isRecord(metadata) ? metadata : null;
+        const followUpIntent = isRecord(root?.followUpIntent) ? root.followUpIntent : null;
+        const resolution = isRecord(followUpIntent?.resolution) ? followUpIntent.resolution : null;
+        const decision = String(resolution?.decision || "").trim().toLowerCase();
+        const selected = Array.isArray(resolution?.selected) ? resolution.selected : [];
+        if (!decision) {
+            return null;
+        }
+        const lines = [
+            "FOLLOW-UP CONTEXT RESOLUTION",
+            `Decision: ${decision}`,
+        ];
+        if (selected.length > 0) {
+            lines.push("Selected entities:");
+            for (const row of selected.slice(0, 10)) {
+                if (!isRecord(row)) {
+                    continue;
+                }
+                const entityType = String(row.entityType || "entity").trim() || "entity";
+                const entityId = row.entityId != null ? String(row.entityId) : "unknown";
+                const label = String(row.label || "").trim();
+                lines.push(`- ${entityType}:${entityId}${label ? ` (${label})` : ""}`);
+            }
+        }
+        if (decision === "all") {
+            lines.push("Interpret this as an aggregate request over all listed matches.");
+        }
+        else if (decision === "none") {
+            lines.push("Do not assume any listed candidate; ask the user for a new identifier/filter.");
+        }
+        else if (decision === "multi") {
+            lines.push("Interpret this as a multi-entity request scoped to the selected matches.");
+        }
+        else {
+            lines.push("Interpret this as a single-entity selection.");
+        }
+        lines.push("Honor this resolution before asking for additional context.");
+        return lines.join("\n");
     }
     createPendingAction(toolName, args, input, category) {
         return {
@@ -3239,8 +3360,8 @@ class AgenticLoop {
     buildDraftAmbiguityRecoveryInstruction(userMessage, disambiguationPrompt) {
         return [
             "DRAFT AMBIGUITY RESOLUTION REQUIRED",
-            "Multiple clients match the user's reference. Do not draft yet.",
-            "Do not call generateDraft until the user explicitly selects one client.",
+            "Multiple entities match the user's reference. Do not draft yet.",
+            "Do not call generateDraft until the user explicitly resolves the target context.",
             "Ask a concise clarification question and present candidate options.",
             "Do not output internal analysis labels or role tags.",
             disambiguationPrompt,
@@ -3372,6 +3493,30 @@ class AgenticLoop {
             compact.includes("هل يمكنك") ||
             compact.includes("ما نوع"));
     }
+    isPostDraftClarificationCandidate(text) {
+        if (this.isClarificationRequestText(text)) {
+            return true;
+        }
+        const compact = this.normalizeIntentText(String(text || ""));
+        if (!compact) {
+            return false;
+        }
+        const followUpSignals = [
+            "once you confirm",
+            "confirm the exact",
+            "case reference",
+            "dossier reference",
+            "dossier/case reference",
+            "allow me to fetch",
+            "before i finalize",
+            "before i can finalize",
+            "which dossier",
+            "which lawsuit",
+            "please confirm the case",
+            "to make sure this is tied to",
+        ];
+        return followUpSignals.some((signal) => compact.includes(signal));
+    }
     normalizeIntentText(value) {
         return String(value || "")
             .replace(/\u2019/g, "'")
@@ -3395,6 +3540,20 @@ class AgenticLoop {
             return "لتحضير المسودة، يرجى تحديد نوع المستند، الهدف الأساسي، النبرة المطلوبة، والوقائع الأساسية (التواريخ/المراجع) التي تريد تضمينها.";
         }
         return "To prepare the draft, please specify the document type, main purpose, preferred tone, and key facts to include (dates/references).";
+    }
+    coerceDraftReadyAcknowledgement(userMessage, candidateText) {
+        const cleaned = String(candidateText || "").trim();
+        if (!cleaned) {
+            return "I've prepared the draft. Review it below and tell me what to adjust.";
+        }
+        const language = this.detectLanguageHint(`${userMessage}\n${cleaned}`) || "en";
+        if (language === "fr") {
+            return "Le brouillon est prêt. Consultez-le ci-dessous et dites-moi ce que vous souhaitez ajuster.";
+        }
+        if (language === "ar") {
+            return "تم إعداد المسودة. راجعها بالأسفل وأخبرني بالتعديلات التي تريدها.";
+        }
+        return "I've prepared the draft. Review it below and tell me what to adjust.";
     }
     isGenericDraftPrompt(message) {
         const normalized = String(message || "").trim().toLowerCase();
@@ -3471,6 +3630,42 @@ class AgenticLoop {
         if (!content) {
             return false;
         }
+        const financialSignals = [
+            "invoice",
+            "invoices",
+            "payment",
+            "unpaid",
+            "overdue",
+            "amount due",
+            "facture",
+            "factures",
+            "paiement",
+            "impaye",
+            "impayé",
+            "فاتورة",
+            "فواتير",
+            "دفعة",
+            "مدفوع",
+        ];
+        const explicitCaseBindingSignals = [
+            "dossier",
+            "lawsuit",
+            "court",
+            "tribunal",
+            "case number",
+            "session number",
+            "hearing date",
+            "affaire",
+            "قضية",
+            "محكمة",
+            "جلسة",
+            "ملف",
+        ];
+        const financialDensity = financialSignals.filter((signal) => content.includes(signal)).length;
+        const hasExplicitCaseBinding = explicitCaseBindingSignals.some((signal) => content.includes(signal));
+        if (financialDensity >= 2 && !hasExplicitCaseBinding) {
+            return false;
+        }
         const caseSignals = [
             "case progress",
             "hearing",
@@ -3495,6 +3690,8 @@ class AgenticLoop {
             "listLawsuits",
             "getLawsuit",
             "listSessions",
+            "listFinancialEntries",
+            "getFinancialEntry",
             "getEntityGraph",
             "getTimeline",
         ];
@@ -3510,6 +3707,379 @@ class AgenticLoop {
             return false;
         }
         return linkedEntityType === "dossier" || linkedEntityType === "lawsuit" || linkedEntityType === "session";
+    }
+    isAggregateDraftIntent(userMessage, args) {
+        const signal = `${String(userMessage || "")}\n${String(args.title || "")}\n${String(args.content || "")}`.toLowerCase();
+        return (/\b(all|every|latest|recent|multiple|several|many)\b/.test(signal) ||
+            /\b(unpaid|overdue)\b/.test(signal) ||
+            /\b(all invoices?|latest invoices?)\b/.test(signal) ||
+            /\b(tous|toutes|tout)\b/.test(signal) ||
+            /(جميع|كل)/.test(signal));
+    }
+    detectDraftEntityAmbiguity(params) {
+        const normalizedCandidates = (params.candidates || [])
+            .filter((row) => row && row.entityType && row.entityId != null && row.label);
+        if (!this.isDraftingIntent(params.userMessage) || normalizedCandidates.length < 2) {
+            return {
+                required: false,
+                reason: "not_ambiguous_or_insufficient_candidates",
+                selectionMode: params.aggregateIntent ? "multi" : "single",
+                candidates: [],
+            };
+        }
+        const ambiguity = detectGenericAmbiguity({
+            input: {
+                message: params.userMessage,
+                mode: String(params.mode || "DRAFT"),
+            },
+            activeEntities: normalizedCandidates.map((candidate) => ({
+                type: candidate.entityType,
+                id: candidate.entityId,
+                label: candidate.label,
+                sourceTool: String(candidate.metadata?.source || ""),
+            })),
+        });
+        const ambiguityCandidates = Array.isArray(ambiguity?.candidates) ? ambiguity.candidates : [];
+        if (ambiguity?.ambiguous !== true || ambiguityCandidates.length < 2) {
+            return {
+                required: false,
+                reason: String(ambiguity?.reason || "no_high_confidence_ambiguity"),
+                selectionMode: params.aggregateIntent ? "multi" : "single",
+                candidates: [],
+            };
+        }
+        const byType = new Map();
+        for (const candidate of normalizedCandidates) {
+            const list = byType.get(candidate.entityType) || [];
+            list.push(candidate);
+            byType.set(candidate.entityType, list);
+        }
+        let dominantType = "";
+        let dominantCandidates = [];
+        for (const [entityType, list] of byType.entries()) {
+            if (list.length > dominantCandidates.length) {
+                dominantType = entityType;
+                dominantCandidates = list;
+            }
+        }
+        const promptCandidates = (dominantCandidates.length > 1 ? dominantCandidates : normalizedCandidates).slice(0, 5);
+        const shouldRequire = !params.aggregateIntent;
+        return {
+            required: shouldRequire,
+            reason: shouldRequire
+                ? `multiple_${dominantType || "entity"}_candidates_requires_selection`
+                : "aggregate_request_allows_multi_selection",
+            selectionMode: params.aggregateIntent ? "multi" : "single",
+            candidates: promptCandidates,
+        };
+    }
+    buildDraftEntityDisambiguationMessage(candidates, selectionMode) {
+        const lines = candidates.slice(0, 5).map((candidate, index) => {
+            const subtitle = String(candidate.subtitle || "").trim();
+            const details = subtitle ? ` - ${subtitle}` : "";
+            return `${index + 1}. ${candidate.label}${details}`;
+        });
+        const modeHint = selectionMode === "multi"
+            ? "You can choose one, multiple, all, or none of these options."
+            : "Reply with the number or full name/reference of the intended option.";
+        return [
+            "I found multiple matching records for this draft context. Which target should I use?",
+            ...lines,
+            modeHint,
+        ].join("\n");
+    }
+    extractCaseDisambiguationCandidates(messages) {
+        const all = this.extractLatestListCandidates(messages);
+        const caseTypes = new Set(["dossier", "lawsuit", "session"]);
+        const deduped = new Map();
+        for (const candidate of all) {
+            if (!caseTypes.has(candidate.entityType)) {
+                continue;
+            }
+            const key = `${candidate.entityType}:${String(candidate.entityId)}`;
+            if (!deduped.has(key)) {
+                deduped.set(key, candidate);
+            }
+        }
+        return Array.from(deduped.values()).slice(0, 5);
+    }
+    extractLatestListCandidates(messages) {
+        const toolConfig = {
+            listClients: { entityType: "client", dataKey: "clients", labelKeys: ["name", "label", "title"] },
+            listDossiers: { entityType: "dossier", dataKey: "dossiers", labelKeys: ["reference", "title", "label"] },
+            listLawsuits: { entityType: "lawsuit", dataKey: "lawsuits", labelKeys: ["reference", "title", "label"] },
+            listSessions: { entityType: "session", dataKey: "sessions", labelKeys: ["title", "type", "label"] },
+            listTasks: { entityType: "task", dataKey: "tasks", labelKeys: ["title", "label"] },
+            listMissions: { entityType: "mission", dataKey: "missions", labelKeys: ["reference", "title", "label"] },
+            listPersonalTasks: { entityType: "personal_task", dataKey: "personalTasks", labelKeys: ["title", "label"] },
+            listFinancialEntries: {
+                entityType: "financial_entry",
+                dataKey: "financialEntries",
+                labelKeys: ["reference", "title", "description", "label"],
+            },
+            listDocuments: { entityType: "document", dataKey: "documents", labelKeys: ["title", "original_filename", "label"] },
+            listNotifications: { entityType: "notification", dataKey: "notifications", labelKeys: ["title", "subject", "label"] },
+            listOfficers: { entityType: "officer", dataKey: "officers", labelKeys: ["name", "agency_name", "label"] },
+        };
+        const seenTools = new Set();
+        const candidates = [];
+        for (let i = messages.length - 1; i >= 0; i -= 1) {
+            const message = messages[i];
+            if (message.role !== "tool") {
+                continue;
+            }
+            const toolName = String(message.name || "").trim();
+            const config = toolConfig[toolName];
+            if (!config || seenTools.has(toolName)) {
+                continue;
+            }
+            seenTools.add(toolName);
+            const parsed = this.parseToolMessageContent(message.content);
+            const result = isRecord(parsed?.result) ? parsed.result : null;
+            if (!result || result.ok !== true) {
+                continue;
+            }
+            const data = isRecord(result.data) ? result.data : null;
+            if (!data) {
+                continue;
+            }
+            const rows = Array.isArray(data[config.dataKey]) ? data[config.dataKey] : [];
+            for (const row of rows) {
+                if (!isRecord(row)) {
+                    continue;
+                }
+                const entityId = this.extractEntityIdFromRecord(row, config.entityType);
+                if (entityId == null) {
+                    continue;
+                }
+                const label = this.pickLabelFromRecord(row, config.labelKeys) || `${config.entityType} ${String(entityId)}`;
+                const subtitle = this.pickLabelFromRecord(row, ["reference", "case_number", "email", "due_date"]);
+                const scope = {};
+                const numericId = Number(entityId);
+                if (Number.isFinite(numericId) && numericId > 0) {
+                    if (config.entityType === "client")
+                        scope.clientId = numericId;
+                    if (config.entityType === "dossier")
+                        scope.dossierId = numericId;
+                    if (config.entityType === "lawsuit")
+                        scope.lawsuitId = numericId;
+                    if (config.entityType === "session")
+                        scope.sessionId = numericId;
+                    if (config.entityType === "task")
+                        scope.taskId = numericId;
+                    if (config.entityType === "mission")
+                        scope.missionId = numericId;
+                    if (config.entityType === "personal_task")
+                        scope.personalTaskId = numericId;
+                    if (config.entityType === "financial_entry")
+                        scope.financialEntryId = numericId;
+                }
+                if (row.client_id != null || row.clientId != null) {
+                    const clientId = Number(row.client_id ?? row.clientId);
+                    if (Number.isFinite(clientId) && clientId > 0) {
+                        scope.clientId = clientId;
+                    }
+                }
+                candidates.push({
+                    entityType: config.entityType,
+                    entityId,
+                    label,
+                    subtitle: subtitle || null,
+                    metadata: {
+                        source: toolName,
+                        ...(row.status ? { status: String(row.status) } : {}),
+                        ...(row.reference ? { reference: String(row.reference) } : {}),
+                    },
+                    scope,
+                });
+            }
+        }
+        return candidates;
+    }
+    extractEntityIdFromRecord(row, entityType) {
+        const candidateKeys = [
+            "id",
+            `${entityType}_id`,
+            "client_id",
+            "dossier_id",
+            "lawsuit_id",
+            "session_id",
+            "task_id",
+            "mission_id",
+            "personal_task_id",
+            "financial_entry_id",
+            "document_id",
+            "notification_id",
+            "officer_id",
+        ];
+        for (const key of candidateKeys) {
+            const value = row[key];
+            if (typeof value === "number" && Number.isFinite(value)) {
+                return value;
+            }
+            if (typeof value === "string" && value.trim().length > 0) {
+                const numeric = Number(value);
+                if (Number.isFinite(numeric) && numeric > 0) {
+                    return numeric;
+                }
+                return value.trim();
+            }
+        }
+        return null;
+    }
+    pickLabelFromRecord(row, keys) {
+        for (const key of keys) {
+            const value = row[key];
+            if (typeof value === "string" && value.trim().length > 0) {
+                return value.trim();
+            }
+        }
+        return "";
+    }
+    async runAdaptiveDraftReadProbes(params) {
+        const plan = this.buildAdaptiveDraftProbePlan(params.userMessage, params.args, params.currentTurnReadTools);
+        const executedTools = [];
+        for (const step of plan.slice(0, 2)) {
+            const tool = this.registry.get(step.toolName);
+            if (!tool || tool.category !== tools_1.ToolCategory.READ) {
+                continue;
+            }
+            const result = await this.executor.execute(tool, params.executionContext, step.args);
+            this.collectToolWarnings(result, params.context.warnings);
+            this.trackReadToolResult(result, params.context.readCounters);
+            if (result.ok) {
+                this.trackToolEntities(params.context.session, result, step.toolName, params.context.input.turnId);
+            }
+            const callId = this.createId("autoprobe");
+            const record = this.createToolRecord(step.toolName, step.args, params.executionContext, result, {
+                autoprobe: true,
+                stage: params.stage,
+            });
+            record.id = callId;
+            params.context.toolCalls.push(record);
+            params.context.messages.push({
+                role: "tool",
+                name: step.toolName,
+                toolCallId: callId,
+                content: this.serializeToolMessage(step.toolName, result),
+            });
+            this.pushAudit(params.context.audit, params.context.input, "draft_autoprobe_tool_call", {
+                toolName: step.toolName,
+                stage: params.stage,
+                ok: result.ok,
+                errorCode: result.errorCode,
+            });
+            executedTools.push(step.toolName);
+        }
+        return { executedTools };
+    }
+    buildAdaptiveDraftProbePlan(userMessage, args, currentTurnReadTools) {
+        const normalized = String(userMessage || "").toLowerCase();
+        const linkedEntityType = String(args.linkedEntityType || "").trim().toLowerCase();
+        const linkedEntityId = typeof args.linkedEntityId === "number"
+            ? args.linkedEntityId
+            : Number.isFinite(Number(args.linkedEntityId))
+                ? Number(args.linkedEntityId)
+                : null;
+        const dossierId = linkedEntityType === "dossier" && linkedEntityId ? linkedEntityId : null;
+        const lawsuitId = linkedEntityType === "lawsuit" && linkedEntityId ? linkedEntityId : null;
+        const clientId = linkedEntityType === "client" && linkedEntityId ? linkedEntityId : null;
+        const plan = [];
+        const add = (toolName, toolArgs) => {
+            if ((currentTurnReadTools || []).includes(toolName)) {
+                return;
+            }
+            if (plan.some((step) => step.toolName === toolName)) {
+                return;
+            }
+            plan.push({ toolName, args: toolArgs });
+        };
+        const financialIntent = /\b(invoice|invoices|payment|payments|unpaid|overdue|billing|facture|paiement)\b/.test(normalized) ||
+            /(فاتورة|فواتير|دفع|مدفوع)/.test(normalized);
+        const dossierIntent = /\b(dossier|file|matter|case)\b/.test(normalized) || /(ملف|قضية)/.test(normalized);
+        const lawsuitIntent = /\b(lawsuit|court|hearing|session|tribunal|audience)\b/.test(normalized) || /(محكمة|جلسة)/.test(normalized);
+        const taskIntent = /\b(task|tasks|deadline|todo)\b/.test(normalized) || /(مهمة|مهام)/.test(normalized);
+        const missionIntent = /\b(mission|bailiff|officer|huissier)\b/.test(normalized) || /(مأمورية|عون)/.test(normalized);
+        const documentIntent = /\b(document|documents|attachment|attachments)\b/.test(normalized) || /(وثيقة|مرفق)/.test(normalized);
+        const clientIntent = /\b(client|person|customer)\b/.test(normalized) || /(عميل)/.test(normalized);
+        if (financialIntent) {
+            add("listFinancialEntries", {
+                direction: "receivable",
+                paymentStatus: "unpaid",
+                ...(clientId ? { clientId } : {}),
+                ...(dossierId ? { dossierId } : {}),
+                ...(lawsuitId ? { lawsuitId } : {}),
+                limit: 10,
+            });
+        }
+        if (dossierIntent || lawsuitIntent) {
+            add("listDossiers", {
+                ...(clientId ? { clientId } : {}),
+                limit: 10,
+            });
+            add("listLawsuits", {
+                ...(dossierId ? { dossierId } : {}),
+                limit: 10,
+            });
+            add("listSessions", {
+                ...(lawsuitId ? { lawsuitId } : {}),
+                ...(dossierId ? { dossierId } : {}),
+                limit: 10,
+            });
+        }
+        if (taskIntent) {
+            add("listTasks", {
+                ...(dossierId ? { dossierId } : {}),
+                ...(lawsuitId ? { lawsuitId } : {}),
+                limit: 10,
+            });
+            add("listPersonalTasks", { limit: 10 });
+        }
+        if (missionIntent) {
+            add("listMissions", {
+                ...(dossierId ? { dossierId } : {}),
+                ...(lawsuitId ? { lawsuitId } : {}),
+                limit: 10,
+            });
+            add("listOfficers", { limit: 10 });
+        }
+        if (documentIntent) {
+            add("listDocuments", {
+                ...(clientId ? { clientId } : {}),
+                ...(dossierId ? { dossierId } : {}),
+                ...(lawsuitId ? { lawsuitId } : {}),
+                limit: 10,
+            });
+        }
+        if (clientIntent && !clientId) {
+            add("listClients", {
+                query: this.extractEntityQueryFromMessage(userMessage),
+                limit: 5,
+            });
+        }
+        if (plan.length === 0) {
+            add("listDossiers", {
+                ...(clientId ? { clientId } : {}),
+                limit: 10,
+            });
+            add("listLawsuits", {
+                ...(dossierId ? { dossierId } : {}),
+                limit: 10,
+            });
+        }
+        return plan.slice(0, 2);
+    }
+    extractEntityQueryFromMessage(userMessage) {
+        const raw = String(userMessage || "").trim().replace(/\s+/g, " ");
+        if (!raw) {
+            return null;
+        }
+        const m = raw.match(/\bfor\s+([A-Za-z\u00C0-\u024F\u0600-\u06FF'\- ]{2,80})/i);
+        if (m && m[1]) {
+            return m[1].trim();
+        }
+        const firstWords = raw.split(" ").slice(0, 5).join(" ").trim();
+        return firstWords || null;
     }
     detectDraftClientAmbiguity(params) {
         if (!this.isDraftingIntent(params.userMessage)) {

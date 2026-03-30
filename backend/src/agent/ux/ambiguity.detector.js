@@ -74,16 +74,35 @@ const TARGET_NOUNS = [
   "dossier",
   "client",
   "lawsuit",
+  "mission",
+  "officer",
+  "task",
+  "personal task",
+  "personal-task",
   "invoice",
+  "financial entry",
+  "financial entries",
+  "payment",
+  "payments",
+  "bailiff",
   "hearing",
   "notice",
   "document",
   "file",
-  "task",
   "affaire",
+  "mission",
+  "huissier",
   "facture",
+  "paiement",
+  "paiements",
   "audience",
   "notification",
+  "مأمورية",
+  "مهمة",
+  "إشعار",
+  "اشعار",
+  "دفعة",
+  "دفعات",
   "وثيقة",
   "ملف",
   "قضية",
@@ -218,7 +237,9 @@ function resolveCandidates(message, entities, retrievalContext) {
   }
 
   const likelyType = detectLikelyType(message);
-  const scoped = likelyType ? entities.filter((entity) => entity.type === likelyType) : entities;
+  const scoped = likelyType
+    ? entities.filter((entity) => matchesEntityType(entity.type, likelyType))
+    : entities;
   const direct = scoped.filter((entity) => entityMentioned(entity, message));
   if (direct.length > 0) {
     return direct.slice(0, 12);
@@ -274,14 +295,82 @@ function detectLikelyType(message) {
   if (containsAny(message, ["lawsuit", "affaire", "قضية"])) {
     return "lawsuit";
   }
-  if (containsAny(message, ["invoice", "facture", "فاتورة"])) {
-    return "invoice";
+  if (
+    containsAny(message, [
+      "invoice",
+      "invoices",
+      "facture",
+      "factures",
+      "فاتورة",
+      "فواتير",
+      "payment",
+      "payments",
+      "unpaid",
+      "overdue",
+      "مالية",
+      "مالي",
+    ])
+  ) {
+    return "financial_entry";
   }
-  if (containsAny(message, ["task", "mission", "tache", "مهمة"])) {
+  if (containsAny(message, ["task", "tache", "to-do", "todo", "مهمة"])) {
     return "task";
+  }
+  if (containsAny(message, ["personal task", "personal-task", "tache personnelle", "مهمة شخصية"])) {
+    return "personal_task";
+  }
+  if (containsAny(message, ["mission", "bailiff", "huissier", "مأمورية"])) {
+    return "mission";
+  }
+  if (containsAny(message, ["officer", "bailiff officer", "huissier", "عون"])) {
+    return "officer";
+  }
+  if (containsAny(message, ["notification", "notifications", "alert", "alerts", "اشعار", "إشعار"])) {
+    return "notification";
+  }
+  if (containsAny(message, ["session", "sessions", "hearing", "audience", "جلسة"])) {
+    return "session";
+  }
+  if (containsAny(message, ["document", "documents", "attachment", "attachments", "وثيقة", "مرفق"])) {
+    return "document";
   }
   return "";
 }
+
+function matchesEntityType(entityType, requestedType) {
+  const left = normalizeEntityType(entityType);
+  const right = normalizeEntityType(requestedType);
+  if (!left || !right) {
+    return false;
+  }
+  if (left === right) {
+    return true;
+  }
+  const aliases = ENTITY_TYPE_ALIASES[right] || [];
+  return aliases.includes(left);
+}
+
+function normalizeEntityType(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) {
+    return "";
+  }
+  return raw.replace(/\s+/g, "_");
+}
+
+const ENTITY_TYPE_ALIASES = {
+  client: ["clients"],
+  dossier: ["dossiers", "file", "files", "case", "cases"],
+  lawsuit: ["lawsuits", "affaire", "affaires"],
+  task: ["tasks", "todo"],
+  personal_task: ["personal_tasks", "personal-task", "personaltask"],
+  mission: ["missions", "bailiff"],
+  officer: ["officers"],
+  notification: ["notifications"],
+  document: ["documents"],
+  session: ["sessions", "hearing", "hearings"],
+  financial_entry: ["financial_entries", "financial", "invoice", "invoices", "facture", "factures"],
+};
 
 function entityMentioned(entity, message) {
   const id = normalizeText(entity && entity.id);

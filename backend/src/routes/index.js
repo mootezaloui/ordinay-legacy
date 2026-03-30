@@ -28,8 +28,9 @@ const AGENT_ROUTE_DIAGNOSTICS_ENABLED = parseBoolean(
 );
 
 let agentRouter = null;
+// Legacy /agent/chat router has been retired; keep mount disabled.
 if (FEATURE_AI_AGENT) {
-  agentRouter = require("../agent_Back/agent.router");
+  agentRouter = null;
 }
 
 let agentV2Router = null;

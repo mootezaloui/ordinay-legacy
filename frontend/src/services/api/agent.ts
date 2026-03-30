@@ -246,6 +246,24 @@ export interface FollowUpSuggestion {
     reference?: string;
     name?: string;
   };
+  resolution?: {
+    decision: 'single' | 'multi' | 'all' | 'none';
+    selected: Array<{
+      entityType: string;
+      entityId: string | number;
+      label?: string;
+      scope?: {
+        clientId?: number;
+        dossierId?: number;
+        lawsuitId?: number;
+        sessionId?: number;
+        taskId?: number;
+        missionId?: number;
+        personalTaskId?: number;
+        financialEntryId?: number;
+      };
+    }>;
+  };
   filters?: {
     status?: string | null;
     priority?: string | null;
@@ -413,6 +431,24 @@ export interface FollowUpIntent {
     id?: string | number;
     reference?: string;
     name?: string;
+  };
+  resolution?: {
+    decision: 'single' | 'multi' | 'all' | 'none';
+    selected: Array<{
+      entityType: string;
+      entityId: string | number;
+      label?: string;
+      scope?: {
+        clientId?: number;
+        dossierId?: number;
+        lawsuitId?: number;
+        sessionId?: number;
+        taskId?: number;
+        missionId?: number;
+        personalTaskId?: number;
+        financialEntryId?: number;
+      };
+    }>;
   };
 
   filters?: {
@@ -692,6 +728,17 @@ export interface ContextSuggestionOutput {
   // Manual override capability
   allowManualInput?: boolean;
   manualInputHint?: string;
+  selectionPolicy?: {
+    mode: 'single' | 'multi';
+    allowAll?: boolean;
+    allowNone?: boolean;
+    maxChoices?: number;
+  };
+  actions?: Array<{
+    id: string;
+    label: string;
+    decision: 'single' | 'multi' | 'all' | 'none';
+  }>;
 }
 
 export interface ContextSuggestionItem {
@@ -1228,7 +1275,7 @@ export async function confirmProposal(
   options: { ackRisk?: boolean } = {}
 ): Promise<ExecutionResult> {
   try {
-    const response = await apiClient.post<{ status: string; data: ExecutionResult }>(
+    const response = await apiClient.post<{ status: string; data: ExecutionResult; error?: string }>(
       '/agent/confirm',
       { proposalId, sessionId, ackRisk: options.ackRisk === true }
     );
