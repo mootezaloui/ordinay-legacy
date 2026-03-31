@@ -2,13 +2,6 @@
 
 const KNOWN_SCOPES = new Set(["read", "draft", "execute", "admin", "unknown"]);
 
-const MODE_REQUIRED_SCOPE = {
-  READ_ONLY: "read",
-  DRAFT: "draft",
-  EXECUTE: "execute",
-  AUTONOMOUS: "execute",
-};
-
 const SCOPE_RANK = {
   unknown: 0,
   read: 1,
@@ -17,44 +10,32 @@ const SCOPE_RANK = {
   admin: 4,
 };
 
-function evaluateAuthScope({ user, mode, requestedAction } = {}) {
-  const normalizedMode = normalizeMode(mode);
-  if (!normalizedMode) {
-    return {
-      allowed: false,
-      reason: "Invalid mode for auth scope evaluation.",
-      scope: "unknown",
-    };
-  }
-
+function evaluateAuthScope({ user, requestedAction } = {}) {
   const scope = normalizeScope(extractScope(user));
-  const isMissingAuthContext = scope === "unknown";
-
-  if (isMissingAuthContext) {
-    if (normalizedMode === "READ_ONLY" || normalizedMode === "DRAFT") {
-      return {
-        allowed: true,
-        scope,
-      };
-    }
-    return {
-      allowed: false,
-      reason: "Missing auth context only allows READ_ONLY and DRAFT modes.",
-      scope,
-    };
-  }
-
-  const requiredByMode = MODE_REQUIRED_SCOPE[normalizedMode] || "execute";
-  if (!scopeSatisfies(scope, requiredByMode)) {
-    return {
-      allowed: false,
-      reason: `Auth scope "${scope}" does not permit mode "${normalizedMode}".`,
-      scope,
-    };
-  }
-
   const requiredByAction = normalizeRequestedActionScope(requestedAction);
-  if (requiredByAction && !scopeSatisfies(scope, requiredByAction)) {
+  if (!requiredByAction) {
+    return {
+      allowed: true,
+      scope,
+    };
+  }
+
+  if (scope === "unknown" && (requiredByAction === "execute" || requiredByAction === "admin")) {
+    return {
+      allowed: false,
+      reason: `Missing auth context does not permit requested action "${requiredByAction}".`,
+      scope,
+    };
+  }
+
+  if (scope === "unknown") {
+    return {
+      allowed: true,
+      scope,
+    };
+  }
+
+  if (!scopeSatisfies(scope, requiredByAction)) {
     return {
       allowed: false,
       reason: `Auth scope "${scope}" does not permit requested action "${requiredByAction}".`,
@@ -140,14 +121,6 @@ function normalizeScope(value) {
   }
 }
 
-function normalizeMode(value) {
-  const mode = String(value || "").trim().toUpperCase();
-  if (Object.prototype.hasOwnProperty.call(MODE_REQUIRED_SCOPE, mode)) {
-    return mode;
-  }
-  return null;
-}
-
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -156,4 +129,3 @@ module.exports = {
   evaluateAuthScope,
   normalizeScope,
 };
-

@@ -17,4 +17,5 @@ Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./turn.classifier"), exports);
 __exportStar(require("./pending.manager"), exports);
 __exportStar(require("./tool.executor"), exports);
+__exportStar(require("./entity.executor"), exports);
 __exportStar(require("./agentic.loop"), exports);

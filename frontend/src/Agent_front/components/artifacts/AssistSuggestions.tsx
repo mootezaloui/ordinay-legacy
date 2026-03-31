@@ -1,4 +1,4 @@
-import { Sparkles, PlusCircle, FileText, StickyNote, PenLine } from "lucide-react";
+import { Sparkles, PlusCircle, FileText, StickyNote, PenLine, Trash2 } from "lucide-react";
 import type { AssistSuggestionsOutput, AssistSuggestionItem } from "../../../services/api/agent";
 
 interface AssistSuggestionsProps {
@@ -12,6 +12,7 @@ const ACTION_TYPE_META: Record<string, { label: string; color: string }> = {
   ADD_NOTE: { label: "Add Note", color: "text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/30" },
   GENERATE_DOCUMENT: { label: "Generate", color: "text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/30" },
   ENRICH_FIELD: { label: "Complete", color: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30" },
+  DELETE_ENTITY: { label: "Delete", color: "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30" },
 };
 
 function ActionIcon({ actionType }: { actionType: string }) {
@@ -20,6 +21,7 @@ function ActionIcon({ actionType }: { actionType: string }) {
   if (actionType === "ADD_NOTE") return <StickyNote className={cls} />;
   if (actionType === "GENERATE_DOCUMENT") return <FileText className={cls} />;
   if (actionType === "ENRICH_FIELD") return <PenLine className={cls} />;
+  if (actionType === "DELETE_ENTITY") return <Trash2 className={cls} />;
   return <Sparkles className={cls} />;
 }
 

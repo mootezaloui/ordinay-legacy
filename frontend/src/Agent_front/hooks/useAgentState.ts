@@ -4,8 +4,11 @@ import { AgentMessage, AgentMessageData } from "../types/agentMessage";
 import { useAgentSessions } from "./useAgentSessions";
 import {
   streamAgentMessage,
+  ActionProposal,
+  AssistSuggestionsOutput,
   ChatMutationLifecycleEvent,
   ContextScope,
+  ExecutionResult,
   AgentVersion,
   DataAccessPermissions,
   AgentRequestMetadata,
@@ -15,7 +18,11 @@ import {
   ExplanationOutput,
   CollectionOutput,
   CommentaryOutput,
+  PlanArtifactEventData,
+  PlanExecutedEventData,
+  ProposalOutput,
   StatusEventData,
+  SuggestionArtifactEventData,
   WebSearchResultsOutput,
   WebDeepSearchResultsOutput,
 } from "../../services/api/agent";
@@ -194,6 +201,315 @@ function mergeUniqueCommentaryLines(existingMessage: string, incomingMessage: st
   }
 
   return uniqueLines.join("\n");
+}
+
+type ProposalUiState = NonNullable<ActionProposal["uiState"]>;
+
+function toRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function toPlanActionType(operation: string): ActionProposal["actionType"] {
+  const normalized = String(operation || "").trim().toLowerCase();
+  if (normalized === "create") return "CREATE_ENTITY";
+  if (normalized === "delete") return "DELETE_ENTITY";
+  return "UPDATE_ENTITY";
+}
+
+function normalizePlanChanges(
+  value: unknown,
+): Record<string, { from: unknown; to: unknown }> | undefined {
+  const record = toRecord(value);
+  if (!record) return undefined;
+  const normalized: Record<string, { from: unknown; to: unknown }> = {};
+  for (const [key, raw] of Object.entries(record)) {
+    if (!key) continue;
+    const row = toRecord(raw);
+    if (row && ("from" in row || "to" in row)) {
+      normalized[key] = { from: row.from, to: row.to };
+      continue;
+    }
+    normalized[key] = { from: undefined, to: raw };
+  }
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+function mapPlanArtifactToProposalOutput(
+  artifact: PlanArtifactEventData,
+  sessionId: string,
+): ProposalOutput {
+  const operation = String(artifact?.operation?.operation || "update").trim().toLowerCase();
+  const entityType = String(artifact?.operation?.entityType || "").trim().toLowerCase();
+  const entityIdRaw = artifact?.operation?.entityId;
+  const numericEntityId = Number(entityIdRaw);
+  const hasNumericEntityId = Number.isInteger(numericEntityId) && numericEntityId > 0;
+  const operationPayload = toRecord(artifact?.operation?.payload) || undefined;
+  const normalizedChanges = normalizePlanChanges(artifact?.operation?.changes);
+  const preview = toRecord(artifact?.preview);
+  const previewTitle = String(preview?.title || "").trim();
+  const warnings = Array.isArray(preview?.warnings)
+    ? preview.warnings.map((row) => String(row || "").trim()).filter(Boolean)
+    : [];
+  const previewFields = Array.isArray(preview?.fields) ? preview.fields : [];
+  const primaryChangesRaw =
+    previewFields.length > 0
+      ? previewFields
+          .map((row) => {
+            const field = String((row as { key?: unknown })?.key || "").trim();
+            if (!field) return null;
+            const change = row as { from?: unknown; to?: unknown };
+            return {
+              entityType,
+              entityId: hasNumericEntityId ? numericEntityId : null,
+              field,
+              from: "from" in change ? change.from : undefined,
+              to: "to" in change ? change.to : undefined,
+            };
+          })
+          .filter(Boolean)
+      : Object.entries(normalizedChanges || {}).map(([field, change]) => ({
+          entityType,
+          entityId: hasNumericEntityId ? numericEntityId : null,
+          field,
+          from: change.from,
+          to: change.to,
+        }));
+  const primaryChanges = primaryChangesRaw as Array<{
+    entityType: string;
+    entityId: number | null;
+    field: string;
+    from: unknown;
+    to: unknown;
+  }>;
+  const summary =
+    String(artifact?.summary || "").trim() ||
+    `Confirm ${operation || "update"} request`;
+
+  const proposal: ActionProposal = {
+    proposalId: String(artifact?.pendingActionId || ""),
+    status: "PENDING_CONFIRMATION",
+    action: `plan_${operation || "update"}`,
+    description: summary,
+    requiresConfirmation: true,
+    sessionId,
+    actionType: toPlanActionType(operation),
+    toolCategory: "PLAN",
+    params: {
+      entityType,
+      ...(hasNumericEntityId ? { entityId: numericEntityId } : {}),
+      ...(operationPayload ? { payload: operationPayload } : {}),
+      ...(normalizedChanges ? { changes: normalizedChanges } : {}),
+      ...(previewTitle ? { entityLabel: previewTitle } : {}),
+    },
+    reversible: operation !== "delete",
+    humanReadableSummary: summary,
+    confirmation: {
+      extraRiskAck: operation === "delete",
+      ...(warnings.length > 0 ? { warnings, impactSummary: warnings } : {}),
+      preview: {
+        version: "v1",
+        scope: "single_entity",
+        root: {
+          type: entityType || undefined,
+          id: hasNumericEntityId ? numericEntityId : null,
+          label: previewTitle || undefined,
+          operation: operation || "update",
+        },
+        ...(primaryChanges.length > 0 ? { primaryChanges } : {}),
+        ...(warnings.length > 0 ? { effects: warnings } : {}),
+        reversibility: operation === "delete" ? "not_reversible" : "reversible",
+      },
+    },
+    ...(entityType && hasNumericEntityId
+      ? { affectedEntities: [{ type: entityType, id: numericEntityId }] }
+      : {}),
+  };
+
+  return {
+    type: "proposal",
+    proposals: [proposal],
+    sessionId,
+  };
+}
+
+function mapSuggestionActionType(
+  actionType: SuggestionArtifactEventData["actionType"],
+): AssistSuggestionsOutput["suggestions"][number]["actionType"] {
+  if (actionType === "create") return "CREATE_ENTITY";
+  if (actionType === "draft") return "GENERATE_DOCUMENT";
+  if (actionType === "delete") return "DELETE_ENTITY";
+  return "ENRICH_FIELD";
+}
+
+function mapSuggestionArtifactToAssistSuggestions(
+  artifact: SuggestionArtifactEventData,
+): AssistSuggestionsOutput {
+  const prefill = toRecord(artifact?.prefillData);
+  const firstPrefillKey = prefill ? Object.keys(prefill)[0] : undefined;
+  const draftType =
+    typeof prefill?.draftType === "string"
+      ? prefill.draftType
+      : typeof prefill?.documentType === "string"
+      ? prefill.documentType
+      : null;
+
+  return {
+    type: "assist_suggestions",
+    generatedAt: new Date().toISOString(),
+    suggestions: [
+      {
+        actionType: mapSuggestionActionType(artifact.actionType),
+        targetEntityType: String(artifact?.targetType || "").trim() || null,
+        sourceEntityType:
+          String(artifact?.linkedEntityType || artifact?.targetType || "assistant")
+            .trim()
+            .toLowerCase(),
+        sourceEntityId: artifact?.linkedEntityId ?? null,
+        label: String(artifact?.title || "").trim() || "Suggested action",
+        reason: String(artifact?.reason || "").trim() || "Suggested based on current context.",
+        field: artifact?.actionType === "update" ? firstPrefillKey || null : null,
+        documentType: artifact?.actionType === "draft" ? draftType : null,
+        relevanceScore: 0.75,
+        finalScore: 0.75,
+      },
+    ],
+  };
+}
+
+function toSafeExecutionErrorMessage(raw: string): string {
+  const message = String(raw || "").trim();
+  if (!message) return "I could not apply that change. Please review and try again.";
+  const lower = message.toLowerCase();
+  if (
+    lower.includes("constraint failed") ||
+    lower.includes("sqlite") ||
+    lower.includes("sql") ||
+    lower.includes("not null") ||
+    lower.includes("foreign key") ||
+    lower.includes("unique")
+  ) {
+    return "I could not apply that change because one or more values are not valid.";
+  }
+  if (message.length > 220) {
+    return "I could not apply that change. Please review and try again.";
+  }
+  return message;
+}
+
+function mapPlanExecutedArtifactToExecutionResult(
+  artifact: PlanExecutedEventData,
+): ExecutionResult {
+  const executedAt = new Date().toISOString();
+  if (artifact?.ok !== true) {
+    const message = String(artifact?.errorMessage || "").trim() || "Could not apply that change.";
+    return {
+      type: "execution_result",
+      proposalId: String(artifact?.pendingActionId || ""),
+      status: "failed",
+      error: {
+        code: String(artifact?.errorCode || "PLAN_EXECUTION_FAILED"),
+        message,
+        safeMessage: toSafeExecutionErrorMessage(message),
+        requiresReproposal: false,
+      },
+      audit: {
+        executedAt,
+      },
+    };
+  }
+
+  const result = toRecord(artifact?.result) || {};
+  const operation = String(result.operation || "update").trim().toLowerCase();
+  const actionType =
+    operation === "create"
+      ? "CREATE_ENTITY"
+      : operation === "delete"
+      ? "DELETE_ENTITY"
+      : "UPDATE_ENTITY";
+  const executedActions =
+    Object.keys(result).length > 0
+      ? [
+          {
+            actionType,
+            result,
+            executedAt,
+          },
+        ]
+      : undefined;
+
+  return {
+    type: "execution_result",
+    proposalId: String(artifact?.pendingActionId || ""),
+    status: "success",
+    ...(executedActions ? { executedActions } : {}),
+    audit: {
+      executedAt,
+    },
+  };
+}
+
+function mapPlanExecutedArtifactToUiState(artifact: PlanExecutedEventData): ProposalUiState {
+  const executionResult = mapPlanExecutedArtifactToExecutionResult(artifact);
+  if (executionResult.status === "success") {
+    return {
+      status: "confirmed",
+      executionResult,
+    };
+  }
+  return {
+    status: "failed",
+    error:
+      executionResult.error?.safeMessage ||
+      executionResult.error?.message ||
+      "Could not apply that change.",
+    executionResult,
+  };
+}
+
+function applyProposalUiStateUpdate(
+  messages: AgentMessage[],
+  proposalId: string,
+  uiState: ProposalUiState,
+  decorateAgentMessage: (message: AgentMessage) => AgentMessage,
+): { nextMessages: AgentMessage[]; changed: boolean } {
+  let changed = false;
+  const nextMessages = messages.map((message) => {
+    if (message?.data?.type !== "proposal" || !message.data.proposal) {
+      return message;
+    }
+    const proposals = Array.isArray(message.data.proposal.proposals)
+      ? message.data.proposal.proposals
+      : [];
+    let proposalChanged = false;
+    const nextProposals = proposals.map((proposal) => {
+      if (String(proposal?.proposalId || "") !== proposalId) {
+        return proposal;
+      }
+      proposalChanged = true;
+      return {
+        ...proposal,
+        uiState,
+      };
+    });
+    if (!proposalChanged) {
+      return message;
+    }
+    changed = true;
+    return decorateAgentMessage({
+      ...message,
+      data: {
+        ...message.data,
+        proposal: {
+          ...message.data.proposal,
+          proposals: nextProposals,
+        },
+      },
+    });
+  });
+  return { nextMessages, changed };
 }
 
 export function useAgentState() {
@@ -731,6 +1047,30 @@ export function useAgentState() {
       hasIntentMessage = true;
     };
 
+    const applyProposalUiState = (proposalId: string, uiState: ProposalUiState) => {
+      if (!proposalId) return;
+      const { nextMessages, changed } = applyProposalUiStateUpdate(
+        workingMessages,
+        proposalId,
+        uiState,
+        decorateAgentMessage,
+      );
+      if (!changed) return;
+      workingMessages = nextMessages;
+      updateSessionMessages(sessionId, workingMessages);
+      if (agentData?.type === "proposal" && agentData.proposal) {
+        agentData = {
+          ...agentData,
+          proposal: {
+            ...agentData.proposal,
+            proposals: (agentData.proposal.proposals || []).map((proposal) =>
+              proposal.proposalId === proposalId ? { ...proposal, uiState } : proposal,
+            ),
+          },
+        } as AgentMessageData;
+      }
+    };
+
     // Start streaming
       const abortController = streamAgentMessage(
         trimmed,
@@ -824,7 +1164,7 @@ export function useAgentState() {
             type: "draft_v2",
           } as import("../../services/api/agent").DraftArtifactData;
           agentData = { type: "draft_v2", draftV2 } as AgentMessageData;
-          console.info("[DRAFT_TRACE_STATE_ON_ARTIFACT]", {
+          console.info("[AGENT_ARTIFACT_TRACE_STATE_ON_ARTIFACT]", {
             sessionId,
             agentMessageId,
             dataType: agentData?.type,
@@ -850,6 +1190,81 @@ export function useAgentState() {
             appendMessage(updatedMessage);
             hasAgentMessage = true;
           }
+        },
+        onPlanArtifact: (artifact) => {
+          if (streamSessionRef.current !== sessionId) return;
+          const proposal = mapPlanArtifactToProposalOutput(artifact, sessionId);
+          agentData = { type: "proposal", proposal };
+          streamedContent = "";
+          const updatedMessage: AgentMessage = {
+            id: agentMessageId,
+            role: "agent",
+            content: "",
+            timestamp: new Date(),
+            status: "sending",
+            stage: "artifact",
+            intent,
+            data: agentData,
+            chatbotTurn: chatbotTurnState,
+          };
+          if (hasAgentMessage) {
+            updateMessage(updatedMessage);
+          } else {
+            appendMessage(updatedMessage);
+            hasAgentMessage = true;
+          }
+          clearSessionStatus(sessionId);
+        },
+        onPlanExecuted: (artifact) => {
+          if (streamSessionRef.current !== sessionId) return;
+          applyProposalUiState(
+            String(artifact?.pendingActionId || ""),
+            mapPlanExecutedArtifactToUiState(artifact),
+          );
+          setSessionStatus(sessionId, {
+            action: artifact.ok ? "Planned action executed." : "Planned action failed.",
+            phase: "plan_executed",
+          });
+        },
+        onPlanRejected: (artifact) => {
+          if (streamSessionRef.current !== sessionId) return;
+          applyProposalUiState(String(artifact?.pendingActionId || ""), { status: "cancelled" });
+          setSessionStatus(sessionId, {
+            action: "Planned action cancelled.",
+            phase: "plan_rejected",
+          });
+        },
+        onSuggestionArtifact: (artifact) => {
+          if (streamSessionRef.current !== sessionId) return;
+          const suggestions = mapSuggestionArtifactToAssistSuggestions(artifact);
+          if (hasAgentMessage) {
+            const existing = workingMessages.find((msg) => msg.id === agentMessageId);
+            if (existing) {
+              updateMessage({
+                ...existing,
+                proactiveSuggestions: suggestions,
+              });
+            }
+            clearSessionStatus(sessionId);
+            return;
+          }
+          agentData = {
+            type: "assist_suggestions",
+            assistSuggestions: suggestions,
+          };
+          streamedContent = "";
+          appendMessage({
+            id: agentMessageId,
+            role: "agent",
+            content: "",
+            timestamp: new Date(),
+            status: "sending",
+            stage: "artifact",
+            intent,
+            data: agentData,
+          });
+          hasAgentMessage = true;
+          clearSessionStatus(sessionId);
         },
         onResult: (data) => {
           // ========== STAGE 3: ARTIFACT ==========
@@ -1288,6 +1703,30 @@ export function useAgentState() {
       hasIntentMessage = true;
     };
 
+    const applyProposalUiState = (proposalId: string, uiState: ProposalUiState) => {
+      if (!proposalId) return;
+      const { nextMessages, changed } = applyProposalUiStateUpdate(
+        workingMessages,
+        proposalId,
+        uiState,
+        decorateAgentMessage,
+      );
+      if (!changed) return;
+      workingMessages = nextMessages;
+      updateSessionMessages(sessionId, workingMessages);
+      if (agentData?.type === "proposal" && agentData.proposal) {
+        agentData = {
+          ...agentData,
+          proposal: {
+            ...agentData.proposal,
+            proposals: (agentData.proposal.proposals || []).map((proposal) =>
+              proposal.proposalId === proposalId ? { ...proposal, uiState } : proposal,
+            ),
+          },
+        } as AgentMessageData;
+      }
+    };
+
     const abortController = streamAgentMessage(
       followUpLabel,
       {
@@ -1376,7 +1815,7 @@ export function useAgentState() {
             type: "draft_v2",
           } as import("../../services/api/agent").DraftArtifactData;
           agentData = { type: "draft_v2", draftV2 } as AgentMessageData;
-          console.info("[DRAFT_TRACE_STATE_ON_ARTIFACT]", {
+          console.info("[AGENT_ARTIFACT_TRACE_STATE_ON_ARTIFACT]", {
             sessionId,
             agentMessageId,
             dataType: agentData?.type,
@@ -1402,6 +1841,81 @@ export function useAgentState() {
             appendMessage(updatedMessage);
             hasAgentMessage = true;
           }
+        },
+        onPlanArtifact: (artifact) => {
+          if (streamSessionRef.current !== sessionId) return;
+          const proposal = mapPlanArtifactToProposalOutput(artifact, sessionId);
+          agentData = { type: "proposal", proposal };
+          streamedContent = "";
+          const updatedMessage: AgentMessage = {
+            id: agentMessageId,
+            role: "agent",
+            content: "",
+            timestamp: new Date(),
+            status: "sending",
+            stage: "artifact",
+            intent,
+            data: agentData,
+            chatbotTurn: chatbotTurnState,
+          };
+          if (hasAgentMessage) {
+            updateMessage(updatedMessage);
+          } else {
+            appendMessage(updatedMessage);
+            hasAgentMessage = true;
+          }
+          clearSessionStatus(sessionId);
+        },
+        onPlanExecuted: (artifact) => {
+          if (streamSessionRef.current !== sessionId) return;
+          applyProposalUiState(
+            String(artifact?.pendingActionId || ""),
+            mapPlanExecutedArtifactToUiState(artifact),
+          );
+          setSessionStatus(sessionId, {
+            action: artifact.ok ? "Planned action executed." : "Planned action failed.",
+            phase: "plan_executed",
+          });
+        },
+        onPlanRejected: (artifact) => {
+          if (streamSessionRef.current !== sessionId) return;
+          applyProposalUiState(String(artifact?.pendingActionId || ""), { status: "cancelled" });
+          setSessionStatus(sessionId, {
+            action: "Planned action cancelled.",
+            phase: "plan_rejected",
+          });
+        },
+        onSuggestionArtifact: (artifact) => {
+          if (streamSessionRef.current !== sessionId) return;
+          const suggestions = mapSuggestionArtifactToAssistSuggestions(artifact);
+          if (hasAgentMessage) {
+            const existing = workingMessages.find((msg) => msg.id === agentMessageId);
+            if (existing) {
+              updateMessage({
+                ...existing,
+                proactiveSuggestions: suggestions,
+              });
+            }
+            clearSessionStatus(sessionId);
+            return;
+          }
+          agentData = {
+            type: "assist_suggestions",
+            assistSuggestions: suggestions,
+          };
+          streamedContent = "";
+          appendMessage({
+            id: agentMessageId,
+            role: "agent",
+            content: "",
+            timestamp: new Date(),
+            status: "sending",
+            stage: "artifact",
+            intent,
+            data: agentData,
+          });
+          hasAgentMessage = true;
+          clearSessionStatus(sessionId);
         },
         onResult: (data) => {
           // ========== STAGE 3: ARTIFACT ==========
@@ -1906,6 +2420,30 @@ export function useAgentState() {
         hasIntentMessage = true;
       };
 
+      const applyProposalUiState = (proposalId: string, uiState: ProposalUiState) => {
+        if (!proposalId) return;
+        const { nextMessages, changed } = applyProposalUiStateUpdate(
+          workingMessages,
+          proposalId,
+          uiState,
+          decorateAgentMessage,
+        );
+        if (!changed) return;
+        workingMessages = nextMessages;
+        updateSessionMessages(activeSessionId, workingMessages);
+        if (agentData?.type === "proposal" && agentData.proposal) {
+          agentData = {
+            ...agentData,
+            proposal: {
+              ...agentData.proposal,
+              proposals: (agentData.proposal.proposals || []).map((proposal) =>
+                proposal.proposalId === proposalId ? { ...proposal, uiState } : proposal,
+              ),
+            },
+          } as AgentMessageData;
+        }
+      };
+
       const abortController = streamAgentMessage(
       userContent,
       {
@@ -2003,7 +2541,7 @@ export function useAgentState() {
           } as import("../../services/api/agent").DraftArtifactData;
           agentData = { type: "draft_v2", draftV2 } as AgentMessageData;
           const targetId = opts?.replaceMessageId || agentMessageId;
-          console.info("[DRAFT_TRACE_STATE_ON_ARTIFACT]", {
+          console.info("[AGENT_ARTIFACT_TRACE_STATE_ON_ARTIFACT]", {
             sessionId: activeSessionId,
             agentMessageId: targetId,
             dataType: agentData?.type,
@@ -2030,6 +2568,85 @@ export function useAgentState() {
             appendMessage(updatedMessage);
             hasAgentMessage = true;
           }
+        },
+        onPlanArtifact: (artifact) => {
+          if (streamSessionRef.current !== activeSessionId) return;
+          const proposal = mapPlanArtifactToProposalOutput(artifact, activeSessionId);
+          agentData = { type: "proposal", proposal };
+          streamedContent = "";
+          const targetId = opts?.replaceMessageId || agentMessageId;
+          const updatedMessage: AgentMessage = {
+            id: targetId,
+            role: "agent",
+            content: "",
+            timestamp: new Date(),
+            status: "sending",
+            stage: "artifact",
+            intent,
+            data: agentData,
+            chatbotTurn: chatbotTurnState,
+            retryOf: opts?.retryOf,
+          };
+          if (hasAgentMessage) {
+            updateMessage(updatedMessage);
+          } else {
+            appendMessage(updatedMessage);
+            hasAgentMessage = true;
+          }
+          clearSessionStatus(activeSessionId);
+        },
+        onPlanExecuted: (artifact) => {
+          if (streamSessionRef.current !== activeSessionId) return;
+          applyProposalUiState(
+            String(artifact?.pendingActionId || ""),
+            mapPlanExecutedArtifactToUiState(artifact),
+          );
+          setSessionStatus(activeSessionId, {
+            action: artifact.ok ? "Planned action executed." : "Planned action failed.",
+            phase: "plan_executed",
+          });
+        },
+        onPlanRejected: (artifact) => {
+          if (streamSessionRef.current !== activeSessionId) return;
+          applyProposalUiState(String(artifact?.pendingActionId || ""), { status: "cancelled" });
+          setSessionStatus(activeSessionId, {
+            action: "Planned action cancelled.",
+            phase: "plan_rejected",
+          });
+        },
+        onSuggestionArtifact: (artifact) => {
+          if (streamSessionRef.current !== activeSessionId) return;
+          const suggestions = mapSuggestionArtifactToAssistSuggestions(artifact);
+          const targetId = opts?.replaceMessageId || agentMessageId;
+          if (hasAgentMessage) {
+            const existing = workingMessages.find((msg) => msg.id === targetId);
+            if (existing) {
+              updateMessage({
+                ...existing,
+                proactiveSuggestions: suggestions,
+              });
+            }
+            clearSessionStatus(activeSessionId);
+            return;
+          }
+          agentData = {
+            type: "assist_suggestions",
+            assistSuggestions: suggestions,
+          };
+          streamedContent = "";
+          appendMessage({
+            id: targetId,
+            role: "agent",
+            content: "",
+            timestamp: new Date(),
+            status: "sending",
+            stage: "artifact",
+            intent,
+            data: agentData,
+            retryOf: opts?.retryOf,
+          });
+          hasAgentMessage = true;
+          clearSessionStatus(activeSessionId);
         },
         onResult: (data) => {
           // ========== STAGE 3: ARTIFACT ==========

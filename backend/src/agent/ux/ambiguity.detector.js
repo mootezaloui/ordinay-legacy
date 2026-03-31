@@ -140,11 +140,8 @@ const ACTION_DETAIL_HINTS = [
   "القيمة",
 ];
 
-const MODE_PRIORITY = new Set(["DRAFT", "EXECUTE", "AUTONOMOUS"]);
-
 function detectAmbiguity({ input, session, retrievalContext, activeEntities } = {}) {
   const message = normalizeText(input && input.message);
-  const mode = normalizeMode(input && input.mode);
   const entities = normalizeEntities(
     Array.isArray(activeEntities) ? activeEntities : session && session.activeEntities,
   );
@@ -158,7 +155,7 @@ function detectAmbiguity({ input, session, retrievalContext, activeEntities } = 
       confidence: "low",
       candidates: [],
       highRiskIntent: false,
-      fingerprint: buildFingerprint("none", mode, [], false, false),
+      fingerprint: buildFingerprint("none", [], false, false),
     });
   }
 
@@ -168,9 +165,7 @@ function detectAmbiguity({ input, session, retrievalContext, activeEntities } = 
   const hasTargetNoun = containsAny(message, TARGET_NOUNS);
   const hasActionDetail = containsAny(message, ACTION_DETAIL_HINTS) || hasStructuredDetail(message);
   const hasSpecificEntity = candidates.length === 1;
-  const highRiskIntent = Boolean(
-    mutationIntent && (MODE_PRIORITY.has(mode) || executeIntent),
-  );
+  const highRiskIntent = Boolean(mutationIntent || executeIntent);
 
   if (hasPronounReference && candidates.length === 0) {
     return buildResult({
@@ -180,7 +175,7 @@ function detectAmbiguity({ input, session, retrievalContext, activeEntities } = 
       confidence: highRiskIntent ? "high" : "medium",
       candidates,
       highRiskIntent,
-      fingerprint: buildFingerprint("unclear_reference", mode, candidates, mutationIntent, executeIntent),
+      fingerprint: buildFingerprint("unclear_reference", candidates, mutationIntent, executeIntent),
     });
   }
 
@@ -192,7 +187,7 @@ function detectAmbiguity({ input, session, retrievalContext, activeEntities } = 
       confidence: candidates.length <= MAX_CHOICE_CANDIDATES ? "high" : "medium",
       candidates,
       highRiskIntent,
-      fingerprint: buildFingerprint("multiple_candidates", mode, candidates, mutationIntent, executeIntent),
+      fingerprint: buildFingerprint("multiple_candidates", candidates, mutationIntent, executeIntent),
     });
   }
 
@@ -204,7 +199,7 @@ function detectAmbiguity({ input, session, retrievalContext, activeEntities } = 
       confidence: highRiskIntent ? "high" : "medium",
       candidates,
       highRiskIntent,
-      fingerprint: buildFingerprint("missing_target", mode, candidates, mutationIntent, executeIntent),
+      fingerprint: buildFingerprint("missing_target", candidates, mutationIntent, executeIntent),
     });
   }
 
@@ -216,7 +211,7 @@ function detectAmbiguity({ input, session, retrievalContext, activeEntities } = 
       confidence: highRiskIntent ? "high" : "medium",
       candidates,
       highRiskIntent,
-      fingerprint: buildFingerprint("missing_action_detail", mode, candidates, mutationIntent, executeIntent),
+      fingerprint: buildFingerprint("missing_action_detail", candidates, mutationIntent, executeIntent),
     });
   }
 
@@ -227,7 +222,7 @@ function detectAmbiguity({ input, session, retrievalContext, activeEntities } = 
     confidence: "low",
     candidates: [],
     highRiskIntent,
-    fingerprint: buildFingerprint("none", mode, candidates, mutationIntent, executeIntent),
+    fingerprint: buildFingerprint("none", candidates, mutationIntent, executeIntent),
   });
 }
 
@@ -418,14 +413,13 @@ function buildResult({
   };
 }
 
-function buildFingerprint(kind, mode, candidates, mutationIntent, executeIntent) {
+function buildFingerprint(kind, candidates, mutationIntent, executeIntent) {
   const candidatePart = normalizeEntities(candidates)
     .map((candidate) => `${candidate.type}:${String(candidate.id)}`)
     .sort()
     .join("|");
   return [
     kind || "none",
-    mode || "UNKNOWN",
     candidatePart || "-",
     mutationIntent ? "mutation" : "nomutation",
     executeIntent ? "execute" : "noexecute",
@@ -470,14 +464,6 @@ function includesToken(message, token) {
   }
   const tokens = message.split(" ");
   return tokens.includes(token);
-}
-
-function normalizeMode(value) {
-  const normalized = String(value || "").trim().toUpperCase();
-  if (normalized === "READ_ONLY" || normalized === "DRAFT" || normalized === "EXECUTE" || normalized === "AUTONOMOUS") {
-    return normalized;
-  }
-  return "READ_ONLY";
 }
 
 function normalizeText(value) {

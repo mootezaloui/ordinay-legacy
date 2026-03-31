@@ -4,7 +4,9 @@ exports.AgenticLoop = void 0;
 const session_1 = require("../session");
 const safety_1 = require("../safety");
 const tools_1 = require("../tools");
+const errors_1 = require("../errors");
 const types_1 = require("../types");
+const entity_executor_1 = require("./entity.executor");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const _path = require("path");
 // Resolve from backend root (works from both src/ and .agent-build/)
@@ -131,6 +133,20 @@ const READ_POLICY_INSTRUCTIONS = [
     "- If exactly one match is found, proceed with it and state the assumption explicitly.",
     "- If multiple matches are found, list them with distinguishing details for the user to choose.",
     "- If no matches are found, inform the user clearly.",
+    "",
+    "PLAN-FIRST MUTATION POLICY",
+    "",
+    "For create/update/delete mutation intent on database entities:",
+    "- Use PLAN tools only: proposeCreate, proposeUpdate, proposeDelete.",
+    "- Do NOT call WRITE or EXECUTE tools to initiate mutations.",
+    "- PLAN tools only prepare proposals; they never write to the database directly.",
+    "- Never say a mutation is completed before explicit user confirmation and execution result.",
+    "- If the user amends a pending mutation, call a PLAN tool again with revised args to replace the pending proposal.",
+    "",
+    "OPTIONAL SUGGESTION RULE (when suggestAction tool is available)",
+    "",
+    "- At most one suggestAction call per turn.",
+    "- Suggestions must be specific and grounded in current session context.",
     "",
     "DRAFTING",
     "",
@@ -333,7 +349,8 @@ class AgenticLoop {
     loopGuard;
     persistence;
     memory;
-    constructor(llm, registry, executor, classifier, pending, permissionGate, loopGuard, persistence, memory) {
+    entityExecutor;
+    constructor(llm, registry, executor, classifier, pending, permissionGate, loopGuard, persistence, memory, entityExecutor = new entity_executor_1.EntityExecutor()) {
         this.llm = llm;
         this.registry = registry;
         this.executor = executor;
@@ -343,11 +360,11 @@ class AgenticLoop {
         this.loopGuard = loopGuard;
         this.persistence = persistence;
         this.memory = memory;
+        this.entityExecutor = entityExecutor;
     }
     async run(input, session, streamCallbacks) {
         const startedAt = new Date().toISOString();
         const historyStartIndex = session.history.length;
-        session.mode = input.mode;
         const turnType = this.classifier.classify(input, session);
         session.state.lastTurnType = turnType;
         const toolCalls = [];
@@ -359,10 +376,10 @@ class AgenticLoop {
         try {
             switch (turnType) {
                 case types_1.TurnType.CONFIRMATION:
-                    output = await this.handleConfirmationTurn(input, session, toolCalls, audit, warnings, stats, readCounters);
+                    output = await this.handleConfirmationTurn(input, session, toolCalls, audit, warnings, stats, readCounters, streamCallbacks);
                     break;
                 case types_1.TurnType.REJECTION:
-                    output = this.handleRejectionTurn(input, session, toolCalls, audit, warnings, stats);
+                    output = this.handleRejectionTurn(input, session, toolCalls, audit, warnings, stats, streamCallbacks);
                     break;
                 case types_1.TurnType.NEW:
                 case types_1.TurnType.AMENDMENT:
@@ -377,10 +394,70 @@ class AgenticLoop {
         this.persistTurnArtifacts(input, session, output, startedAt, historyStartIndex);
         return output;
     }
-    async handleConfirmationTurn(input, session, toolCalls, audit, warnings, stats, readCounters) {
-        const action = this.pending.confirmPending(session);
+    async handleConfirmationTurn(input, session, toolCalls, audit, warnings, stats, readCounters, streamCallbacks) {
+        const action = this.pending.getPending(session);
+        if (!action) {
+            throw new errors_1.SessionError("No pending action available for confirmation");
+        }
         const metadata = { confirmedAction: action, loopStats: stats };
         this.appendTurn(session, "user", input.message, types_1.TurnType.CONFIRMATION);
+        if (action.plan) {
+            const context = this.createExecutionContext(input, session);
+            let result;
+            if (this.isWritesExecutionBlockedBySafeMode()) {
+                result = {
+                    ok: false,
+                    errorCode: "SAFE_MODE_WRITES_DISABLED",
+                    errorMessage: "Confirmed write execution is disabled by safe mode.",
+                };
+                const record = this.createToolRecord(action.toolName, action.args, context, result, {
+                    blockedBySafeMode: true,
+                    confirmedActionId: action.id,
+                    executionPath: "plan_executor",
+                });
+                toolCalls.push(record);
+                stats.toolCalls += 1;
+                this.pushAudit(audit, input, "pending_confirmed_plan_blocked_safe_mode", {
+                    actionId: action.id,
+                    toolName: action.toolName,
+                });
+            }
+            else {
+                const executionResult = await this.entityExecutor.execute(action.plan);
+                result = this.normalizeEntityExecutionResult(executionResult);
+                this.collectToolWarnings(result, warnings);
+                const record = this.createToolRecord(action.toolName, action.args, context, result, {
+                    confirmedActionId: action.id,
+                    executionPath: "plan_executor",
+                });
+                toolCalls.push(record);
+                stats.toolCalls += 1;
+                this.appendTurn(session, "tool", this.serializeToolMessage(action.toolName, result), types_1.TurnType.CONFIRMATION, [record]);
+                if (result.ok) {
+                    this.trackConfirmedPlanEntity(session, action.plan, executionResult, input.turnId);
+                }
+                this.pushAudit(audit, input, "pending_confirmed_plan_executed", {
+                    actionId: action.id,
+                    toolName: action.toolName,
+                    operation: action.plan.operation.operation,
+                    entityType: action.plan.operation.entityType,
+                    ok: result.ok,
+                    errorCode: result.errorCode,
+                });
+            }
+            metadata.confirmedExecutionResult = result;
+            const planExecutedArtifact = this.buildPlanExecutedArtifact(action.id, result);
+            metadata.planExecutedArtifact = planExecutedArtifact;
+            streamCallbacks?.onPlanExecuted?.(planExecutedArtifact);
+            const responseText = result.ok
+                ? "Plan executed successfully."
+                : `Plan execution failed: ${result.errorMessage ?? "Unknown error."}`;
+            this.appendTurn(session, "assistant", responseText, types_1.TurnType.CONFIRMATION);
+            this.collectAssistantWarnings(responseText, warnings);
+            this.pending.clearPending(session);
+            this.touchSession(session, types_1.TurnType.CONFIRMATION);
+            return this.buildOutput(input, session, types_1.TurnType.CONFIRMATION, responseText, toolCalls, audit, metadata, warnings);
+        }
         const tool = this.registry.get(action.toolName);
         if (!tool) {
             const result = {
@@ -396,10 +473,12 @@ class AgenticLoop {
                 toolName: action.toolName,
             });
             this.collectAssistantWarnings(responseText, warnings);
+            this.pending.clearPending(session);
             this.touchSession(session, types_1.TurnType.CONFIRMATION);
             return this.buildOutput(input, session, types_1.TurnType.CONFIRMATION, responseText, toolCalls, audit, metadata, warnings);
         }
-        const decision = this.permissionGate.evaluate(session.mode, tool);
+        const authScope = this.resolveAuthScope(input);
+        const decision = this.permissionGate.evaluate({ authScope }, tool);
         if (!decision.allowed) {
             const result = {
                 ok: false,
@@ -415,6 +494,7 @@ class AgenticLoop {
                 reason: result.errorMessage,
             });
             this.collectAssistantWarnings(responseText, warnings);
+            this.pending.clearPending(session);
             this.touchSession(session, types_1.TurnType.CONFIRMATION);
             return this.buildOutput(input, session, types_1.TurnType.CONFIRMATION, responseText, toolCalls, audit, metadata, warnings);
         }
@@ -436,6 +516,7 @@ class AgenticLoop {
                 toolName: action.toolName,
             });
             this.collectAssistantWarnings(responseText, warnings);
+            this.pending.clearPending(session);
             this.touchSession(session, types_1.TurnType.CONFIRMATION);
             return this.buildOutput(input, session, types_1.TurnType.CONFIRMATION, responseText, toolCalls, audit, metadata, warnings);
         }
@@ -461,16 +542,26 @@ class AgenticLoop {
             errorCode: result.errorCode,
         });
         this.collectAssistantWarnings(responseText, warnings);
+        this.pending.clearPending(session);
         this.touchSession(session, types_1.TurnType.CONFIRMATION);
         return this.buildOutput(input, session, types_1.TurnType.CONFIRMATION, responseText, toolCalls, audit, metadata, warnings);
     }
-    handleRejectionTurn(input, session, toolCalls, audit, warnings, stats) {
-        const rejectedAction = this.pending.rejectPending(session);
+    handleRejectionTurn(input, session, toolCalls, audit, warnings, stats, streamCallbacks) {
+        const rejectedAction = this.pending.getPending(session);
+        if (!rejectedAction) {
+            throw new errors_1.SessionError("No pending action available for rejection");
+        }
         const metadata = {
             rejectedActionId: rejectedAction.id,
             loopStats: stats,
         };
         this.appendTurn(session, "user", input.message, types_1.TurnType.REJECTION);
+        if (rejectedAction.plan) {
+            const planRejectedArtifact = this.buildPlanRejectedArtifact(rejectedAction.id);
+            metadata.planRejectedArtifact = planRejectedArtifact;
+            streamCallbacks?.onPlanRejected?.(planRejectedArtifact);
+        }
+        this.pending.clearPending(session);
         const responseText = "Understood. I canceled the pending action.";
         this.appendTurn(session, "assistant", responseText, types_1.TurnType.REJECTION);
         this.pushAudit(audit, input, "pending_rejected", { actionId: rejectedAction.id });
@@ -481,11 +572,13 @@ class AgenticLoop {
     async handleReasoningTurn(input, session, turnType, toolCalls, audit, warnings, stats, readCounters, streamCallbacks) {
         const metadata = { loopStats: stats };
         const messages = this.buildInitialMessages(input, session, turnType);
+        const authScope = this.resolveAuthScope(input);
         this.appendTurn(session, "user", input.message, turnType);
         this.pushAudit(audit, input, "user_turn", { turnType, message: input.message });
         const llmTools = this.llm.supportsTools()
-            ? this.registry.list().map((tool) => this.toLLMToolSchema(tool))
+            ? this.listToolsForScope(authScope)
             : undefined;
+        const draftFlowLikely = this.isDraftFlowLikelyForTurn(input, session);
         let responseText = "";
         let iteration = 0;
         let invalidToolCallRecoveryAttempts = 0;
@@ -512,6 +605,12 @@ class AgenticLoop {
                     onDraftArtifact: (artifact) => {
                         streamCallbacks.onDraftArtifact?.(artifact);
                     },
+                    onPlanArtifact: (artifact) => {
+                        streamCallbacks.onPlanArtifact?.(artifact);
+                    },
+                    onSuggestionArtifact: (artifact) => {
+                        streamCallbacks.onSuggestionArtifact?.(artifact);
+                    },
                 }
                 : undefined;
             const response = await this.loopGuard.wrapTimeout(this.generateAssistantResponse({
@@ -526,7 +625,7 @@ class AgenticLoop {
                         : undefined,
                 },
                 signal: iterationAbortController.signal,
-            }, bufferedStreamCallbacks, input.mode === "DRAFT"), () => {
+            }, bufferedStreamCallbacks, draftFlowLikely), () => {
                 iterationAbortController.abort();
                 console.warn("[AGENT_LOOP_TIMEOUT]", {
                     sessionId: input.sessionId,
@@ -536,7 +635,7 @@ class AgenticLoop {
                     messagePreview: input.message.slice(0, 200),
                 });
             });
-            if (input.mode === "DRAFT") {
+            if (draftFlowLikely) {
                 console.info("[DRAFT_TRACE_LOOP_ITERATION]", this.safeJsonStringify({
                     sessionId: input.sessionId,
                     turnId: input.turnId,
@@ -600,7 +699,7 @@ class AgenticLoop {
                         }
                         continue;
                     }
-                    if (input.mode === "DRAFT") {
+                    if (draftFlowLikely || this.hasSuccessfulGenerateDraftToolCall(toolCalls)) {
                         const hasDraftToolCallSoFar = this.hasSuccessfulGenerateDraftToolCall(toolCalls);
                         console.warn("[DRAFT_TRACE_FINAL_TEXT_WITHOUT_TOOL_CALL]", this.safeJsonStringify({
                             sessionId: input.sessionId,
@@ -654,7 +753,7 @@ class AgenticLoop {
                             continue;
                         }
                     }
-                    const coverage = this.analyzeEntityCoverageForWorkloadQuery(input.mode, input.message, toolCalls);
+                    const coverage = this.analyzeEntityCoverageForWorkloadQuery(authScope, input.message, toolCalls);
                     if (coverage.hasGap && coverageRecoveryAttempts < 2) {
                         coverageRecoveryAttempts += 1;
                         readCounters.READ_WARNINGS += 1;
@@ -795,7 +894,7 @@ class AgenticLoop {
                         }
                         continue;
                     }
-                    if (input.mode === "DRAFT") {
+                    if (draftFlowLikely || this.hasSuccessfulGenerateDraftToolCall(toolCalls)) {
                         const hasDraftToolCallSoFar = this.hasSuccessfulGenerateDraftToolCall(toolCalls);
                         console.warn("[DRAFT_TRACE_FINAL_TEXT_AFTER_INVALID_TOOL_CALLS]", this.safeJsonStringify({
                             sessionId: input.sessionId,
@@ -853,7 +952,7 @@ class AgenticLoop {
                             continue;
                         }
                     }
-                    const coverage = this.analyzeEntityCoverageForWorkloadQuery(input.mode, input.message, toolCalls);
+                    const coverage = this.analyzeEntityCoverageForWorkloadQuery(authScope, input.message, toolCalls);
                     if (coverage.hasGap && coverageRecoveryAttempts < 2) {
                         coverageRecoveryAttempts += 1;
                         readCounters.READ_WARNINGS += 1;
@@ -939,6 +1038,9 @@ class AgenticLoop {
                 if (processed.replacedPendingActionId) {
                     metadata.replacedPendingActionId = processed.replacedPendingActionId;
                 }
+                if (processed.planArtifact) {
+                    metadata.planArtifact = processed.planArtifact;
+                }
             }
         }
         responseText = this.maybeSynthesizeDraftArtifactFromInlineText({
@@ -1021,7 +1123,8 @@ class AgenticLoop {
                 continue;
             }
             this.collectPreExecutionReadDiagnostics(tool.name, args, context.readCounters);
-            const decision = this.permissionGate.evaluate(context.session.mode, tool);
+            const authScope = this.resolveAuthScope(context.input);
+            const decision = this.permissionGate.evaluate({ authScope }, tool);
             const boundaryFailure = this.validatePermissionBoundary(context.input, context.session, tool.category, decision, toolName);
             if (boundaryFailure) {
                 const record = this.createToolRecord(toolName, args, this.createExecutionContext(context.input, context.session), boundaryFailure);
@@ -1162,7 +1265,8 @@ class AgenticLoop {
                 continue;
             }
             this.collectPreExecutionReadDiagnostics(tool.name, args, context.readCounters);
-            const decision = this.permissionGate.evaluate(context.session.mode, tool);
+            const authScope = this.resolveAuthScope(context.input);
+            const decision = this.permissionGate.evaluate({ authScope }, tool);
             const boundaryFailure = this.validatePermissionBoundary(context.input, context.session, tool.category, decision, toolName);
             if (boundaryFailure) {
                 console.warn("[DRAFT_TRACE_TOOL_DENIED]", this.safeJsonStringify({
@@ -1217,6 +1321,90 @@ class AgenticLoop {
                 this.pushAudit(context.audit, context.input, "tool_call_denied", {
                     toolName,
                     reason: result.errorMessage,
+                });
+                continue;
+            }
+            if (tool.category === tools_1.ToolCategory.PLAN) {
+                const executionContext = this.createExecutionContext(context.input, context.session);
+                let result = await this.executor.execute(tool, executionContext, args);
+                this.collectToolWarnings(result, context.warnings);
+                const proposal = result.ok ? this.extractPlanProposal(result) : null;
+                if (result.ok && !proposal) {
+                    result = {
+                        ok: false,
+                        errorCode: "INVALID_PLAN_PROPOSAL",
+                        errorMessage: `Tool "${toolName}" must return data.proposal with ` +
+                            "operation/entityType/summary for PLAN interception.",
+                    };
+                }
+                if (result.ok && proposal) {
+                    const previousPending = context.session.state.pendingAction;
+                    const replacedPendingActionId = context.turnType === types_1.TurnType.AMENDMENT && previousPending
+                        ? previousPending.id
+                        : undefined;
+                    const pendingAction = this.createPendingPlanAction({
+                        toolName,
+                        args,
+                        input: context.input,
+                        proposal,
+                    });
+                    this.pending.setPending(context.session, pendingAction);
+                    const planArtifact = this.buildPlanArtifact(pendingAction);
+                    context.streamCallbacks?.onPlanArtifact?.(planArtifact);
+                    const interceptedResult = {
+                        ok: true,
+                        data: {
+                            status: "pending_confirmation",
+                            pendingActionId: pendingAction.id,
+                            tool: toolName,
+                            proposal,
+                        },
+                        metadata: {
+                            intercepted: true,
+                            planArtifact,
+                            ...(replacedPendingActionId ? { replacedPendingActionId } : {}),
+                        },
+                    };
+                    const record = this.createToolRecord(toolName, args, executionContext, interceptedResult, {
+                        intercepted: true,
+                        planArtifact,
+                        ...(replacedPendingActionId ? { replacedPendingActionId } : {}),
+                    });
+                    record.id = callId;
+                    context.toolCalls.push(record);
+                    context.messages.push({
+                        role: "tool",
+                        name: toolName,
+                        toolCallId: callId,
+                        content: this.serializeToolMessage(toolName, interceptedResult),
+                    });
+                    this.pushAudit(context.audit, context.input, "pending_action_created", {
+                        pendingActionId: pendingAction.id,
+                        toolName,
+                        replacedPendingActionId,
+                        category: "PLAN",
+                    });
+                    return {
+                        stopForConfirmation: true,
+                        confirmationMessage: this.buildConfirmationMessage(pendingAction),
+                        replacedPendingActionId,
+                        planArtifact,
+                    };
+                }
+                const record = this.createToolRecord(toolName, args, executionContext, result);
+                record.id = callId;
+                context.toolCalls.push(record);
+                context.messages.push({
+                    role: "tool",
+                    name: toolName,
+                    toolCallId: callId,
+                    content: this.serializeToolMessage(toolName, result),
+                });
+                this.appendTurn(context.session, "tool", this.summarizeToolMessageForHistory(toolName, this.serializeToolMessage(toolName, result)), context.turnType, [record]);
+                this.pushAudit(context.audit, context.input, "tool_call_processed", {
+                    toolName,
+                    ok: result.ok,
+                    errorCode: result.errorCode,
                 });
                 continue;
             }
@@ -1364,7 +1552,6 @@ class AgenticLoop {
                     userMessage: context.input.message,
                     args,
                     candidates: genericCandidates,
-                    mode: context.input.mode,
                     aggregateIntent: aggregateDraftIntent,
                 });
                 console.info("[DRAFT_TRACE_GUARD_INPUTS]", this.safeJsonStringify({
@@ -1746,9 +1933,6 @@ class AgenticLoop {
         if (params.attempts >= 1) {
             return false;
         }
-        if (params.input.mode !== "DRAFT") {
-            return false;
-        }
         if (!this.isDraftTurnLikely(params.input.message, params.sessionHasCurrentDraft)) {
             return false;
         }
@@ -1801,17 +1985,6 @@ class AgenticLoop {
         return this.getDraftReadGroundingDiagnostics(input, args).requiresReadGrounding;
     }
     getDraftReadGroundingDiagnostics(input, args) {
-        const mode = String(input.mode || "").trim().toUpperCase();
-        if (input.mode !== "DRAFT") {
-            return {
-                requiresReadGrounding: false,
-                mode,
-                userMessageHasDatabaseEntitySignal: false,
-                linkedEntityType: "",
-                hasLinkedEntityId: false,
-                looksCaseBound: false,
-            };
-        }
         const userMessage = String(input.message || "");
         const linkedEntityType = String(args.linkedEntityType || "").trim().toLowerCase();
         const hasLinkedEntityId = typeof args.linkedEntityId === "number" ||
@@ -1822,7 +1995,6 @@ class AgenticLoop {
             hasLinkedEntityId;
         return {
             requiresReadGrounding: looksCaseBound,
-            mode,
             userMessageHasDatabaseEntitySignal,
             linkedEntityType,
             hasLinkedEntityId,
@@ -1835,6 +2007,10 @@ class AgenticLoop {
     }
     isDraftTurnLikely(message, sessionHasCurrentDraft) {
         return sessionHasCurrentDraft || this.isDraftingIntent(message);
+    }
+    isDraftFlowLikelyForTurn(input, session) {
+        const currentDraft = this.resolveDraftForTurn(input, session.currentDraft);
+        return this.isDraftTurnLikely(input.message, Boolean(currentDraft));
     }
     isDraftArtifactSizedResponse(text) {
         const value = String(text || "").trim();
@@ -1946,9 +2122,6 @@ class AgenticLoop {
         return "I've prepared a draft for you. Review it below and tell me what to change.";
     }
     selectFallbackDraftContent(params) {
-        if (params.input.mode !== "DRAFT") {
-            return null;
-        }
         if (this.hasSuccessfulGenerateDraftToolCall(params.toolCalls)) {
             return null;
         }
@@ -2704,6 +2877,146 @@ class AgenticLoop {
             risk: this.mapRisk(category),
         };
     }
+    createPendingPlanAction(params) {
+        const summary = String(params.proposal.summary || "").trim();
+        const normalizedSummary = summary || this.describePlanOperation(params.proposal.operation);
+        const plan = {
+            operation: params.proposal.operation,
+            ...(params.proposal.preview ? { preview: params.proposal.preview } : {}),
+        };
+        return {
+            id: this.createId("pending"),
+            toolName: params.toolName,
+            summary: normalizedSummary,
+            args: params.args,
+            plan,
+            createdAt: new Date().toISOString(),
+            requestedByTurnId: params.input.turnId,
+            risk: this.mapRisk(tools_1.ToolCategory.PLAN),
+        };
+    }
+    buildPlanArtifact(action) {
+        const plan = action.plan;
+        return {
+            pendingActionId: action.id,
+            operation: plan.operation,
+            summary: action.summary,
+            ...(plan.preview ? { preview: plan.preview } : {}),
+        };
+    }
+    buildPlanExecutedArtifact(pendingActionId, result) {
+        const artifact = {
+            pendingActionId,
+            ok: result.ok === true,
+        };
+        if (result.ok && isRecord(result.data)) {
+            artifact.result = result.data;
+        }
+        if (!result.ok) {
+            if (typeof result.errorCode === "string" && result.errorCode.trim().length > 0) {
+                artifact.errorCode = result.errorCode.trim();
+            }
+            if (typeof result.errorMessage === "string" && result.errorMessage.trim().length > 0) {
+                artifact.errorMessage = result.errorMessage.trim();
+            }
+        }
+        return artifact;
+    }
+    buildPlanRejectedArtifact(pendingActionId) {
+        return { pendingActionId };
+    }
+    normalizeEntityExecutionResult(result) {
+        if (!result.ok) {
+            return {
+                ok: false,
+                errorCode: result.errorCode || "ENTITY_EXECUTION_ERROR",
+                errorMessage: result.errorMessage || "Entity execution failed.",
+            };
+        }
+        return {
+            ok: true,
+            data: isRecord(result.result) ? result.result : {},
+        };
+    }
+    trackConfirmedPlanEntity(session, plan, executionResult, turnId) {
+        const entityType = String(plan?.operation?.entityType || "").trim().toLowerCase();
+        if (!entityType) {
+            return;
+        }
+        const entityId = this.resolvePlanEntityId(plan, executionResult);
+        if (entityId == null) {
+            return;
+        }
+        if (!Array.isArray(session.activeEntities)) {
+            session.activeEntities = [];
+        }
+        const entityKey = `${entityType}:${String(entityId)}`;
+        if (plan.operation.operation === "delete") {
+            session.activeEntities = session.activeEntities.filter((row) => {
+                const rowType = String(row?.type || "")
+                    .trim()
+                    .toLowerCase();
+                const rowId = row?.id;
+                return `${rowType}:${String(rowId)}` !== entityKey;
+            });
+            return;
+        }
+        const now = new Date().toISOString();
+        const existingIndex = session.activeEntities.findIndex((row) => {
+            const rowType = String(row?.type || "")
+                .trim()
+                .toLowerCase();
+            const rowId = row?.id;
+            return `${rowType}:${String(rowId)}` === entityKey;
+        });
+        const next = {
+            type: entityType,
+            id: entityId,
+            sourceTool: "plan_executor",
+            lastMentionedAt: now,
+            lastReferencedTurnId: turnId,
+        };
+        if (existingIndex === -1) {
+            session.activeEntities.push(next);
+            return;
+        }
+        session.activeEntities[existingIndex] = {
+            ...session.activeEntities[existingIndex],
+            ...next,
+        };
+    }
+    resolvePlanEntityId(plan, executionResult) {
+        const result = isRecord(executionResult?.result) ? executionResult.result : null;
+        const fromResultId = this.normalizePlanEntityId(result?.entityId);
+        if (fromResultId != null) {
+            return fromResultId;
+        }
+        const entityRecord = isRecord(result?.entity) ? result.entity : null;
+        const fromEntityRecord = this.normalizePlanEntityId(entityRecord?.id);
+        if (fromEntityRecord != null) {
+            return fromEntityRecord;
+        }
+        return this.normalizePlanEntityId(plan?.operation?.entityId);
+    }
+    normalizePlanEntityId(value) {
+        if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+            return Math.floor(value);
+        }
+        if (typeof value === "string") {
+            const trimmed = value.trim();
+            if (!trimmed) {
+                return null;
+            }
+            if (/^\d+$/.test(trimmed)) {
+                const parsed = Number.parseInt(trimmed, 10);
+                if (Number.isFinite(parsed) && parsed > 0) {
+                    return parsed;
+                }
+            }
+            return trimmed;
+        }
+        return null;
+    }
     mapRisk(category) {
         switch (category) {
             case tools_1.ToolCategory.READ:
@@ -2718,17 +3031,134 @@ class AgenticLoop {
         }
     }
     buildConfirmationMessage(action) {
+        if (action.plan) {
+            return [
+                "I prepared a plan and did not execute it.",
+                `Proposed operation: ${action.summary}`,
+                "Please confirm to execute or reject to cancel.",
+            ].join("\n");
+        }
         return [
             "I prepared a pending action and did not execute it.",
             `Proposed operation: ${action.summary}`,
             "Please confirm to execute or reject to cancel.",
         ].join("\n");
     }
+    extractPlanProposal(result) {
+        if (!result.ok || !isRecord(result.data)) {
+            return null;
+        }
+        const proposal = isRecord(result.data.proposal) ? result.data.proposal : null;
+        if (!proposal) {
+            return null;
+        }
+        const operation = this.normalizePlanOperation(proposal.operation);
+        if (!operation) {
+            return null;
+        }
+        const summaryRaw = String(proposal.summary || "").trim();
+        const preview = this.normalizePlanPreview(proposal.preview);
+        return {
+            operation,
+            summary: summaryRaw || this.describePlanOperation(operation),
+            ...(preview ? { preview } : {}),
+        };
+    }
+    normalizePlanOperation(value) {
+        if (!isRecord(value)) {
+            return null;
+        }
+        const operationRaw = String(value.operation || "").trim().toLowerCase();
+        if (operationRaw !== "create" &&
+            operationRaw !== "update" &&
+            operationRaw !== "delete") {
+            return null;
+        }
+        const entityType = String(value.entityType || "").trim();
+        if (!entityType) {
+            return null;
+        }
+        const operation = {
+            operation: operationRaw,
+            entityType,
+        };
+        if (typeof value.entityId === "number" && Number.isFinite(value.entityId)) {
+            operation.entityId = value.entityId;
+        }
+        else if (typeof value.entityId === "string") {
+            const idText = value.entityId.trim();
+            if (idText) {
+                operation.entityId = idText;
+            }
+        }
+        if (isRecord(value.payload)) {
+            operation.payload = { ...value.payload };
+        }
+        if (isRecord(value.changes)) {
+            operation.changes = { ...value.changes };
+        }
+        if (typeof value.reason === "string") {
+            const reason = value.reason.trim();
+            if (reason) {
+                operation.reason = reason;
+            }
+        }
+        return operation;
+    }
+    normalizePlanPreview(value) {
+        if (!isRecord(value)) {
+            return undefined;
+        }
+        const preview = {};
+        if (typeof value.title === "string" && value.title.trim().length > 0) {
+            preview.title = value.title.trim();
+        }
+        if (typeof value.subtitle === "string" && value.subtitle.trim().length > 0) {
+            preview.subtitle = value.subtitle.trim();
+        }
+        if (Array.isArray(value.fields)) {
+            const fields = value.fields
+                .filter((row) => isRecord(row) && typeof row.key === "string" && row.key.trim().length > 0)
+                .slice(0, 30)
+                .map((row) => {
+                const parsed = row;
+                const field = {
+                    key: String(parsed.key).trim(),
+                };
+                if (Object.prototype.hasOwnProperty.call(parsed, "from")) {
+                    field.from = parsed.from;
+                }
+                if (Object.prototype.hasOwnProperty.call(parsed, "to")) {
+                    field.to = parsed.to;
+                }
+                return field;
+            });
+            if (fields.length > 0) {
+                preview.fields = fields;
+            }
+        }
+        if (Array.isArray(value.warnings)) {
+            const warnings = value.warnings
+                .map((entry) => String(entry || "").trim())
+                .filter(Boolean)
+                .slice(0, 30);
+            if (warnings.length > 0) {
+                preview.warnings = warnings;
+            }
+        }
+        return Object.keys(preview).length > 0 ? preview : undefined;
+    }
+    describePlanOperation(operation) {
+        const base = `${operation.operation} ${operation.entityType}`;
+        if (operation.entityId == null) {
+            return base;
+        }
+        return `${base} ${String(operation.entityId)}`;
+    }
     createExecutionContext(input, session) {
         return {
             sessionId: session.id,
             turnId: input.turnId,
-            mode: session.mode,
             userId: input.userId ?? session.userId,
             metadata: input.metadata,
         };
@@ -2746,7 +3176,6 @@ class AgenticLoop {
             ? securityMetadata.authScope
             : "unknown";
         this.maybeLogBoundaryCheck({
-            mode: session.mode,
             authScope,
             toolCategory,
             allowed: permissionDecision.allowed,
@@ -2756,7 +3185,6 @@ class AgenticLoop {
         let validation;
         try {
             validation = security.validatePermissionBoundary({
-                mode: session.mode,
                 authScope,
                 toolCategory,
                 permissionDecision,
@@ -2767,7 +3195,6 @@ class AgenticLoop {
                 ? error.message
                 : "Permission boundary validation failed.";
             this.maybeLogBoundaryCheck({
-                mode: session.mode,
                 authScope,
                 toolCategory,
                 allowed: permissionDecision.allowed,
@@ -2789,7 +3216,6 @@ class AgenticLoop {
             ? row.reason
             : `Permission boundary validation failed for tool "${toolName}".`;
         this.maybeLogBoundaryCheck({
-            mode: session.mode,
             authScope,
             toolCategory,
             allowed: permissionDecision.allowed,
@@ -3032,6 +3458,19 @@ class AgenticLoop {
                 parameters: tool.inputSchema ?? { type: "object", properties: {} },
             },
         };
+    }
+    listToolsForScope(authScope) {
+        return this.registry
+            .list()
+            .filter((tool) => this.permissionGate.evaluate({ authScope }, tool).allowed)
+            .map((tool) => this.toLLMToolSchema(tool));
+    }
+    resolveAuthScope(input) {
+        const security = isRecord(input.metadata?.security) ? input.metadata.security : undefined;
+        if (security && typeof security.authScope === "string") {
+            return String(security.authScope).trim() || "unknown";
+        }
+        return "unknown";
     }
     normalizeArgs(args) {
         if (isRecord(args)) {
@@ -3730,7 +4169,6 @@ class AgenticLoop {
         const ambiguity = detectGenericAmbiguity({
             input: {
                 message: params.userMessage,
-                mode: String(params.mode || "DRAFT"),
             },
             activeEntities: normalizedCandidates.map((candidate) => ({
                 type: candidate.entityType,
@@ -4272,9 +4710,9 @@ class AgenticLoop {
             return toolDef?.category === tools_1.ToolCategory.READ;
         });
     }
-    analyzeEntityCoverageForWorkloadQuery(mode, userMessage, toolCalls) {
+    analyzeEntityCoverageForWorkloadQuery(authScope, userMessage, toolCalls) {
         const normalizedMessage = String(userMessage || "");
-        if (mode !== "READ_ONLY" || !WORKLOAD_OR_CASES_QUERY_PATTERN.test(normalizedMessage)) {
+        if (!this.isReadScope(authScope) || !WORKLOAD_OR_CASES_QUERY_PATTERN.test(normalizedMessage)) {
             return {
                 hasGap: false,
                 expectedTools: [],
@@ -4315,6 +4753,10 @@ class AgenticLoop {
             executedTools: Array.from(executed),
             missingTools,
         };
+    }
+    isReadScope(authScope) {
+        const normalized = String(authScope || "").trim().toLowerCase();
+        return normalized === "read" || normalized === "reader";
     }
     buildCoverageRecoveryInstruction(userMessage, missingTools) {
         const missing = (missingTools || []).filter((name) => typeof name === "string" && name.trim().length > 0);

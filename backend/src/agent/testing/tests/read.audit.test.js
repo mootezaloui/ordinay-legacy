@@ -204,7 +204,6 @@ function createLoopFixture({ id, message, setup, assert: assertFn }) {
       sessionId: `${id}_session`,
       turnId: `${id}_turn_1`,
       message,
-      mode: "READ_ONLY",
       metadata: {},
     },
     setup,
@@ -230,24 +229,55 @@ function installSyntheticReadTool(runtime, name, handler) {
 
 function queueLlmResponses(runtime, responses) {
   const llm = runtime?.loop?.llm;
-  if (!llm || typeof llm.generate !== "function") {
+  if (
+    !llm ||
+    typeof llm.generate !== "function" ||
+    typeof llm.stream !== "function"
+  ) {
     throw new Error("Unable to patch LLM generate for read audit test.");
   }
 
-  const queue = Array.isArray(responses) ? [...responses] : [];
-  const original = llm.generate.bind(llm);
+  const queueForStream = Array.isArray(responses) ? [...responses] : [];
+  const queueForGenerate = Array.isArray(responses) ? [...responses] : [];
+  const originalGenerate = llm.generate.bind(llm);
+  const originalStream = llm.stream.bind(llm);
+
+  llm.stream = async function* () {
+    const next =
+      queueForStream.length > 0
+        ? queueForStream.shift()
+        : { text: "Done.", toolCalls: [] };
+    const toolCalls = Array.isArray(next?.toolCalls) ? next.toolCalls : [];
+    const text = String(next?.text || "");
+    if (text.length > 0) {
+      yield { deltaText: text };
+    }
+    for (const toolCall of toolCalls) {
+      yield { toolCall };
+    }
+    yield {
+      finishReason: toolCalls.length > 0 ? "tool_calls" : "stop",
+      done: true,
+    };
+  };
+
   llm.generate = async () => {
-    const next = queue.length > 0 ? queue.shift() : { text: "Done.", toolCalls: [] };
+    const next =
+      queueForGenerate.length > 0
+        ? queueForGenerate.shift()
+        : { text: "Done.", toolCalls: [] };
+    const toolCalls = Array.isArray(next?.toolCalls) ? next.toolCalls : [];
     return {
       text: String(next?.text || ""),
-      toolCalls: Array.isArray(next?.toolCalls) ? next.toolCalls : [],
-      finishReason: "stop",
+      toolCalls,
+      finishReason: toolCalls.length > 0 ? "tool_calls" : "stop",
       raw: next,
     };
   };
 
   return () => {
-    llm.generate = original;
+    llm.generate = originalGenerate;
+    llm.stream = originalStream;
   };
 }
 

@@ -86,6 +86,60 @@ function assertFailureType(result, expectedType) {
   assert.equal(actual, normalizeOptionalString(expectedType), `Expected failure type "${expectedType}"`);
 }
 
+function assertSseEvents(result, spec) {
+  const rules = isRecord(spec) ? spec : {};
+  const events = Array.isArray(result?.events) ? result.events : [];
+  const names = events.map((event) => String(event?.event || "").trim()).filter(Boolean);
+
+  const includes = Array.isArray(rules.includes) ? rules.includes : [];
+  for (const expected of includes) {
+    const eventName = normalizeOptionalString(expected);
+    assert.equal(
+      names.includes(eventName),
+      true,
+      `Expected SSE event "${eventName}" to be present`,
+    );
+  }
+
+  const excludes = Array.isArray(rules.excludes) ? rules.excludes : [];
+  for (const forbidden of excludes) {
+    const eventName = normalizeOptionalString(forbidden);
+    assert.equal(
+      names.includes(eventName),
+      false,
+      `Expected SSE event "${eventName}" to be absent`,
+    );
+  }
+
+  const ordered = Array.isArray(rules.ordered) ? rules.ordered : [];
+  if (ordered.length > 0) {
+    let cursor = -1;
+    for (const orderedEvent of ordered) {
+      const eventName = normalizeOptionalString(orderedEvent);
+      const nextIndex = names.findIndex((name, index) => index > cursor && name === eventName);
+      assert.ok(
+        nextIndex > cursor,
+        `Expected SSE event "${eventName}" after index ${cursor}. Got sequence: ${names.join(", ")}`,
+      );
+      cursor = nextIndex;
+    }
+  }
+
+  const counts = isRecord(rules.counts) ? rules.counts : {};
+  for (const [name, expectedCountRaw] of Object.entries(counts)) {
+    const expectedCount = Number(expectedCountRaw);
+    if (!Number.isFinite(expectedCount)) {
+      continue;
+    }
+    const actualCount = names.filter((eventName) => eventName === name).length;
+    assert.equal(
+      actualCount,
+      expectedCount,
+      `Expected SSE event "${name}" count to be ${expectedCount}, got ${actualCount}`,
+    );
+  }
+}
+
 function getByPath(object, fieldPath) {
   const pathParts = String(fieldPath || "")
     .split(".")
@@ -106,6 +160,10 @@ function findSseEvent(result, eventName) {
   return events.find((event) => event?.event === eventName) || null;
 }
 
+function isRecord(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
 function normalizeOptionalString(value) {
   return String(value ?? "").trim();
 }
@@ -119,5 +177,5 @@ module.exports = {
   assertCitationPresence,
   assertClarificationTriggered,
   assertFailureType,
+  assertSseEvents,
 };
-

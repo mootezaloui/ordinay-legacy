@@ -1505,7 +1505,7 @@ function ArtifactBody({
     );
   }
   if (dataType === "draft_v2" && !message.data?.draftV2) {
-    console.warn("[DRAFT_TRACE_RENDER_MISSING_DRAFT_V2]", {
+    console.warn("[AGENT_ARTIFACT_RENDER_MISSING_DRAFT_V2]", {
       messageId: message.id,
       dataKeys: message.data ? Object.keys(message.data) : [],
       stage: message.stage,

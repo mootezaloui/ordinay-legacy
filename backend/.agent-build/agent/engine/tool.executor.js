@@ -11,7 +11,7 @@ class ToolExecutor {
         const startedAt = Date.now();
         let result;
         if (this.permissionGate) {
-            const decision = this.permissionGate.evaluate(context.mode, tool);
+            const decision = this.permissionGate.evaluate({ authScope: resolveAuthScope(context) }, tool);
             if (!decision.allowed) {
                 result = {
                     ok: false,
@@ -85,6 +85,15 @@ class ToolExecutor {
     }
 }
 exports.ToolExecutor = ToolExecutor;
+function resolveAuthScope(context) {
+    if (!isRecord(context.metadata)) {
+        return "unknown";
+    }
+    const security = isRecord(context.metadata.security) ? context.metadata.security : null;
+    return (security && typeof security.authScope === "string"
+        ? String(security.authScope).trim()
+        : "unknown") || "unknown";
+}
 function estimateResultCount(result) {
     if (!result.ok) {
         return 0;

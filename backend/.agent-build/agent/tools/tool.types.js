@@ -9,4 +9,5 @@ var ToolCategory;
     ToolCategory["PLAN"] = "PLAN";
     ToolCategory["EXECUTE"] = "EXECUTE";
     ToolCategory["EXTERNAL"] = "EXTERNAL";
+    ToolCategory["SYSTEM"] = "SYSTEM";
 })(ToolCategory || (exports.ToolCategory = ToolCategory = {}));

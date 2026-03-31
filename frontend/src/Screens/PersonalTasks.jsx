@@ -1,4 +1,4 @@
-﻿import { useMemo, useState, useRef, useLayoutEffect, useEffect } from "react";
+import { useMemo, useState, useRef, useLayoutEffect, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";

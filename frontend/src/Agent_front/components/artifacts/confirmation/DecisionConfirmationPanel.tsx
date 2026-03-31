@@ -302,6 +302,78 @@ function ProposalFieldIcon({ field }: { field: StructuredProposalCardField }) {
   return <FileText className={className} />;
 }
 
+function toStructuredCardFromLegacyViewModel(
+  viewModel: SemanticActionViewModel,
+): StructuredProposalCardViewModel {
+  const changeItems = viewModel.impact.filter((item) => item.kind === "change");
+  const consequenceItems = viewModel.impact.filter((item) => item.kind === "consequence");
+  const warningItems = viewModel.impact.filter((item) => item.kind === "warning");
+  const reversibilityItems = viewModel.impact.filter((item) => item.kind === "reversibility");
+
+  const fields: StructuredProposalCardField[] = [];
+  for (const item of changeItems) {
+    const label = String(item.title || "Change").trim();
+    const hasDiff = Boolean(item.before || item.after);
+    const value = hasDiff
+      ? `${item.before || "Current"} -> ${item.after || "Updated"}`
+      : String(item.detail || "").trim();
+    if (!value) continue;
+    fields.push({
+      key: `${label}-${fields.length}`,
+      label,
+      value,
+      icon: "status",
+      span: "full",
+    });
+  }
+
+  if (fields.length === 0) {
+    fields.push({
+      key: "planned_change",
+      label: "Planned change",
+      value: String(viewModel.description || "This action will be applied when confirmed."),
+      icon: "file",
+      span: "full",
+    });
+  }
+
+  const impactLines = [...consequenceItems, ...warningItems, ...reversibilityItems]
+    .map((item) => String(item.detail || "").trim())
+    .filter(Boolean);
+
+  return {
+    verb: "Confirm",
+    entityLabel: "Change",
+    reversibleLabel:
+      viewModel.toneVariant === "destructive" ? "Not reversible" : "Can be adjusted later",
+    title: viewModel.headline || "Confirm this change",
+    subtitle: viewModel.description || undefined,
+    fields,
+    contentPreview:
+      impactLines.length > 0
+        ? {
+            label: "What this affects",
+            text: impactLines.map((line) => `- ${line}`).join("\n"),
+          }
+        : undefined,
+    warningHint:
+      viewModel.toneVariant === "destructive"
+        ? "Please review carefully before confirming."
+        : "Review before confirming.",
+    confirmLabel: viewModel.confirmLabel || "Confirm",
+    cancelLabel: viewModel.cancelLabel || "Cancel",
+    applied: {
+      title: "Applied",
+      subtitle: "The confirmed action completed successfully.",
+    },
+    cancelled: {
+      title: "Cancelled",
+      subtitle: "No change was applied.",
+      undoLabel: "Undo",
+    },
+  };
+}
+
 function ProposalResultFooter({
   card,
   uiState,
@@ -315,18 +387,18 @@ function ProposalResultFooter({
 }) {
   if (uiState === "applied") {
     return (
-      <div className="flex items-center justify-between gap-3 border-t border-emerald-500/20 bg-emerald-500/10 px-4 py-3">
+      <div className="flex items-center justify-between gap-3 border-t border-emerald-200/70 bg-emerald-50/80 px-4 py-3 dark:border-emerald-700/40 dark:bg-emerald-900/20">
         <div className="flex min-w-0 items-center gap-3">
           <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.55)] animate-pulse" />
           <div className="min-w-0">
-            <div className="text-sm font-medium text-emerald-100">{card.applied.title}</div>
-            <div className="text-xs text-emerald-200/70">
+            <div className="text-sm font-medium text-emerald-800 dark:text-emerald-100">{card.applied.title}</div>
+            <div className="text-xs text-emerald-700/80 dark:text-emerald-200/70">
               {card.applied.subtitle || completedAtLabel || "The confirmed action completed successfully."}
             </div>
           </div>
         </div>
         {card.applied.shortcutLabel && card.applied.resultTarget ? (
-          <div className="text-xs font-medium text-emerald-200 whitespace-nowrap">
+          <div className="text-xs font-medium text-emerald-700 dark:text-emerald-200 whitespace-nowrap">
             {card.applied.shortcutLabel} &rarr;
           </div>
         ) : null}
@@ -336,19 +408,19 @@ function ProposalResultFooter({
 
   if (uiState === "declined") {
     return (
-      <div className="flex items-center justify-between gap-3 border-t border-rose-500/20 bg-rose-500/10 px-4 py-3">
+      <div className="flex items-center justify-between gap-3 border-t border-rose-200/70 bg-rose-50/80 px-4 py-3 dark:border-rose-700/40 dark:bg-rose-900/20">
         <div className="flex min-w-0 items-center gap-3">
           <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-rose-400 shadow-[0_0_10px_rgba(251,113,133,0.45)]" />
           <div className="min-w-0">
-            <div className="text-sm font-medium text-rose-100">{card.cancelled.title}</div>
-            <div className="text-xs text-rose-200/70">{card.cancelled.subtitle}</div>
+            <div className="text-sm font-medium text-rose-800 dark:text-rose-100">{card.cancelled.title}</div>
+            <div className="text-xs text-rose-700/80 dark:text-rose-200/70">{card.cancelled.subtitle}</div>
           </div>
         </div>
         {onUndo ? (
           <button
             type="button"
             onClick={onUndo}
-            className="rounded-md border border-white/10 px-2.5 py-1 text-xs font-medium text-slate-100 transition hover:bg-white/5"
+            className="rounded-md border border-black/[0.08] bg-white px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
           >
             {card.cancelled.undoLabel}
           </button>
@@ -390,27 +462,29 @@ function StructuredProposalCard({
 
   return (
     <div
-      className="overflow-hidden rounded-2xl border border-white/8 bg-slate-950/70 shadow-[0_16px_60px_rgba(2,6,23,0.42)] animate-in fade-in slide-in-from-bottom-2 duration-300"
+      className="artifact-build agent-artifact-card is-proposal overflow-visible animate-in fade-in slide-in-from-bottom-2 duration-300"
       data-testid="decision-confirmation-panel"
       data-state={uiState}
     >
-      <div className="flex items-center justify-between gap-3 border-b border-white/6 bg-black/20 px-4 py-3">
+      <div className="artifact-build-header agent-artifact-header agent-artifact-header-proposal flex items-center justify-between gap-3 px-5 py-4">
         <div className="flex items-center gap-2.5">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{card.verb}</span>
-          <span className="rounded-md border border-sky-400/20 bg-sky-500/10 px-2 py-1 text-[11px] font-semibold text-sky-300">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">{card.verb}</span>
+          <span className="rounded-md border border-violet-300/40 bg-violet-50 px-2 py-1 text-[11px] font-semibold text-violet-700 dark:border-violet-700/40 dark:bg-violet-900/20 dark:text-violet-300">
             {card.entityLabel}
           </span>
         </div>
-        <span className="rounded-md border border-white/8 bg-white/5 px-2 py-1 text-[11px] font-medium text-slate-300">
-          {card.reversibleLabel}
-        </span>
+        {String(card.reversibleLabel || "").toLowerCase().includes("not reversible") ? (
+          <span className="rounded-md border border-rose-200/80 bg-rose-50 px-2 py-1 text-[11px] font-medium text-rose-700 dark:border-rose-700/40 dark:bg-rose-900/20 dark:text-rose-300">
+            {card.reversibleLabel}
+          </span>
+        ) : null}
       </div>
 
-      <div className="space-y-4 px-4 py-4">
+      <div className="artifact-build-section artifact-build-section-1 space-y-4 px-5 py-4">
         <div className="space-y-1">
-          <h3 className="text-[15px] font-semibold leading-6 text-slate-50">{card.title}</h3>
+          <h3 className="text-[15px] font-semibold leading-6 text-slate-800 dark:text-slate-100">{card.title}</h3>
           {card.subtitle ? (
-            <p className="text-sm leading-5 text-slate-400">{card.subtitle}</p>
+            <p className="text-sm leading-5 text-slate-600 dark:text-slate-300">{card.subtitle}</p>
           ) : null}
         </div>
 
@@ -420,18 +494,18 @@ function StructuredProposalCard({
               <div
                 key={`${field.key}-${field.label}`}
                 className={cx(
-                  "flex items-start gap-3 rounded-xl border border-white/6 bg-white/[0.03] px-3 py-3",
+                  "flex items-start gap-3 rounded-xl border border-black/[0.06] bg-slate-50/80 px-3 py-3 dark:border-white/[0.08] dark:bg-slate-800/45",
                   field.span === "full" ? "sm:col-span-2" : "",
                 )}
               >
-                <span className="mt-0.5 text-slate-500">
+                <span className="mt-0.5 text-slate-500 dark:text-slate-400">
                   <ProposalFieldIcon field={field} />
                 </span>
                 <div className="min-w-0">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
                     {field.label}
                   </div>
-                  <div className="mt-1 break-words text-sm font-medium text-slate-100">{field.value}</div>
+                  <div className="mt-1 break-words text-sm font-medium text-slate-800 dark:text-slate-100">{field.value}</div>
                 </div>
               </div>
             ))}
@@ -439,45 +513,45 @@ function StructuredProposalCard({
         ) : null}
 
         {card.contentPreview ? (
-          <div className="rounded-r-xl border border-white/6 border-l-sky-400/40 bg-white/[0.03] px-4 py-3">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+          <div className="rounded-r-xl border border-black/[0.06] border-l-violet-400/50 bg-white/80 px-4 py-3 dark:border-white/[0.08] dark:bg-slate-900/35">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
               {card.contentPreview.label}
             </div>
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-200">{card.contentPreview.text}</p>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700 dark:text-slate-200">{card.contentPreview.text}</p>
           </div>
         ) : null}
 
         {uiState === "expired" ? (
-          <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-100">
+          <div className="rounded-xl border border-amber-200/70 bg-amber-50/90 px-3 py-2.5 text-sm text-amber-900 dark:border-amber-800/60 dark:bg-amber-950/25 dark:text-amber-200">
             This confirmation expired. Ask the assistant to prepare it again.
           </div>
         ) : null}
 
         {uiState === "stale" ? (
-          <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-100">
+          <div className="rounded-xl border border-amber-200/70 bg-amber-50/90 px-3 py-2.5 text-sm text-amber-900 dark:border-amber-800/60 dark:bg-amber-950/25 dark:text-amber-200">
             This confirmation is no longer current. Please ask the assistant to prepare the change again.
           </div>
         ) : null}
 
         {errorMessage && uiState === "failed" ? (
-          <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2.5 text-sm text-rose-100">
+          <div className="rounded-xl border border-rose-200/70 bg-rose-50/90 px-3 py-2.5 text-sm text-rose-900 dark:border-rose-800/60 dark:bg-rose-950/20 dark:text-rose-200">
             {errorMessage}
           </div>
         ) : null}
       </div>
 
       {showPendingBar ? (
-        <div className="flex flex-col gap-3 border-t border-white/6 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2 text-xs font-medium text-amber-300">
+        <div className="agent-artifact-footer artifact-build-section artifact-build-section-3 flex-wrap gap-2">
+          <div className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-300">
             <AlertTriangle className="h-3.5 w-3.5" />
             <span>{card.warningHint}</span>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={onDecline}
               disabled={uiState === "submitting"}
-              className="rounded-lg border border-white/10 px-3.5 py-2 text-sm font-medium text-slate-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
+              className="agent-action-btn agent-action-btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
             >
               {card.cancelLabel}
             </button>
@@ -485,7 +559,7 @@ function StructuredProposalCard({
               type="button"
               onClick={showRetry ? onRetry : onConfirm}
               disabled={uiState === "submitting"}
-              className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-70"
+              className="agent-action-btn agent-action-btn-primary min-w-[132px] justify-center disabled:cursor-not-allowed disabled:opacity-70"
             >
               {uiState === "submitting" ? (
                 <>
@@ -518,7 +592,7 @@ function StructuredProposalCard({
       ) : null}
 
       {expiresAt && uiState === "awaiting_decision" ? (
-        <div className="border-t border-white/6 px-4 py-2 text-[11px] text-slate-500">
+        <div className="border-t border-black/[0.05] px-5 py-2 text-[11px] text-slate-500 dark:border-white/[0.06] dark:text-slate-400">
           Available until {new Date(expiresAt).toLocaleTimeString()}.
         </div>
       ) : null}
@@ -621,19 +695,30 @@ function LegacyPanel({
       </div>
 
       <div
-        className={cx("overflow-hidden rounded-xl border shadow-sm", tone.wrap)}
+        className={cx("artifact-build agent-artifact-card is-proposal overflow-visible", tone.wrap)}
         data-testid="decision-confirmation-panel"
         data-tone={viewModel.toneVariant}
         data-state={uiState}
       >
-        <div className={cx("h-1", tone.accent)} />
-        <div className="space-y-3 px-4 py-3.5">
-          <div className="space-y-1">
+        <div className="artifact-build-header agent-artifact-header agent-artifact-header-proposal flex items-center justify-between gap-3 px-5 py-4">
+          <div className="flex items-center gap-2.5">
             {toneLabel ? (
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <span className="rounded-md border border-amber-300/50 bg-amber-50 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-700 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-300">
                 {toneLabel}
-              </div>
-            ) : null}
+              </span>
+            ) : (
+              <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                Confirmation
+              </span>
+            )}
+          </div>
+          <span className="rounded-md border border-black/[0.08] bg-white px-2 py-1 text-[11px] font-medium text-slate-600 dark:border-white/[0.1] dark:bg-slate-800/70 dark:text-slate-300">
+            {viewModel.toneVariant === "destructive" ? "Not reversible" : "Can be adjusted later"}
+          </span>
+        </div>
+
+        <div className="artifact-build-section artifact-build-section-1 space-y-3 px-5 py-4">
+          <div className="space-y-1">
             <h3 className="text-sm font-semibold leading-5 text-slate-900 dark:text-slate-100">
               {viewModel.headline}
             </h3>
@@ -642,7 +727,7 @@ function LegacyPanel({
             ) : null}
           </div>
 
-          <div className={cx("space-y-3 rounded-lg border p-3", tone.subtle)}>
+          <div className={cx("space-y-3 rounded-xl border p-3", tone.subtle)}>
             <PreviewRows preview={viewModel.preview} />
             <ChangeRows items={changeItems} title={viewModel.sections.changesLabel} />
             <ImpactRows
@@ -669,7 +754,18 @@ function LegacyPanel({
           <LegacyExecutionState uiState={uiState} errorMessage={errorMessage} completedAtLabel={completedAtLabel} />
 
           {(isActionable || showRetry) ? (
-            <div className="flex flex-wrap gap-2 pt-1">
+            <div className="agent-artifact-footer artifact-build-section artifact-build-section-3 -mx-5 -mb-4 mt-1 flex-wrap gap-2 border-t border-black/[0.05] px-5 py-3 dark:border-white/[0.06]">
+              {isActionable ? (
+                <button
+                  type="button"
+                  onClick={onDecline}
+                  className="agent-action-btn agent-action-btn-secondary"
+                >
+                  <XCircle className="w-4 h-4" />
+                  {viewModel.cancelLabel}
+                </button>
+              ) : null}
+
               <button
                 type="button"
                 onClick={showRetry ? onRetry : onConfirm}
@@ -692,17 +788,6 @@ function LegacyPanel({
                   </>
                 )}
               </button>
-
-              {isActionable ? (
-                <button
-                  type="button"
-                  onClick={onDecline}
-                  className="agent-action-btn agent-action-btn-secondary"
-                >
-                  <XCircle className="w-4 h-4" />
-                  {viewModel.cancelLabel}
-                </button>
-              ) : null}
             </div>
           ) : null}
 
@@ -730,24 +815,23 @@ function LegacyPanel({
 
 export function DecisionConfirmationPanel(props: DecisionConfirmationPanelProps) {
   const { viewModel, uiState, errorMessage, completedAtLabel, expiresAt, canRetry = true, requiresRefresh = false, onConfirm, onDecline, onUndo, onRetry } = props;
-
-  if (viewModel.card) {
-    return (
-      <StructuredProposalCard
-        card={viewModel.card}
-        uiState={uiState}
-        errorMessage={errorMessage}
-        completedAtLabel={completedAtLabel}
-        expiresAt={expiresAt}
-        canRetry={canRetry}
-        requiresRefresh={requiresRefresh}
-        onConfirm={onConfirm}
-        onDecline={onDecline}
-        onUndo={onUndo}
-        onRetry={onRetry}
-      />
-    );
+  const card = viewModel.card || toStructuredCardFromLegacyViewModel(viewModel);
+  if (!card) {
+    return <LegacyPanel {...props} />;
   }
-
-  return <LegacyPanel {...props} />;
+  return (
+    <StructuredProposalCard
+      card={card}
+      uiState={uiState}
+      errorMessage={errorMessage}
+      completedAtLabel={completedAtLabel}
+      expiresAt={expiresAt}
+      canRetry={canRetry}
+      requiresRefresh={requiresRefresh}
+      onConfirm={onConfirm}
+      onDecline={onDecline}
+      onUndo={onUndo}
+      onRetry={onRetry}
+    />
+  );
 }

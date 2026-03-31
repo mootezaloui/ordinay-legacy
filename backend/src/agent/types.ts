@@ -1,10 +1,3 @@
-export enum AgentMode {
-  READ_ONLY = "READ_ONLY",
-  DRAFT = "DRAFT",
-  EXECUTE = "EXECUTE",
-  AUTONOMOUS = "AUTONOMOUS",
-}
-
 export enum TurnType {
   NEW = "NEW",
   CONFIRMATION = "CONFIRMATION",
@@ -20,11 +13,149 @@ export interface EntityReference {
   label?: string;
 }
 
+export type PlanOperationType = "create" | "update" | "delete";
+
+export interface PlanOperation {
+  operation: PlanOperationType;
+  entityType: string;
+  entityId?: number | string;
+  payload?: Record<string, unknown>;
+  changes?: Record<string, unknown>;
+  reason?: string;
+}
+
+export type DomainWorkflowActionType =
+  | "CREATE_ENTITY"
+  | "UPDATE_ENTITY"
+  | "DELETE_ENTITY";
+
+export interface DomainWorkflowDecisionOption {
+  key: string;
+  title: string;
+  description: string;
+}
+
+export interface DomainWorkflowStep {
+  id: string;
+  actionType: DomainWorkflowActionType;
+  operation: PlanOperationType;
+  entityType: string;
+  entityId?: number | string;
+  payload?: Record<string, unknown>;
+  changes?: Record<string, unknown>;
+  reason?: string;
+  dependsOn?: string[];
+}
+
+export interface DomainWorkflowStepResult {
+  stepId: string;
+  actionType: DomainWorkflowActionType;
+  operation: PlanOperationType;
+  entityType: string;
+  entityId?: number | string;
+  ok: boolean;
+  result?: Record<string, unknown>;
+  errorCode?: string;
+  errorMessage?: string;
+}
+
+export interface DomainWorkflowDiagnostics {
+  plannerVersion?: string;
+  analyzedAt?: string;
+  blockers?: Record<string, number>;
+  notes?: string[];
+  requiresUserDecision?: boolean;
+  decisionPrompt?: string;
+  decisionOptions?: DomainWorkflowDecisionOption[];
+}
+
+export interface PlanPreviewChange {
+  entityType: string;
+  entityId?: number | null;
+  entityLabel?: string | null;
+  field: string;
+  from?: unknown;
+  to?: unknown;
+}
+
+export interface PlanPreviewCascadeGroup {
+  entityType: string;
+  totalCount: number;
+  changedFields?: string[];
+  examples?: PlanPreviewChange[];
+}
+
+export interface PlanPreviewField {
+  key: string;
+  from?: unknown;
+  to?: unknown;
+}
+
+export interface PlanPreview {
+  title?: string;
+  subtitle?: string;
+  fields?: PlanPreviewField[];
+  warnings?: string[];
+  scope?: "single_entity" | "workflow" | string;
+  root?: {
+    type?: string;
+    id?: number | null;
+    label?: string;
+    operation?: string;
+  };
+  primaryChanges?: PlanPreviewChange[];
+  cascadeSummary?: PlanPreviewCascadeGroup[];
+  effects?: string[];
+  reversibility?: "reversible" | "not_reversible" | "unknown" | string;
+  decisions?: DomainWorkflowDecisionOption[];
+}
+
+export interface PendingActionPlan {
+  rootOperation?: PlanOperation;
+  operation: PlanOperation;
+  workflowSteps?: DomainWorkflowStep[];
+  diagnostics?: DomainWorkflowDiagnostics;
+  uiPreview?: PlanPreview;
+  preview?: PlanPreview;
+}
+
+export interface SuggestionArtifact {
+  actionType: "draft" | "create" | "update" | "delete";
+  targetType: string;
+  title: string;
+  reason: string;
+  linkedEntityType?: string;
+  linkedEntityId?: number;
+  prefillData?: Record<string, unknown>;
+}
+
+export interface PlanArtifact {
+  pendingActionId: string;
+  operation: PlanOperation;
+  summary: string;
+  preview?: PlanPreview;
+}
+
+export interface PlanExecutedArtifact {
+  pendingActionId: string;
+  ok: boolean;
+  result?: Record<string, unknown>;
+  stepResults?: DomainWorkflowStepResult[];
+  failedStepId?: string;
+  errorCode?: string;
+  errorMessage?: string;
+}
+
+export interface PlanRejectedArtifact {
+  pendingActionId: string;
+}
+
 export interface PendingAction {
   id: string;
   toolName: string;
   summary: string;
   args: Record<string, unknown>;
+  plan?: PendingActionPlan;
   createdAt: string;
   requestedByTurnId?: string;
   risk?: "low" | "medium" | "high";
@@ -83,7 +214,6 @@ export interface AgentTurnInput {
   sessionId: SessionID;
   turnId: string;
   message: string;
-  mode: AgentMode;
   userId?: string;
   metadata?: Record<string, unknown>;
 }

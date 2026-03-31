@@ -5,7 +5,6 @@ const MAX_OFFER_CHOICES = 5;
 function decideClarificationAction({
   ambiguityResult,
   turnType,
-  mode,
   pendingAction,
   session,
 } = {}) {
@@ -26,8 +25,7 @@ function decideClarificationAction({
 
   const repeated = isRepeatedClarification(ambiguity, session);
   const candidateCount = ambiguity.candidates.length;
-  const normalizedMode = normalizeMode(mode);
-  const highRisk = ambiguity.highRiskIntent === true || normalizedMode !== "READ_ONLY";
+  const highRisk = ambiguity.highRiskIntent === true;
 
   if (ambiguity.kind === "multiple_candidates") {
     if (candidateCount >= 2 && candidateCount <= MAX_OFFER_CHOICES) {
@@ -57,10 +55,10 @@ function decideClarificationAction({
     };
   }
 
-  if (normalizedMode === "READ_ONLY" && ambiguity.confidence === "low") {
+  if (!highRisk && ambiguity.confidence === "low") {
     return {
       action: "proceed",
-      reason: "Low-confidence read-only ambiguity should not block progression.",
+      reason: "Low-confidence non-mutating ambiguity should not block progression.",
     };
   }
 
@@ -98,19 +96,6 @@ function normalizeAmbiguityResult(value) {
     highRiskIntent: row.highRiskIntent === true,
     fingerprint: normalizeOptionalString(row.fingerprint) || "",
   };
-}
-
-function normalizeMode(value) {
-  const normalized = String(value || "").trim().toUpperCase();
-  if (
-    normalized === "READ_ONLY" ||
-    normalized === "DRAFT" ||
-    normalized === "EXECUTE" ||
-    normalized === "AUTONOMOUS"
-  ) {
-    return normalized;
-  }
-  return "READ_ONLY";
 }
 
 function normalizeOptionalString(value) {

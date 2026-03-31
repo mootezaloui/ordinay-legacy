@@ -9,8 +9,6 @@ const METADATA_MAX_KEYS = 64;
 const METADATA_MAX_ARRAY = 64;
 const METADATA_MAX_STRING = 1024;
 
-const VALID_MODES = new Set(["READ_ONLY", "DRAFT", "EXECUTE", "AUTONOMOUS"]);
-
 function sanitizeAgentInput(rawInput) {
   const payload = isPlainObject(rawInput) ? rawInput : null;
   if (!payload) {
@@ -30,14 +28,6 @@ function sanitizeAgentInput(rawInput) {
   const message = sanitizeBoundedRequiredString(payload.message, "message", MAX_MESSAGE_LENGTH);
   if (!message.ok) return message;
 
-  const mode = normalizeMode(payload.mode);
-  if (!mode) {
-    return invalid(
-      "INVALID_MODE",
-      "Invalid payload: mode is required and must be one of READ_ONLY, DRAFT, EXECUTE, AUTONOMOUS.",
-    );
-  }
-
   const metadata = sanitizeMetadata(payload.metadata);
   const userId = sanitizeOptionalString(payload.userId, MAX_USER_ID_LENGTH);
 
@@ -47,7 +37,6 @@ function sanitizeAgentInput(rawInput) {
       sessionId: sessionId.value,
       turnId: turnId.value,
       message: message.value,
-      mode,
       metadata,
       userId: userId || undefined,
     },
@@ -76,11 +65,6 @@ function sanitizeOptionalString(value, maxLength) {
     return text.slice(0, maxLength);
   }
   return text;
-}
-
-function normalizeMode(value) {
-  const mode = String(value ?? "").trim().toUpperCase();
-  return VALID_MODES.has(mode) ? mode : null;
 }
 
 function sanitizeMetadata(value) {
@@ -165,4 +149,3 @@ module.exports = {
   MAX_TURN_ID_LENGTH,
   MAX_MESSAGE_LENGTH,
 };
-

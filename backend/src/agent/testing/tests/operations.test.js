@@ -135,6 +135,76 @@ test("operations: writes-disabled blocks confirmed execution (fail-closed)", asy
   );
 });
 
+test("operations: legacy mode field is accepted but authScope controls permissions", async () => {
+  const fixture = {
+    id: "ops_legacy_mode_accepted",
+    target: "sse_handler",
+    input: {
+      sessionId: "ops_legacy_mode_accepted_session",
+      turnId: "ops_legacy_mode_accepted_turn",
+      message: "Create a new client named Legacy Payload Corp",
+      mode: "READ_ONLY",
+      metadata: { security: { authScope: "execute" } },
+    },
+    requestUser: { id: "operator_legacy", scope: "execute" },
+    setup(runtime) {
+      const restoreUxPreflight =
+        runtime.ux && typeof runtime.ux.evaluatePreLoop === "function"
+          ? patchMethod(runtime.ux, "evaluatePreLoop", () => ({ handled: false }))
+          : null;
+      const llm = runtime?.loop?.llm;
+      const restoreGenerate =
+        llm && typeof llm.generate === "function"
+          ? patchMethod(llm, "generate", async () => ({
+              text: "",
+              toolCalls: [
+                {
+                  id: "tc_ops_legacy_mode_1",
+                  name: "proposeCreate",
+                  arguments: {
+                    entityType: "client",
+                    payload: { name: "Legacy Payload Corp" },
+                    reason: "Compatibility regression test.",
+                  },
+                },
+              ],
+              finishReason: "tool_calls",
+              raw: { mocked: true },
+            }))
+          : null;
+      const restoreStream =
+        llm && typeof llm.stream === "function"
+          ? patchMethod(llm, "stream", async function* () {
+              yield {
+                toolCall: {
+                  id: "tc_ops_legacy_mode_1",
+                  name: "proposeCreate",
+                  arguments: {
+                    entityType: "client",
+                    payload: { name: "Legacy Payload Corp" },
+                    reason: "Compatibility regression test.",
+                  },
+                },
+              };
+              yield { finishReason: "tool_calls", done: true };
+            })
+          : null;
+      return () => {
+        restoreUxPreflight?.();
+        restoreGenerate?.();
+        restoreStream?.();
+      };
+    },
+  };
+
+  const result = await runScenario(fixture, { skipAssertions: true });
+  const hasError = result.events.some((event) => event.event === "error");
+  const hasPlanArtifact = result.events.some((event) => event.event === "plan_artifact");
+  assert.equal(hasError, false, "Did not expect SSE error for legacy mode payload.");
+  assert.equal(hasPlanArtifact, true, "Expected PLAN artifact even when legacy mode is provided.");
+  assert.equal(result.capturedLoopInput?.metadata?.security?.authScope, "execute");
+});
+
 test("operations: admin guard defaults to deny and allows trusted admin scope", () => {
   const operations = createOperationsRuntime({
     config: { policy: { operations: {} } },

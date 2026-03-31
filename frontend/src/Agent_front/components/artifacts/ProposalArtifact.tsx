@@ -4,7 +4,7 @@ import { useData } from "../../../contexts/DataContext";
 import { DecisionConfirmationPanel } from "./confirmation/DecisionConfirmationPanel";
 import type { DecisionUiState } from "./confirmation/types";
 import { mapSemanticAction } from "./confirmation/semanticActionMapper";
-import type { SemanticActionViewModel } from "./confirmation/types";
+import type { SemanticActionViewModel, StructuredProposalCardViewModel } from "./confirmation/types";
 import { SemanticMappingError } from "./confirmation/semanticGuards";
 import {
   proposalToSemanticInput,
@@ -437,6 +437,34 @@ function buildProposalRenderItems(
             "",
         ).trim() || "the selected information";
       const fallbackViewModel: SemanticActionViewModel = {
+        card: {
+          verb: "Confirm",
+          entityLabel: "Change",
+          reversibleLabel: proposal.reversible === false ? "Not reversible" : "Can be adjusted later",
+          title: `Confirm Change for ${fallbackTarget}`,
+          subtitle: `This applies the requested change for ${fallbackTarget}.`,
+          fields: [
+            {
+              key: "planned_change",
+              label: "Planned change",
+              value: `This will ${fallbackSummary.toLowerCase()}.`,
+              icon: "file",
+              span: "full",
+            },
+          ],
+          warningHint: "Review before confirming.",
+          confirmLabel: "Confirm Change",
+          cancelLabel: "Keep Current Information",
+          applied: {
+            title: "Applied",
+            subtitle: "The confirmed action completed successfully.",
+          },
+          cancelled: {
+            title: "Cancelled",
+            subtitle: "No change was applied.",
+            undoLabel: "Undo",
+          },
+        } satisfies StructuredProposalCardViewModel,
         assistantMessage: `I can ${fallbackSummary.toLowerCase()} for ${fallbackTarget}. Please confirm before I continue.`,
         headline: `Confirm Change for ${fallbackTarget}`,
         description: `This applies the requested change for ${fallbackTarget}.`,

@@ -97,6 +97,20 @@ const READ_POLICY_INSTRUCTIONS = [
   "These are system-internal values and must never appear in response text, tables, structured data, or field labels.",
   "When referring to entities, use their human-readable attributes: name, title, reference code, date, or description.",
   "This rule applies to all entity types without exception.",
+  "",
+  "PLAN-FIRST MUTATION POLICY",
+  "",
+  "For create/update/delete mutation intent on database entities:",
+  "- Use PLAN tools only: proposeCreate, proposeUpdate, proposeDelete.",
+  "- Do NOT call WRITE or EXECUTE tools to initiate mutations.",
+  "- PLAN tools only prepare proposals; they never write to the database directly.",
+  "- Never say a mutation is completed before explicit user confirmation and execution result.",
+  "- If the user amends a pending mutation, call a PLAN tool again with revised args to replace the pending proposal.",
+  "",
+  "OPTIONAL SUGGESTION RULE (when suggestAction tool is available)",
+  "",
+  "- At most one suggestAction call per turn.",
+  "- Suggestions must be specific and grounded in current session context.",
 ].join("\n");
 
 function createContextAssembler(options = {}) {

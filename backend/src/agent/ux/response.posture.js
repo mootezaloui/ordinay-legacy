@@ -4,7 +4,6 @@ function selectResponsePosture({
   ambiguityResult,
   workflowOpportunity,
   turnType,
-  mode,
   researchMode,
 } = {}) {
   const normalizedTurnType = normalizeTurnType(turnType);
@@ -22,8 +21,8 @@ function selectResponsePosture({
     return "guided_workflow";
   }
 
-  if (researchMode === true || normalizeMode(mode) === "READ_ONLY") {
-    return researchMode === true ? "research_grounded" : "direct_answer";
+  if (researchMode === true) {
+    return "research_grounded";
   }
 
   return "direct_answer";
@@ -40,19 +39,6 @@ function normalizeTurnType(value) {
     return normalized;
   }
   return "NEW";
-}
-
-function normalizeMode(value) {
-  const normalized = String(value || "").trim().toUpperCase();
-  if (
-    normalized === "READ_ONLY" ||
-    normalized === "DRAFT" ||
-    normalized === "EXECUTE" ||
-    normalized === "AUTONOMOUS"
-  ) {
-    return normalized;
-  }
-  return "READ_ONLY";
 }
 
 function toRecord(value) {

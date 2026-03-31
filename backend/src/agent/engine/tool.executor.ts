@@ -18,7 +18,10 @@ export class ToolExecutor {
     let result: ToolExecutionResult;
 
     if (this.permissionGate) {
-      const decision = this.permissionGate.evaluate(context.mode, tool);
+      const decision = this.permissionGate.evaluate(
+        { authScope: resolveAuthScope(context) },
+        tool,
+      );
       if (!decision.allowed) {
         result = {
           ok: false,
@@ -119,6 +122,18 @@ export class ToolExecutor {
       safeStringify({ tool: toolName, draftType, ok: result.ok, execution_ms: executionMs }),
     );
   }
+}
+
+function resolveAuthScope(context: ToolExecutionContext): string {
+  if (!isRecord(context.metadata)) {
+    return "unknown";
+  }
+  const security = isRecord(context.metadata.security) ? context.metadata.security : null;
+  return (
+    security && typeof security.authScope === "string"
+      ? String(security.authScope).trim()
+      : "unknown"
+  ) || "unknown";
 }
 
 function estimateResultCount(result: ToolExecutionResult): number {

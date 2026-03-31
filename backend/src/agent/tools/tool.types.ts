@@ -1,4 +1,4 @@
-import type { AgentMode, SessionID } from "../types";
+import type { SessionID } from "../types";
 
 export enum ToolCategory {
   READ = "READ",
@@ -7,12 +7,12 @@ export enum ToolCategory {
   PLAN = "PLAN",
   EXECUTE = "EXECUTE",
   EXTERNAL = "EXTERNAL",
+  SYSTEM = "SYSTEM",
 }
 
 export interface ToolExecutionContext {
   sessionId: SessionID;
   turnId: string;
-  mode: AgentMode;
   userId?: string;
   metadata?: Record<string, unknown>;
 }

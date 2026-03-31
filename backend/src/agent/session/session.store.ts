@@ -1,6 +1,5 @@
-import { DEFAULT_AGENT_MODE } from "../config";
 import { SessionError } from "../errors";
-import { TurnType, type AgentMode, type SessionID } from "../types";
+import { TurnType, type SessionID } from "../types";
 import type { Session } from "./session.types";
 
 export interface SessionPersistenceBridge {
@@ -76,7 +75,6 @@ export interface SessionPersistenceBridge {
 export interface CreateSessionInput {
   sessionId: SessionID;
   userId?: string;
-  mode?: AgentMode;
 }
 
 export interface SessionStoreOptions {
@@ -117,7 +115,6 @@ export class InMemorySessionStore {
     const session: Session = {
       id: sessionId,
       userId: input.userId,
-      mode: input.mode ?? DEFAULT_AGENT_MODE,
       state: {
         status: "ACTIVE",
         pendingAction: null,
@@ -174,7 +171,6 @@ export class InMemorySessionStore {
     }
 
     loaded.id = key;
-    loaded.mode = loaded.mode ?? DEFAULT_AGENT_MODE;
     loaded.state = loaded.state ?? {
       status: "ACTIVE",
       pendingAction: null,

@@ -8,6 +8,7 @@ const runtime_factory_1 = require("./runtime.factory");
 Object.defineProperty(exports, "createAgentV2Runtime", { enumerable: true, get: function () { return runtime_factory_1.createAgentV2Runtime; } });
 const TEXT_CHUNK_SIZE = 200;
 const PERFORMANCE_SNAPSHOT_EVENT_TYPE = "performance_snapshot";
+const MODELESS_CONTRACT_RUNTIME_MODE = "EXECUTE";
 function createAgentV2StreamHandler(runtime) {
     return async function handleAgentV2Stream(req, res) {
         const emitter = new stream_emitter_1.StreamEmitter(res);
@@ -24,7 +25,6 @@ function createAgentV2StreamHandler(runtime) {
             console.info("[AGENT_V2_STREAM_TURN_START]", safeDiagnosticJson({
                 sessionId: input.sessionId,
                 turnId: input.turnId,
-                mode: input.mode,
                 modelPreference: typeof (toRecord(input.metadata)?.modelPreference) === "string"
                     ? String(toRecord(input.metadata).modelPreference)
                     : undefined,
@@ -46,7 +46,7 @@ function createAgentV2StreamHandler(runtime) {
             }
             const authResult = evaluateAuthScope(security, req, input);
             if (!authResult.allowed) {
-                const message = asNonEmptyString(authResult.reason) ?? "Not authorized for requested mode.";
+                const message = asNonEmptyString(authResult.reason) ?? "Not authorized for requested action.";
                 emitter.emit({ type: "error", message });
                 emitter.emit({ type: "done" });
                 emitter.close();
@@ -76,6 +76,10 @@ function createAgentV2StreamHandler(runtime) {
             runtime.grounding?.beginTurn?.(input.turnId);
             let deliveredLiveText = false;
             let deliveredDraftArtifact = false;
+            let deliveredPlanArtifact = false;
+            let deliveredPlanExecutedArtifact = false;
+            let deliveredPlanRejectedArtifact = false;
+            let deliveredSuggestionArtifact = false;
             const uxPreflight = evaluateUxPreflight(runtime, input, session);
             if (uxPreflight.handled) {
                 console.info("[AGENT_V2_UX_PREFLIGHT_HANDLED]", safeDiagnosticJson({
@@ -116,6 +120,22 @@ function createAgentV2StreamHandler(runtime) {
                         }));
                         emitter.emit({ type: "draft_artifact", artifact });
                     },
+                    onPlanArtifact: (artifact) => {
+                        deliveredPlanArtifact = true;
+                        emitter.emit({ type: "plan_artifact", artifact });
+                    },
+                    onPlanExecuted: (artifact) => {
+                        deliveredPlanExecutedArtifact = true;
+                        emitter.emit({ type: "plan_executed", artifact });
+                    },
+                    onPlanRejected: (artifact) => {
+                        deliveredPlanRejectedArtifact = true;
+                        emitter.emit({ type: "plan_rejected", artifact });
+                    },
+                    onSuggestionArtifact: (artifact) => {
+                        deliveredSuggestionArtifact = true;
+                        emitter.emit({ type: "suggestion_artifact", artifact });
+                    },
                 }), uxPreflight.metadata);
             const output = applyGroundingPostprocess(runtime, input, session, loopOutput);
             runtime.sessionStore.updateSession(session);
@@ -128,7 +148,7 @@ function createAgentV2StreamHandler(runtime) {
                 pendingAction: Boolean(output.pendingAction),
                 responseLength: String(output.responseText || "").length,
             }));
-            if (input.mode === types_1.AgentMode.DRAFT) {
+            if (input.mode === "DRAFT") {
                 const draftToolCalls = (output.toolCalls || []).filter((call) => String(call?.toolName || "").trim() === "generateDraft").length;
                 console.info("[DRAFT_TRACE_TURN_SUMMARY]", safeDiagnosticJson({
                     sessionId: input.sessionId,
@@ -153,6 +173,34 @@ function createAgentV2StreamHandler(runtime) {
                             : 0,
                     }));
                     emitter.emit({ type: "draft_artifact", artifact: fallbackDraftArtifact });
+                }
+            }
+            if (!deliveredPlanArtifact) {
+                const fallbackPlanArtifact = extractPlanArtifactFromOutput(output);
+                if (fallbackPlanArtifact) {
+                    deliveredPlanArtifact = true;
+                    emitter.emit({ type: "plan_artifact", artifact: fallbackPlanArtifact });
+                }
+            }
+            if (!deliveredPlanExecutedArtifact) {
+                const fallbackPlanExecutedArtifact = extractPlanExecutedArtifactFromOutput(output);
+                if (fallbackPlanExecutedArtifact) {
+                    deliveredPlanExecutedArtifact = true;
+                    emitter.emit({ type: "plan_executed", artifact: fallbackPlanExecutedArtifact });
+                }
+            }
+            if (!deliveredPlanRejectedArtifact) {
+                const fallbackPlanRejectedArtifact = extractPlanRejectedArtifactFromOutput(output);
+                if (fallbackPlanRejectedArtifact) {
+                    deliveredPlanRejectedArtifact = true;
+                    emitter.emit({ type: "plan_rejected", artifact: fallbackPlanRejectedArtifact });
+                }
+            }
+            if (!deliveredSuggestionArtifact) {
+                const fallbackSuggestionArtifact = extractSuggestionArtifactFromOutput(output);
+                if (fallbackSuggestionArtifact) {
+                    deliveredSuggestionArtifact = true;
+                    emitter.emit({ type: "suggestion_artifact", artifact: fallbackSuggestionArtifact });
                 }
             }
             emitOutput(emitter, output, deliveredLiveText);
@@ -251,24 +299,12 @@ function evaluateRateLimit(security, req, input) {
 }
 function evaluateAuthScope(security, req, input) {
     if (!security || typeof security.evaluateAuthScope !== "function") {
-        if (input.mode === types_1.AgentMode.READ_ONLY || input.mode === types_1.AgentMode.DRAFT) {
-            return { allowed: true, scope: "unknown" };
-        }
-        return {
-            allowed: false,
-            scope: "unknown",
-            reason: "Missing auth context only allows READ_ONLY and DRAFT modes.",
-        };
+        return { allowed: true, scope: "unknown" };
     }
     const user = getRequestUser(req);
-    const requestedAction = input.mode === types_1.AgentMode.READ_ONLY
-        ? "read"
-        : input.mode === types_1.AgentMode.DRAFT
-            ? "draft"
-            : "execute";
+    const requestedAction = resolveRequestedAction(input);
     const result = security.evaluateAuthScope({
         user,
-        mode: input.mode,
         requestedAction,
     });
     const row = toRecord(result);
@@ -284,6 +320,13 @@ function evaluateAuthScope(security, req, input) {
         scope: asString(row.scope) ?? "unknown",
         reason: asString(row.reason) ?? undefined,
     };
+}
+function resolveRequestedAction(input) {
+    const metadata = toRecord(input?.metadata);
+    const securityMetadata = toRecord(metadata?.security);
+    return (asString(securityMetadata?.requestedAction) ??
+        asString(metadata?.requestedAction) ??
+        undefined);
 }
 function attachSecurityMetadata(input, securityContext) {
     const metadata = toRecord(input?.metadata) ? { ...input.metadata } : {};
@@ -369,6 +412,68 @@ function extractDraftArtifactFromOutput(output) {
     }
     return artifact;
 }
+function extractPlanArtifactFromOutput(output) {
+    const metadata = toRecord(output?.metadata);
+    const artifact = toRecord(metadata?.planArtifact);
+    if (!artifact) {
+        return null;
+    }
+    const pendingActionId = asString(artifact.pendingActionId);
+    const summary = asString(artifact.summary);
+    const operation = toRecord(artifact.operation);
+    if (!pendingActionId || !summary || !operation) {
+        return null;
+    }
+    const operationType = asString(operation.operation);
+    const entityType = asString(operation.entityType);
+    if ((operationType !== "create" && operationType !== "update" && operationType !== "delete") ||
+        !entityType) {
+        return null;
+    }
+    return artifact;
+}
+function extractPlanExecutedArtifactFromOutput(output) {
+    const metadata = toRecord(output?.metadata);
+    const artifact = toRecord(metadata?.planExecutedArtifact);
+    if (!artifact) {
+        return null;
+    }
+    const pendingActionId = asString(artifact.pendingActionId);
+    if (!pendingActionId) {
+        return null;
+    }
+    if (artifact.ok !== true && artifact.ok !== false) {
+        return null;
+    }
+    return artifact;
+}
+function extractPlanRejectedArtifactFromOutput(output) {
+    const metadata = toRecord(output?.metadata);
+    const artifact = toRecord(metadata?.planRejectedArtifact);
+    if (!artifact) {
+        return null;
+    }
+    const pendingActionId = asString(artifact.pendingActionId);
+    if (!pendingActionId) {
+        return null;
+    }
+    return artifact;
+}
+function extractSuggestionArtifactFromOutput(output) {
+    const metadata = toRecord(output?.metadata);
+    const artifact = toRecord(metadata?.suggestionArtifact);
+    if (!artifact) {
+        return null;
+    }
+    const actionType = asString(artifact.actionType);
+    const targetType = asString(artifact.targetType);
+    const title = asString(artifact.title);
+    const reason = asString(artifact.reason);
+    if (!actionType || !targetType || !title || !reason) {
+        return null;
+    }
+    return artifact;
+}
 function parseInput(payload) {
     const body = toRecord(payload);
     if (!body) {
@@ -377,7 +482,7 @@ function parseInput(payload) {
     const sessionId = asNonEmptyString(body.sessionId);
     const turnId = asNonEmptyString(body.turnId);
     const message = asNonEmptyString(body.message);
-    const mode = normalizeAgentMode(body.mode);
+    const legacyMode = normalizeRuntimeMode(body.mode);
     const metadata = toRecord(body.metadata);
     const userId = asString(body.userId);
     if (!sessionId) {
@@ -389,16 +494,13 @@ function parseInput(payload) {
     if (!message) {
         return { ok: false, message: "Invalid payload: message is required." };
     }
-    if (!mode) {
-        return { ok: false, message: "Invalid payload: mode is required and must be valid." };
-    }
     return {
         ok: true,
         input: {
             sessionId,
             turnId,
             message,
-            mode,
+            mode: legacyMode ?? MODELESS_CONTRACT_RUNTIME_MODE,
             userId: userId || undefined,
             metadata: metadata ?? undefined,
         },
@@ -691,7 +793,7 @@ function isGroundingDisabled(runtime) {
 function clampModeBySafeMode(runtime, input) {
     const shouldClamp = runtime.operations?.safeMode?.isAgentV2ReadOnlyForced &&
         runtime.operations.safeMode.isAgentV2ReadOnlyForced() === true;
-    if (!shouldClamp || input.mode === types_1.AgentMode.READ_ONLY) {
+    if (!shouldClamp || input.mode === "READ_ONLY") {
         return input;
     }
     const metadata = toRecord(input.metadata)
@@ -707,7 +809,7 @@ function clampModeBySafeMode(runtime, input) {
     };
     return {
         ...input,
-        mode: types_1.AgentMode.READ_ONLY,
+        mode: "READ_ONLY",
         metadata,
     };
 }
@@ -742,26 +844,7 @@ async function getOrCreateSession(runtime, input) {
     return runtime.sessionStore.createSession({
         sessionId: input.sessionId,
         userId: input.userId,
-        mode: input.mode,
     });
-}
-function normalizeAgentMode(value) {
-    if (typeof value !== "string") {
-        return null;
-    }
-    const normalized = value.trim().toUpperCase();
-    switch (normalized) {
-        case types_1.AgentMode.READ_ONLY:
-            return types_1.AgentMode.READ_ONLY;
-        case types_1.AgentMode.DRAFT:
-            return types_1.AgentMode.DRAFT;
-        case types_1.AgentMode.EXECUTE:
-            return types_1.AgentMode.EXECUTE;
-        case types_1.AgentMode.AUTONOMOUS:
-            return types_1.AgentMode.AUTONOMOUS;
-        default:
-            return null;
-    }
 }
 function splitText(text, chunkSize) {
     const value = text.trim();
@@ -777,6 +860,18 @@ function asString(value) {
 function asNonEmptyString(value) {
     const text = asString(value)?.trim();
     return text || null;
+}
+function normalizeRuntimeMode(value) {
+    const normalized = String(value || "").trim().toUpperCase();
+    if (normalized === "READ_ONLY")
+        return "READ_ONLY";
+    if (normalized === "DRAFT")
+        return "DRAFT";
+    if (normalized === "EXECUTE")
+        return "EXECUTE";
+    if (normalized === "AUTONOMOUS")
+        return "AUTONOMOUS";
+    return null;
 }
 function toRecord(value) {
     if (typeof value !== "object" || value === null || Array.isArray(value)) {

@@ -1,5 +1,4 @@
 import type {
-  AgentMode,
   DraftArtifact,
   EntityReference,
   PendingAction,
@@ -40,7 +39,6 @@ export interface HistoryEntry {
 export interface Session {
   id: SessionID;
   userId?: string;
-  mode: AgentMode;
   state: SessionState;
   turns: ConversationTurn[];
   history: HistoryEntry[];

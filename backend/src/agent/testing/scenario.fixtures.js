@@ -19,7 +19,7 @@ const FIXTURES = Object.freeze({
     id: "simple_read_only_query",
     description: "Read-only turn with direct answer and no tool usage.",
     target: "loop_core",
-    input: buildInput("fx_read", "READ_ONLY", "Show active dossiers."),
+    input: buildInput("fx_read", "Show active dossiers."),
     setup(runtime, context) {
       return patchLlmGenerate(runtime, context, [{ text: "Found 2 active dossiers.", toolCalls: [] }]);
     },
@@ -28,28 +28,43 @@ const FIXTURES = Object.freeze({
 
   write_proposal_pending: {
     id: "write_proposal_pending",
-    description: "WRITE tool call should be intercepted into pending action.",
+    description: "PLAN tool call should be intercepted into pending action.",
     target: "loop_core",
-    input: buildInput("fx_write_pending", "DRAFT", "Update the dossier status.", {
-      security: { authScope: "draft" },
+    input: buildInput("fx_write_pending", "Update the dossier status.", {
+      security: { authScope: "execute" },
     }),
     setup(runtime, context) {
-      installSyntheticTool(runtime, "__test_write_tool", "WRITE", async () => ({ ok: true, data: { ok: true } }));
       return patchLlmGenerate(runtime, context, [
         {
           text: "",
-          toolCalls: [{ id: "tc_write_1", name: "__test_write_tool", arguments: { status: "closed" } }],
+          toolCalls: [
+            {
+              id: "tc_plan_update_1",
+              name: "proposeUpdate",
+              arguments: {
+                entityType: "dossier",
+                entityId: 101,
+                changes: { status: { from: "active", to: "closed" } },
+                reason: "User asked to update dossier status.",
+              },
+            },
+          ],
         },
       ]);
     },
-    expect: { turnType: "NEW", hasPendingAction: true, toolCallCount: 1 },
+    expect: {
+      turnType: "NEW",
+      hasPendingAction: true,
+      toolCallCount: 1,
+      metadataFields: [{ path: "planArtifact.operation.operation", value: "update" }],
+    },
   },
 
   confirmation_execution: {
     id: "confirmation_execution",
     description: "Confirmation should execute pending action and clear pending.",
     target: "loop_core",
-    input: buildInput("fx_confirm_exec", "EXECUTE", "yes, execute", {
+    input: buildInput("fx_confirm_exec", "yes, execute", {
       security: { authScope: "execute" },
     }),
     preSession(session) {
@@ -82,7 +97,7 @@ const FIXTURES = Object.freeze({
     id: "rejection_path",
     description: "Rejection should clear pending action and avoid tool execution.",
     target: "loop_core",
-    input: buildInput("fx_reject", "READ_ONLY", "no, cancel this"),
+    input: buildInput("fx_reject", "no, cancel this"),
     preSession(session) {
       session.state.pendingAction = {
         id: "pending_reject_1",
@@ -99,28 +114,46 @@ const FIXTURES = Object.freeze({
 
   amendment_replaces_pending: {
     id: "amendment_replaces_pending",
-    description: "Amendment should replace prior pending write proposal.",
+    description: "Amendment should replace prior pending PLAN proposal.",
     target: "loop_core",
-    input: buildInput("fx_amend", "DRAFT", "Change the amount to 250.", {
-      security: { authScope: "draft" },
+    input: buildInput("fx_amend", "Change the amount to 250.", {
+      security: { authScope: "execute" },
     }),
     preSession(session) {
       session.state.pendingAction = {
         id: "pending_old",
-        toolName: "__test_write_tool",
-        summary: "__test_write_tool({\"amount\":100})",
-        args: { amount: 100 },
+        toolName: "proposeUpdate",
+        summary: "Update financial entry 100 amount",
+        args: { entityType: "financial_entry", entityId: 100, changes: { amount: { from: 100, to: 250 } } },
+        plan: {
+          operation: {
+            operation: "update",
+            entityType: "financial_entry",
+            entityId: 100,
+            changes: { amount: { from: 100, to: 250 } },
+          },
+        },
         createdAt: new Date().toISOString(),
         requestedByTurnId: "prior_turn",
         risk: "medium",
       };
     },
     setup(runtime, context) {
-      installSyntheticTool(runtime, "__test_write_tool", "WRITE", async () => ({ ok: true }));
       return patchLlmGenerate(runtime, context, [
         {
           text: "",
-          toolCalls: [{ id: "tc_amend_1", name: "__test_write_tool", arguments: { amount: 250 } }],
+          toolCalls: [
+            {
+              id: "tc_amend_1",
+              name: "proposeUpdate",
+              arguments: {
+                entityType: "financial_entry",
+                entityId: 100,
+                changes: { amount: { from: 100, to: 250 } },
+                reason: "User amended the requested amount.",
+              },
+            },
+          ],
         },
       ]);
     },
@@ -132,11 +165,149 @@ const FIXTURES = Object.freeze({
     },
   },
 
+  plan_stream_pending_artifact: {
+    id: "plan_stream_pending_artifact",
+    description: "SSE emits plan_artifact and pending in stable order for PLAN proposals.",
+    target: "sse_handler",
+    input: buildInput("fx_plan_stream_pending", "Create a new client named Stream Corp", {
+      security: { authScope: "execute" },
+    }),
+    requestUser: { id: "fx_plan_stream_pending_user", scope: "execute" },
+    setup(runtime, context) {
+      const restoreUx = patchMethod(runtime?.ux, "evaluatePreLoop", () => ({ handled: false }));
+      const restoreLlm = patchLlmGenerate(runtime, context, [
+        {
+          text: "",
+          toolCalls: [
+            {
+              id: "tc_plan_stream_create_1",
+              name: "proposeCreate",
+              arguments: {
+                entityType: "client",
+                payload: { name: "Stream Corp", status: "active" },
+                reason: "User asked to create a client.",
+              },
+            },
+          ],
+        },
+      ]);
+      return () => {
+        restoreUx?.();
+        restoreLlm?.();
+      };
+    },
+    expect: {
+      hasPendingAction: true,
+      toolCallCount: 1,
+      sseEvents: {
+        includes: ["plan_artifact", "pending", "done"],
+        excludes: ["plan_executed", "plan_rejected"],
+        ordered: ["plan_artifact", "pending", "done"],
+        counts: { plan_artifact: 1, done: 1 },
+      },
+    },
+  },
+
+  plan_stream_confirmation_events: {
+    id: "plan_stream_confirmation_events",
+    description: "SSE emits plan_executed then confirmed on confirmation path.",
+    target: "sse_handler",
+    input: buildInput("fx_plan_stream_confirm", "yes confirm", {
+      security: { authScope: "execute" },
+    }),
+    requestUser: { id: "fx_plan_stream_confirm_user", scope: "execute" },
+    preSession(session) {
+      session.state.pendingAction = {
+        id: "pending_stream_confirm_1",
+        toolName: "proposeUpdate",
+        summary: "Update client 77 status",
+        args: {
+          entityType: "client",
+          entityId: 77,
+          changes: { status: { from: "active", to: "inactive" } },
+        },
+        plan: {
+          operation: {
+            operation: "update",
+            entityType: "client",
+            entityId: 77,
+            changes: { status: { from: "active", to: "inactive" } },
+          },
+        },
+        createdAt: new Date().toISOString(),
+        requestedByTurnId: "prev_turn",
+        risk: "medium",
+      };
+    },
+    setup(runtime) {
+      const entityExecutor = runtime?.loop?.entityExecutor;
+      const restoreExecute = patchMethod(entityExecutor, "execute", async () => ({
+        ok: true,
+        result: {
+          operation: "update",
+          entityType: "client",
+          entityId: 77,
+          changes: { status: { from: "active", to: "inactive" } },
+        },
+      }));
+      return () => {
+        restoreExecute?.();
+      };
+    },
+    expect: {
+      noPendingAction: true,
+      metadataFields: [{ path: "planExecutedArtifact.ok", value: true }],
+      sseEvents: {
+        includes: ["plan_executed", "confirmed", "done"],
+        excludes: ["plan_rejected"],
+        ordered: ["plan_executed", "confirmed", "done"],
+        counts: { plan_executed: 1, done: 1 },
+      },
+    },
+  },
+
+  plan_stream_rejection_events: {
+    id: "plan_stream_rejection_events",
+    description: "SSE emits plan_rejected and skips confirmed/plan_executed on rejection path.",
+    target: "sse_handler",
+    input: buildInput("fx_plan_stream_reject", "no cancel it", {
+      security: { authScope: "execute" },
+    }),
+    requestUser: { id: "fx_plan_stream_reject_user", scope: "execute" },
+    preSession(session) {
+      session.state.pendingAction = {
+        id: "pending_stream_reject_1",
+        toolName: "proposeDelete",
+        summary: "Delete task 501",
+        args: { entityType: "task", entityId: 501 },
+        plan: {
+          operation: {
+            operation: "delete",
+            entityType: "task",
+            entityId: 501,
+          },
+        },
+        createdAt: new Date().toISOString(),
+        requestedByTurnId: "prev_turn",
+        risk: "high",
+      };
+    },
+    expect: {
+      noPendingAction: true,
+      sseEvents: {
+        includes: ["plan_rejected", "done"],
+        excludes: ["plan_executed", "confirmed"],
+        ordered: ["plan_rejected", "done"],
+        counts: { plan_rejected: 1, done: 1 },
+      },
+    },
+  },
+
   ambiguity_clarification: {
     id: "ambiguity_clarification",
     description: "UX preflight handled=true blocks loop execution and returns clarification directly.",
     target: "sse_handler",
-    input: buildInput("fx_ambiguity", "READ_ONLY", "Update the dossier"),
+    input: buildInput("fx_ambiguity", "Update the dossier"),
     setup(runtime, context) {
       context.flags = context.flags || {};
       return patchMethod(runtime?.ux, "evaluatePreLoop", () => {
@@ -165,7 +336,7 @@ const FIXTURES = Object.freeze({
     id: "guided_workflow_suggestion",
     description: "UX preflight returns guided workflow response when underspecified.",
     target: "sse_handler",
-    input: buildInput("fx_guided", "READ_ONLY", "Prepare the case."),
+    input: buildInput("fx_guided", "Prepare the case."),
     setup(runtime) {
       return patchMethod(runtime?.ux, "evaluatePreLoop", () => ({
         handled: true,
@@ -191,7 +362,7 @@ const FIXTURES = Object.freeze({
     id: "retrieval_assisted_answer",
     description: "Retrieval runtime should be queried when building context.",
     target: "loop_core",
-    input: buildInput("fx_retrieval", "READ_ONLY", "Summarize prior findings."),
+    input: buildInput("fx_retrieval", "Summarize prior findings."),
     setup(runtime, context) {
       context.flags = context.flags || {};
       const restoreRetrieval = patchMethod(runtime?.retrieval, "buildRetrievalContext", () => {
@@ -219,7 +390,7 @@ const FIXTURES = Object.freeze({
     id: "grounded_citation_aware_response",
     description: "Research-mode response should append visible citations.",
     target: "sse_handler",
-    input: buildInput("fx_grounded", "READ_ONLY", "Provide a research-grounded summary.", {
+    input: buildInput("fx_grounded", "Provide a research-grounded summary.", {
       outputProfile: "research",
       showCitations: true,
     }),
@@ -257,7 +428,7 @@ const FIXTURES = Object.freeze({
     id: "rate_limit_denial",
     description: "Request should be denied before loop execution when rate-limited.",
     target: "sse_handler",
-    input: buildInput("fx_rate_limit", "READ_ONLY", "Any update?"),
+    input: buildInput("fx_rate_limit", "Any update?"),
     setup(runtime) {
       return patchMethod(runtime?.security, "checkRateLimit", () => ({
         allowed: false,
@@ -274,11 +445,59 @@ const FIXTURES = Object.freeze({
     },
   },
 
+  draft_stream_artifact: {
+    id: "draft_stream_artifact",
+    description: "SSE emits draft_artifact for generateDraft without PLAN side effects.",
+    target: "sse_handler",
+    input: buildInput("fx_draft_stream", "Draft a short hearing confirmation email."),
+    setup(runtime, context) {
+      const restoreUx = patchMethod(runtime?.ux, "evaluatePreLoop", () => ({ handled: false }));
+      const restoreLlm = patchLlmGenerate(runtime, context, [
+        {
+          text: "",
+          toolCalls: [
+            {
+              id: "tc_draft_stream_1",
+              name: "generateDraft",
+              arguments: {
+                draftType: "client_letter",
+                title: "Hearing Date Confirmation",
+                sections: [
+                  { role: "salutation", text: "Dear Client," },
+                  {
+                    role: "body",
+                    text: "We confirm that your next hearing is scheduled for April 12, 2026 at 10:00.",
+                  },
+                  { role: "closing", text: "Best regards," },
+                  { role: "signature_name", text: "Counsel Team" },
+                ],
+              },
+            },
+          ],
+        },
+        { text: "I prepared the draft.", toolCalls: [] },
+      ]);
+      return () => {
+        restoreUx?.();
+        restoreLlm?.();
+      };
+    },
+    expect: {
+      noPendingAction: true,
+      sseEvents: {
+        includes: ["draft_artifact", "done"],
+        excludes: ["plan_artifact", "pending"],
+        ordered: ["draft_artifact", "done"],
+        counts: { draft_artifact: 1, done: 1 },
+      },
+    },
+  },
+
   unknown_scope_read_only_allowed: {
     id: "unknown_scope_read_only_allowed",
-    description: "Unknown auth scope should still allow READ_ONLY mode and propagate scope metadata.",
+    description: "Unknown auth scope should still allow read requests and propagate scope metadata.",
     target: "sse_handler",
-    input: buildInput("fx_unknown_scope", "READ_ONLY", "Read-only status check."),
+    input: buildInput("fx_unknown_scope", "Read-only status check."),
     setup(runtime, context) {
       context.flags = context.flags || {};
       const restoreUx = patchMethod(runtime?.ux, "evaluatePreLoop", () => ({ handled: false }));
@@ -296,18 +515,17 @@ const FIXTURES = Object.freeze({
       }
       const errors = (result?.events || []).filter((event) => event.event === "error");
       if (errors.length > 0) {
-        throw new Error("Did not expect SSE error event for READ_ONLY unknown-scope path.");
+        throw new Error("Did not expect SSE error event for unknown-scope read path.");
       }
     },
   },
 });
 
-function buildInput(idPrefix, mode, message, metadata = {}) {
+function buildInput(idPrefix, message, metadata = {}) {
   return {
     sessionId: `${idPrefix}_session`,
     turnId: `${idPrefix}_turn_1`,
-    message: String(message || DEFAULT_USER_MESSAGE),
-    mode: String(mode || "READ_ONLY"),
+    message: String(message || DEFAULT_USER_MESSAGE),
     metadata: { ...metadata },
   };
 }
@@ -322,25 +540,58 @@ function cloneFixture(fixture) {
 
 function patchLlmGenerate(runtime, context, responses) {
   const llm = runtime?.loop?.llm;
-  if (!llm || typeof llm.generate !== "function") {
+  if (
+    !llm ||
+    typeof llm.generate !== "function" ||
+    typeof llm.stream !== "function"
+  ) {
     return null;
   }
-  const queue = Array.isArray(responses) ? [...responses] : [];
-  const restore = patchMethod(llm, "generate", async () => {
-    const next = queue.length > 0 ? queue.shift() : { text: "No further actions.", toolCalls: [] };
+  const queueForStream = Array.isArray(responses) ? [...responses] : [];
+  const queueForGenerate = Array.isArray(responses) ? [...responses] : [];
+
+  const restoreStream = patchMethod(llm, "stream", async function* () {
+    const next =
+      queueForStream.length > 0
+        ? queueForStream.shift()
+        : { text: "No further actions.", toolCalls: [] };
+    context.flags = context.flags || {};
+    context.flags.llmCalls = Number(context.flags.llmCalls || 0) + 1;
+    const normalized = normalizeLlmResponse(next);
+    if (normalized.text) {
+      yield { deltaText: normalized.text };
+    }
+    for (const toolCall of normalized.toolCalls) {
+      yield { toolCall };
+    }
+    yield { finishReason: normalized.finishReason, done: true };
+  });
+
+  const restoreGenerate = patchMethod(llm, "generate", async () => {
+    const next =
+      queueForGenerate.length > 0
+        ? queueForGenerate.shift()
+        : { text: "No further actions.", toolCalls: [] };
     context.flags = context.flags || {};
     context.flags.llmCalls = Number(context.flags.llmCalls || 0) + 1;
     return normalizeLlmResponse(next);
   });
-  return restore;
+
+  return () => {
+    restoreStream?.();
+    restoreGenerate?.();
+  };
 }
 
 function normalizeLlmResponse(value) {
   const row = isRecord(value) ? value : {};
+  const toolCalls = Array.isArray(row.toolCalls) ? row.toolCalls : [];
+  const finishReason =
+    row.finishReason || (toolCalls.length > 0 ? "tool_calls" : "stop");
   return {
     text: String(row.text || ""),
-    toolCalls: Array.isArray(row.toolCalls) ? row.toolCalls : [],
-    finishReason: row.finishReason || "stop",
+    toolCalls,
+    finishReason,
     raw: row.raw || row,
   };
 }
@@ -380,3 +631,4 @@ module.exports = {
   listScenarioFixtures,
   getScenarioFixture,
 };
+

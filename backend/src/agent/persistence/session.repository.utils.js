@@ -63,23 +63,162 @@ function rebuildHistoryEntry(row, index) {
 }
 
 function rebuildPendingAction(row) {
+  const decoded = decodePendingActionArgs(row.args_json);
   return {
     id: normalizeString(row.id),
     toolName: normalizeString(row.tool_name),
     summary: normalizeString(row.summary),
-    args: safeParse(row.args_json, {}),
+    args: decoded.args,
+    plan: decoded.plan,
     createdAt: normalizeDate(row.created_at),
     requestedByTurnId: normalizeNullableText(row.requested_by_turn_id) || undefined,
-    risk: normalizeNullableText(row.risk) || undefined,
+    risk: normalizePendingRisk(row.risk),
   };
 }
 
-function normalizeMode(mode) {
-  const normalized = String(mode || "READ_ONLY").trim().toUpperCase();
-  if (["READ_ONLY", "DRAFT", "EXECUTE", "AUTONOMOUS"].includes(normalized)) {
+function decodePendingActionArgs(value) {
+  const parsed = safeParse(value, {});
+  if (isRecord(parsed) && parsed.__pending_v2 === true) {
+    return {
+      args: isRecord(parsed.args) ? parsed.args : {},
+      plan: normalizePendingActionPlan(parsed.plan) || undefined,
+    };
+  }
+  return {
+    args: isRecord(parsed) ? parsed : {},
+    plan: undefined,
+  };
+}
+
+function serializePendingActionArgs(action) {
+  const args = isRecord(action?.args) ? action.args : {};
+  const plan = normalizePendingActionPlan(action?.plan);
+  if (!plan) {
+    return safeJsonStringify(args);
+  }
+  return safeJsonStringify({
+    __pending_v2: true,
+    version: 2,
+    args,
+    plan,
+  });
+}
+
+function normalizePendingActionPlan(value) {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const operation = normalizePlanOperation(value.operation);
+  if (!operation) {
+    return null;
+  }
+  const normalized = { operation };
+  const preview = normalizePlanPreview(value.preview);
+  if (preview) {
+    normalized.preview = preview;
+  }
+  return normalized;
+}
+
+function normalizePlanOperation(value) {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const operation = normalizeString(value.operation).toLowerCase();
+  if (!["create", "update", "delete"].includes(operation)) {
+    return null;
+  }
+  const entityType = normalizeString(value.entityType);
+  if (!entityType) {
+    return null;
+  }
+
+  const normalized = {
+    operation,
+    entityType,
+  };
+
+  if (
+    typeof value.entityId === "number" ||
+    typeof value.entityId === "string"
+  ) {
+    normalized.entityId = value.entityId;
+  }
+  if (isRecord(value.payload)) {
+    normalized.payload = value.payload;
+  }
+  if (isRecord(value.changes)) {
+    normalized.changes = value.changes;
+  }
+  const reason = normalizeNullableText(value.reason);
+  if (reason) {
+    normalized.reason = reason;
+  }
+  return normalized;
+}
+
+function normalizePlanPreview(value) {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const normalized = {};
+  const title = normalizeNullableText(value.title);
+  const subtitle = normalizeNullableText(value.subtitle);
+  const fields = normalizePlanPreviewFields(value.fields);
+  const warnings = normalizeWarnings(value.warnings);
+
+  if (title) normalized.title = title;
+  if (subtitle) normalized.subtitle = subtitle;
+  if (fields.length > 0) normalized.fields = fields;
+  if (warnings.length > 0) normalized.warnings = warnings;
+
+  if (Object.keys(normalized).length === 0) {
+    return null;
+  }
+  return normalized;
+}
+
+function normalizePlanPreviewFields(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const fields = [];
+  for (const row of value) {
+    if (!isRecord(row)) {
+      continue;
+    }
+    const key = normalizeString(row.key);
+    if (!key) {
+      continue;
+    }
+    const normalized = { key };
+    if (Object.prototype.hasOwnProperty.call(row, "from")) {
+      normalized.from = row.from;
+    }
+    if (Object.prototype.hasOwnProperty.call(row, "to")) {
+      normalized.to = row.to;
+    }
+    fields.push(normalized);
+  }
+  return fields;
+}
+
+function normalizeWarnings(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((entry) => normalizeString(entry))
+    .filter(Boolean)
+    .slice(0, 50);
+}
+
+function normalizePendingRisk(value) {
+  const normalized = normalizeString(value).toLowerCase();
+  if (normalized === "low" || normalized === "medium" || normalized === "high") {
     return normalized;
   }
-  return "READ_ONLY";
+  return undefined;
 }
 
 function normalizeRole(role) {
@@ -149,7 +288,7 @@ module.exports = {
   rebuildConversationTurns,
   rebuildHistoryEntry,
   rebuildPendingAction,
-  normalizeMode,
+  serializePendingActionArgs,
   normalizeRetries,
   normalizeString,
   normalizeNullableText,

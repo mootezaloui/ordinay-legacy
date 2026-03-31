@@ -22,6 +22,10 @@ function injectFailure(target, failureMode, restorers) {
   switch (mode) {
     case "llm_provider_failure":
       requireMethod(target?.loop?.llm, "generate", mode);
+      requireMethod(target?.loop?.llm, "stream", mode);
+      patchMethod(target.loop.llm, "stream", async function* () {
+        throw new Error("Injected LLM provider failure.");
+      }, restorers);
       patchMethod(target.loop.llm, "generate", async () => {
         throw new Error("Injected LLM provider failure.");
       }, restorers);
@@ -113,4 +117,3 @@ function restoreAll(restorers) {
 module.exports = {
   withInjectedFailure,
 };
-

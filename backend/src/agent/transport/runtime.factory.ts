@@ -301,7 +301,12 @@ export function createAgentV2Runtime(): AgentV2Runtime {
   const classifier = new TurnClassifier();
   const pending = new PendingManager();
   const registry = new ToolRegistry();
-  bootstrapTools(registry, [...loadWave1ReadTools(), ...loadDraftTools()]);
+  bootstrapTools(registry, [
+    ...loadWave1ReadTools(),
+    ...loadDraftTools(),
+    ...loadPlanTools(),
+    ...loadSystemTools(),
+  ]);
 
   const loop = new AgenticLoop(
     llmProvider,
@@ -396,6 +401,41 @@ function loadDraftTools(): ToolDefinition[] {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error || "unknown error");
     console.warn(`[agent.tools.draft] Draft tools unavailable: ${message}`);
+    return [];
+  }
+}
+
+function loadPlanTools(): ToolDefinition[] {
+  try {
+    const planModule = require("../tools/plan") as {
+      getPlanTools?: () => ToolDefinition[];
+    };
+    if (typeof planModule.getPlanTools === "function") {
+      return planModule.getPlanTools();
+    }
+    return [];
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error || "unknown error");
+    console.warn(`[agent.tools.plan] Plan tools unavailable: ${message}`);
+    return [];
+  }
+}
+
+function loadSystemTools(): ToolDefinition[] {
+  try {
+    const systemModule = require("../tools/system") as {
+      getSystemTools?: () => ToolDefinition[];
+    };
+    if (typeof systemModule.getSystemTools === "function") {
+      return systemModule.getSystemTools();
+    }
+    return [];
+  } catch (error) {
+    if (isModuleNotFoundError(error)) {
+      return [];
+    }
+    const message = error instanceof Error ? error.message : String(error || "unknown error");
+    console.warn(`[agent.tools.system] System tools unavailable: ${message}`);
     return [];
   }
 }
@@ -826,4 +866,14 @@ function getOptionalCacheStats(value: unknown): Record<string, unknown> {
     console.warn(`[agent.performance] Failed reading cache stats: ${message}`);
     return {};
   }
+}
+
+function isModuleNotFoundError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  return (
+    (error as { code?: string }).code === "MODULE_NOT_FOUND" ||
+    String((error as { message?: string }).message || "").includes("Cannot find module")
+  );
 }

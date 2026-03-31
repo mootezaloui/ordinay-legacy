@@ -516,7 +516,6 @@ export interface ActionProposal {
   };
   userMessageDraft?: string;
   confirmation?: {
-    mode?: string;
     expiresAt?: string;
     extraRiskAck?: boolean;
     warnings?: string[];
@@ -981,7 +980,7 @@ export interface ChatContextSummaryOutput {
 }
 
 export interface AssistSuggestionItem {
-  actionType: 'CREATE_ENTITY' | 'ADD_NOTE' | 'GENERATE_DOCUMENT' | 'ENRICH_FIELD';
+  actionType: 'CREATE_ENTITY' | 'ADD_NOTE' | 'GENERATE_DOCUMENT' | 'ENRICH_FIELD' | 'DELETE_ENTITY';
   targetEntityType: string | null;
   sourceEntityType: string;
   sourceEntityId: number | string | null;
@@ -1275,16 +1274,178 @@ export async function confirmProposal(
   options: { ackRisk?: boolean } = {}
 ): Promise<ExecutionResult> {
   try {
-    const response = await apiClient.post<{ status: string; data: ExecutionResult; error?: string }>(
-      '/agent/confirm',
-      { proposalId, sessionId, ackRisk: options.ackRisk === true }
-    );
-
-    if (response.status !== 'ok' || !response.data) {
-      throw new Error(response.error || 'Confirmation failed');
+    const asRecord = (value: unknown): Record<string, unknown> | null => {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+      return value as Record<string, unknown>;
+    };
+    let apiBase = getApiBase();
+    if (isElectron()) {
+      const backendConfig = getBackendConfig();
+      if (backendConfig?.httpApiUrl) {
+        apiBase = backendConfig.httpApiUrl;
+      } else if (backendConfig?.apiUrl && !backendConfig.apiUrl.startsWith("ipc")) {
+        apiBase = backendConfig.apiUrl;
+      } else {
+        throw new Error("Agent confirmation requires HTTP backend connection.");
+      }
     }
 
-    return response.data;
+    const confirmMessage = options.ackRisk === true ? "yes, confirm and accept risk" : "yes, confirm";
+    const requestBody = {
+      sessionId,
+      turnId: createAgentV2TurnId(),
+      message: confirmMessage,
+      metadata: buildAgentV2Metadata({
+        metadata: {
+          requestSource: "proposal_confirm",
+          requestTriggerId: `confirm_${Date.now()}`,
+        },
+        contextScope: "GLOBAL",
+        contextRefs: {},
+        dataAccess: undefined,
+        followUpIntent: undefined,
+        agentVersion: "v2",
+      }),
+    };
+
+    const response = await fetch(`${apiBase}/agent/v2/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok || !response.body) {
+      const text = await response.text().catch(() => "");
+      throw new Error(text || `Confirmation failed (HTTP ${response.status})`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let currentEvent = "";
+    let currentData = "";
+    let resolvedExecution: ExecutionResult | null = null;
+    let streamError: string | null = null;
+
+    const processEvent = () => {
+      if (!currentEvent || !currentData) return;
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(currentData);
+      } catch {
+        parsed = null;
+      }
+      const payload = asRecord(parsed);
+      if (currentEvent === "plan_executed") {
+        const artifact = asRecord(payload?.artifact);
+        const pendingActionId = String(artifact?.pendingActionId || proposalId);
+        if (artifact?.ok === true) {
+          const result = asRecord(artifact?.result);
+          const entityType = String(result?.entityType || "").trim().toLowerCase();
+          const entityIdNum = Number(result?.entityId);
+          const hasEntity = Boolean(entityType) && Number.isInteger(entityIdNum) && entityIdNum > 0;
+          const operation = String(result?.operation || "update").trim().toLowerCase();
+          const actionType =
+            operation === "create"
+              ? "CREATE_ENTITY"
+              : operation === "delete"
+              ? "DELETE_ENTITY"
+              : "UPDATE_ENTITY";
+          resolvedExecution = {
+            type: "execution_result",
+            proposalId: pendingActionId,
+            status: "success",
+            ...(hasEntity
+              ? {
+                  executedActions: [
+                    {
+                      actionType,
+                      executedAt: new Date().toISOString(),
+                      result: {
+                        ...(result || {}),
+                        entityType,
+                        entityId: entityIdNum,
+                        operation,
+                        ok: true,
+                      },
+                    },
+                  ],
+                }
+              : {}),
+            audit: { executedAt: new Date().toISOString() },
+          };
+          return;
+        }
+        const message =
+          String(artifact?.errorMessage || "").trim() || "Could not apply that change.";
+        resolvedExecution = {
+          type: "execution_result",
+          proposalId: pendingActionId,
+          status: "failed",
+          error: {
+            code: String(artifact?.errorCode || "PLAN_EXECUTION_FAILED"),
+            message,
+            safeMessage: toSafeExecutionErrorMessage(message),
+            requiresReproposal: false,
+          },
+        };
+        return;
+      }
+      if (currentEvent === "plan_rejected") {
+        const artifact = asRecord(payload?.artifact);
+        resolvedExecution = {
+          type: "execution_result",
+          proposalId: String(artifact?.pendingActionId || proposalId),
+          status: "failed",
+          error: {
+            code: "PLAN_REJECTED",
+            message: "Planned action was rejected.",
+            safeMessage: "Planned action was rejected.",
+            requiresReproposal: false,
+          },
+        };
+        return;
+      }
+      if (currentEvent === "error") {
+        streamError =
+          String(payload?.message || payload?.error || "").trim() ||
+          "Could not confirm the action. Please try again.";
+      }
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+      for (const rawLine of lines) {
+        const line = rawLine.replace(/\r$/, "");
+        if (!line) {
+          processEvent();
+          currentEvent = "";
+          currentData = "";
+          continue;
+        }
+        if (line.startsWith("event:")) {
+          currentEvent = line.slice(6).trim();
+          continue;
+        }
+        if (line.startsWith("data:")) {
+          currentData = currentData
+            ? `${currentData}\n${line.slice(5).trim()}`
+            : line.slice(5).trim();
+        }
+      }
+    }
+
+    if (resolvedExecution) {
+      return resolvedExecution;
+    }
+    if (streamError) {
+      throw new Error(streamError);
+    }
+    throw new Error("Could not confirm the action. No execution result returned.");
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     // Return a failed ExecutionResult
@@ -1466,7 +1627,15 @@ export type StreamEventType =
   | 'done'
   | 'error'
   | 'cancelled'
-  | 'entity_mutation_success';
+  | 'entity_mutation_success'
+  | 'draft_artifact'
+  | 'plan_artifact'
+  | 'plan_executed'
+  | 'plan_rejected'
+  | 'suggestion_artifact'
+  | 'pending'
+  | 'confirmed'
+  | 'disambiguation';
 
 /**
  * Status event data - describes what the agent is currently doing.
@@ -1485,6 +1654,57 @@ export interface ChatMutationLifecycleEvent {
   entityId?: number | string;
   operation?: 'create' | 'update' | 'delete' | string;
   label?: string;
+}
+
+export interface PlanOperationEventData {
+  operation: 'create' | 'update' | 'delete';
+  entityType: string;
+  entityId?: number | string;
+  payload?: Record<string, unknown>;
+  changes?: Record<string, unknown>;
+  reason?: string;
+}
+
+export interface PlanPreviewFieldEventData {
+  key: string;
+  from?: unknown;
+  to?: unknown;
+}
+
+export interface PlanPreviewEventData {
+  title?: string;
+  subtitle?: string;
+  fields?: PlanPreviewFieldEventData[];
+  warnings?: string[];
+}
+
+export interface PlanArtifactEventData {
+  pendingActionId: string;
+  operation: PlanOperationEventData;
+  summary: string;
+  preview?: PlanPreviewEventData;
+}
+
+export interface PlanExecutedEventData {
+  pendingActionId: string;
+  ok: boolean;
+  result?: Record<string, unknown>;
+  errorCode?: string;
+  errorMessage?: string;
+}
+
+export interface PlanRejectedEventData {
+  pendingActionId: string;
+}
+
+export interface SuggestionArtifactEventData {
+  actionType: 'draft' | 'create' | 'update' | 'delete';
+  targetType: string;
+  title: string;
+  reason: string;
+  linkedEntityType?: string;
+  linkedEntityId?: number;
+  prefillData?: Record<string, unknown>;
 }
 
 export function extractChatMutationLifecycleEvent(
@@ -1511,6 +1731,10 @@ export interface StreamCallbacks {
   onCommentaryChunk?: (chunk: string) => void;
   onDone?: (data: { timestamp: string; fullContent?: string; mutationOutcome?: { status?: string; entityType?: string; entityId?: number | string; operation?: string } | null }) => void;
   onDraftArtifact?: (artifact: DraftArtifactData) => void;
+  onPlanArtifact?: (artifact: PlanArtifactEventData) => void;
+  onPlanExecuted?: (artifact: PlanExecutedEventData) => void;
+  onPlanRejected?: (artifact: PlanRejectedEventData) => void;
+  onSuggestionArtifact?: (artifact: SuggestionArtifactEventData) => void;
   onMutationEvent?: (event: EntityMutationSuccessEvent) => void;
   onError?: (error: string) => void;
   onCancelled?: () => void;
@@ -1568,51 +1792,28 @@ function buildLocalRecoveryOutput(
   };
 }
 
-type AgentV2Mode = 'READ_ONLY' | 'DRAFT' | 'EXECUTE' | 'AUTONOMOUS';
+function toSafeExecutionErrorMessage(raw: string): string {
+  const message = String(raw || '').trim();
+  if (!message) return 'Could not apply that change. Please review and try again.';
+  const lower = message.toLowerCase();
+  if (
+    lower.includes('constraint failed') ||
+    lower.includes('sqlite') ||
+    lower.includes('sql') ||
+    lower.includes('not null') ||
+    lower.includes('foreign key') ||
+    lower.includes('unique')
+  ) {
+    return 'Could not apply that change because one or more values are not valid.';
+  }
+  if (message.length > 220) {
+    return 'Could not apply that change. Please review and try again.';
+  }
+  return message;
+}
 
 function createAgentV2TurnId(): string {
   return `turn_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function inferAgentV2Mode(params: {
-  followUpIntent?: FollowUpIntent;
-  metadata?: AgentRequestMetadata;
-  message?: string;
-}): AgentV2Mode {
-  const intent = String(params.followUpIntent?.intent || '').trim().toUpperCase();
-  const requestedAction =
-    String((params.metadata as unknown as Record<string, unknown> | undefined)?.requestedAction || '')
-      .trim()
-      .toLowerCase();
-
-  if (requestedAction === 'execute' || requestedAction === 'autonomous' || requestedAction === 'draft') {
-    if (requestedAction === 'autonomous') return 'AUTONOMOUS';
-    if (requestedAction === 'execute') return 'EXECUTE';
-    return 'DRAFT';
-  }
-
-  if (
-    /(CREATE|UPDATE|DELETE|MUTATION|LINK|ATTACH|PROPOSE|CONFIRM|EXECUTE|GENERATE_DOCUMENT|ADD_NOTE|ENRICH_FIELD|DRAFT|WRITE|LETTER)/.test(
-      intent,
-    )
-  ) {
-    return 'DRAFT';
-  }
-
-  if (params.message) {
-    const msg = params.message.trim().toLowerCase();
-    if (
-      /\b(write|draft|compose|prepare|generate|create|redige[rz]?|rédige[rz]?|prépare[rz]?|اكتب|حضّر|صغ)\b/.test(msg) ||
-      /\b(letter|email|memo|notice|petition|contract|postponement)\b/.test(msg) ||
-      /\b(official request|request to)\b/.test(msg) ||
-      /\b(lettre|courriel|email|note|requ[eê]te|contrat)\b/.test(msg) ||
-      /(رسالة|طلب|مذكرة|عريضة|تأجيل)/.test(msg)
-    ) {
-      return 'DRAFT';
-    }
-  }
-
-  return 'READ_ONLY';
 }
 
 function buildAgentV2Metadata(params: {
@@ -1667,7 +1868,6 @@ export function streamAgentMessage(
   const abortController = new AbortController();
   const useAgentV2Stream = true;
   const v2TurnId = createAgentV2TurnId();
-  const v2Mode = inferAgentV2Mode({ followUpIntent, metadata, message });
 
   const request: AgentRequest & {
     dataAccess?: DataAccessPermissions;
@@ -1698,7 +1898,6 @@ export function streamAgentMessage(
     sessionId,
     turnId: v2TurnId,
     message,
-    mode: v2Mode,
     metadata: buildAgentV2Metadata({
       metadata,
       contextScope,
@@ -1719,7 +1918,6 @@ export function streamAgentMessage(
         JSON.stringify({
           sessionId,
           turnId: v2TurnId,
-          mode: v2Mode,
           requestSource: metadata?.requestSource || "unknown",
           requestTriggerId: metadata?.requestTriggerId || null,
           messagePreview: String(message || "").slice(0, 140),
@@ -1905,7 +2103,7 @@ export function streamAgentMessage(
               break;
             case 'draft_artifact':
               if (data?.artifact) {
-                console.info("[DRAFT_TRACE_FRONT_SSE_EVENT]", {
+                console.info("[AGENT_ARTIFACT_TRACE_FRONT_SSE_EVENT]", {
                   event: "draft_artifact",
                   draftType: data.artifact?.draftType,
                   title: data.artifact?.title,
@@ -1915,6 +2113,26 @@ export function streamAgentMessage(
                     : 0,
                 });
                 callbacks.onDraftArtifact?.({ ...data.artifact, type: 'draft_v2' });
+              }
+              break;
+            case 'plan_artifact':
+              if (data?.artifact) {
+                callbacks.onPlanArtifact?.(data.artifact as PlanArtifactEventData);
+              }
+              break;
+            case 'plan_executed':
+              if (data?.artifact) {
+                callbacks.onPlanExecuted?.(data.artifact as PlanExecutedEventData);
+              }
+              break;
+            case 'plan_rejected':
+              if (data?.artifact) {
+                callbacks.onPlanRejected?.(data.artifact as PlanRejectedEventData);
+              }
+              break;
+            case 'suggestion_artifact':
+              if (data?.artifact) {
+                callbacks.onSuggestionArtifact?.(data.artifact as SuggestionArtifactEventData);
               }
               break;
             case 'pending':
@@ -2023,6 +2241,10 @@ export function streamAgentMessage(
             case 'tool_start':
             case 'tool_result':
             case 'draft_artifact':
+            case 'plan_artifact':
+            case 'plan_executed':
+            case 'plan_rejected':
+            case 'suggestion_artifact':
             case 'pending':
             case 'confirmed':
             case 'disambiguation':

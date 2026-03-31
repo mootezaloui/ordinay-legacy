@@ -662,19 +662,19 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           if (entityType === "personalTask") {
             return {
               ...field,
-          type: "readonly",
-          defaultValue: editingEntry?.scope || "internal",
-          displayValue: t("form.fields.scope.options.internal", { ns: "accounting" })
-        };
-      }
-      // Client, dossier, lawsuit, mission, officer are client-related expenses
-      return {
-        ...field,
-        type: "readonly",
-        defaultValue: editingEntry?.scope || "client",
-        displayValue: t("form.fields.scope.options.client", { ns: "accounting" })
-      };
-    }
+              type: "readonly",
+              defaultValue: editingEntry?.scope || "internal",
+              displayValue: t("form.fields.scope.options.internal", { ns: "accounting" })
+            };
+          }
+          // Client, dossier, lawsuit, mission, officer are client-related expenses
+          return {
+            ...field,
+            type: "readonly",
+            defaultValue: editingEntry?.scope || "client",
+            displayValue: t("form.fields.scope.options.client", { ns: "accounting" })
+          };
+        }
 
         // For client detail view: show client as readonly, allow optional dossier/lawsuit selection
         if (entityType === "client") {
@@ -1739,11 +1739,10 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                       {t("detail.financial.detail.category", { ns: "common" })}
                     </label>
                     <p className="text-base font-semibold flex items-center gap-2">
-                      <i className={`${financialCategories[selectedEntry.category]?.icon} ${
-                        selectedEntry.category === "bailiff_fees" || selectedEntry.category === "frais_huissier"
+                      <i className={`${financialCategories[selectedEntry.category]?.icon} ${selectedEntry.category === "bailiff_fees" || selectedEntry.category === "frais_huissier"
                           ? "text-blue-600 dark:text-blue-400"
                           : "text-slate-400"
-                      }`}></i>
+                        }`}></i>
                       <span className={
                         selectedEntry.category === "bailiff_fees" || selectedEntry.category === "frais_huissier"
                           ? "px-2 py-1 rounded-full text-sm font-bold bg-blue-600 text-white dark:bg-blue-500 dark:text-white shadow-sm"

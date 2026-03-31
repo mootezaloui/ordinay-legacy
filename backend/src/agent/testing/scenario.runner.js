@@ -9,6 +9,7 @@ const {
   assertCitationPresence,
   assertClarificationTriggered,
   assertFailureType,
+  assertSseEvents,
 } = require("./assertions");
 const { getScenarioFixture } = require("./scenario.fixtures");
 const { createLiveRuntime, createLiveStreamHandler } = require("./runtime.resolver");
@@ -172,6 +173,9 @@ function applyScenarioExpectations(result) {
   if (expect.failureType) {
     assertFailureType(result, expect.failureType);
   }
+  if (expect.sseEvents) {
+    assertSseEvents(result, expect.sseEvents);
+  }
 }
 
 function createMockSseResponse() {
@@ -278,7 +282,6 @@ async function getOrCreateSession(runtime, input) {
   return runtime.sessionStore.createSession({
     sessionId: input.sessionId,
     userId: input.userId,
-    mode: input.mode,
   });
 }
 
@@ -286,7 +289,6 @@ function resetSessionForScenario(session, input, fixture, options) {
   if (!session || fixture?.resetSession === false || options?.resetSession === false) {
     return;
   }
-  session.mode = input.mode;
   session.state = {
     status: "ACTIVE",
     pendingAction: null,
@@ -324,15 +326,21 @@ function normalizeFixture(fixtureOrId) {
 
 function materializeInput(fixture, options) {
   const seed = fixture.input || {};
+  const legacyMode =
+    normalizeOptionalString(seed.mode) || normalizeOptionalString(options.mode) || "";
   const input = {
     sessionId: String(seed.sessionId || options.sessionId || `${fixture.id}_session`),
     turnId: String(seed.turnId || options.turnId || `${fixture.id}_turn_${Date.now()}`),
     message: String(seed.message || options.message || "Test turn"),
-    mode: String(seed.mode || options.mode || "READ_ONLY"),
     metadata: { ...(seed.metadata || {}), ...(options.metadata || {}) },
     userId: seed.userId || options.userId,
+    ...(legacyMode ? { mode: legacyMode } : {}),
   };
   return input;
+}
+
+function normalizeOptionalString(value) {
+  return String(value || "").trim();
 }
 
 function cloneSimple(value) {

@@ -1,11 +1,21 @@
 import { ENABLE_COMPAT_EVENTS } from "../config";
-import type { DraftArtifact } from "../types";
+import type {
+  DraftArtifact,
+  PlanArtifact,
+  PlanExecutedArtifact,
+  PlanRejectedArtifact,
+  SuggestionArtifact,
+} from "../types";
 
 export type StreamEvent =
   | { type: "text_delta"; delta: string }
   | { type: "tool_start"; toolName: string }
   | { type: "tool_result"; toolName: string; ok: boolean }
   | { type: "draft_artifact"; artifact: DraftArtifact }
+  | { type: "suggestion_artifact"; artifact: SuggestionArtifact }
+  | { type: "plan_artifact"; artifact: PlanArtifact }
+  | { type: "plan_executed"; artifact: PlanExecutedArtifact }
+  | { type: "plan_rejected"; artifact: PlanRejectedArtifact }
   | { type: "pending"; actionSummary: string }
   | { type: "confirmed"; actionSummary: string; ok: boolean }
   | { type: "disambiguation"; payload: Record<string, unknown> }

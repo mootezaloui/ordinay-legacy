@@ -1,7 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.InMemorySessionStore = void 0;
-const config_1 = require("../config");
 const errors_1 = require("../errors");
 const types_1 = require("../types");
 class InMemorySessionStore {
@@ -33,7 +32,6 @@ class InMemorySessionStore {
         const session = {
             id: sessionId,
             userId: input.userId,
-            mode: input.mode ?? config_1.DEFAULT_AGENT_MODE,
             state: {
                 status: "ACTIVE",
                 pendingAction: null,
@@ -82,7 +80,6 @@ class InMemorySessionStore {
             return null;
         }
         loaded.id = key;
-        loaded.mode = loaded.mode ?? config_1.DEFAULT_AGENT_MODE;
         loaded.state = loaded.state ?? {
             status: "ACTIVE",
             pendingAction: null,

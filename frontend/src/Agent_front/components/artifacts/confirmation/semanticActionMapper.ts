@@ -154,12 +154,19 @@ function buildChangeImpact(input: SemanticActionMappingInput): SemanticImpactIte
   const items: SemanticImpactItem[] = [];
   const changes = input.changes || {};
   for (const [field, diff] of Object.entries(changes)) {
+    const hasBefore = !(diff.from === null || diff.from === undefined || diff.from === "");
+    const hasAfter = !(diff.to === null || diff.to === undefined || diff.to === "");
+    const beforeLabel = hasBefore ? formatFieldValue(diff.from, field) : "Current";
+    const afterLabel = hasAfter ? formatFieldValue(diff.to, field) : "Updated";
+    const detail = hasBefore
+      ? `${humanFieldLabel(field)} will change from ${beforeLabel} to ${afterLabel}.`
+      : `${humanFieldLabel(field)} will be set to ${afterLabel}.`;
     items.push({
       kind: "change",
       title: humanFieldLabel(field),
-      before: formatFieldValue(diff.from, field),
-      after: formatFieldValue(diff.to, field),
-      detail: `${humanFieldLabel(field)} will change from ${formatFieldValue(diff.from, field)} to ${formatFieldValue(diff.to, field)}.`,
+      before: beforeLabel,
+      after: afterLabel,
+      detail,
     });
   }
   return items;

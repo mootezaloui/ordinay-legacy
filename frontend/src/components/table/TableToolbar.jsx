@@ -161,15 +161,15 @@ export default function TableToolbar({
 
     indicatorRef.current.animate(
       [
-        { 
-          transform: `translateX(${lastIndicatorX.current}px)`, 
+        {
+          transform: `translateX(${lastIndicatorX.current}px)`,
           width: `${lastIndicatorW.current}px`,
-          opacity: lastIndicatorW.current === 0 ? 0 : 1 
+          opacity: lastIndicatorW.current === 0 ? 0 : 1
         },
-        { 
-          transform: `translateX(${x}px)`, 
+        {
+          transform: `translateX(${x}px)`,
           width: `${w}px`,
-          opacity: 1 
+          opacity: 1
         },
       ],
       {
@@ -246,7 +246,7 @@ export default function TableToolbar({
       <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 hidden xl:inline">
         {t("table.toolbar.view", { defaultValue: "View" })}
       </span>
-      <div 
+      <div
         ref={navContainerRef}
         className="inline-flex items-center gap-1 rounded-2xl border border-slate-300 dark:border-slate-700/60 bg-white dark:bg-slate-900/70 p-1 shadow-sm relative overflow-hidden"
       >

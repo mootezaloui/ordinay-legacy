@@ -18,7 +18,6 @@ test("LLM provider failure is surfaced without crashing process", async () => {
       sessionId: "llm_failure_session",
       turnId: `llm_failure_turn_${Date.now()}`,
       message: "Provide a concise status update.",
-      mode: "READ_ONLY",
       metadata: {},
     },
     expect: {},

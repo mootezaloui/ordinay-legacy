@@ -9,7 +9,6 @@ test("replayTurnTrace matches structural turn type for NEW", async () => {
   const replay = await replayTurnTrace({
     sessionId: "replay_session_new",
     turnId: "replay_turn_new_1",
-    mode: "READ_ONLY",
     turnType: "NEW",
     response: { pendingPresent: false, toolCallsTotal: 0 },
   });
@@ -22,21 +21,19 @@ test("replayTraceSuite matches structural outcomes for mixed traces", async () =
     {
       sessionId: "replay_suite_session_1",
       turnId: "replay_suite_turn_1",
-      mode: "READ_ONLY",
       turnType: "NEW",
       response: { pendingPresent: false, toolCallsTotal: 0 },
     },
     {
       sessionId: "replay_suite_session_2",
       turnId: "replay_suite_turn_2",
-      mode: "EXECUTE",
+      authScope: "execute",
       turnType: "CONFIRMATION",
       response: { pendingPresent: false, toolCallsTotal: 0 },
     },
     {
       sessionId: "replay_suite_session_3",
       turnId: "replay_suite_turn_3",
-      mode: "READ_ONLY",
       turnType: "REJECTION",
       response: { pendingPresent: false, toolCallsTotal: 0 },
     },
@@ -46,4 +43,3 @@ test("replayTraceSuite matches structural outcomes for mixed traces", async () =
   assert.equal(suite.failures, 0);
   assert.equal(suite.results.length, 3);
 });
-

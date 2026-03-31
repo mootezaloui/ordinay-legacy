@@ -42,14 +42,13 @@ function buildReplayFixture(trace, options) {
   const row = isRecord(trace) ? trace : {};
   const sessionId = normalizeOptionalString(row.sessionId) || `replay_session_${Date.now()}`;
   const turnId = normalizeOptionalString(row.turnId) || `replay_turn_${Date.now()}`;
-  const mode = normalizeOptionalString(row.mode) || "READ_ONLY";
   const traceTurnType = normalizeOptionalString(row.turnType).toUpperCase();
   const message =
     normalizeOptionalString(row.message) ||
     normalizeOptionalString(options.defaultMessage) ||
     defaultReplayMessage(traceTurnType, turnId);
   const target = normalizeOptionalString(options.target) || "loop_core";
-  const authScope = defaultAuthScopeForMode(mode);
+  const authScope = resolveReplayAuthScope(row);
 
   const fixture = {
     id: `replay_${turnId}`,
@@ -58,7 +57,6 @@ function buildReplayFixture(trace, options) {
     input: {
       sessionId,
       turnId,
-      mode,
       message,
       metadata: {
         replay: true,
@@ -171,18 +169,29 @@ function defaultReplayMessage(turnType, turnId) {
   }
 }
 
-function defaultAuthScopeForMode(mode) {
-  const normalized = normalizeOptionalString(mode).toUpperCase();
-  switch (normalized) {
-    case "DRAFT":
-      return "draft";
-    case "EXECUTE":
-    case "AUTONOMOUS":
-      return "execute";
-    case "READ_ONLY":
-    default:
-      return "read";
+function resolveReplayAuthScope(traceRow) {
+  const row = isRecord(traceRow) ? traceRow : {};
+  const metadata = isRecord(row.metadata) ? row.metadata : {};
+  const security = isRecord(metadata.security) ? metadata.security : {};
+  const explicit =
+    normalizeOptionalString(row.authScope) ||
+    normalizeOptionalString(security.authScope);
+  if (explicit) {
+    return explicit;
   }
+  const legacy = mapLegacyModeToScope(row.mode);
+  if (legacy) {
+    return legacy;
+  }
+  return "read";
+}
+
+function mapLegacyModeToScope(mode) {
+  const normalized = normalizeOptionalString(mode).toUpperCase();
+  if (normalized === "DRAFT") return "draft";
+  if (normalized === "EXECUTE" || normalized === "AUTONOMOUS") return "execute";
+  if (normalized === "READ_ONLY") return "read";
+  return "";
 }
 
 function normalizeOptionalString(value) {

@@ -6,11 +6,11 @@ const {
   rebuildConversationTurns,
   rebuildHistoryEntry,
   rebuildPendingAction,
-  normalizeMode,
   normalizeRetries,
   normalizeString,
   normalizeNullableText,
   normalizeDate,
+  serializePendingActionArgs,
   safeJsonStringify,
   safeParse,
   isRecord,
@@ -54,7 +54,7 @@ function createSessionRepository(sqliteClient, options = {}) {
     if (!key) return null;
 
     const row = await sqliteClient.get(
-      `SELECT id, user_id, mode, created_at, updated_at, summary, metadata_json
+      `SELECT id, user_id, created_at, updated_at, summary, metadata_json
        FROM ${tables.sessions}
        WHERE id = @id
        LIMIT 1`,
@@ -90,7 +90,6 @@ function createSessionRepository(sqliteClient, options = {}) {
     return {
       id: String(row.id),
       userId: row.user_id || undefined,
-      mode: normalizeMode(row.mode),
       state: {
         status: metadata.state?.status || "ACTIVE",
         pendingAction: pendingRow ? rebuildPendingAction(pendingRow) : null,
@@ -112,7 +111,6 @@ function createSessionRepository(sqliteClient, options = {}) {
       const payload = {
         id: normalizeString(session?.id),
         user_id: normalizeNullableText(session?.userId),
-        mode: normalizeMode(session?.mode),
         created_at: normalizeDate(session?.createdAt),
         updated_at: normalizeDate(session?.updatedAt),
         summary: normalizeNullableText(session?.summary),
@@ -132,11 +130,10 @@ function createSessionRepository(sqliteClient, options = {}) {
       }
 
       await sqliteClient.run(
-        `INSERT INTO ${tables.sessions} (id, user_id, mode, created_at, updated_at, summary, metadata_json)
-         VALUES (@id, @user_id, @mode, @created_at, @updated_at, @summary, @metadata_json)
+        `INSERT INTO ${tables.sessions} (id, user_id, created_at, updated_at, summary, metadata_json)
+         VALUES (@id, @user_id, @created_at, @updated_at, @summary, @metadata_json)
          ON CONFLICT(id) DO UPDATE SET
            user_id = excluded.user_id,
-           mode = excluded.mode,
            created_at = excluded.created_at,
            updated_at = excluded.updated_at,
            summary = excluded.summary,
@@ -225,7 +222,7 @@ function createSessionRepository(sqliteClient, options = {}) {
           session_id: sessionKey,
           tool_name: normalizeString(action.toolName),
           summary: normalizeString(action.summary),
-          args_json: safeJsonStringify(action.args || {}),
+          args_json: serializePendingActionArgs(action),
           created_at: normalizeDate(action.createdAt),
           requested_by_turn_id: normalizeNullableText(action.requestedByTurnId),
           risk: normalizeNullableText(action.risk),

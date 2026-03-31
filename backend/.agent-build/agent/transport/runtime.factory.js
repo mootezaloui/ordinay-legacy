@@ -40,7 +40,12 @@ function createAgentV2Runtime() {
     const classifier = new engine_1.TurnClassifier();
     const pending = new engine_1.PendingManager();
     const registry = new tools_1.ToolRegistry();
-    (0, tools_1.bootstrapTools)(registry, [...loadWave1ReadTools(), ...loadDraftTools()]);
+    (0, tools_1.bootstrapTools)(registry, [
+        ...loadWave1ReadTools(),
+        ...loadDraftTools(),
+        ...loadPlanTools(),
+        ...loadSystemTools(),
+    ]);
     const loop = new engine_1.AgenticLoop(llmProvider, registry, executor, classifier, pending, permissionGate, loopGuard, repository, memory);
     const runtime = {
         sessionStore,
@@ -106,6 +111,37 @@ function loadDraftTools() {
     catch (error) {
         const message = error instanceof Error ? error.message : String(error || "unknown error");
         console.warn(`[agent.tools.draft] Draft tools unavailable: ${message}`);
+        return [];
+    }
+}
+function loadPlanTools() {
+    try {
+        const planModule = require("../tools/plan");
+        if (typeof planModule.getPlanTools === "function") {
+            return planModule.getPlanTools();
+        }
+        return [];
+    }
+    catch (error) {
+        const message = error instanceof Error ? error.message : String(error || "unknown error");
+        console.warn(`[agent.tools.plan] Plan tools unavailable: ${message}`);
+        return [];
+    }
+}
+function loadSystemTools() {
+    try {
+        const systemModule = require("../tools/system");
+        if (typeof systemModule.getSystemTools === "function") {
+            return systemModule.getSystemTools();
+        }
+        return [];
+    }
+    catch (error) {
+        if (isModuleNotFoundError(error)) {
+            return [];
+        }
+        const message = error instanceof Error ? error.message : String(error || "unknown error");
+        console.warn(`[agent.tools.system] System tools unavailable: ${message}`);
         return [];
     }
 }
@@ -452,4 +488,11 @@ function getOptionalCacheStats(value) {
         console.warn(`[agent.performance] Failed reading cache stats: ${message}`);
         return {};
     }
+}
+function isModuleNotFoundError(error) {
+    if (!error || typeof error !== "object") {
+        return false;
+    }
+    return (error.code === "MODULE_NOT_FOUND" ||
+        String(error.message || "").includes("Cannot find module"));
 }

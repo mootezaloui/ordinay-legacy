@@ -587,6 +587,83 @@ function normalizeChangesObject(
   return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
+function snakeToCamel(value: string): string {
+  return String(value || "").replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+}
+
+function camelToSnake(value: string): string {
+  return String(value || "").replace(/[A-Z]/g, (match) => `_${match.toLowerCase()}`);
+}
+
+function getEntityCollection(
+  context: DataContextLike,
+  entityType: string,
+): Array<Record<string, unknown>> {
+  const normalized = String(entityType || "").toLowerCase();
+  if (normalized === "client") return (context.clients || []) as Array<Record<string, unknown>>;
+  if (normalized === "dossier") return (context.dossiers || []) as Array<Record<string, unknown>>;
+  if (normalized === "lawsuit") return (context.lawsuits || []) as Array<Record<string, unknown>>;
+  if (normalized === "task") return (context.tasks || []) as Array<Record<string, unknown>>;
+  if (normalized === "session") return (context.sessions || []) as Array<Record<string, unknown>>;
+  if (normalized === "mission") return (context.missions || []) as Array<Record<string, unknown>>;
+  if (normalized === "financial_entry") {
+    return (context.financialEntries || []) as Array<Record<string, unknown>>;
+  }
+  return [];
+}
+
+function resolveCurrentFieldValue(
+  context: DataContextLike,
+  entityType: string,
+  entityId: number | undefined,
+  field: string,
+): unknown {
+  if (!Number.isFinite(entityId) || Number(entityId) <= 0) return undefined;
+  const collection = getEntityCollection(context, entityType);
+  if (!Array.isArray(collection) || collection.length === 0) return undefined;
+
+  const row =
+    collection.find((item) => Number((item as Record<string, unknown>)?.id) === Number(entityId)) ||
+    null;
+  if (!row) return undefined;
+
+  const direct = (row as Record<string, unknown>)[field];
+  if (!(direct === undefined || direct === null || direct === "")) return direct;
+
+  const camel = snakeToCamel(field);
+  const camelValue = (row as Record<string, unknown>)[camel];
+  if (!(camelValue === undefined || camelValue === null || camelValue === "")) return camelValue;
+
+  const snake = camelToSnake(field);
+  const snakeValue = (row as Record<string, unknown>)[snake];
+  if (!(snakeValue === undefined || snakeValue === null || snakeValue === "")) return snakeValue;
+
+  return undefined;
+}
+
+function hydrateMissingFromValues(
+  changes: Record<string, { from: unknown; to: unknown }> | undefined,
+  context: DataContextLike,
+  entityType: string,
+  entityId: number | undefined,
+): Record<string, { from: unknown; to: unknown }> | undefined {
+  if (!changes || typeof changes !== "object") return changes;
+  const hydrated: Record<string, { from: unknown; to: unknown }> = {};
+  for (const [field, diff] of Object.entries(changes)) {
+    const missingFrom = diff?.from === undefined || diff?.from === null || diff?.from === "";
+    if (!missingFrom) {
+      hydrated[field] = diff;
+      continue;
+    }
+    const current = resolveCurrentFieldValue(context, entityType, entityId, field);
+    hydrated[field] = {
+      from: current === undefined ? diff?.from : current,
+      to: diff?.to,
+    };
+  }
+  return Object.keys(hydrated).length > 0 ? hydrated : changes;
+}
+
 function normalizePreviewPrimaryChanges(
   preview: ConfirmationPreview | undefined,
   entityType: string,
@@ -716,7 +793,7 @@ export function proposalToSemanticInput(
       ? []
       : buildWorkflowPreviewImpactHints(proposal, context);
 
-  const changes =
+  const baseChanges =
     actionType === "UPDATE_ENTITY"
       ? ((params.changes as Record<string, { from: unknown; to: unknown }> | undefined) ||
           normalizePreviewPrimaryChanges(
@@ -733,6 +810,12 @@ export function proposalToSemanticInput(
           normalizeWorkflowRequestedGoalChanges(workflow) ||
           extractWorkflowRootStepChanges(workflow)
       : undefined;
+  const changes = hydrateMissingFromValues(
+    baseChanges,
+    context,
+    entityType,
+    Number.isFinite(entityId) ? entityId : undefined,
+  );
   const pendingFieldNames =
     actionType === "UPDATE_ENTITY" &&
     (!changes || Object.keys(changes).length === 0) &&

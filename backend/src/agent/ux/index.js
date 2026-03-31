@@ -5,7 +5,6 @@ const { buildClarificationResponse } = require("./clarification.builder");
 const { decideClarificationAction } = require("./clarification.policy");
 const { selectResponsePosture } = require("./response.posture");
 const { detectWorkflowOpportunity } = require("./workflow.guide");
-const PRONOUN_REFERENCE_MODES = new Set(["DRAFT"]);
 const ENTITY_HINT_STOPWORDS = new Set([
   "a",
   "an",
@@ -140,7 +139,6 @@ function evaluatePreLoop({
   const clarificationDecision = decideClarificationAction({
     ambiguityResult,
     turnType: "NEW",
-    mode: input.mode,
     pendingAction: null,
     session,
   });
@@ -151,7 +149,6 @@ function evaluatePreLoop({
         ambiguityResult,
         workflowOpportunity: null,
         turnType: "NEW",
-        mode: input.mode,
         researchMode: false,
       });
       return {
@@ -171,35 +168,6 @@ function evaluatePreLoop({
       };
     }
 
-    // In READ_ONLY mode, defer ambiguity resolution to tool-first grounding
-    const normalizedMode = String(input.mode || "").trim().toUpperCase();
-    if (normalizedMode === "READ_ONLY") {
-      const posture = selectResponsePosture({
-        ambiguityResult,
-        workflowOpportunity: null,
-        turnType: "NEW",
-        mode: input.mode,
-        researchMode: false,
-      });
-      return {
-        handled: false,
-        action: "proceed",
-        metadata: {
-          uxDecision: {
-            action: "proceed_with_ambiguity",
-            posture,
-            ambiguityKind: ambiguityResult.kind,
-            ambiguityConfidence: ambiguityResult.confidence,
-            ambiguityCandidates: Array.isArray(ambiguityResult.candidates)
-              ? ambiguityResult.candidates.slice(0, 12)
-              : [],
-            workflowType: "none",
-            reason: "READ_ONLY ambiguity deferred to tool-first grounding.",
-          },
-        },
-      };
-    }
-
     const responseText = buildClarificationResponse({
       ambiguityResult,
       candidates: ambiguityResult.candidates,
@@ -211,7 +179,6 @@ function evaluatePreLoop({
       ambiguityResult,
       workflowOpportunity: null,
       turnType: "NEW",
-      mode: input.mode,
       researchMode: false,
     });
 
@@ -254,7 +221,6 @@ function evaluatePreLoop({
       ambiguityResult,
       workflowOpportunity,
       turnType: "NEW",
-      mode: input.mode,
       researchMode: false,
     });
     const responseText = buildWorkflowGuidanceResponse(workflowOpportunity);
@@ -280,7 +246,6 @@ function evaluatePreLoop({
     ambiguityResult,
     workflowOpportunity,
     turnType: "NEW",
-    mode: input.mode,
     researchMode: false,
   });
 
@@ -355,8 +320,7 @@ function normalizeStringArray(value) {
 }
 
 function shouldDeferPronounClarificationToLoop({ input, session, ambiguityResult } = {}) {
-  const mode = String(input && input.mode ? input.mode : "").trim().toUpperCase();
-  if (!PRONOUN_REFERENCE_MODES.has(mode)) {
+  if (!isDraftFlowContext(input, session)) {
     return false;
   }
 
@@ -372,6 +336,18 @@ function shouldDeferPronounClarificationToLoop({ input, session, ambiguityResult
   }
 
   return hasRecentExplicitEntityMention(session);
+}
+
+function isDraftFlowContext(input, session) {
+  const message = normalizeOptionalString(input && input.message);
+  if (/\b(write|draft|compose|prepare|letter|email|summary|redige|rédige|prépare|اكتب|صغ)\b/i.test(message)) {
+    return true;
+  }
+  const metadata = ensureRecord(input && input.metadata);
+  if (metadata.regenerateDraft === true) {
+    return true;
+  }
+  return Boolean(session && typeof session.currentDraft === "object" && session.currentDraft !== null);
 }
 
 function hasRecentExplicitEntityMention(session) {

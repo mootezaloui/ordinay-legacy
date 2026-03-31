@@ -1,62 +1,124 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PermissionGate = void 0;
-const types_1 = require("../types");
 const tools_1 = require("../tools");
+const LEGACY_MODE_SCOPE = {
+    READ_ONLY: "read",
+    DRAFT: "draft",
+    EXECUTE: "execute",
+    AUTONOMOUS: "execute",
+};
+const SCOPE_ALLOWED_CATEGORIES = {
+    unknown: new Set([
+        tools_1.ToolCategory.READ,
+        tools_1.ToolCategory.EXTERNAL,
+        tools_1.ToolCategory.DRAFT,
+        tools_1.ToolCategory.PLAN,
+        tools_1.ToolCategory.SYSTEM,
+    ]),
+    read: new Set([tools_1.ToolCategory.READ, tools_1.ToolCategory.EXTERNAL]),
+    draft: new Set([
+        tools_1.ToolCategory.READ,
+        tools_1.ToolCategory.EXTERNAL,
+        tools_1.ToolCategory.DRAFT,
+        tools_1.ToolCategory.SYSTEM,
+    ]),
+    execute: new Set([
+        tools_1.ToolCategory.READ,
+        tools_1.ToolCategory.EXTERNAL,
+        tools_1.ToolCategory.DRAFT,
+        tools_1.ToolCategory.PLAN,
+        tools_1.ToolCategory.WRITE,
+        tools_1.ToolCategory.EXECUTE,
+        tools_1.ToolCategory.SYSTEM,
+    ]),
+    admin: new Set([
+        tools_1.ToolCategory.READ,
+        tools_1.ToolCategory.EXTERNAL,
+        tools_1.ToolCategory.DRAFT,
+        tools_1.ToolCategory.PLAN,
+        tools_1.ToolCategory.WRITE,
+        tools_1.ToolCategory.EXECUTE,
+        tools_1.ToolCategory.SYSTEM,
+    ]),
+};
 class PermissionGate {
-    evaluate(mode, tool) {
-        switch (mode) {
-            case types_1.AgentMode.READ_ONLY:
-                return this.evaluateReadOnly(tool);
-            case types_1.AgentMode.DRAFT:
-                return this.evaluateDraft(tool);
-            case types_1.AgentMode.EXECUTE:
-                return this.evaluateExecute(tool);
-            case types_1.AgentMode.AUTONOMOUS:
-                return this.evaluateAutonomous(tool);
+    evaluate(scopeOrContext, tool) {
+        const scope = this.resolveScope(scopeOrContext);
+        if (!scope) {
+            return this.deny("unknown", tool, "Unknown auth scope");
+        }
+        const allowedCategories = SCOPE_ALLOWED_CATEGORIES[scope];
+        if (!allowedCategories) {
+            return this.deny(scope, tool, "Unknown auth scope");
+        }
+        if (!allowedCategories.has(tool.category)) {
+            return this.deny(scope, tool, `Tool category "${tool.category}" is blocked for scope "${scope}"`);
+        }
+        const requiresConfirmation = tool.category === tools_1.ToolCategory.WRITE || tool.category === tools_1.ToolCategory.EXECUTE;
+        return {
+            allowed: true,
+            requiresConfirmation,
+        };
+    }
+    resolveScope(value) {
+        if (typeof value === "string") {
+            return this.normalizeScope(value) ?? this.mapLegacyModeToScope(value);
+        }
+        const row = isRecord(value) ? value : null;
+        if (!row) {
+            return "unknown";
+        }
+        const fromScope = this.normalizeScope(row.authScope);
+        if (fromScope) {
+            return fromScope;
+        }
+        const fromMode = this.mapLegacyModeToScope(row.mode);
+        if (fromMode) {
+            return fromMode;
+        }
+        return "unknown";
+    }
+    mapLegacyModeToScope(mode) {
+        const normalized = String(mode || "").trim().toUpperCase();
+        if (Object.prototype.hasOwnProperty.call(LEGACY_MODE_SCOPE, normalized)) {
+            return LEGACY_MODE_SCOPE[normalized];
+        }
+        return null;
+    }
+    normalizeScope(scope) {
+        const normalized = String(scope || "").trim().toLowerCase();
+        if (normalized === "unknown" ||
+            normalized === "read" ||
+            normalized === "draft" ||
+            normalized === "execute" ||
+            normalized === "admin") {
+            return normalized;
+        }
+        switch (normalized) {
+            case "reader":
+            case "readonly":
+            case "read_only":
+                return "read";
+            case "writer":
+            case "editor":
+            case "guided":
+                return "draft";
+            case "operator":
+                return "execute";
             default:
-                return this.deny(mode, tool, "Unknown agent mode");
+                return null;
         }
     }
-    evaluateReadOnly(tool) {
-        if (tool.category === tools_1.ToolCategory.READ || tool.category === tools_1.ToolCategory.EXTERNAL) {
-            return { allowed: true, requiresConfirmation: false };
-        }
-        return this.deny(types_1.AgentMode.READ_ONLY, tool, "READ_ONLY mode only allows READ and EXTERNAL tools");
-    }
-    evaluateDraft(tool) {
-        if (tool.category === tools_1.ToolCategory.EXECUTE) {
-            return this.deny(types_1.AgentMode.DRAFT, tool, "DRAFT mode does not allow EXECUTE tools");
-        }
-        if (tool.category === tools_1.ToolCategory.READ ||
-            tool.category === tools_1.ToolCategory.DRAFT ||
-            tool.category === tools_1.ToolCategory.EXTERNAL ||
-            tool.category === tools_1.ToolCategory.PLAN) {
-            return { allowed: true, requiresConfirmation: false };
-        }
-        if (tool.category === tools_1.ToolCategory.WRITE) {
-            return { allowed: true, requiresConfirmation: true };
-        }
-        return this.deny(types_1.AgentMode.DRAFT, tool, "Tool category is not supported in DRAFT mode");
-    }
-    evaluateExecute(tool) {
-        if (tool.category === tools_1.ToolCategory.WRITE || tool.category === tools_1.ToolCategory.EXECUTE) {
-            return { allowed: true, requiresConfirmation: true };
-        }
-        return { allowed: true, requiresConfirmation: false };
-    }
-    evaluateAutonomous(tool) {
-        if (tool.category === tools_1.ToolCategory.WRITE || tool.category === tools_1.ToolCategory.EXECUTE) {
-            return { allowed: true, requiresConfirmation: true };
-        }
-        return { allowed: true, requiresConfirmation: false };
-    }
-    deny(mode, tool, reason) {
+    deny(scope, tool, reason) {
         return {
             allowed: false,
             requiresConfirmation: false,
-            reason: `${reason}. Tool "${tool.name}" (${tool.category}) is blocked in ${mode} mode.`,
+            reason: `${reason}. Tool "${tool.name}" (${tool.category}) is blocked for scope "${scope}".`,
         };
     }
 }
 exports.PermissionGate = PermissionGate;
+function isRecord(value) {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
