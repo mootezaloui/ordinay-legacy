@@ -24,6 +24,32 @@ export interface PlanOperation {
   reason?: string;
 }
 
+export type LinkResolutionStatus =
+  | "unchanged"
+  | "resolved"
+  | "ambiguous"
+  | "unresolved";
+
+export type LinkResolutionSource = "payload" | "draft_context" | "active_entities";
+
+export interface LinkResolutionCandidate {
+  entityType: string;
+  entityId: number | string;
+  label?: string;
+  source?: LinkResolutionSource;
+}
+
+export interface LinkResolutionDiagnostic {
+  status: LinkResolutionStatus;
+  reason?: string;
+  source?: LinkResolutionSource;
+  field?: string;
+  entityType?: string;
+  entityId?: number | string;
+  candidates?: LinkResolutionCandidate[];
+  message?: string;
+}
+
 export type DomainWorkflowActionType =
   | "CREATE_ENTITY"
   | "UPDATE_ENTITY"
@@ -63,6 +89,8 @@ export interface DomainWorkflowDiagnostics {
   plannerVersion?: string;
   analyzedAt?: string;
   blockers?: Record<string, number>;
+  blockerCounts?: Record<string, number>;
+  linkResolution?: LinkResolutionDiagnostic;
   notes?: string[];
   requiresUserDecision?: boolean;
   decisionPrompt?: string;
@@ -91,6 +119,22 @@ export interface PlanPreviewField {
   to?: unknown;
 }
 
+export interface PlanPreviewLinkingTarget {
+  entityType: string;
+  entityId: number | string;
+  label?: string;
+  field?: string;
+}
+
+export interface PlanPreviewLinking {
+  status: LinkResolutionStatus;
+  source?: LinkResolutionSource;
+  target?: PlanPreviewLinkingTarget;
+  userSpecified?: boolean;
+  resolutionLabel?: string;
+  ambiguousCandidates?: LinkResolutionCandidate[];
+}
+
 export interface PlanPreview {
   title?: string;
   subtitle?: string;
@@ -108,6 +152,7 @@ export interface PlanPreview {
   effects?: string[];
   reversibility?: "reversible" | "not_reversible" | "unknown" | string;
   decisions?: DomainWorkflowDecisionOption[];
+  linking?: PlanPreviewLinking;
 }
 
 export interface PendingActionPlan {
@@ -134,6 +179,11 @@ export interface PlanArtifact {
   operation: PlanOperation;
   summary: string;
   preview?: PlanPreview;
+  workflow?: {
+    totalSteps: number;
+    steps: DomainWorkflowStep[];
+    requiresUserDecision?: boolean;
+  };
 }
 
 export interface PlanExecutedArtifact {
@@ -144,6 +194,7 @@ export interface PlanExecutedArtifact {
   failedStepId?: string;
   errorCode?: string;
   errorMessage?: string;
+  errorDetails?: Record<string, unknown>;
 }
 
 export interface PlanRejectedArtifact {

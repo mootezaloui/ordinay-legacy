@@ -25,6 +25,23 @@ const allowedFields = [
   "join_date",
 ];
 
+function normalizeClientStatus(value, fallback = null) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return fallback;
+  const token = raw.toLowerCase().replace(/[\s-]+/g, "_");
+  if (token === "active") return "active";
+  if (
+    token === "inactive" ||
+    token === "in_active" ||
+    token === "former_client" ||
+    token === "disabled" ||
+    token === "suspended"
+  ) {
+    return "inActive";
+  }
+  return fallback;
+}
+
 function list() {
   const clients = db
     .prepare(`SELECT * FROM ${table} WHERE deleted_at IS NULL`)
@@ -142,7 +159,7 @@ function create(payload) {
     ...data,
   };
   assert(insertData.name, "Name is required");
-  if (!insertData.status) insertData.status = "active";
+  insertData.status = normalizeClientStatus(insertData.status, "active");
 
   try {
     const stmt = db.prepare(
@@ -169,6 +186,11 @@ function create(payload) {
 function update(id, payload) {
   const notesArray = payload?.notes;
   const data = normalizeData(filterPayload(payload, allowedFields));
+  if (Object.prototype.hasOwnProperty.call(data, "status")) {
+    const normalizedStatus = normalizeClientStatus(data.status, null);
+    assert(normalizedStatus, "Invalid status. Allowed values: active, inactive");
+    data.status = normalizedStatus;
+  }
   const hasDataFields = Object.keys(data).length > 0;
   if (!hasDataFields && notesArray === undefined) {
     assert(false, "No fields provided for update");

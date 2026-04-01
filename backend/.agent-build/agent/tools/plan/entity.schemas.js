@@ -130,6 +130,44 @@ const ENTITY_TYPE_ALIASES = {
 };
 const MAX_PREVIEW_FIELDS = 12;
 const MAX_PREVIEW_WARNINGS = 20;
+const LINK_GROUP_DOSSIER = ["dossier_id", "dossierId"];
+const LINK_GROUP_LAWSUIT = ["lawsuit_id", "lawsuitId"];
+const LINK_GROUP_CLIENT = ["client_id", "clientId"];
+const LINK_GROUP_MISSION = ["mission_id", "missionId"];
+const LINK_GROUP_TASK = ["task_id", "taskId"];
+const LINK_GROUP_SESSION = ["session_id", "sessionId"];
+const LINK_GROUP_PERSONAL_TASK = ["personal_task_id", "personalTaskId"];
+const LINK_GROUP_FINANCIAL_ENTRY = ["financial_entry_id", "financialEntryId"];
+const LINK_GROUP_OFFICER = ["officer_id", "officerId"];
+const CASE_PARENT_LINK_GROUPS = [LINK_GROUP_DOSSIER, LINK_GROUP_LAWSUIT];
+const DOCUMENT_PARENT_LINK_GROUPS = [
+    LINK_GROUP_CLIENT,
+    LINK_GROUP_DOSSIER,
+    LINK_GROUP_LAWSUIT,
+    LINK_GROUP_MISSION,
+    LINK_GROUP_TASK,
+    LINK_GROUP_SESSION,
+    LINK_GROUP_PERSONAL_TASK,
+    LINK_GROUP_FINANCIAL_ENTRY,
+    LINK_GROUP_OFFICER,
+];
+const DOCUMENT_STORAGE_SOURCE_GROUPS = [
+    ["file_path", "filePath"],
+    [
+        "generation_uid",
+        "generationUid",
+        "generation_id",
+        "generationId",
+        "source_generation_uid",
+        "sourceGenerationUid",
+        "document_generation_uid",
+        "documentGenerationUid",
+        "preview_uid",
+        "previewUid",
+        "document_preview_uid",
+        "documentPreviewUid",
+    ],
+];
 function normalizeEntityType(value) {
     const raw = String(value ?? "")
         .trim()
@@ -268,6 +306,7 @@ function validateCreatePayload(entityType, payload) {
         }
     }
     issues.push(...validateEnumFields(entityType, payload));
+    issues.push(...validateCreateLinkingConstraints(entityType, keyMap));
     return issues;
 }
 function validateUpdateChanges(entityType, changes) {
@@ -386,6 +425,67 @@ function validateEnumFields(entityType, payload) {
         }
     }
     return issues;
+}
+function validateCreateLinkingConstraints(entityType, keyMap) {
+    if (entityType === "task" || entityType === "session" || entityType === "mission") {
+        return validateExactlyOneGroupPresent({
+            keyMap,
+            groups: CASE_PARENT_LINK_GROUPS,
+            path: "payload",
+            code: "INVALID_PARENT_LINK_SCOPE",
+            message: `Create ${entityType} requires exactly one parent reference: ` +
+                "provide either dossier_id (or dossierId) or lawsuit_id (or lawsuitId).",
+        });
+    }
+    if (entityType === "document") {
+        const issues = [];
+        issues.push(...validateExactlyOneGroupPresent({
+            keyMap,
+            groups: DOCUMENT_PARENT_LINK_GROUPS,
+            path: "payload",
+            code: "INVALID_DOCUMENT_PARENT_LINK",
+            message: "Create document requires exactly one parent reference " +
+                "(client/dossier/lawsuit/mission/task/session/personal_task/financial_entry/officer).",
+        }));
+        if (!hasAnyGroupPresent(keyMap, DOCUMENT_STORAGE_SOURCE_GROUPS)) {
+            issues.push({
+                path: "payload",
+                code: "MISSING_DOCUMENT_STORAGE_SOURCE",
+                message: "Create document requires file_path (or filePath) " +
+                    "or a generation source token (for example generation_uid).",
+            });
+        }
+        return issues;
+    }
+    return [];
+}
+function validateExactlyOneGroupPresent(params) {
+    const presentCount = countPresentGroups(params.keyMap, params.groups);
+    if (presentCount === 1) {
+        return [];
+    }
+    return [
+        {
+            path: params.path,
+            code: params.code,
+            message: params.message,
+        },
+    ];
+}
+function countPresentGroups(keyMap, groups) {
+    let count = 0;
+    for (const group of groups) {
+        if (hasGroupPresent(keyMap, group)) {
+            count += 1;
+        }
+    }
+    return count;
+}
+function hasAnyGroupPresent(keyMap, groups) {
+    return groups.some((group) => hasGroupPresent(keyMap, group));
+}
+function hasGroupPresent(keyMap, group) {
+    return group.some((field) => hasPresentValue(keyMap.get(normalizeFieldKey(field))));
 }
 function normalizePreviewFields(value) {
     if (!Array.isArray(value)) {

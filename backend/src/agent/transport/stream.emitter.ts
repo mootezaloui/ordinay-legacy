@@ -18,6 +18,7 @@ export type StreamEvent =
   | { type: "plan_rejected"; artifact: PlanRejectedArtifact }
   | { type: "pending"; actionSummary: string }
   | { type: "confirmed"; actionSummary: string; ok: boolean }
+  | { type: "entity_mutation_success"; event: Record<string, unknown> }
   | { type: "disambiguation"; payload: Record<string, unknown> }
   | { type: "done" }
   | { type: "error"; message: string };

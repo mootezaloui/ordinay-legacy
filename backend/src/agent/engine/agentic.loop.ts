@@ -17,6 +17,7 @@ import {
   type ToolExecutionResult,
   type ToolRegistry,
 } from "../tools";
+import { DomainWorkflowPlanner, LinkResolver } from "../domain";
 import { SessionError } from "../errors";
 import type {
   AgentTurnInput,
@@ -27,6 +28,7 @@ import type {
   DraftSection,
   PlanArtifact,
   PlanExecutedArtifact,
+  LinkResolutionDiagnostic,
   PlanOperation,
   PlanPreview,
   PlanRejectedArtifact,
@@ -407,6 +409,9 @@ const WORKLOAD_OR_CASES_QUERY_PATTERN =
 const DRAFT_TOOL_ENFORCEMENT_MIN_TEXT_LENGTH = 500;
 const DRAFT_DETAILS_RECOVERY_MAX_ATTEMPTS = 2;
 const DRAFT_METADATA_SNAPSHOT_KEY = "draftSnapshot";
+const DOCUMENT_DRAFT_SOURCE_TOKEN = "__agent_current_draft__";
+const DOCUMENT_DRAFT_SNAPSHOT_KEY = "_agentDraftSnapshot";
+const DOCUMENT_DRAFT_PROVENANCE_KEY = "_agentDraftProvenance";
 
 interface ReadObservabilityCounters {
   READ_TOOL_CALL_COUNT: number;
@@ -414,6 +419,15 @@ interface ReadObservabilityCounters {
   READ_WARNINGS: number;
   GRAPH_WARNINGS: number;
   STATUS_WARNINGS: number;
+}
+
+interface LinkResolutionObservabilityCounters {
+  LINK_RESOLUTION_TOTAL: number;
+  LINK_RESOLUTION_RESOLVED: number;
+  LINK_RESOLUTION_UNCHANGED: number;
+  LINK_RESOLUTION_AMBIGUOUS: number;
+  LINK_RESOLUTION_UNRESOLVED: number;
+  LINK_RESOLUTION_FAILURES: number;
 }
 
 interface LoopStats {
@@ -440,6 +454,7 @@ interface ToolCallProcessingContext {
   warnings: string[];
   stats: LoopStats;
   readCounters: ReadObservabilityCounters;
+  linkCounters: LinkResolutionObservabilityCounters;
   streamCallbacks?: LoopStreamCallbacks;
 }
 
@@ -485,6 +500,8 @@ export class AgenticLoop {
     private readonly persistence?: SessionPersistenceBridge,
     private readonly memory?: AgentMemoryServices,
     private readonly entityExecutor: EntityExecutor = new EntityExecutor(),
+    private readonly workflowPlanner: DomainWorkflowPlanner = new DomainWorkflowPlanner(),
+    private readonly linkResolver: LinkResolver = new LinkResolver(),
   ) {}
 
   async run(
@@ -502,6 +519,7 @@ export class AgenticLoop {
     const warnings: string[] = [];
     const stats: LoopStats = { iterations: 0, toolCalls: 0 };
     const readCounters = this.createReadObservabilityCounters();
+    const linkCounters = this.createLinkResolutionObservabilityCounters();
 
     let output!: AgentTurnOutput;
     try {
@@ -541,12 +559,14 @@ export class AgenticLoop {
             warnings,
             stats,
             readCounters,
+            linkCounters,
             streamCallbacks,
           );
           break;
       }
     } finally {
       this.logReadObservabilitySummary(readCounters);
+      this.logLinkResolutionObservabilitySummary(linkCounters);
     }
 
     this.persistTurnArtifacts(input, session, output, startedAt, historyStartIndex);
@@ -575,6 +595,21 @@ export class AgenticLoop {
       const context = this.createExecutionContext(input, session);
       let result: ToolExecutionResult;
 
+      if (action.plan.diagnostics?.requiresUserDecision === true) {
+        const message =
+          action.plan.diagnostics.decisionPrompt ||
+          "This plan requires an explicit domain decision before execution.";
+        result = {
+          ok: false,
+          errorCode: "DOMAIN_DECISION_REQUIRED",
+          errorMessage: message,
+          data: {
+            blockerCounts: action.plan.diagnostics.blockerCounts || {},
+            decisionOptions: action.plan.diagnostics.decisionOptions || [],
+          },
+        };
+      } else
+
       if (this.isWritesExecutionBlockedBySafeMode()) {
         result = {
           ok: false,
@@ -599,7 +634,10 @@ export class AgenticLoop {
           toolName: action.toolName,
         });
       } else {
-        const executionResult = await this.entityExecutor.execute(action.plan);
+        const executionResult = await this.entityExecutor.execute(action.plan, {
+          sessionId: session.id,
+          sourceTurnId: action.requestedByTurnId || input.turnId,
+        });
         result = this.normalizeEntityExecutionResult(executionResult);
         this.collectToolWarnings(result, warnings);
 
@@ -628,6 +666,9 @@ export class AgenticLoop {
           this.trackConfirmedPlanEntity(session, action.plan, executionResult, input.turnId);
         }
 
+        const linkResolutionSourceTrace = this.resolveLinkResolutionSourceTrace(
+          action.plan?.diagnostics?.linkResolution,
+        );
         this.pushAudit(audit, input, "pending_confirmed_plan_executed", {
           actionId: action.id,
           toolName: action.toolName,
@@ -635,6 +676,12 @@ export class AgenticLoop {
           entityType: action.plan.operation.entityType,
           ok: result.ok,
           errorCode: result.errorCode,
+          ...(linkResolutionSourceTrace ? { linkResolutionSourceTrace } : {}),
+          ...(typeof action.plan?.diagnostics?.linkResolution?.status === "string"
+            ? {
+                linkResolutionStatus: action.plan.diagnostics.linkResolution.status,
+              }
+            : {}),
         });
       }
 
@@ -648,7 +695,10 @@ export class AgenticLoop {
         : `Plan execution failed: ${result.errorMessage ?? "Unknown error."}`;
       this.appendTurn(session, "assistant", responseText, TurnTypeEnum.CONFIRMATION);
       this.collectAssistantWarnings(responseText, warnings);
-      this.pending.clearPending(session);
+      const shouldKeepPending = result.errorCode === "DOMAIN_DECISION_REQUIRED";
+      if (!shouldKeepPending) {
+        this.pending.clearPending(session);
+      }
       this.touchSession(session, TurnTypeEnum.CONFIRMATION);
       return this.buildOutput(
         input,
@@ -865,6 +915,7 @@ export class AgenticLoop {
     warnings: string[],
     stats: LoopStats,
     readCounters: ReadObservabilityCounters,
+    linkCounters: LinkResolutionObservabilityCounters,
     streamCallbacks?: LoopStreamCallbacks,
   ): Promise<AgentTurnOutput> {
     const metadata: Record<string, unknown> = { loopStats: stats };
@@ -1455,6 +1506,7 @@ export class AgenticLoop {
         warnings,
         stats,
         readCounters,
+        linkCounters,
         streamCallbacks,
       });
 
@@ -1845,10 +1897,22 @@ export class AgenticLoop {
 
       if (tool.category === ToolCategory.PLAN) {
         const executionContext = this.createExecutionContext(context.input, context.session);
-        let result = await this.executor.execute(tool, executionContext, args);
+        const preflight = this.resolvePlanLinkingPreflight(
+          toolName,
+          args,
+          context.session,
+          context.input,
+        );
+        this.trackLinkResolutionObservability(preflight.linkResolution, context.linkCounters);
+        let executionArgs = preflight.args;
+        let linkResolutionDiagnostic = preflight.linkResolution;
+        let result = preflight.result
+          ? preflight.result
+          : await this.executor.execute(tool, executionContext, executionArgs);
         this.collectToolWarnings(result, context.warnings);
 
         const proposal = result.ok ? this.extractPlanProposal(result) : null;
+        let operationForPlanning: PlanOperation | null = proposal?.operation || null;
         if (result.ok && !proposal) {
           result = {
             ok: false,
@@ -1859,17 +1923,42 @@ export class AgenticLoop {
           };
         }
 
-        if (result.ok && proposal) {
+        if (
+          result.ok &&
+          proposal &&
+          operationForPlanning &&
+          toolName === "proposeCreate" &&
+          isRecord(executionArgs?.payload)
+        ) {
+          operationForPlanning = {
+            ...operationForPlanning,
+            payload: { ...executionArgs.payload },
+          };
+        }
+
+        if (result.ok && proposal && operationForPlanning) {
           const previousPending = context.session.state.pendingAction;
           const replacedPendingActionId =
             context.turnType === TurnTypeEnum.AMENDMENT && previousPending
               ? previousPending.id
               : undefined;
+          const expanded = await this.workflowPlanner.expand({
+            operation: operationForPlanning,
+            summary: proposal.summary,
+            preview: proposal.preview,
+            userMessage: context.input.message,
+            linkResolution: linkResolutionDiagnostic,
+          });
+          const planLinkResolution =
+            expanded.plan?.diagnostics?.linkResolution || linkResolutionDiagnostic;
+          const linkResolutionSourceTrace =
+            this.resolveLinkResolutionSourceTrace(planLinkResolution);
           const pendingAction = this.createPendingPlanAction({
             toolName,
-            args,
+            args: executionArgs,
             input: context.input,
-            proposal,
+            summary: expanded.summary,
+            plan: expanded.plan,
           });
           this.pending.setPending(context.session, pendingAction);
 
@@ -1893,7 +1982,7 @@ export class AgenticLoop {
 
           const record = this.createToolRecord(
             toolName,
-            args,
+            executionArgs,
             executionContext,
             interceptedResult,
             {
@@ -1917,6 +2006,12 @@ export class AgenticLoop {
             toolName,
             replacedPendingActionId,
             category: "PLAN",
+            ...(linkResolutionSourceTrace
+              ? { linkResolutionSourceTrace }
+              : {}),
+            ...(typeof planLinkResolution?.status === "string"
+              ? { linkResolutionStatus: planLinkResolution.status }
+              : {}),
           });
 
           return {
@@ -1951,6 +2046,16 @@ export class AgenticLoop {
           ok: result.ok,
           errorCode: result.errorCode,
         });
+        const linkResolutionClarification = this.tryBuildPlanLinkResolutionClarification(
+          result,
+          executionArgs,
+        );
+        if (linkResolutionClarification) {
+          return {
+            stopForConfirmation: true,
+            confirmationMessage: linkResolutionClarification,
+          };
+        }
         continue;
       }
 
@@ -3766,39 +3871,43 @@ export class AgenticLoop {
     toolName: string;
     args: Record<string, unknown>;
     input: AgentTurnInput;
-    proposal: {
-      operation: PlanOperation;
-      summary: string;
-      preview?: PlanPreview;
-    };
+    summary: string;
+    plan: PendingActionPlan;
   }): PendingAction {
-    const summary = String(params.proposal.summary || "").trim();
+    const summary = String(params.summary || "").trim();
     const normalizedSummary =
-      summary || this.describePlanOperation(params.proposal.operation);
-    const plan: PendingActionPlan = {
-      operation: params.proposal.operation,
-      ...(params.proposal.preview ? { preview: params.proposal.preview } : {}),
-    };
+      summary || this.describePlanOperation(params.plan.operation);
     return {
       id: this.createId("pending"),
       toolName: params.toolName,
       summary: normalizedSummary,
       args: params.args,
-      plan,
+      plan: params.plan,
       createdAt: new Date().toISOString(),
       requestedByTurnId: params.input.turnId,
-      risk: this.mapRisk(ToolCategory.PLAN),
+      risk:
+        Array.isArray(params.plan.workflowSteps) && params.plan.workflowSteps.length > 1
+          ? "high"
+          : this.mapRisk(ToolCategory.PLAN),
     };
   }
 
   private buildPlanArtifact(action: PendingAction): PlanArtifact {
     const plan = action.plan as PendingActionPlan;
-    return {
+    const artifact: PlanArtifact = {
       pendingActionId: action.id,
       operation: plan.operation,
       summary: action.summary,
-      ...(plan.preview ? { preview: plan.preview } : {}),
+      ...(plan.uiPreview ? { preview: plan.uiPreview } : plan.preview ? { preview: plan.preview } : {}),
     };
+    if (Array.isArray(plan.workflowSteps) && plan.workflowSteps.length > 0) {
+      artifact.workflow = {
+        totalSteps: plan.workflowSteps.length,
+        steps: plan.workflowSteps,
+        requiresUserDecision: plan.diagnostics?.requiresUserDecision === true,
+      };
+    }
+    return artifact;
   }
 
   private buildPlanExecutedArtifact(
@@ -3809,6 +3918,17 @@ export class AgenticLoop {
       pendingActionId,
       ok: result.ok === true,
     };
+    if (isRecord(result.data)) {
+      if (Array.isArray(result.data.stepResults)) {
+        artifact.stepResults = result.data.stepResults;
+      }
+      if (typeof result.data.failedStepId === "string" && result.data.failedStepId.trim().length > 0) {
+        artifact.failedStepId = result.data.failedStepId.trim();
+      }
+      if (isRecord(result.data.errorDetails)) {
+        artifact.errorDetails = result.data.errorDetails;
+      }
+    }
     if (result.ok && isRecord(result.data)) {
       artifact.result = result.data;
     }
@@ -3833,11 +3953,23 @@ export class AgenticLoop {
         ok: false,
         errorCode: result.errorCode || "ENTITY_EXECUTION_ERROR",
         errorMessage: result.errorMessage || "Entity execution failed.",
+        data: {
+          ...(Array.isArray(result.stepResults) ? { stepResults: result.stepResults } : {}),
+          ...(result.failedStepId ? { failedStepId: result.failedStepId } : {}),
+          ...(isRecord(result.errorDetails) ? { errorDetails: result.errorDetails } : {}),
+        },
       };
+    }
+    const payload: Record<string, unknown> = isRecord(result.result) ? { ...result.result } : {};
+    if (Array.isArray(result.stepResults)) {
+      payload.stepResults = result.stepResults;
+    }
+    if (result.failedStepId) {
+      payload.failedStepId = result.failedStepId;
     }
     return {
       ok: true,
-      data: isRecord(result.result) ? result.result : {},
+      data: payload,
     };
   }
 
@@ -3847,7 +3979,8 @@ export class AgenticLoop {
     executionResult: EntityExecutionResult,
     turnId: string,
   ): void {
-    const entityType = String(plan?.operation?.entityType || "").trim().toLowerCase();
+    const rootOperation = plan?.rootOperation || plan?.operation;
+    const entityType = String(rootOperation?.entityType || "").trim().toLowerCase();
     if (!entityType) {
       return;
     }
@@ -3861,7 +3994,7 @@ export class AgenticLoop {
     }
 
     const entityKey = `${entityType}:${String(entityId)}`;
-    if (plan.operation.operation === "delete") {
+    if (rootOperation?.operation === "delete") {
       session.activeEntities = session.activeEntities.filter((row) => {
         const rowType = String((row as { type?: unknown })?.type || "")
           .trim()
@@ -3911,7 +4044,8 @@ export class AgenticLoop {
     if (fromEntityRecord != null) {
       return fromEntityRecord;
     }
-    return this.normalizePlanEntityId(plan?.operation?.entityId);
+    const rootOperation = plan?.rootOperation || plan?.operation;
+    return this.normalizePlanEntityId(rootOperation?.entityId);
   }
 
   private normalizePlanEntityId(value: unknown): number | string | null {
@@ -3950,9 +4084,20 @@ export class AgenticLoop {
 
   private buildConfirmationMessage(action: PendingAction): string {
     if (action.plan) {
+      const stepCount = Array.isArray(action.plan.workflowSteps)
+        ? action.plan.workflowSteps.length
+        : 1;
+      const requiresDecision = action.plan.diagnostics?.requiresUserDecision === true;
       return [
         "I prepared a plan and did not execute it.",
         `Proposed operation: ${action.summary}`,
+        `Planned steps: ${stepCount}.`,
+        ...(requiresDecision
+          ? [
+              "This plan needs an explicit decision before execution.",
+              action.plan.diagnostics?.decisionPrompt || "Please amend the request with your decision and confirm again.",
+            ]
+          : []),
         "Please confirm to execute or reject to cancel.",
       ].join("\n");
     }
@@ -4080,6 +4225,274 @@ export class AgenticLoop {
     }
 
     return Object.keys(preview).length > 0 ? preview : undefined;
+  }
+
+  private resolvePlanLinkingPreflight(
+    toolName: string,
+    args: Record<string, unknown>,
+    session: Session,
+    input: AgentTurnInput,
+  ): {
+    args: Record<string, unknown>;
+    linkResolution?: LinkResolutionDiagnostic;
+    result?: ToolExecutionResult;
+  } {
+    if (toolName !== "proposeCreate") {
+      return { args };
+    }
+
+    const operation = this.normalizePlanOperation({
+      operation: "create",
+      entityType: args?.entityType,
+      payload: isRecord(args?.payload) ? args.payload : undefined,
+      reason: args?.reason,
+    });
+    if (!operation) {
+      return { args };
+    }
+
+    const linkResolution = this.linkResolver.resolve(operation, {
+      activeEntities: Array.isArray(session.activeEntities) ? session.activeEntities : [],
+      currentDraft: session.currentDraft || null,
+    });
+    const status = linkResolution.status;
+    if (status === "ambiguous" || status === "unresolved") {
+      return {
+        args,
+        linkResolution: this.shouldAttachLinkResolution(linkResolution.diagnostic)
+          ? linkResolution.diagnostic
+          : undefined,
+        result: {
+          ok: false,
+          errorCode:
+            status === "ambiguous"
+              ? "PLAN_LINK_RESOLUTION_AMBIGUOUS"
+              : "PLAN_LINK_RESOLUTION_UNRESOLVED",
+          errorMessage:
+            linkResolution.message ||
+            (status === "ambiguous"
+              ? "Could not determine a single parent link for this create operation."
+              : "Could not resolve required parent link for this create operation."),
+          data: {
+            linkResolution: linkResolution.diagnostic,
+          },
+        },
+      };
+    }
+
+    const nextArgs = { ...args };
+    nextArgs.entityType = linkResolution.operation.entityType;
+    if (isRecord(linkResolution.operation.payload)) {
+      nextArgs.payload = { ...linkResolution.operation.payload };
+    }
+
+    if (linkResolution.operation.entityType === "document") {
+      const bridged = this.maybeAttachDraftDocumentStorageSource(nextArgs, session, input);
+      if (bridged.result) {
+        return {
+          args: bridged.args,
+          linkResolution: this.shouldAttachLinkResolution(linkResolution.diagnostic)
+            ? linkResolution.diagnostic
+            : undefined,
+          result: bridged.result,
+        };
+      }
+      nextArgs.payload = bridged.args.payload;
+    }
+
+    return {
+      args: nextArgs,
+      linkResolution: this.shouldAttachLinkResolution(linkResolution.diagnostic)
+        ? linkResolution.diagnostic
+        : undefined,
+    };
+  }
+
+  private maybeAttachDraftDocumentStorageSource(
+    args: Record<string, unknown>,
+    session: Session,
+    input: AgentTurnInput,
+  ): {
+    args: Record<string, unknown> & { payload: Record<string, unknown> };
+    result?: ToolExecutionResult;
+  } {
+    const payload = isRecord(args.payload) ? { ...args.payload } : {};
+    const nextArgs = {
+      ...args,
+      payload,
+    };
+
+    const hasFilePath =
+      this.hasNonEmptyText(payload.file_path) || this.hasNonEmptyText(payload.filePath);
+    const generationToken = this.resolveDocumentGenerationToken(payload);
+    if (hasFilePath || generationToken) {
+      return { args: nextArgs };
+    }
+
+    const draft = this.resolveDraftForTurn(input, session.currentDraft);
+    if (!draft) {
+      return {
+        args: nextArgs,
+        result: {
+          ok: false,
+          errorCode: "PLAN_DRAFT_SOURCE_UNAVAILABLE",
+          errorMessage:
+            "No current draft is available to save as a document. Generate or select a draft first.",
+        },
+      };
+    }
+
+    payload.generation_uid = DOCUMENT_DRAFT_SOURCE_TOKEN;
+    payload[DOCUMENT_DRAFT_SNAPSHOT_KEY] = {
+      draftType: draft.draftType,
+      title: draft.title,
+      subtitle: draft.subtitle,
+      metadata: draft.metadata,
+      sections: draft.sections,
+      layout: draft.layout,
+      content: draft.content,
+      linkedEntityType: draft.linkedEntityType,
+      linkedEntityId: draft.linkedEntityId,
+      generatedAt: draft.generatedAt,
+      version: draft.version,
+    };
+    payload[DOCUMENT_DRAFT_PROVENANCE_KEY] = {
+      sessionId: session.id,
+      sourceTurnId: input.turnId,
+      draftVersion: draft.version,
+    };
+
+    return { args: nextArgs };
+  }
+
+  private resolveDocumentGenerationToken(payload: Record<string, unknown>): string | null {
+    const keys = [
+      "generation_uid",
+      "generationUid",
+      "generation_id",
+      "generationId",
+      "source_generation_uid",
+      "sourceGenerationUid",
+      "document_generation_uid",
+      "documentGenerationUid",
+      "preview_uid",
+      "previewUid",
+      "document_preview_uid",
+      "documentPreviewUid",
+    ];
+    for (const key of keys) {
+      const value = payload[key];
+      if (typeof value !== "string") {
+        continue;
+      }
+      const trimmed = value.trim();
+      if (trimmed.length > 0) {
+        return trimmed;
+      }
+    }
+    return null;
+  }
+
+  private hasNonEmptyText(value: unknown): boolean {
+    return typeof value === "string" && value.trim().length > 0;
+  }
+
+  private shouldAttachLinkResolution(
+    diagnostic?: LinkResolutionDiagnostic,
+  ): boolean {
+    if (!diagnostic) return false;
+    if (
+      diagnostic.status === "resolved" ||
+      diagnostic.status === "ambiguous" ||
+      diagnostic.status === "unresolved"
+    ) {
+      return true;
+    }
+    return diagnostic.status === "unchanged" && diagnostic.source === "payload";
+  }
+
+  private tryBuildPlanLinkResolutionClarification(
+    result: ToolExecutionResult,
+    args: Record<string, unknown>,
+  ): string | null {
+    if (!result || result.ok !== false) return null;
+    const code = String(result.errorCode || "").trim().toUpperCase();
+    if (
+      code !== "PLAN_LINK_RESOLUTION_AMBIGUOUS" &&
+      code !== "PLAN_LINK_RESOLUTION_UNRESOLVED"
+    ) {
+      return null;
+    }
+
+    const data = isRecord(result.data) ? result.data : null;
+    const rawDiagnostic = isRecord(data?.linkResolution) ? data.linkResolution : null;
+    const diagnostic =
+      rawDiagnostic && typeof rawDiagnostic.status === "string"
+        ? (rawDiagnostic as unknown as LinkResolutionDiagnostic)
+        : undefined;
+    const entityType = String(
+      args?.entityType ||
+        (typeof diagnostic?.entityType === "string" ? diagnostic.entityType : "") ||
+        "record",
+    )
+      .trim()
+      .toLowerCase();
+    const entityLabel = entityType ? entityType.replace(/_/g, " ") : "record";
+
+    if (code === "PLAN_LINK_RESOLUTION_UNRESOLVED") {
+      const requirement = this.describeCreateLinkRequirement(entityType);
+      return [
+        `I need a parent link before I can prepare this create action for ${entityLabel}.`,
+        requirement,
+      ].join("\n");
+    }
+
+    const candidates = Array.isArray(diagnostic?.candidates)
+      ? diagnostic.candidates
+          .filter(
+            (row) =>
+              row &&
+              typeof row.entityType === "string" &&
+              row.entityType.trim().length > 0 &&
+              (typeof row.entityId === "number" || typeof row.entityId === "string"),
+          )
+          .slice(0, 6)
+      : [];
+    if (candidates.length === 0) {
+      return [
+        `I found multiple possible parent links for this ${entityLabel}.`,
+        this.describeCreateLinkRequirement(entityType),
+      ].join("\n");
+    }
+
+    const options = candidates.map((candidate, index) => {
+      const type = String(candidate.entityType || "").trim().toLowerCase().replace(/_/g, " ");
+      const typeTitle = type.length > 0 ? type.charAt(0).toUpperCase() + type.slice(1) : "Record";
+      const label =
+        typeof candidate.label === "string" && candidate.label.trim().length > 0
+          ? candidate.label.trim()
+          : `${typeTitle} #${String(candidate.entityId)}`;
+      return `${index + 1}. ${typeTitle}: ${label}`;
+    });
+
+    return [
+      `I found multiple parent targets for this ${entityLabel}. Please choose one before I prepare the proposal.`,
+      ...options,
+      "Reply with the number or the exact reference you want.",
+    ].join("\n");
+  }
+
+  private describeCreateLinkRequirement(entityType: string): string {
+    if (entityType === "task" || entityType === "session" || entityType === "mission") {
+      return "Please specify the parent dossier or lawsuit.";
+    }
+    if (entityType === "document") {
+      return (
+        "Please specify exactly one parent to store this document under: " +
+        "client, dossier, lawsuit, mission, task, session, personal task, financial entry, or officer."
+      );
+    }
+    return "Please specify exactly one parent record and try again.";
   }
 
   private describePlanOperation(operation: PlanOperation): string {
@@ -4256,6 +4669,17 @@ export class AgenticLoop {
     };
   }
 
+  private createLinkResolutionObservabilityCounters(): LinkResolutionObservabilityCounters {
+    return {
+      LINK_RESOLUTION_TOTAL: 0,
+      LINK_RESOLUTION_RESOLVED: 0,
+      LINK_RESOLUTION_UNCHANGED: 0,
+      LINK_RESOLUTION_AMBIGUOUS: 0,
+      LINK_RESOLUTION_UNRESOLVED: 0,
+      LINK_RESOLUTION_FAILURES: 0,
+    };
+  }
+
   private logReadObservabilitySummary(counters: ReadObservabilityCounters): void {
     console.info("[READ_OBSERVABILITY_SUMMARY]", {
       READ_TOOL_CALL_COUNT: counters.READ_TOOL_CALL_COUNT,
@@ -4264,6 +4688,70 @@ export class AgenticLoop {
       GRAPH_WARNINGS: counters.GRAPH_WARNINGS,
       STATUS_WARNINGS: counters.STATUS_WARNINGS,
     });
+  }
+
+  private logLinkResolutionObservabilitySummary(
+    counters: LinkResolutionObservabilityCounters,
+  ): void {
+    console.info("[LINK_RESOLUTION_OBSERVABILITY_SUMMARY]", {
+      LINK_RESOLUTION_TOTAL: counters.LINK_RESOLUTION_TOTAL,
+      LINK_RESOLUTION_RESOLVED: counters.LINK_RESOLUTION_RESOLVED,
+      LINK_RESOLUTION_UNCHANGED: counters.LINK_RESOLUTION_UNCHANGED,
+      LINK_RESOLUTION_AMBIGUOUS: counters.LINK_RESOLUTION_AMBIGUOUS,
+      LINK_RESOLUTION_UNRESOLVED: counters.LINK_RESOLUTION_UNRESOLVED,
+      LINK_RESOLUTION_FAILURES: counters.LINK_RESOLUTION_FAILURES,
+    });
+  }
+
+  private trackLinkResolutionObservability(
+    diagnostic: LinkResolutionDiagnostic | undefined,
+    counters: LinkResolutionObservabilityCounters,
+  ): void {
+    if (!diagnostic || typeof diagnostic.status !== "string") {
+      return;
+    }
+
+    counters.LINK_RESOLUTION_TOTAL += 1;
+    const status = diagnostic.status;
+    if (status === "resolved") {
+      counters.LINK_RESOLUTION_RESOLVED += 1;
+      return;
+    }
+    if (status === "unchanged") {
+      counters.LINK_RESOLUTION_UNCHANGED += 1;
+      return;
+    }
+    if (status === "ambiguous") {
+      counters.LINK_RESOLUTION_AMBIGUOUS += 1;
+      counters.LINK_RESOLUTION_FAILURES += 1;
+      return;
+    }
+    if (status === "unresolved") {
+      counters.LINK_RESOLUTION_UNRESOLVED += 1;
+      counters.LINK_RESOLUTION_FAILURES += 1;
+    }
+  }
+
+  private resolveLinkResolutionSourceTrace(
+    diagnostic: LinkResolutionDiagnostic | undefined,
+  ): "explicit" | "resolved" | "fallback" | undefined {
+    if (!diagnostic || typeof diagnostic.status !== "string") {
+      return undefined;
+    }
+    const source = typeof diagnostic.source === "string" ? diagnostic.source : undefined;
+    if (source === "payload") {
+      return "explicit";
+    }
+    if (source === "active_entities") {
+      return "fallback";
+    }
+    if (source === "draft_context") {
+      return "resolved";
+    }
+    if (diagnostic.status === "resolved") {
+      return "resolved";
+    }
+    return undefined;
   }
 
   private collectPreExecutionReadDiagnostics(

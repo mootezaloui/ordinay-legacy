@@ -1,15 +1,12 @@
 import { useState } from "react";
 import {
   AlertTriangle,
-  Calendar,
+  ArrowRight,
   CheckCircle2,
   FileText,
-  FolderOpen,
-  Link2,
+  ListChecks,
   Loader2,
   RefreshCcw,
-  Tag,
-  User,
   XCircle,
 } from "lucide-react";
 import { MarkdownOutput } from "../../../../components/MarkdownOutput";
@@ -292,16 +289,6 @@ function PreviewRows({
   );
 }
 
-function ProposalFieldIcon({ field }: { field: StructuredProposalCardField }) {
-  const className = "h-3.5 w-3.5";
-  if (field.icon === "client" || field.icon === "person") return <User className={className} />;
-  if (field.icon === "dossier") return <FolderOpen className={className} />;
-  if (field.icon === "lawsuit" || field.icon === "link") return <Link2 className={className} />;
-  if (field.icon === "calendar" || field.icon === "date") return <Calendar className={className} />;
-  if (field.icon === "tag" || field.icon === "type" || field.icon === "status") return <Tag className={className} />;
-  return <FileText className={className} />;
-}
-
 function toStructuredCardFromLegacyViewModel(
   viewModel: SemanticActionViewModel,
 ): StructuredProposalCardViewModel {
@@ -432,6 +419,228 @@ function ProposalResultFooter({
   return null;
 }
 
+function splitDiffValue(value: string): { before: string; after: string } | null {
+  const text = String(value || "").trim();
+  if (!text) return null;
+  const marker = "->";
+  const markerIndex = text.indexOf(marker);
+  if (markerIndex <= 0) return null;
+  const before = text.slice(0, markerIndex).trim();
+  const after = text.slice(markerIndex + marker.length).trim();
+  if (!before || !after) return null;
+  return { before, after };
+}
+
+function splitCompoundPreviewLine(line: string): string[] {
+  const original = String(line || "");
+  const hadBulletMarker = /[\u2022\u00b7]/.test(original);
+  const normalized = String(line || "")
+    .replace(/\u2022/g, "-")
+    .replace(/\u00b7/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) return [];
+
+  const withoutMarker = normalized.replace(/^\s*[-*]\s*/, "").trim();
+  if (!withoutMarker) return [];
+  if (withoutMarker.includes("->")) return [withoutMarker];
+
+  const pieces = withoutMarker.split(/\s+-\s+(?=(?:\d+|[A-Za-z]))/g);
+  const looksLikeCountSummary =
+    pieces.length > 1 &&
+    pieces.every((piece) =>
+      /^(?:\d+\s+[a-z]|(?:client|dossier|lawsuit|task|session|mission)\s+has\s+\d+)/i.test(
+        piece.trim(),
+      ),
+    );
+  const isCompressedList = hadBulletMarker || pieces.length > 2 || looksLikeCountSummary;
+  if (!isCompressedList) return [withoutMarker];
+
+  return pieces.map((piece) => piece.trim()).filter(Boolean);
+}
+
+function normalizePreviewLines(text: string): string[] {
+  const lines = String(text || "")
+    .replace(/\r\n/g, "\n")
+    .split(/\n+/)
+    .flatMap((line) => splitCompoundPreviewLine(line));
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const line of lines) {
+    const item = String(line || "")
+      .replace(/^\s*[-*]\s*/, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!item) continue;
+    const key = item.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(item);
+  }
+  return normalized;
+}
+
+function normalizeContentLabel(label?: string): string {
+  const normalized = String(label || "").trim().toLowerCase();
+  if (!normalized) return "Required related changes";
+  if (normalized.includes("affect") || normalized.includes("impact")) {
+    return "Required related changes";
+  }
+  return label || "Required related changes";
+}
+
+function extractPlannedStepCount(value?: string): number | null {
+  const match = String(value || "")
+    .trim()
+    .match(/(\d+)\s+planned\s+steps?/i);
+  if (!match) return null;
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function toTitleCase(value: string): string {
+  return String(value || "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function singularizeLabel(value: string): string {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (text.endsWith("ies") && text.length > 3) return `${text.slice(0, -3)}y`;
+  if (text.endsWith("s") && !text.endsWith("ss") && text.length > 3) return text.slice(0, -1);
+  return text;
+}
+
+type ImpactCardTone = "blue" | "violet" | "amber" | "teal";
+type ImpactCardModel = {
+  key: string;
+  title: string;
+  subtitle: string;
+  count: number;
+  tone: ImpactCardTone;
+};
+
+function normalizeEntityLabel(raw: string): string {
+  const cleaned = String(raw || "")
+    .replace(/\b(non-terminal|open|active)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!cleaned) return "Records";
+  return toTitleCase(cleaned);
+}
+
+function parseImpactCard(line: string): Omit<ImpactCardModel, "tone"> | null {
+  const text = String(line || "").trim();
+  if (!text) return null;
+
+  const updateMatch = text.match(
+    /^(\d+)\s+([a-z][a-z\s-]*)\s+will(?:\s+be|\s+have\s+their\s+[a-z\s]+)?\s+updated(?:\s*\(fields:\s*([^)]+)\))?\.?$/i,
+  );
+  if (updateMatch) {
+    const count = Number(updateMatch[1]);
+    if (!Number.isFinite(count) || count <= 0) return null;
+    const entityLabel = normalizeEntityLabel(updateMatch[2]);
+    const fields = String(updateMatch[3] || "").trim();
+    return {
+      key: entityLabel.toLowerCase(),
+      title: entityLabel,
+      subtitle: fields ? `${toTitleCase(fields)} update` : "Status update",
+      count,
+    };
+  }
+
+  const hasMatch = text.match(/^Client has (\d+)\s+(.+?)\.?$/i);
+  if (hasMatch) {
+    const count = Number(hasMatch[1]);
+    if (!Number.isFinite(count) || count <= 0) return null;
+    const tail = String(hasMatch[2] || "").trim();
+    const qualifierMatch = tail.match(/^(open|active|non-terminal)\s+(.+)$/i);
+    const qualifier = qualifierMatch ? qualifierMatch[1].toLowerCase() : "";
+    const entityPart = qualifierMatch ? qualifierMatch[2] : tail;
+    const entityLabel = normalizeEntityLabel(entityPart);
+    const subtitle = qualifier ? `${toTitleCase(qualifier)} linked records` : "Linked records";
+    return {
+      key: entityLabel.toLowerCase(),
+      title: entityLabel,
+      subtitle,
+      count,
+    };
+  }
+
+  return null;
+}
+
+function toneForImpactIndex(index: number): ImpactCardTone {
+  const tones: ImpactCardTone[] = ["blue", "violet", "amber", "teal"];
+  return tones[index % tones.length];
+}
+
+function impactToneClasses(tone: ImpactCardTone): { iconWrap: string; iconText: string; countChip: string } {
+  if (tone === "violet") {
+    return {
+      iconWrap: "bg-violet-500/12 border-violet-400/35 dark:bg-violet-500/20 dark:border-violet-500/35",
+      iconText: "text-violet-700 dark:text-violet-200",
+      countChip: "bg-violet-50 text-violet-700 border-violet-200/80 dark:bg-violet-900/35 dark:text-violet-200 dark:border-violet-700/60",
+    };
+  }
+  if (tone === "amber") {
+    return {
+      iconWrap: "bg-amber-500/12 border-amber-400/35 dark:bg-amber-500/20 dark:border-amber-500/35",
+      iconText: "text-amber-700 dark:text-amber-200",
+      countChip: "bg-amber-50 text-amber-700 border-amber-200/80 dark:bg-amber-900/35 dark:text-amber-200 dark:border-amber-700/60",
+    };
+  }
+  if (tone === "teal") {
+    return {
+      iconWrap: "bg-teal-500/12 border-teal-400/35 dark:bg-teal-500/20 dark:border-teal-500/35",
+      iconText: "text-teal-700 dark:text-teal-200",
+      countChip: "bg-teal-50 text-teal-700 border-teal-200/80 dark:bg-teal-900/35 dark:text-teal-200 dark:border-teal-700/60",
+    };
+  }
+  return {
+    iconWrap: "bg-blue-500/12 border-blue-400/35 dark:bg-blue-500/20 dark:border-blue-500/35",
+    iconText: "text-blue-700 dark:text-blue-200",
+    countChip: "bg-blue-50 text-blue-700 border-blue-200/80 dark:bg-blue-900/35 dark:text-blue-200 dark:border-blue-700/60",
+  };
+}
+
+function buildImpactPresentation(lines: string[]): { cards: ImpactCardModel[]; contextLines: string[] } {
+  const cards: ImpactCardModel[] = [];
+  const contextLines: string[] = [];
+  const seenEntities = new Set<string>();
+
+  for (const line of lines) {
+    const parsed = parseImpactCard(line);
+    if (!parsed) {
+      contextLines.push(line);
+      continue;
+    }
+    if (seenEntities.has(parsed.key)) {
+      contextLines.push(line);
+      continue;
+    }
+    seenEntities.add(parsed.key);
+    cards.push({
+      ...parsed,
+      tone: toneForImpactIndex(cards.length),
+    });
+  }
+
+  const visibleCards = cards.slice(0, 4);
+  const overflow = cards.slice(4);
+  if (overflow.length > 0) {
+    contextLines.unshift(
+      `${overflow.length} additional ${overflow.length === 1 ? "group" : "groups"} of related records will also be updated.`,
+    );
+  }
+
+  return { cards: visibleCards, contextLines };
+}
+
 function StructuredProposalCard({
   card,
   uiState,
@@ -459,65 +668,137 @@ function StructuredProposalCard({
 }) {
   const showPendingBar = uiState === "awaiting_decision" || uiState === "submitting" || uiState === "failed";
   const showRetry = uiState === "failed" && canRetry && !requiresRefresh;
+  const contentLines = card.contentPreview ? normalizePreviewLines(card.contentPreview.text) : [];
+  const impactPresentation = buildImpactPresentation(contentLines);
+  const impactCards = impactPresentation.cards;
+  const contextLines = impactPresentation.contextLines;
+  const plannedStepCount = extractPlannedStepCount(card.subtitle) || contentLines.length || null;
+  const entityBadgeLabel =
+    String(card.entityLabel || "").trim().toLowerCase() === "change"
+      ? `${String(card.title || "change").split(/\s+/).slice(0, 2).join(" ")}`
+      : `${card.entityLabel} update`;
 
   return (
     <div
-      className="artifact-build agent-artifact-card is-proposal overflow-visible animate-in fade-in slide-in-from-bottom-2 duration-300"
+      className="artifact-build agent-artifact-card is-proposal overflow-visible border border-white/10 shadow-[0_12px_38px_rgba(2,6,23,0.28)] animate-in fade-in slide-in-from-bottom-2 duration-300"
       data-testid="decision-confirmation-panel"
       data-state={uiState}
     >
-      <div className="artifact-build-header agent-artifact-header agent-artifact-header-proposal flex items-center justify-between gap-3 px-5 py-4">
-        <div className="flex items-center gap-2.5">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">{card.verb}</span>
-          <span className="rounded-md border border-violet-300/40 bg-violet-50 px-2 py-1 text-[11px] font-semibold text-violet-700 dark:border-violet-700/40 dark:bg-violet-900/20 dark:text-violet-300">
-            {card.entityLabel}
+      <div className="artifact-build-header agent-artifact-header agent-artifact-header-proposal border-b border-black/[0.06] bg-gradient-to-r from-slate-50/85 via-indigo-50/35 to-transparent px-5 py-3 dark:border-white/[0.07] dark:from-slate-900/65 dark:via-indigo-950/15">
+        <div className="flex items-center justify-between gap-3">
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600 dark:text-slate-300">
+            <ListChecks className="h-3.5 w-3.5" />
+            Review change
           </span>
+          <span className="rounded-full border border-blue-300/60 bg-blue-50/80 px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-blue-700 dark:border-blue-700/60 dark:bg-blue-950/30 dark:text-blue-200">
+            {entityBadgeLabel}
+          </span>
+          {plannedStepCount ? (
+            <span className="rounded-full border border-indigo-200/80 bg-indigo-50 px-2.5 py-0.5 text-[11px] font-medium text-indigo-700 dark:border-indigo-800/70 dark:bg-indigo-950/35 dark:text-indigo-200">
+              {plannedStepCount} planned step{plannedStepCount === 1 ? "" : "s"}
+            </span>
+          ) : null}
         </div>
-        {String(card.reversibleLabel || "").toLowerCase().includes("not reversible") ? (
-          <span className="rounded-md border border-rose-200/80 bg-rose-50 px-2 py-1 text-[11px] font-medium text-rose-700 dark:border-rose-700/40 dark:bg-rose-900/20 dark:text-rose-300">
-            {card.reversibleLabel}
-          </span>
-        ) : null}
       </div>
 
       <div className="artifact-build-section artifact-build-section-1 space-y-4 px-5 py-4">
-        <div className="space-y-1">
-          <h3 className="text-[15px] font-semibold leading-6 text-slate-800 dark:text-slate-100">{card.title}</h3>
+        <div className="space-y-1 rounded-xl border border-black/[0.06] bg-gradient-to-br from-slate-50 to-white px-4 py-3 dark:border-white/[0.08] dark:from-slate-900/55 dark:to-slate-950/25">
+          <h3 className="text-[15px] font-semibold leading-6 text-slate-900 dark:text-slate-100">{card.title}</h3>
           {card.subtitle ? (
             <p className="text-sm leading-5 text-slate-600 dark:text-slate-300">{card.subtitle}</p>
           ) : null}
         </div>
 
         {card.fields.length > 0 ? (
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {card.fields.map((field) => (
-              <div
-                key={`${field.key}-${field.label}`}
-                className={cx(
-                  "flex items-start gap-3 rounded-xl border border-black/[0.06] bg-slate-50/80 px-3 py-3 dark:border-white/[0.08] dark:bg-slate-800/45",
-                  field.span === "full" ? "sm:col-span-2" : "",
-                )}
-              >
-                <span className="mt-0.5 text-slate-500 dark:text-slate-400">
-                  <ProposalFieldIcon field={field} />
-                </span>
-                <div className="min-w-0">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-                    {field.label}
+          <div className="rounded-xl border border-black/[0.06] bg-slate-50/80 px-4 py-3 dark:border-white/[0.08] dark:bg-slate-900/35">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+              Main change
+            </div>
+            <div className="mt-2 space-y-2">
+              {card.fields.map((field) => {
+                const diff = splitDiffValue(field.value);
+                return (
+                  <div key={`${field.key}-${field.label}`} className="grid grid-cols-1 gap-2 rounded-lg border border-slate-200/75 bg-white/80 px-3 py-2.5 text-sm dark:border-slate-700/70 dark:bg-slate-900/35 sm:grid-cols-[minmax(112px,auto)_1fr] sm:items-center sm:gap-3">
+                    <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-600 dark:text-slate-300">{field.label}</div>
+                    {diff ? (
+                      <div className="flex flex-wrap items-center gap-2 text-slate-700 dark:text-slate-200">
+                        <span className="rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                          {diff.before}
+                        </span>
+                        <ArrowRight className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
+                        <span className="rounded-md border border-indigo-300/80 bg-indigo-50 px-2 py-0.5 font-semibold text-indigo-800 dark:border-indigo-700/70 dark:bg-indigo-950/35 dark:text-indigo-200">
+                          {diff.after}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="break-words text-slate-700 dark:text-slate-200">{field.value}</div>
+                    )}
                   </div>
-                  <div className="mt-1 break-words text-sm font-medium text-slate-800 dark:text-slate-100">{field.value}</div>
-                </div>
-              </div>
-            ))}
+                );
+              })}
+            </div>
           </div>
         ) : null}
 
-        {card.contentPreview ? (
-          <div className="rounded-r-xl border border-black/[0.06] border-l-violet-400/50 bg-white/80 px-4 py-3 dark:border-white/[0.08] dark:bg-slate-900/35">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-              {card.contentPreview.label}
+        {card.contentPreview && contentLines.length > 0 ? (
+          <div className="rounded-xl border border-black/[0.06] bg-white/85 px-4 py-3 dark:border-white/[0.08] dark:bg-slate-900/30">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                {normalizeContentLabel(card.contentPreview.label)}
+              </div>
+              <div className="rounded-full border border-slate-200/80 bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-600 dark:border-slate-700/70 dark:bg-slate-800 dark:text-slate-300">
+                {contentLines.length} item{contentLines.length === 1 ? "" : "s"}
+              </div>
             </div>
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700 dark:text-slate-200">{card.contentPreview.text}</p>
+            {impactCards.length > 0 ? (
+              <div className="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-2">
+                {impactCards.map((cardItem, idx) => {
+                  const tone = impactToneClasses(cardItem.tone);
+                  const label = singularizeLabel(cardItem.title).slice(0, 2).toUpperCase();
+                  return (
+                    <div
+                      key={`impact-card-${cardItem.key}-${idx}`}
+                      className="flex items-center gap-3 rounded-lg border border-slate-200/75 bg-slate-50/75 px-3 py-2.5 dark:border-slate-700/70 dark:bg-slate-900/35"
+                    >
+                      <span className={cx("inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-[11px] font-semibold", tone.iconWrap, tone.iconText)}>
+                        {label || <FileText className="h-3.5 w-3.5" />}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">
+                          {cardItem.title}
+                        </div>
+                        <div className="truncate text-xs text-slate-500 dark:text-slate-400">
+                          {cardItem.subtitle}
+                        </div>
+                      </div>
+                      <span className={cx("inline-flex min-w-[2.1rem] items-center justify-center rounded-full border px-2 py-0.5 text-sm font-semibold", tone.countChip)}>
+                        {cardItem.count}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+            {contextLines.length > 0 ? (
+              <div className={cx("mt-3 space-y-2", impactCards.length > 0 ? "border-t border-slate-200/70 pt-3 dark:border-slate-700/70" : "")}>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                  Additional context
+                </div>
+                <ol className="space-y-1.5">
+                  {contextLines.map((line, idx) => (
+                    <li
+                      key={`context-line-${idx}`}
+                      className="flex items-start gap-2 rounded-md border border-slate-200/70 bg-slate-50/70 px-2.5 py-2 text-sm text-slate-700 dark:border-slate-700/70 dark:bg-slate-900/30 dark:text-slate-200"
+                    >
+                      <span className="inline-flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white text-[10px] font-semibold text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        {idx + 1}
+                      </span>
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -534,17 +815,20 @@ function StructuredProposalCard({
         ) : null}
 
         {errorMessage && uiState === "failed" ? (
-          <div className="rounded-xl border border-rose-200/70 bg-rose-50/90 px-3 py-2.5 text-sm text-rose-900 dark:border-rose-800/60 dark:bg-rose-950/20 dark:text-rose-200">
-            {errorMessage}
+          <div className="rounded-xl border border-rose-200/70 bg-gradient-to-r from-rose-50/90 to-rose-100/70 px-3 py-2.5 text-sm text-rose-900 dark:border-rose-800/60 dark:from-rose-950/25 dark:to-rose-950/15 dark:text-rose-200">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
           </div>
         ) : null}
       </div>
 
       {showPendingBar ? (
-        <div className="agent-artifact-footer artifact-build-section artifact-build-section-3 flex-wrap gap-2">
-          <div className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-300">
-            <AlertTriangle className="h-3.5 w-3.5" />
-            <span>{card.warningHint}</span>
+        <div className="agent-artifact-footer artifact-build-section artifact-build-section-3 flex-wrap gap-2 border-t border-black/[0.05] bg-slate-50/65 px-5 py-3 dark:border-white/[0.06] dark:bg-slate-900/35">
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-slate-400 dark:bg-slate-500" />
+            {card.warningHint}
           </div>
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <button

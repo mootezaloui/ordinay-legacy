@@ -1,319 +1,139 @@
-# Entity Linking & Storage — How the Agent Knows Where Things Go
+# Entity Linking and Storage v2 - Audit and Phased Checklist
 
-## The Question
+## Short Answer
+- The executor does not guess links. It executes exactly what is in `plan.operation.payload` or `plan.operation.changes`.
+- Session context (`activeEntities`) and draft metadata (`linkedEntityType`, `linkedEntityId`) help the LLM choose IDs, but this is soft guidance, not deterministic backend linking.
+- Document disk storage is handled by document storage/services, not by a special document branch in `entity.executor.ts`.
 
-When the agent creates something (document, task, entity), how does it 
-know which entity to link it to? How does it know to store a generated 
-letter in dossier D-42 and not D-43?
+## What Is Correct Today (as implemented)
+- PLAN intent is intercepted and normalized through `proposeCreate`, `proposeUpdate`, `proposeDelete`.
+- PLAN proposals are expanded by deterministic backend workflow planning before confirm.
+- On confirm, executor runs service-layer create/update/delete and domain re-validation.
+- Draft artifacts can carry `linkedEntityType` and `linkedEntityId`.
+- Document records enforce strict parent-link integrity in `documents.service` (exactly one parent FK).
 
-## The Answer: Three Mechanisms
+## Audit Findings (ordered by severity)
 
-### 1. Session Context (conversation memory)
+### 1) Critical - Document create can pass PLAN but fail at EXECUTE
+- Current `proposeCreate` validation does not require document `file_path` or parent FK.
+- `documents.service.create` requires:
+  - `title`
+  - `file_path`
+  - exactly one parent reference (`client_id`, `dossier_id`, `lawsuit_id`, etc.)
+- Result: proposal can look valid, then fail at execution.
 
-If the user has been discussing dossier D-42, that entity is in 
-`session.activeEntities`. The LLM sees this context and uses the 
-correct IDs automatically.
+### 2) High - Linking is still mostly prompt-driven for new creates
+- Backend does not currently auto-resolve missing parent links from `activeEntities` at PLAN time.
+- If the LLM omits required parent fields (`dossier_id`/`lawsuit_id`), service constraints reject execution.
 
-```
-Turn 1: "Show me Bouazizi's commercial dossier"
-  → session.activeEntities = { 
-      client:1234, dossier:42, lawsuit:5001 
-    }
+### 3) High - Current draft link metadata is not strongly enforced in save flows
+- `generateDraft` supports `linkedEntityType` and `linkedEntityId`.
+- But there is no deterministic backend "save current draft as document" bridge that automatically converts draft + link into a valid document create payload (including file persistence details).
 
-Turn 5: "Save this letter to the dossier"
-  → LLM knows "the dossier" = D-42 from session context
-  → Calls proposeCreate({ 
-      entityType: "document",
-      data: { title: "...", content: "..." },
-      linkedTo: { entityType: "dossier", entityId: 42 }
-    })
-```
+### 4) Medium - Previous doc assumptions were outdated
+- PLAN tool input is `payload`, not `data` and not `linkedTo`.
+- `entity.executor.ts` does not have a special document file-save branch.
+- File storage is provided by `documentStorage` and document services/controllers.
 
-### 2. READ Tool Chaining (gather before acting)
+## Architecture Reality (current)
 
-When the user asks about something new, the LLM fetches data first:
+### Mutation path
+1. User intent -> LLM calls `proposeCreate` / `proposeUpdate` / `proposeDelete`
+2. Agent intercepts PLAN proposal
+3. `DomainWorkflowPlanner.expand(...)` builds `PendingActionPlan`
+4. User confirms
+5. `EntityExecutor.execute(...)` runs workflow steps or single root op
+6. Underlying service (`clients.service`, `tasks.service`, `documents.service`, etc.) applies DB mutation
 
-```
-User: "Generate a letter for the Mansouri property case"
+### Where linking is decided
+- For create/update: parent links must be present in payload/changes (`client_id`, `dossier_id`, `lawsuit_id`, etc.).
+- Domain planner can infer parent context for specific reopen/cascade workflows, but there is no generic create-link auto-fill contract yet.
 
-LLM step 1: searchClients("Mansouri") → client C-2002
-LLM step 2: listDossiers(clientId: 2002) → finds D-52 "property claim"
-LLM step 3: getEntityGraph("dossier", 52) → full case details
+### Where file storage is decided
+- Upload/ingestion path: `documentStorage.saveUploadedDocument(...)` resolves path under app documents directory.
+- Document create path persists `file_path` into `documents` table.
+- Agent session attachments use `agentDocuments.service` + `agent_session_documents` bridge.
 
-Now the LLM has: client ID, dossier ID, lawsuit ID, court details.
-It passes these when calling generateDraft:
+## Status Matrix (2026-04-01)
 
-LLM step 4: generateDraft({
-  draftType: "court_letter",
-  title: "...",
-  sections: [...],
-  linkedEntityType: "dossier",    ← knows this from step 2
-  linkedEntityId: 52,              ← knows this from step 2
-  metadata: {
-    client: "Mansouri",
-    dossier: "D-52 — Property claim",
-    court: "Tribunal de Tunis"     ← knows from step 3
-  }
-})
-```
+| Capability | Status | Notes |
+|---|---|---|
+| PLAN -> pending confirmation interception | Done | Deterministic |
+| Workflow planning before execute | Done | Deterministic |
+| Executor stop-on-first-failure | Done | Step-level results |
+| Draft metadata link fields | Done | In draft artifact schema |
+| Generic deterministic create-link resolver | Not done | Still LLM/prompt dependent |
+| Deterministic draft-to-document persistence bridge | Done | Draft -> file -> linked document create is deterministic |
+| PLAN-time validation for document storage fields | Done | Enforced in PLAN validation |
+| EXECUTE preflight for link/storage before create | Done | Standardized `EXEC_PRECONDITION_*` failures |
 
-### 3. Explicit User Input (when ambiguous)
+## Phased Checklist
 
-If the LLM can't determine the link, it asks:
+### Phase 0 - Contract and Audit Baseline
+- [x] Audit real PLAN/EXECUTE/link/storage code paths.
+- [x] Freeze source-of-truth contracts for proposal payload and executor behavior.
+- [x] Mark outdated assumptions in previous doc.
+- Definition of done: this doc reflects actual implementation.
 
-```
-User: "Add a document to the dossier"
-  → Multiple dossiers in session? LLM asks which one.
-  → No dossier in session? LLM asks: "Which dossier?"
+### Phase 1 - Link Contract Hardening (PLAN layer)
+- [x] Add entity-specific create constraints in PLAN validation:
+  - `task/session/mission`: require exactly one of `dossier_id` or `lawsuit_id`.
+  - `document`: require exactly one parent reference.
+  - `document`: require a storage source contract (`file_path` or generation source token).
+- [x] Reject invalid link payloads before pending confirmation.
+- [x] Add unit tests for all required parent-link permutations.
+- Definition of done: invalid create payloads are blocked at PLAN, not at EXECUTE.
 
-User: "Save this letter"
-  → Draft has linkedEntityId already? Use it.
-  → Draft has no link? LLM asks: "Where should I save this? 
-    I see you have dossiers D-42 and D-52 active."
-```
+### Phase 2 - Deterministic Link Resolver (Backend)
+- [x] Add `LinkResolver.resolve(operation, sessionContext, draftContext)` in backend.
+- [x] Deterministically fill missing parent IDs when unambiguous.
+- [x] Return explicit ambiguity diagnostics when multiple candidates exist.
+- [x] Write resolved link provenance into `plan.diagnostics` and `uiPreview`.
+- Definition of done: link resolution is backend-deterministic, not prompt-only.
 
-## Complete Flow Traces
+### Phase 3 - Draft-to-Document Persistence Bridge
+- [x] Introduce explicit backend path: "save current draft as document".
+- [x] Convert draft artifact to persisted file path (renderer/storage service contract).
+- [x] Build document create payload with validated parent link and metadata.
+- [x] Persist provenance: draft version, session id, source turn id.
+- Definition of done: "save this draft to X" is deterministic end-to-end.
 
-### Flow A: Generate a letter and save it
+### Phase 4 - Executor Preflight and Error Semantics
+- [x] Add preflight checks for storage/link requirements before `service.create`.
+- [x] Standardize error codes for link/storage failures.
+- [x] Surface user-actionable errors in plan execution artifact.
+- Definition of done: confirm does not fail with avoidable validation surprises.
 
-```
-Turn 1: "Write a postponement letter for the Bouazizi hearing"
+### Phase 5 - UX Clarity for Linking
+- [x] Proposal UI must always show exact target link:
+  - "Linked to: Client X / Dossier Y / Lawsuit Z"
+- [x] Show whether link was user-specified vs auto-resolved.
+- [x] If ambiguous, ask targeted disambiguation before proposal.
+- Definition of done: users always know where data will be stored.
 
-  LLM calls: searchClients("Bouazizi") → C-1234
-  LLM calls: getEntityGraph("client", 1234, depth:2)
-    → dossier D-42, lawsuit L-5001, session S-801 (March 25)
-  
-  LLM calls: generateDraft({
-    draftType: "court_letter",
-    title: "Request for Postponement",
-    linkedEntityType: "dossier",      ← set by LLM from context
-    linkedEntityId: 42,                ← set by LLM from context
-    sections: [...],
-    layout: { direction: "ltr", language: "fr", ... }
-  })
-  
-  → Draft Card appears
-  → session.currentDraft = { ..., linkedEntityType: "dossier", linkedEntityId: 42 }
+### Phase 6 - Sync and Traceability
+- [x] Ensure sync events include entity link metadata for all created/updated entities.
+- [x] Add audit trace field for link-resolution source (`explicit`, `resolved`, `fallback`).
+- [x] Add observability counters for link-resolution failures.
+- Definition of done: link decisions are debuggable and observable.
 
-Turn 2: "Save it to the dossier"
+### Phase 7 - Regression Suite
+- [x] Tests: create task without parent should fail at PLAN.
+- [x] Tests: create document without file/link should fail at PLAN.
+- [x] Tests: save draft with linked entity persists in correct parent scope.
+- [x] Tests: ambiguous "save this document" forces disambiguation.
+- [x] Tests: deterministic resolver picks same target for same context.
+- Definition of done: linking/storage regressions are prevented by tests.
 
-  LLM sees: session.currentDraft exists with linkedEntityId: 42
-  LLM calls: proposeCreate({
-    entityType: "document",
-    data: {
-      title: "Request for Postponement — March 25 hearing",
-      type: "court_letter",
-      content: session.currentDraft.content,
-      dossier_id: 42,                 ← from the draft's linkedEntityId
-      lawsuit_id: 5001,               ← from session.activeEntities
-    },
-    linkedTo: { entityType: "dossier", entityId: 42 }
-  })
+## Must-Pass Scenarios
+- [ ] "Create a task for dossier D-42" -> proposal includes `dossier_id=42` and executes.
+- [ ] "Create a task" with no parent context -> structured clarification before proposal.
+- [ ] "Save this generated letter to dossier D-42" -> document stored with valid `file_path` and `dossier_id=42`.
+- [ ] "Move document DOC-201 to lawsuit L-5001" -> update proposal shows old/new link and executes.
+- [ ] Ambiguous link references ("save to the dossier") -> deterministic disambiguation prompt, no blind execution.
 
-  → Plan Card appears:
-    "Create document 'Request for Postponement' in Dossier D-42?"
-  
-Turn 3: "Yes"
-  → Entity executor: documentsService.create({
-      title: "Request for Postponement — March 25 hearing",
-      type: "court_letter",
-      dossier_id: 42,
-      lawsuit_id: 5001,
-      ...
-    })
-  → Document created, linked to D-42 and L-5001
-```
-
-### Flow B: Create an entity linked to another
-
-```
-Turn 1: "We're working on dossier D-42 today"
-  LLM calls: getDossier(42) → loads dossier
-  → session.activeEntities = { dossier:42, client:1234 }
-
-Turn 2: "Create a task to prepare exhibits"
-  LLM sees: dossier D-42 in context
-  LLM calls: proposeCreate({
-    entityType: "task",
-    data: {
-      title: "Prepare exhibits",
-      status: "pending",
-      dossier_id: 42,              ← from session context
-    },
-    linkedTo: { entityType: "dossier", entityId: 42 }
-  })
-
-  → Plan Card: "Create task 'Prepare exhibits' in Dossier D-42?"
-
-Turn 3: "Yes, and make it urgent with a deadline of March 20"
-  → Turn classifier: AMENDMENT (pending exists + modification language)
-  → LLM re-proposes with updated params:
-  
-  proposeCreate({
-    entityType: "task",
-    data: {
-      title: "Prepare exhibits",
-      status: "pending",
-      priority: "urgent",           ← added from amendment
-      due_date: "2026-03-20",       ← added from amendment
-      dossier_id: 42,
-    },
-    linkedTo: { entityType: "dossier", entityId: 42 }
-  })
-
-  → Updated Plan Card
-
-Turn 4: "Confirm"
-  → tasksService.create({ title: "Prepare exhibits", priority: "urgent", 
-      due_date: "2026-03-20", dossier_id: 42 })
-  → Task created, linked to D-42
-```
-
-### Flow C: Move/link a document to a different entity
-
-```
-Turn 1: "I have document DOC-201, move it to lawsuit L-5001"
-
-  LLM calls: getDocument(201) → gets current document
-    → Currently linked to dossier_id: 42, lawsuit_id: null
-  
-  LLM calls: proposeUpdate({
-    entityType: "document",
-    entityId: 201,
-    changes: {
-      lawsuit_id: 5001               ← the new link
-    },
-    reason: "Link document to lawsuit L-5001"
-  })
-
-  → Plan Card shows:
-    "Update document DOC-201:
-     lawsuit_id: (none) → L-5001"
-
-Turn 2: "Yes"
-  → documentsService.update(201, { lawsuit_id: 5001 })
-  → Document now linked to L-5001
-```
-
-### Flow D: Ambiguous linking — agent asks
-
-```
-Turn 1: "Save this document"
-
-  session.currentDraft exists but linkedEntityId is null
-  (maybe the draft was created without specific context)
-
-  LLM sees: no linked entity on the draft
-  LLM sees: session.activeEntities has dossier:42 and dossier:52
-
-  LLM responds:
-    "Where should I save this document? You have two dossiers 
-     in this conversation:
-     1. D-42 — Bouazizi v. TechPro
-     2. D-52 — Mansouri property claim
-     Which one?"
-
-Turn 2: "The first one"
-  → LLM resolves "the first one" = D-42 from the list above
-  → proposeCreate({ entityType: "document", data: { dossier_id: 42, ... } })
-  → Plan Card appears
-```
-
-## What Makes This Work — The System Prompt
-
-The system prompt instructs the LLM to always include linking information:
-
-```
-ENTITY LINKING:
-
-When creating or saving any entity, ALWAYS specify which parent entity 
-it belongs to. Use the IDs from your READ tool results or session context.
-
-For documents: always include dossier_id and optionally lawsuit_id
-For tasks: always include dossier_id or lawsuit_id
-For sessions: always include lawsuit_id or dossier_id
-For missions: always include dossier_id or lawsuit_id
-For financial entries: always include dossier_id
-
-If you don't know which entity to link to:
-- Check session context (active entities from the conversation)
-- If ambiguous, ASK the user which entity
-- NEVER create an unlinked entity without asking first
-
-When saving a draft document:
-- Use the linkedEntityType and linkedEntityId from the draft metadata
-- If the draft has no link, ask the user where to save it
-```
-
-## What About File Storage?
-
-When a document is "saved," two things happen:
-
-1. A document RECORD is created in the database (title, type, links)
-2. The document CONTENT is saved to the file system
-
-The entity executor handles both:
-
-```typescript
-// In entity.executor.ts — special handling for document creation
-
-case 'document':
-  // 1. Save content to file system
-  const filePath = await saveDocumentFile(data.content, data.title, data.format);
-  
-  // 2. Create database record with file path
-  const docRecord = documentsService.create({
-    title: data.title,
-    type: data.type,
-    file_path: filePath,
-    dossier_id: data.dossier_id,
-    lawsuit_id: data.lawsuit_id,
-    // ... other links
-  });
-  
-  return docRecord;
-```
-
-The file system path is determined by configuration (the app's 
-documents directory), not by the LLM. The LLM only specifies 
-WHICH entity to link to, not WHERE on disk to store.
-
-## Is This Covered by Design?
-
-```
-MECHANISM                              STATUS
-─────────────────────                  ──────
-Session context carries entity IDs     ✅ Designed + implemented
-LLM chains READ before PLAN/DRAFT     ✅ Designed (system prompt)
-Draft stores linkedEntityType/Id       ✅ Designed in DRAFT phase
-proposeCreate has linkedTo field       ✅ Designed in PLAN phase
-proposeUpdate can modify links         ✅ Designed in PLAN phase
-Ambiguity handling (ask user)          ✅ Designed (system prompt)
-System prompt linking instructions     🔄 Need to add (see above)
-File storage on document save          🔄 Need to add to entity.executor
-Entity executor document handling      🔄 Need to add special case
-```
-
-## Action Items
-
-```
-Task 1: Add entity linking instructions to system prompt
-  File: agent/prompts/identity.prompt.ts
-  Add the ENTITY LINKING section (see above)
-
-Task 2: Add document file storage to entity executor
-  File: agent/engine/entity.executor.ts
-  Special handling for entityType "document":
-  - Save content to file system
-  - Set file_path on the database record
-  - Handle format (PDF/DOCX rendering if needed)
-
-Task 3: Ensure Draft Card preserves linking info
-  File: verify generateDraft tool output includes linkedEntityType/Id
-  And that session.currentDraft carries this through
-
-Task 4: Test the full save flow
-  "Write a letter for D-42" → Draft Card
-  "Save it" → Plan Card (create document in D-42)
-  "Confirm" → Document created, file saved, linked to D-42
-```
+## Assumptions
+- No distributed rollback is introduced in this track.
+- PLAN tools stay as LLM mutation-intent entry points.
+- Domain rules and service constraints remain backend authority.
+- Linking/storage correctness must be guaranteed before execution, not recovered after failure.

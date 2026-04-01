@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { Session } from "../session";
 import {
   TurnType,
@@ -19,6 +20,8 @@ const PERFORMANCE_SNAPSHOT_EVENT_TYPE = "performance_snapshot";
 type RuntimeMode = "READ_ONLY" | "DRAFT" | "EXECUTE" | "AUTONOMOUS";
 type RuntimeTurnInput = AgentTurnInput & { mode: RuntimeMode };
 const MODELESS_CONTRACT_RUNTIME_MODE: RuntimeMode = "EXECUTE";
+type MutationEventsBuilder = (payload?: Record<string, unknown>) => Array<Record<string, unknown>>;
+let cachedMutationEventsBuilder: MutationEventsBuilder | null | undefined;
 
 interface RequestLike {
   body?: unknown;
@@ -303,6 +306,7 @@ export function createAgentV2StreamHandler(runtime: AgentV2Runtime) {
       }
 
       emitOutput(emitter, output, deliveredLiveText);
+      emitEntityMutationSuccessEvents(emitter, input, output);
 
       const disambiguation = detectDisambiguation(uxPreflight, output, session, input);
       if (disambiguation) {
@@ -1138,6 +1142,12 @@ function asString(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
 
+function coerceNumber(value: unknown): number | undefined {
+  const parsed = Number(value);
+  if (Number.isFinite(parsed)) return parsed;
+  return undefined;
+}
+
 function asNonEmptyString(value: unknown): string | null {
   const text = asString(value)?.trim();
   return text || null;
@@ -1484,6 +1494,169 @@ function applyScopedEntityId(scope: Record<string, unknown>, entityType: string,
     default:
       break;
   }
+}
+
+function resolveMutationEventsBuilder(): MutationEventsBuilder | null {
+  if (cachedMutationEventsBuilder !== undefined) {
+    return cachedMutationEventsBuilder;
+  }
+
+  const candidates = [
+    "../../realtime/entityMutationEvents",
+    path.resolve(process.cwd(), "src/realtime/entityMutationEvents"),
+    path.resolve(process.cwd(), "backend/src/realtime/entityMutationEvents"),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const moduleValue = require(candidate) as {
+        buildMutationEventsFromExecution?: unknown;
+      };
+      if (typeof moduleValue?.buildMutationEventsFromExecution === "function") {
+        cachedMutationEventsBuilder = moduleValue
+          .buildMutationEventsFromExecution as MutationEventsBuilder;
+        return cachedMutationEventsBuilder;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  cachedMutationEventsBuilder = null;
+  return null;
+}
+
+function emitEntityMutationSuccessEvents(
+  emitter: StreamEmitter,
+  input: AgentTurnInput,
+  output: AgentTurnOutput,
+): void {
+  const metadata = toRecord(output.metadata);
+  const confirmedAction = toRecord(metadata?.confirmedAction);
+  const confirmedExecution = toRecord(metadata?.confirmedExecutionResult);
+  if (!confirmedAction || !confirmedExecution) {
+    return;
+  }
+
+  const proposal = buildMutationProposalShape(confirmedAction);
+  if (!proposal) {
+    return;
+  }
+  const buildMutationEventsFromExecution = resolveMutationEventsBuilder();
+  if (typeof buildMutationEventsFromExecution !== "function") {
+    return;
+  }
+
+  const resultData = toRecord(confirmedExecution.data) ?? {};
+  const executionEnvelope = {
+    executedActions: [
+      {
+        actionType: proposal.actionType,
+        params: proposal.params,
+        result: {
+          ...resultData,
+          ok: confirmedExecution.ok === true,
+        },
+      },
+    ],
+  };
+
+  const events = buildMutationEventsFromExecution({
+    proposal,
+    executionResult: executionEnvelope,
+    sessionId: input.sessionId,
+    source: "agent",
+  });
+
+  for (const event of events) {
+    if (!event || typeof event !== "object") continue;
+    emitter.emit({
+      type: "entity_mutation_success",
+      event: event as Record<string, unknown>,
+    });
+  }
+}
+
+function buildMutationProposalShape(
+  confirmedAction: Record<string, unknown>,
+): { actionType: string; params: Record<string, unknown> } | null {
+  const plan = toRecord(confirmedAction.plan);
+  if (plan) {
+    const diagnostics = toRecord(plan.diagnostics);
+    const linkResolution = toRecord(diagnostics?.linkResolution);
+    const linkResolutionStatus = asString(linkResolution?.status);
+    const linkResolutionSourceTrace = resolveLinkResolutionSourceTrace(linkResolution);
+    const rootOperation =
+      toRecord(plan.rootOperation) ||
+      toRecord(plan.operation) ||
+      null;
+    const params = rootOperation
+      ? {
+          entityType: asString(rootOperation.entityType) ?? undefined,
+          entityId: coerceNumber(rootOperation.entityId),
+          ...(toRecord(rootOperation.payload) ? { payload: toRecord(rootOperation.payload)! } : {}),
+          ...(toRecord(rootOperation.changes) ? { changes: toRecord(rootOperation.changes)! } : {}),
+          ...(linkResolutionStatus ? { linkResolutionStatus } : {}),
+          ...(linkResolutionSourceTrace ? { linkResolutionSourceTrace } : {}),
+        }
+      : {};
+    const workflowSteps = Array.isArray(plan.workflowSteps) ? plan.workflowSteps : [];
+    if (workflowSteps.length > 0) {
+      return {
+        actionType: "EXECUTE_MUTATION_WORKFLOW",
+        params,
+      };
+    }
+
+    const rootOp = asString(rootOperation?.operation)?.toLowerCase() || "";
+    return {
+      actionType:
+        rootOp === "create"
+          ? "CREATE_ENTITY"
+          : rootOp === "delete"
+          ? "DELETE_ENTITY"
+          : "UPDATE_ENTITY",
+      params,
+    };
+  }
+
+  const toolName = asString(confirmedAction.toolName)?.toLowerCase() || "";
+  const args = toRecord(confirmedAction.args) || {};
+  if (toolName === "proposecreate") {
+    return { actionType: "CREATE_ENTITY", params: args };
+  }
+  if (toolName === "proposedelete") {
+    return { actionType: "DELETE_ENTITY", params: args };
+  }
+  if (toolName === "attachtoentity") {
+    return { actionType: "ATTACH_TO_ENTITY", params: args };
+  }
+  if (toolName === "proposeupdate" || toolName === "proposeupsert") {
+    return { actionType: "UPDATE_ENTITY", params: args };
+  }
+  return null;
+}
+
+function resolveLinkResolutionSourceTrace(
+  linkResolution: Record<string, unknown> | null,
+): "explicit" | "resolved" | "fallback" | undefined {
+  if (!linkResolution) return undefined;
+  const source = asString(linkResolution.source);
+  const status = asString(linkResolution.status);
+  if (source === "payload") {
+    return "explicit";
+  }
+  if (source === "active_entities") {
+    return "fallback";
+  }
+  if (source === "draft_context") {
+    return "resolved";
+  }
+  if (status === "resolved") {
+    return "resolved";
+  }
+  return undefined;
 }
 
 function buildDisambiguationSelectionPolicy(

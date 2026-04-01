@@ -72,6 +72,29 @@ export interface ConfirmationPreviewCascadeGroup {
   examples?: ConfirmationPreviewChange[];
 }
 
+export interface ConfirmationPreviewLinkingTarget {
+  entityType: string;
+  entityId: number | string;
+  label?: string;
+  field?: string;
+}
+
+export interface ConfirmationPreviewLinkingCandidate {
+  entityType: string;
+  entityId: number | string;
+  label?: string;
+  source?: string;
+}
+
+export interface ConfirmationPreviewLinking {
+  status: "unchanged" | "resolved" | "ambiguous" | "unresolved" | string;
+  source?: string;
+  target?: ConfirmationPreviewLinkingTarget;
+  userSpecified?: boolean;
+  resolutionLabel?: string;
+  ambiguousCandidates?: ConfirmationPreviewLinkingCandidate[];
+}
+
 export interface ConfirmationPreview {
   version: "v1" | string;
   scope: "single_entity" | "workflow" | string;
@@ -105,6 +128,7 @@ export interface ConfirmationPreview {
     suggestedChildren?: Array<{ entityType?: string; payload?: Record<string, unknown>; rationale?: string }>;
   };
   reversibility?: "reversible" | "not_reversible" | "unknown" | string;
+  linking?: ConfirmationPreviewLinking;
 }
 
 export interface SemanticActionMappingInput {

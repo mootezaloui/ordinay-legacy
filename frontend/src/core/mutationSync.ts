@@ -8,12 +8,25 @@ export interface MutationScope {
   parentEntityId?: number;
 }
 
+export interface MutationLinkParentRef {
+  entityType: string;
+  entityId: number;
+  field?: string;
+}
+
+export interface MutationLinkingMetadata {
+  sourceTrace?: "explicit" | "resolved" | "fallback";
+  resolutionStatus?: "unchanged" | "resolved" | "ambiguous" | "unresolved";
+  parentLinks?: MutationLinkParentRef[];
+}
+
 export interface EntityMutationSuccessEvent {
   type: "ENTITY_MUTATION_SUCCESS";
   entityType: string;
   entityId: number | null;
   operation: MutationOperation;
   scope: MutationScope;
+  linking?: MutationLinkingMetadata;
   source?: "agent" | "api" | "manual" | "unknown";
   sessionId?: string | null;
   timestamp?: string;
@@ -95,6 +108,52 @@ function normalizeScope(input: unknown): MutationScope {
   };
 }
 
+function normalizeLinking(input: unknown): MutationLinkingMetadata | undefined {
+  if (!input || typeof input !== "object") return undefined;
+  const linking = input as Record<string, unknown>;
+  const sourceTraceRaw = String(linking.sourceTrace || "").trim().toLowerCase();
+  const sourceTrace =
+    sourceTraceRaw === "explicit" || sourceTraceRaw === "resolved" || sourceTraceRaw === "fallback"
+      ? (sourceTraceRaw as MutationLinkingMetadata["sourceTrace"])
+      : undefined;
+  const resolutionStatusRaw = String(linking.resolutionStatus || "").trim().toLowerCase();
+  const resolutionStatus =
+    resolutionStatusRaw === "unchanged" ||
+    resolutionStatusRaw === "resolved" ||
+    resolutionStatusRaw === "ambiguous" ||
+    resolutionStatusRaw === "unresolved"
+      ? (resolutionStatusRaw as MutationLinkingMetadata["resolutionStatus"])
+      : undefined;
+  const parentLinks = Array.isArray(linking.parentLinks)
+    ? linking.parentLinks
+        .map((row) => {
+          if (!row || typeof row !== "object") return null;
+          const record = row as Record<string, unknown>;
+          const entityType = normalizeEntityType(record.entityType);
+          const entityId = toPositiveInt(record.entityId);
+          if (!entityType || !entityId) return null;
+          const field =
+            typeof record.field === "string" && record.field.trim().length > 0
+              ? record.field.trim()
+              : undefined;
+          return {
+            entityType,
+            entityId,
+            ...(field ? { field } : {}),
+          } as MutationLinkParentRef;
+        })
+        .filter((row): row is MutationLinkParentRef => Boolean(row))
+    : [];
+  if (!sourceTrace && !resolutionStatus && parentLinks.length === 0) {
+    return undefined;
+  }
+  return {
+    ...(sourceTrace ? { sourceTrace } : {}),
+    ...(resolutionStatus ? { resolutionStatus } : {}),
+    ...(parentLinks.length > 0 ? { parentLinks } : {}),
+  };
+}
+
 function normalizeMutationEvent(input: unknown): EntityMutationSuccessEvent | null {
   if (!input || typeof input !== "object") return null;
   const raw = input as Record<string, unknown>;
@@ -102,12 +161,14 @@ function normalizeMutationEvent(input: unknown): EntityMutationSuccessEvent | nu
   const entityType = normalizeEntityType(raw.entityType);
   if (!entityType) return null;
   const entityId = toPositiveInt(raw.entityId) ?? null;
+  const linking = normalizeLinking(raw.linking);
   return {
     type: "ENTITY_MUTATION_SUCCESS",
     entityType,
     entityId,
     operation: normalizeOperation(raw.operation),
     scope: normalizeScope(raw.scope),
+    ...(linking ? { linking } : {}),
     source: (String(raw.source || "").toLowerCase() as EntityMutationSuccessEvent["source"]) || "unknown",
     sessionId: typeof raw.sessionId === "string" ? raw.sessionId : null,
     timestamp: typeof raw.timestamp === "string" ? raw.timestamp : new Date().toISOString(),
@@ -126,6 +187,12 @@ export function buildMutationInvalidationPlan(event: EntityMutationSuccessEvent)
   if (event.scope.lawsuitId) scopeKeys.add(`lawsuit:${event.scope.lawsuitId}`);
   if (event.scope.parentEntityType && event.scope.parentEntityId) {
     scopeKeys.add(`${event.scope.parentEntityType}:${event.scope.parentEntityId}`);
+  }
+  if (Array.isArray(event.linking?.parentLinks)) {
+    for (const link of event.linking.parentLinks) {
+      if (!link.entityType || !link.entityId) continue;
+      scopeKeys.add(`${link.entityType}:${link.entityId}`);
+    }
   }
   return {
     keys: [...keys],

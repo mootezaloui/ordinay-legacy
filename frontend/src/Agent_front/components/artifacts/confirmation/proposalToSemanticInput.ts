@@ -42,6 +42,14 @@ function normalizeText(value: unknown): string {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+function normalizeMultilineText(value: unknown): string {
+  return String(value || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function verbLabel(verb?: string): string {
   const normalized = String(verb || "").trim().toLowerCase();
   if (normalized === "create") return "Create";
@@ -133,10 +141,10 @@ function buildStructuredCard(proposal: ActionProposal) {
     subtitle: normalizeText(structured.subtitle) || undefined,
     fields: orderStructuredFields(Array.isArray(structured.fields) ? structured.fields.filter((field) => normalizeText(field?.value)) : []),
     contentPreview:
-      structured.contentPreview && normalizeText(structured.contentPreview.text)
+      structured.contentPreview && normalizeMultilineText(structured.contentPreview.text)
         ? {
             label: normalizeText(structured.contentPreview.label) || "Content Preview",
-            text: normalizeText(structured.contentPreview.text),
+            text: normalizeMultilineText(structured.contentPreview.text),
           }
         : undefined,
     warningHint: "Review before confirming",

@@ -64,6 +64,29 @@ export interface ConfirmationPreviewCascadeGroup {
   examples?: ConfirmationPreviewChange[];
 }
 
+export interface ConfirmationPreviewLinkingTarget {
+  entityType: string;
+  entityId: number | string;
+  label?: string;
+  field?: string;
+}
+
+export interface ConfirmationPreviewLinkingCandidate {
+  entityType: string;
+  entityId: number | string;
+  label?: string;
+  source?: string;
+}
+
+export interface ConfirmationPreviewLinking {
+  status: 'unchanged' | 'resolved' | 'ambiguous' | 'unresolved' | string;
+  source?: string;
+  target?: ConfirmationPreviewLinkingTarget;
+  userSpecified?: boolean;
+  resolutionLabel?: string;
+  ambiguousCandidates?: ConfirmationPreviewLinkingCandidate[];
+}
+
 export interface ConfirmationPreview {
   version: 'v1' | string;
   scope: 'single_entity' | 'workflow' | string;
@@ -77,6 +100,7 @@ export interface ConfirmationPreview {
   cascadeSummary?: ConfirmationPreviewCascadeGroup[];
   effects?: string[];
   reversibility?: 'reversible' | 'not_reversible' | 'unknown' | string;
+  linking?: ConfirmationPreviewLinking;
 }
 
 export interface StructuredProposalField {
@@ -1013,6 +1037,7 @@ export interface ExecutionResult {
     message: string;
     safeMessage: string;
     requiresReproposal: boolean;
+    details?: Record<string, unknown>;
   };
   audit?: {
     userId?: number;
@@ -1339,6 +1364,25 @@ export async function confirmProposal(
       if (currentEvent === "plan_executed") {
         const artifact = asRecord(payload?.artifact);
         const pendingActionId = String(artifact?.pendingActionId || proposalId);
+        const stepResultsRaw = Array.isArray(artifact?.stepResults)
+          ? artifact.stepResults
+          : [];
+        const mappedStepResults = stepResultsRaw
+          .map((row) => {
+            const step = asRecord(row);
+            if (!step) return null;
+            const stepResult = asRecord(step.result);
+            return {
+              ...step,
+              result: stepResult
+                ? {
+                    ...stepResult,
+                    ok: stepResult.ok === false ? false : step.ok === true,
+                  }
+                : undefined,
+            };
+          })
+          .filter(Boolean);
         if (artifact?.ok === true) {
           const result = asRecord(artifact?.result);
           const entityType = String(result?.entityType || "").trim().toLowerCase();
@@ -1367,6 +1411,7 @@ export async function confirmProposal(
                         entityId: entityIdNum,
                         operation,
                         ok: true,
+                        ...(mappedStepResults.length > 0 ? { stepResults: mappedStepResults } : {}),
                       },
                     },
                   ],
@@ -1382,6 +1427,20 @@ export async function confirmProposal(
           type: "execution_result",
           proposalId: pendingActionId,
           status: "failed",
+          ...(mappedStepResults.length > 0
+            ? {
+                executedActions: [
+                  {
+                    actionType: "EXECUTE_MUTATION_WORKFLOW",
+                    executedAt: new Date().toISOString(),
+                    result: {
+                      ok: false,
+                      stepResults: mappedStepResults,
+                    },
+                  },
+                ],
+              }
+            : {}),
           error: {
             code: String(artifact?.errorCode || "PLAN_EXECUTION_FAILED"),
             message,
@@ -1676,6 +1735,23 @@ export interface PlanPreviewEventData {
   subtitle?: string;
   fields?: PlanPreviewFieldEventData[];
   warnings?: string[];
+  scope?: 'single_entity' | 'workflow' | string;
+  root?: {
+    type?: string;
+    id?: number | null;
+    label?: string;
+    operation?: string;
+  };
+  primaryChanges?: ConfirmationPreviewChange[];
+  cascadeSummary?: ConfirmationPreviewCascadeGroup[];
+  effects?: string[];
+  reversibility?: 'reversible' | 'not_reversible' | 'unknown' | string;
+  linking?: ConfirmationPreviewLinking;
+  decisions?: Array<{
+    key: string;
+    title: string;
+    description: string;
+  }>;
 }
 
 export interface PlanArtifactEventData {
@@ -1683,14 +1759,22 @@ export interface PlanArtifactEventData {
   operation: PlanOperationEventData;
   summary: string;
   preview?: PlanPreviewEventData;
+  workflow?: {
+    totalSteps: number;
+    steps: Array<Record<string, unknown>>;
+    requiresUserDecision?: boolean;
+  };
 }
 
 export interface PlanExecutedEventData {
   pendingActionId: string;
   ok: boolean;
   result?: Record<string, unknown>;
+  stepResults?: Array<Record<string, unknown>>;
+  failedStepId?: string;
   errorCode?: string;
   errorMessage?: string;
+  errorDetails?: Record<string, unknown>;
 }
 
 export interface PlanRejectedEventData {
@@ -2445,7 +2529,13 @@ export function streamAgentMessage(
               callbacks.onCancelled?.();
               break;
             case 'entity_mutation_success':
-              callbacks.onMutationEvent?.(data as EntityMutationSuccessEvent);
+              callbacks.onMutationEvent?.(
+                (
+                  (data && typeof data === 'object' && data.event && typeof data.event === 'object'
+                    ? data.event
+                    : data) as EntityMutationSuccessEvent
+                ),
+              );
               break;
             default:
               callbacks.onResult?.({

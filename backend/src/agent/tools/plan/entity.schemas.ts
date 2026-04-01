@@ -131,6 +131,46 @@ const ENTITY_TYPE_ALIASES: Record<string, string> = {
 const MAX_PREVIEW_FIELDS = 12;
 const MAX_PREVIEW_WARNINGS = 20;
 
+const LINK_GROUP_DOSSIER = ["dossier_id", "dossierId"] as const;
+const LINK_GROUP_LAWSUIT = ["lawsuit_id", "lawsuitId"] as const;
+const LINK_GROUP_CLIENT = ["client_id", "clientId"] as const;
+const LINK_GROUP_MISSION = ["mission_id", "missionId"] as const;
+const LINK_GROUP_TASK = ["task_id", "taskId"] as const;
+const LINK_GROUP_SESSION = ["session_id", "sessionId"] as const;
+const LINK_GROUP_PERSONAL_TASK = ["personal_task_id", "personalTaskId"] as const;
+const LINK_GROUP_FINANCIAL_ENTRY = ["financial_entry_id", "financialEntryId"] as const;
+const LINK_GROUP_OFFICER = ["officer_id", "officerId"] as const;
+
+const CASE_PARENT_LINK_GROUPS = [LINK_GROUP_DOSSIER, LINK_GROUP_LAWSUIT] as const;
+const DOCUMENT_PARENT_LINK_GROUPS = [
+  LINK_GROUP_CLIENT,
+  LINK_GROUP_DOSSIER,
+  LINK_GROUP_LAWSUIT,
+  LINK_GROUP_MISSION,
+  LINK_GROUP_TASK,
+  LINK_GROUP_SESSION,
+  LINK_GROUP_PERSONAL_TASK,
+  LINK_GROUP_FINANCIAL_ENTRY,
+  LINK_GROUP_OFFICER,
+] as const;
+const DOCUMENT_STORAGE_SOURCE_GROUPS = [
+  ["file_path", "filePath"],
+  [
+    "generation_uid",
+    "generationUid",
+    "generation_id",
+    "generationId",
+    "source_generation_uid",
+    "sourceGenerationUid",
+    "document_generation_uid",
+    "documentGenerationUid",
+    "preview_uid",
+    "previewUid",
+    "document_preview_uid",
+    "documentPreviewUid",
+  ],
+] as const;
+
 export function normalizeEntityType(value: unknown): string | null {
   const raw = String(value ?? "")
     .trim()
@@ -300,6 +340,7 @@ export function validateCreatePayload(
   }
 
   issues.push(...validateEnumFields(entityType, payload));
+  issues.push(...validateCreateLinkingConstraints(entityType, keyMap));
   return issues;
 }
 
@@ -452,6 +493,99 @@ function validateEnumFields(
   return issues;
 }
 
+function validateCreateLinkingConstraints(
+  entityType: string,
+  keyMap: Map<string, unknown>,
+): ValidationIssue[] {
+  if (entityType === "task" || entityType === "session" || entityType === "mission") {
+    return validateExactlyOneGroupPresent({
+      keyMap,
+      groups: CASE_PARENT_LINK_GROUPS,
+      path: "payload",
+      code: "INVALID_PARENT_LINK_SCOPE",
+      message:
+        `Create ${entityType} requires exactly one parent reference: ` +
+        "provide either dossier_id (or dossierId) or lawsuit_id (or lawsuitId).",
+    });
+  }
+
+  if (entityType === "document") {
+    const issues: ValidationIssue[] = [];
+    issues.push(
+      ...validateExactlyOneGroupPresent({
+        keyMap,
+        groups: DOCUMENT_PARENT_LINK_GROUPS,
+        path: "payload",
+        code: "INVALID_DOCUMENT_PARENT_LINK",
+        message:
+          "Create document requires exactly one parent reference " +
+          "(client/dossier/lawsuit/mission/task/session/personal_task/financial_entry/officer).",
+      }),
+    );
+
+    if (!hasAnyGroupPresent(keyMap, DOCUMENT_STORAGE_SOURCE_GROUPS)) {
+      issues.push({
+        path: "payload",
+        code: "MISSING_DOCUMENT_STORAGE_SOURCE",
+        message:
+          "Create document requires file_path (or filePath) " +
+          "or a generation source token (for example generation_uid).",
+      });
+    }
+
+    return issues;
+  }
+
+  return [];
+}
+
+function validateExactlyOneGroupPresent(params: {
+  keyMap: Map<string, unknown>;
+  groups: ReadonlyArray<ReadonlyArray<string>>;
+  path: string;
+  code: string;
+  message: string;
+}): ValidationIssue[] {
+  const presentCount = countPresentGroups(params.keyMap, params.groups);
+  if (presentCount === 1) {
+    return [];
+  }
+  return [
+    {
+      path: params.path,
+      code: params.code,
+      message: params.message,
+    },
+  ];
+}
+
+function countPresentGroups(
+  keyMap: Map<string, unknown>,
+  groups: ReadonlyArray<ReadonlyArray<string>>,
+): number {
+  let count = 0;
+  for (const group of groups) {
+    if (hasGroupPresent(keyMap, group)) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+function hasAnyGroupPresent(
+  keyMap: Map<string, unknown>,
+  groups: ReadonlyArray<ReadonlyArray<string>>,
+): boolean {
+  return groups.some((group) => hasGroupPresent(keyMap, group));
+}
+
+function hasGroupPresent(
+  keyMap: Map<string, unknown>,
+  group: ReadonlyArray<string>,
+): boolean {
+  return group.some((field) => hasPresentValue(keyMap.get(normalizeFieldKey(field))));
+}
+
 function normalizePreviewFields(value: unknown): PlanPreviewField[] {
   if (!Array.isArray(value)) {
     return [];
@@ -530,4 +664,3 @@ function asTrimmedString(value: unknown): string | undefined {
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-

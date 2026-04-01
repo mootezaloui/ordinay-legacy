@@ -1,7 +1,11 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createAgentV2Runtime = void 0;
 exports.createAgentV2StreamHandler = createAgentV2StreamHandler;
+const node_path_1 = __importDefault(require("node:path"));
 const types_1 = require("../types");
 const stream_emitter_1 = require("./stream.emitter");
 const runtime_factory_1 = require("./runtime.factory");
@@ -9,6 +13,7 @@ Object.defineProperty(exports, "createAgentV2Runtime", { enumerable: true, get: 
 const TEXT_CHUNK_SIZE = 200;
 const PERFORMANCE_SNAPSHOT_EVENT_TYPE = "performance_snapshot";
 const MODELESS_CONTRACT_RUNTIME_MODE = "EXECUTE";
+let cachedMutationEventsBuilder;
 function createAgentV2StreamHandler(runtime) {
     return async function handleAgentV2Stream(req, res) {
         const emitter = new stream_emitter_1.StreamEmitter(res);
@@ -204,6 +209,7 @@ function createAgentV2StreamHandler(runtime) {
                 }
             }
             emitOutput(emitter, output, deliveredLiveText);
+            emitEntityMutationSuccessEvents(emitter, input, output);
             const disambiguation = detectDisambiguation(uxPreflight, output, session, input);
             if (disambiguation) {
                 emitter.emit({ type: "disambiguation", payload: disambiguation });
@@ -857,6 +863,12 @@ function splitText(text, chunkSize) {
 function asString(value) {
     return typeof value === "string" ? value : null;
 }
+function coerceNumber(value) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed))
+        return parsed;
+    return undefined;
+}
 function asNonEmptyString(value) {
     const text = asString(value)?.trim();
     return text || null;
@@ -1155,6 +1167,147 @@ function applyScopedEntityId(scope, entityType, numericId) {
         default:
             break;
     }
+}
+function resolveMutationEventsBuilder() {
+    if (cachedMutationEventsBuilder !== undefined) {
+        return cachedMutationEventsBuilder;
+    }
+    const candidates = [
+        "../../realtime/entityMutationEvents",
+        node_path_1.default.resolve(process.cwd(), "src/realtime/entityMutationEvents"),
+        node_path_1.default.resolve(process.cwd(), "backend/src/realtime/entityMutationEvents"),
+    ];
+    for (const candidate of candidates) {
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            const moduleValue = require(candidate);
+            if (typeof moduleValue?.buildMutationEventsFromExecution === "function") {
+                cachedMutationEventsBuilder = moduleValue
+                    .buildMutationEventsFromExecution;
+                return cachedMutationEventsBuilder;
+            }
+        }
+        catch {
+            continue;
+        }
+    }
+    cachedMutationEventsBuilder = null;
+    return null;
+}
+function emitEntityMutationSuccessEvents(emitter, input, output) {
+    const metadata = toRecord(output.metadata);
+    const confirmedAction = toRecord(metadata?.confirmedAction);
+    const confirmedExecution = toRecord(metadata?.confirmedExecutionResult);
+    if (!confirmedAction || !confirmedExecution) {
+        return;
+    }
+    const proposal = buildMutationProposalShape(confirmedAction);
+    if (!proposal) {
+        return;
+    }
+    const buildMutationEventsFromExecution = resolveMutationEventsBuilder();
+    if (typeof buildMutationEventsFromExecution !== "function") {
+        return;
+    }
+    const resultData = toRecord(confirmedExecution.data) ?? {};
+    const executionEnvelope = {
+        executedActions: [
+            {
+                actionType: proposal.actionType,
+                params: proposal.params,
+                result: {
+                    ...resultData,
+                    ok: confirmedExecution.ok === true,
+                },
+            },
+        ],
+    };
+    const events = buildMutationEventsFromExecution({
+        proposal,
+        executionResult: executionEnvelope,
+        sessionId: input.sessionId,
+        source: "agent",
+    });
+    for (const event of events) {
+        if (!event || typeof event !== "object")
+            continue;
+        emitter.emit({
+            type: "entity_mutation_success",
+            event: event,
+        });
+    }
+}
+function buildMutationProposalShape(confirmedAction) {
+    const plan = toRecord(confirmedAction.plan);
+    if (plan) {
+        const diagnostics = toRecord(plan.diagnostics);
+        const linkResolution = toRecord(diagnostics?.linkResolution);
+        const linkResolutionStatus = asString(linkResolution?.status);
+        const linkResolutionSourceTrace = resolveLinkResolutionSourceTrace(linkResolution);
+        const rootOperation = toRecord(plan.rootOperation) ||
+            toRecord(plan.operation) ||
+            null;
+        const params = rootOperation
+            ? {
+                entityType: asString(rootOperation.entityType) ?? undefined,
+                entityId: coerceNumber(rootOperation.entityId),
+                ...(toRecord(rootOperation.payload) ? { payload: toRecord(rootOperation.payload) } : {}),
+                ...(toRecord(rootOperation.changes) ? { changes: toRecord(rootOperation.changes) } : {}),
+                ...(linkResolutionStatus ? { linkResolutionStatus } : {}),
+                ...(linkResolutionSourceTrace ? { linkResolutionSourceTrace } : {}),
+            }
+            : {};
+        const workflowSteps = Array.isArray(plan.workflowSteps) ? plan.workflowSteps : [];
+        if (workflowSteps.length > 0) {
+            return {
+                actionType: "EXECUTE_MUTATION_WORKFLOW",
+                params,
+            };
+        }
+        const rootOp = asString(rootOperation?.operation)?.toLowerCase() || "";
+        return {
+            actionType: rootOp === "create"
+                ? "CREATE_ENTITY"
+                : rootOp === "delete"
+                    ? "DELETE_ENTITY"
+                    : "UPDATE_ENTITY",
+            params,
+        };
+    }
+    const toolName = asString(confirmedAction.toolName)?.toLowerCase() || "";
+    const args = toRecord(confirmedAction.args) || {};
+    if (toolName === "proposecreate") {
+        return { actionType: "CREATE_ENTITY", params: args };
+    }
+    if (toolName === "proposedelete") {
+        return { actionType: "DELETE_ENTITY", params: args };
+    }
+    if (toolName === "attachtoentity") {
+        return { actionType: "ATTACH_TO_ENTITY", params: args };
+    }
+    if (toolName === "proposeupdate" || toolName === "proposeupsert") {
+        return { actionType: "UPDATE_ENTITY", params: args };
+    }
+    return null;
+}
+function resolveLinkResolutionSourceTrace(linkResolution) {
+    if (!linkResolution)
+        return undefined;
+    const source = asString(linkResolution.source);
+    const status = asString(linkResolution.status);
+    if (source === "payload") {
+        return "explicit";
+    }
+    if (source === "active_entities") {
+        return "fallback";
+    }
+    if (source === "draft_context") {
+        return "resolved";
+    }
+    if (status === "resolved") {
+        return "resolved";
+    }
+    return undefined;
 }
 function buildDisambiguationSelectionPolicy(message, preferredMode) {
     const normalized = String(message || "").toLowerCase();

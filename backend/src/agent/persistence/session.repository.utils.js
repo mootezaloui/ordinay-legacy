@@ -113,9 +113,25 @@ function normalizePendingActionPlan(value) {
     return null;
   }
   const normalized = { operation };
+  const rootOperation = normalizePlanOperation(value.rootOperation);
+  if (rootOperation) {
+    normalized.rootOperation = rootOperation;
+  }
   const preview = normalizePlanPreview(value.preview);
   if (preview) {
     normalized.preview = preview;
+  }
+  const uiPreview = normalizePlanPreview(value.uiPreview);
+  if (uiPreview) {
+    normalized.uiPreview = uiPreview;
+  }
+  const workflowSteps = normalizeWorkflowSteps(value.workflowSteps);
+  if (workflowSteps.length > 0) {
+    normalized.workflowSteps = workflowSteps;
+  }
+  const diagnostics = normalizePlanDiagnostics(value.diagnostics);
+  if (diagnostics) {
+    normalized.diagnostics = diagnostics;
   }
   return normalized;
 }
@@ -171,11 +187,240 @@ function normalizePlanPreview(value) {
   if (subtitle) normalized.subtitle = subtitle;
   if (fields.length > 0) normalized.fields = fields;
   if (warnings.length > 0) normalized.warnings = warnings;
+  const scope = normalizeNullableText(value.scope);
+  if (scope) normalized.scope = scope;
+  const root = normalizePlanPreviewRoot(value.root);
+  if (root) normalized.root = root;
+  const primaryChanges = normalizePlanPreviewChanges(value.primaryChanges);
+  if (primaryChanges.length > 0) normalized.primaryChanges = primaryChanges;
+  const cascadeSummary = normalizePlanPreviewCascadeSummary(value.cascadeSummary);
+  if (cascadeSummary.length > 0) normalized.cascadeSummary = cascadeSummary;
+  const effects = normalizeWarnings(value.effects);
+  if (effects.length > 0) normalized.effects = effects;
+  const reversibility = normalizeNullableText(value.reversibility);
+  if (reversibility) normalized.reversibility = reversibility;
+  const decisions = normalizeWorkflowDecisionOptions(value.decisions);
+  if (decisions.length > 0) normalized.decisions = decisions;
+  const linking = normalizePlanPreviewLinking(value.linking);
+  if (linking) normalized.linking = linking;
 
   if (Object.keys(normalized).length === 0) {
     return null;
   }
   return normalized;
+}
+
+function normalizePlanPreviewLinking(value) {
+  if (!isRecord(value)) return null;
+  const normalized = {};
+  const status = normalizeString(value.status).toLowerCase();
+  if (!["unchanged", "resolved", "ambiguous", "unresolved"].includes(status)) {
+    return null;
+  }
+  normalized.status = status;
+  const source = normalizeNullableText(value.source);
+  if (source) normalized.source = source;
+  if (typeof value.userSpecified === "boolean") {
+    normalized.userSpecified = value.userSpecified;
+  }
+  const resolutionLabel = normalizeNullableText(value.resolutionLabel);
+  if (resolutionLabel) normalized.resolutionLabel = resolutionLabel;
+  if (isRecord(value.target)) {
+    const entityType = normalizeString(value.target.entityType);
+    const entityId = value.target.entityId;
+    if (entityType && (typeof entityId === "number" || typeof entityId === "string")) {
+      const target = { entityType, entityId };
+      const label = normalizeNullableText(value.target.label);
+      if (label) target.label = label;
+      const field = normalizeNullableText(value.target.field);
+      if (field) target.field = field;
+      normalized.target = target;
+    }
+  }
+  const candidates = normalizeLinkResolutionCandidates(value.ambiguousCandidates);
+  if (candidates.length > 0) {
+    normalized.ambiguousCandidates = candidates;
+  }
+  return Object.keys(normalized).length > 0 ? normalized : null;
+}
+
+function normalizeWorkflowSteps(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const steps = [];
+  for (const row of value) {
+    if (!isRecord(row)) continue;
+    const id = normalizeString(row.id);
+    const actionType = normalizeString(row.actionType);
+    const operation = normalizeString(row.operation).toLowerCase();
+    const entityType = normalizeString(row.entityType);
+    if (!id || !actionType || !entityType) continue;
+    if (!["create", "update", "delete"].includes(operation)) continue;
+    const step = {
+      id,
+      actionType,
+      operation,
+      entityType,
+    };
+    if (typeof row.entityId === "number" || typeof row.entityId === "string") {
+      step.entityId = row.entityId;
+    }
+    if (isRecord(row.payload)) step.payload = row.payload;
+    if (isRecord(row.changes)) step.changes = row.changes;
+    const reason = normalizeNullableText(row.reason);
+    if (reason) step.reason = reason;
+    if (Array.isArray(row.dependsOn)) {
+      const dependsOn = row.dependsOn.map((item) => normalizeString(item)).filter(Boolean);
+      if (dependsOn.length > 0) step.dependsOn = dependsOn;
+    }
+    steps.push(step);
+  }
+  return steps;
+}
+
+function normalizePlanDiagnostics(value) {
+  if (!isRecord(value)) return null;
+  const normalized = {};
+  const plannerVersion = normalizeNullableText(value.plannerVersion);
+  if (plannerVersion) normalized.plannerVersion = plannerVersion;
+  const analyzedAt = normalizeNullableText(value.analyzedAt);
+  if (analyzedAt) normalized.analyzedAt = analyzedAt;
+  if (isRecord(value.blockerCounts)) normalized.blockerCounts = value.blockerCounts;
+  const linkResolution = normalizeLinkResolutionDiagnostic(value.linkResolution);
+  if (linkResolution) normalized.linkResolution = linkResolution;
+  const notes = normalizeWarnings(value.notes);
+  if (notes.length > 0) normalized.notes = notes;
+  if (typeof value.requiresUserDecision === "boolean") {
+    normalized.requiresUserDecision = value.requiresUserDecision;
+  }
+  const decisionPrompt = normalizeNullableText(value.decisionPrompt);
+  if (decisionPrompt) normalized.decisionPrompt = decisionPrompt;
+  const decisionOptions = normalizeWorkflowDecisionOptions(value.decisionOptions);
+  if (decisionOptions.length > 0) normalized.decisionOptions = decisionOptions;
+  return Object.keys(normalized).length > 0 ? normalized : null;
+}
+
+function normalizeWorkflowDecisionOptions(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((row) => {
+      if (!isRecord(row)) return null;
+      const key = normalizeString(row.key);
+      const title = normalizeString(row.title);
+      const description = normalizeString(row.description);
+      if (!key || !title || !description) return null;
+      return { key, title, description };
+    })
+    .filter(Boolean);
+}
+
+function normalizeLinkResolutionDiagnostic(value) {
+  if (!isRecord(value)) return null;
+  const status = normalizeString(value.status).toLowerCase();
+  if (!["unchanged", "resolved", "ambiguous", "unresolved"].includes(status)) {
+    return null;
+  }
+  const normalized = { status };
+  const reason = normalizeNullableText(value.reason);
+  if (reason) normalized.reason = reason;
+  const source = normalizeNullableText(value.source);
+  if (source) normalized.source = source;
+  const field = normalizeNullableText(value.field);
+  if (field) normalized.field = field;
+  const entityType = normalizeNullableText(value.entityType);
+  if (entityType) normalized.entityType = entityType;
+  if (typeof value.entityId === "number" || typeof value.entityId === "string") {
+    normalized.entityId = value.entityId;
+  }
+  const message = normalizeNullableText(value.message);
+  if (message) normalized.message = message;
+  const candidates = normalizeLinkResolutionCandidates(value.candidates);
+  if (candidates.length > 0) {
+    normalized.candidates = candidates;
+  }
+  return normalized;
+}
+
+function normalizeLinkResolutionCandidates(value) {
+  if (!Array.isArray(value)) return [];
+  const rows = [];
+  for (const row of value) {
+    if (!isRecord(row)) continue;
+    const entityType = normalizeString(row.entityType);
+    if (!entityType) continue;
+    if (typeof row.entityId !== "number" && typeof row.entityId !== "string") continue;
+    const candidate = {
+      entityType,
+      entityId: row.entityId,
+    };
+    const label = normalizeNullableText(row.label);
+    if (label) candidate.label = label;
+    const source = normalizeNullableText(row.source);
+    if (source) candidate.source = source;
+    rows.push(candidate);
+  }
+  return rows.slice(0, 20);
+}
+
+function normalizePlanPreviewRoot(value) {
+  if (!isRecord(value)) return null;
+  const root = {};
+  const type = normalizeNullableText(value.type);
+  if (type) root.type = type;
+  if (typeof value.id === "number" || value.id === null) root.id = value.id;
+  if (typeof value.id === "string" && value.id.trim()) {
+    const parsed = Number.parseInt(value.id.trim(), 10);
+    root.id = Number.isFinite(parsed) ? parsed : null;
+  }
+  const label = normalizeNullableText(value.label);
+  if (label) root.label = label;
+  const operation = normalizeNullableText(value.operation);
+  if (operation) root.operation = operation;
+  return Object.keys(root).length > 0 ? root : null;
+}
+
+function normalizePlanPreviewChanges(value) {
+  if (!Array.isArray(value)) return [];
+  const changes = [];
+  for (const row of value) {
+    if (!isRecord(row)) continue;
+    const field = normalizeString(row.field);
+    const entityType = normalizeString(row.entityType);
+    if (!field || !entityType) continue;
+    const next = { field, entityType };
+    if (typeof row.entityId === "number" || row.entityId === null) next.entityId = row.entityId;
+    if (typeof row.entityId === "string" && row.entityId.trim()) {
+      const parsed = Number.parseInt(row.entityId.trim(), 10);
+      next.entityId = Number.isFinite(parsed) ? parsed : null;
+    }
+    const entityLabel = normalizeNullableText(row.entityLabel);
+    if (entityLabel) next.entityLabel = entityLabel;
+    if (Object.prototype.hasOwnProperty.call(row, "from")) next.from = row.from;
+    if (Object.prototype.hasOwnProperty.call(row, "to")) next.to = row.to;
+    changes.push(next);
+  }
+  return changes;
+}
+
+function normalizePlanPreviewCascadeSummary(value) {
+  if (!Array.isArray(value)) return [];
+  const rows = [];
+  for (const row of value) {
+    if (!isRecord(row)) continue;
+    const entityType = normalizeString(row.entityType);
+    const totalCount = Number(row.totalCount);
+    if (!entityType || !Number.isFinite(totalCount) || totalCount < 0) continue;
+    const next = { entityType, totalCount };
+    if (Array.isArray(row.changedFields)) {
+      const changedFields = row.changedFields.map((item) => normalizeString(item)).filter(Boolean);
+      if (changedFields.length > 0) next.changedFields = changedFields;
+    }
+    const examples = normalizePlanPreviewChanges(row.examples);
+    if (examples.length > 0) next.examples = examples;
+    rows.push(next);
+  }
+  return rows;
 }
 
 function normalizePlanPreviewFields(value) {

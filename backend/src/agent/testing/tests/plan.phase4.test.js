@@ -130,6 +130,143 @@ test("phase4: AMENDMENT replaces pending action deterministically for PLAN propo
   }
 });
 
+test("phase4: confirmation preflight blocks stale parent links with actionable error details", async () => {
+  const runtime = createLiveRuntime();
+
+  const result = await runScenario(
+    {
+      id: "phase4_preflight_parent_not_found",
+      target: "loop_core",
+      input: {
+        sessionId: "phase4_preflight_parent_not_found_session",
+        turnId: "phase4_preflight_parent_not_found_turn",
+        message: "yes, confirm",
+        metadata: { security: { authScope: "execute" } },
+      },
+      preSession(session) {
+        session.state.pendingAction = {
+          id: "pending_phase4_preflight_parent_not_found",
+          toolName: "proposeCreate",
+          summary: "Create task with stale dossier link",
+          args: {
+            entityType: "task",
+            payload: { title: "Prepare evidence index", dossier_id: 999999999 },
+          },
+          plan: {
+            operation: {
+              operation: "create",
+              entityType: "task",
+              payload: { title: "Prepare evidence index", dossier_id: 999999999 },
+            },
+          },
+          createdAt: new Date().toISOString(),
+          requestedByTurnId: "phase4_prev_turn",
+          risk: "medium",
+        };
+      },
+    },
+    { runtime, skipAssertions: true },
+  );
+
+  const output = result.output;
+  assert.ok(output, "Expected loop output to be captured.");
+  assert.equal(output.turnType, "CONFIRMATION");
+  assert.equal(output.pendingAction, null);
+
+  assert.equal(output.metadata?.confirmedExecutionResult?.ok, false);
+  assert.equal(
+    output.metadata?.confirmedExecutionResult?.errorCode,
+    "EXEC_PRECONDITION_LINK_NOT_FOUND",
+  );
+  assert.equal(output.metadata?.planExecutedArtifact?.ok, false);
+  assert.equal(
+    output.metadata?.planExecutedArtifact?.errorCode,
+    "EXEC_PRECONDITION_LINK_NOT_FOUND",
+  );
+  assert.equal(
+    output.metadata?.planExecutedArtifact?.errorDetails?.category,
+    "link",
+  );
+  assert.match(
+    String(output.metadata?.planExecutedArtifact?.errorDetails?.hint || ""),
+    /choose an existing dossier/i,
+  );
+});
+
+test("phase4: confirmation preflight blocks document create without storage source", async () => {
+  const runtime = createLiveRuntime();
+  const clientsService = require("../../../services/clients.service");
+  const client = clientsService.create({
+    name: `Phase4 Storage Source Client ${Date.now()}`,
+  });
+  const clientId = Number(client?.id);
+  assert.ok(Number.isInteger(clientId) && clientId > 0);
+
+  const result = await runScenario(
+    {
+      id: "phase4_preflight_document_storage_missing",
+      target: "loop_core",
+      input: {
+        sessionId: "phase4_preflight_document_storage_missing_session",
+        turnId: "phase4_preflight_document_storage_missing_turn",
+        message: "yes, confirm",
+        metadata: { security: { authScope: "execute" } },
+      },
+      preSession(session) {
+        session.state.pendingAction = {
+          id: "pending_phase4_preflight_document_storage_missing",
+          toolName: "proposeCreate",
+          summary: "Create document without storage source",
+          args: {
+            entityType: "document",
+            payload: {
+              title: "Phase4 Missing Storage Source",
+              client_id: clientId,
+            },
+          },
+          plan: {
+            operation: {
+              operation: "create",
+              entityType: "document",
+              payload: {
+                title: "Phase4 Missing Storage Source",
+                client_id: clientId,
+              },
+            },
+          },
+          createdAt: new Date().toISOString(),
+          requestedByTurnId: "phase4_prev_turn",
+          risk: "medium",
+        };
+      },
+    },
+    { runtime, skipAssertions: true },
+  );
+
+  const output = result.output;
+  assert.ok(output, "Expected loop output to be captured.");
+  assert.equal(output.turnType, "CONFIRMATION");
+  assert.equal(output.pendingAction, null);
+  assert.equal(output.metadata?.confirmedExecutionResult?.ok, false);
+  assert.equal(
+    output.metadata?.confirmedExecutionResult?.errorCode,
+    "EXEC_PRECONDITION_STORAGE_SOURCE_MISSING",
+  );
+  assert.equal(output.metadata?.planExecutedArtifact?.ok, false);
+  assert.equal(
+    output.metadata?.planExecutedArtifact?.errorCode,
+    "EXEC_PRECONDITION_STORAGE_SOURCE_MISSING",
+  );
+  assert.equal(
+    output.metadata?.planExecutedArtifact?.errorDetails?.category,
+    "storage",
+  );
+  assert.match(
+    String(output.metadata?.planExecutedArtifact?.errorDetails?.hint || ""),
+    /regenerate the draft|attach a file/i,
+  );
+});
+
 function mockSingleToolCall(runtime, toolCall) {
   const llm = runtime?.loop?.llm;
   if (!llm) {

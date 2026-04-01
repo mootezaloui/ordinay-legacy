@@ -188,6 +188,248 @@ test("phase5: pending action remains set while executor runs and clears after de
   }
 });
 
+test("phase5: decision-required plan stays pending and surfaces decision metadata", async () => {
+  const runtime = createLiveRuntime();
+  const pendingActionId = "pending_phase5_decision_required_1";
+
+  const result = await runScenario(
+    {
+      id: "phase5_decision_required_keeps_pending",
+      target: "sse_handler",
+      input: {
+        sessionId: "phase5_decision_required_session",
+        turnId: "phase5_decision_required_turn",
+        message: "yes, confirm",
+        metadata: { security: { authScope: "execute" } },
+      },
+      requestUser: { id: "phase5_user_execute", scope: "execute" },
+      preSession(session) {
+        session.state.pendingAction = {
+          id: pendingActionId,
+          toolName: "proposeUpdate",
+          summary: "Set client inactive",
+          args: { entityType: "client", entityId: 7, changes: { status: "inactive" } },
+          plan: {
+            operation: {
+              operation: "update",
+              entityType: "client",
+              entityId: 7,
+              changes: { status: "inactive" },
+            },
+            diagnostics: {
+              requiresUserDecision: true,
+              decisionPrompt: "Choose invoice settlement behavior.",
+              blockerCounts: { unpaid_receivables: 2 },
+              decisionOptions: [
+                {
+                  key: "settle_receivables",
+                  title: "Settle receivables first",
+                  description: "Mark unpaid receivables paid before inactivation.",
+                },
+              ],
+            },
+          },
+          createdAt: new Date().toISOString(),
+          requestedByTurnId: "phase5_prev_turn",
+          risk: "high",
+        };
+      },
+    },
+    { runtime, skipAssertions: true },
+  );
+
+  const output = result.capturedLoopOutput;
+  assert.ok(output, "Expected loop output to be captured.");
+  assert.equal(output.turnType, "CONFIRMATION");
+  assert.ok(output.pendingAction, "Expected pending action to remain set.");
+  assert.equal(output.pendingAction.id, pendingActionId);
+  assert.equal(output.metadata?.confirmedExecutionResult?.ok, false);
+  assert.equal(output.metadata?.confirmedExecutionResult?.errorCode, "DOMAIN_DECISION_REQUIRED");
+  assert.equal(output.metadata?.planExecutedArtifact?.ok, false);
+  assert.equal(output.metadata?.planExecutedArtifact?.errorCode, "DOMAIN_DECISION_REQUIRED");
+  assert.deepEqual(
+    output.metadata?.confirmedExecutionResult?.data?.decisionOptions,
+    [
+      {
+        key: "settle_receivables",
+        title: "Settle receivables first",
+        description: "Mark unpaid receivables paid before inactivation.",
+      },
+    ],
+  );
+});
+
+test("phase5: workflow failure reports failed step and stops execution", async () => {
+  const runtime = createLiveRuntime();
+  const pendingActionId = "pending_phase5_workflow_failure_1";
+
+  const result = await runScenario(
+    {
+      id: "phase5_workflow_failure_reporting",
+      target: "sse_handler",
+      input: {
+        sessionId: "phase5_workflow_failure_session",
+        turnId: "phase5_workflow_failure_turn",
+        message: "yes, confirm",
+        metadata: { security: { authScope: "execute" } },
+      },
+      requestUser: { id: "phase5_user_execute", scope: "execute" },
+      preSession(session) {
+        session.state.pendingAction = {
+          id: pendingActionId,
+          toolName: "proposeUpdate",
+          summary: "Run workflow with unsupported first step",
+          args: { entityType: "client", entityId: 7, changes: { status: "inactive" } },
+          plan: {
+            operation: {
+              operation: "update",
+              entityType: "client",
+              entityId: 7,
+              changes: { status: "inactive" },
+            },
+            rootOperation: {
+              operation: "update",
+              entityType: "client",
+              entityId: 7,
+              changes: { status: "inactive" },
+            },
+            workflowSteps: [
+              {
+                id: "wf_invalid_step",
+                actionType: "UPDATE_ENTITY",
+                operation: "update",
+                entityType: "unknown_entity_type",
+                entityId: 123,
+                changes: { status: "inactive" },
+                reason: "Intentional test failure",
+              },
+              {
+                id: "wf_root_step",
+                actionType: "UPDATE_ENTITY",
+                operation: "update",
+                entityType: "client",
+                entityId: 7,
+                changes: { status: "inactive" },
+                reason: "Should not run after failure",
+                dependsOn: ["wf_invalid_step"],
+              },
+            ],
+          },
+          createdAt: new Date().toISOString(),
+          requestedByTurnId: "phase5_prev_turn",
+          risk: "high",
+        };
+      },
+    },
+    { runtime, skipAssertions: true },
+  );
+
+  const output = result.capturedLoopOutput;
+  assert.ok(output, "Expected loop output to be captured.");
+  assert.equal(output.turnType, "CONFIRMATION");
+  assert.equal(output.pendingAction, null, "Pending action should clear on non-decision failure.");
+  assert.equal(output.metadata?.confirmedExecutionResult?.ok, false);
+  assert.equal(
+    output.metadata?.confirmedExecutionResult?.data?.failedStepId,
+    "wf_invalid_step",
+  );
+  const stepResults = output.metadata?.planExecutedArtifact?.stepResults || [];
+  assert.equal(stepResults.length, 1, "Execution should stop at first failed step.");
+  assert.equal(stepResults[0]?.stepId, "wf_invalid_step");
+  assert.equal(stepResults[0]?.ok, false);
+  assert.equal(output.metadata?.planExecutedArtifact?.failedStepId, "wf_invalid_step");
+});
+
+test("phase5: repeated confirmation does not re-execute cleared pending action", async () => {
+  const runtime = createLiveRuntime();
+  const sessionId = "phase5_double_confirm_session";
+  const pendingActionId = "pending_phase5_double_confirm_1";
+
+  const loop = runtime.loop;
+  const entityExecutor = loop?.entityExecutor;
+  if (!entityExecutor || typeof entityExecutor.execute !== "function") {
+    throw new Error("Expected runtime.loop.entityExecutor.execute to be available.");
+  }
+  const originalExecute = entityExecutor.execute.bind(entityExecutor);
+  let executeCallCount = 0;
+  entityExecutor.execute = async () => {
+    executeCallCount += 1;
+    return {
+      ok: true,
+      result: {
+        operation: "update",
+        entityType: "client",
+        entityId: 501,
+        entity: { id: 501, name: "Phase5 Once" },
+      },
+    };
+  };
+
+  try {
+    const first = await runScenario(
+      {
+        id: "phase5_double_confirm_first",
+        target: "sse_handler",
+        input: {
+          sessionId,
+          turnId: "phase5_double_confirm_first_turn",
+          message: "yes, confirm it",
+          metadata: { security: { authScope: "execute" } },
+        },
+        requestUser: { id: "phase5_user_execute", scope: "execute" },
+        preSession(session) {
+          session.state.pendingAction = {
+            id: pendingActionId,
+            toolName: "proposeUpdate",
+            summary: "Update client 501 name",
+            args: { entityType: "client", entityId: 501, changes: { name: "Phase5 Once" } },
+            plan: {
+              operation: {
+                operation: "update",
+                entityType: "client",
+                entityId: 501,
+                changes: { name: "Phase5 Once" },
+              },
+            },
+            createdAt: new Date().toISOString(),
+            requestedByTurnId: "phase5_prev_turn",
+            risk: "medium",
+          };
+        },
+      },
+      { runtime, skipAssertions: true },
+    );
+
+    assert.equal(first.capturedLoopOutput?.metadata?.planExecutedArtifact?.ok, true);
+    assert.equal(executeCallCount, 1, "Expected first confirmation to execute once.");
+
+    const second = await runScenario(
+      {
+        id: "phase5_double_confirm_second",
+        target: "sse_handler",
+        input: {
+          sessionId,
+          turnId: "phase5_double_confirm_second_turn",
+          message: "yes, confirm it",
+          metadata: { security: { authScope: "execute" } },
+        },
+        requestUser: { id: "phase5_user_execute", scope: "execute" },
+      },
+      { runtime, skipAssertions: true },
+    );
+
+    assert.equal(
+      executeCallCount,
+      1,
+      "Expected second confirmation to avoid re-executing cleared pending action.",
+    );
+    const secondExecuted = second.events.find((event) => event.event === "plan_executed");
+    assert.equal(Boolean(secondExecuted), false);
+  } finally {
+    entityExecutor.execute = originalExecute;
+  }
+});
+
 function toRecord(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;

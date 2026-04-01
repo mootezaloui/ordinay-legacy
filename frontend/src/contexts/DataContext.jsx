@@ -27,6 +27,31 @@ import { subscribeEntityMutationSuccess } from "../core/mutationSync";
 
 const DataContext = createContext(null);
 const STORAGE_PREFIX = "lawyer-app:data:";
+const MUTATION_ENTITY_ROUTE_MAP = {
+  client: "/clients",
+  dossier: "/dossiers",
+  lawsuit: "/lawsuits",
+  task: "/tasks",
+  session: "/sessions",
+  mission: "/missions",
+  officer: "/officers",
+  financial_entry: "/financial",
+  personal_task: "/personal-tasks",
+};
+
+const upsertEntityById = (list, item) => {
+  if (!item || item.id == null) return list;
+  const next = Array.isArray(list) ? [...list] : [];
+  const idx = next.findIndex((row) => Number(row?.id) === Number(item.id));
+  if (idx >= 0) {
+    next[idx] = item;
+    return next;
+  }
+  return [item, ...next];
+};
+
+const removeEntityById = (list, id) =>
+  (Array.isArray(list) ? list : []).filter((row) => Number(row?.id) !== Number(id));
 
 /**
  * Convert notes array from frontend format (camelCase) to backend format (snake_case)
@@ -385,6 +410,17 @@ export function DataProvider({ children }) {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [syncTick, setSyncTick] = useState(0);
+  const entityCacheRef = useRef({
+    clients: [],
+    dossiers: [],
+    lawsuits: [],
+    tasks: [],
+    sessions: [],
+    missions: [],
+    officers: [],
+    financialEntries: [],
+    personalTasks: [],
+  });
 
   const isLicenseLocked = useMemo(
     () => ["ACTIVATING", "ERROR"].includes(licenseState),
@@ -465,6 +501,30 @@ export function DataProvider({ children }) {
       financialEntries,
     ]
   );
+
+  useEffect(() => {
+    entityCacheRef.current = {
+      clients,
+      dossiers,
+      lawsuits,
+      tasks,
+      sessions,
+      missions,
+      officers,
+      financialEntries,
+      personalTasks,
+    };
+  }, [
+    clients,
+    dossiers,
+    lawsuits,
+    tasks,
+    sessions,
+    missions,
+    officers,
+    financialEntries,
+    personalTasks,
+  ]);
 
   useEffect(() => {
     showToastRef.current = showToast;
@@ -626,20 +686,257 @@ export function DataProvider({ children }) {
     };
   }, [syncTick]);
 
-  // Global mutation sync subscription: any successful mutation invalidates and reloads context state.
+  const applyTargetedMutationSync = useCallback(
+    async (event) => {
+      const entityType = String(event?.entityType || "").trim().toLowerCase();
+      const operation = String(event?.operation || "update").trim().toLowerCase();
+      const entityId = Number(event?.entityId || 0);
+      if (!entityType) return true;
+
+      if (operation === "delete" && Number.isInteger(entityId) && entityId > 0) {
+        if (entityType === "client") {
+          setClients((prev) => {
+            const next = removeEntityById(prev, entityId);
+            debouncedSaveToStorage("clients", next);
+            return next;
+          });
+          return true;
+        }
+        if (entityType === "dossier") {
+          setDossiers((prev) => {
+            const next = removeEntityById(prev, entityId);
+            debouncedSaveToStorage("dossiers", next);
+            return next;
+          });
+          return true;
+        }
+        if (entityType === "lawsuit") {
+          setLawsuits((prev) => {
+            const next = removeEntityById(prev, entityId);
+            debouncedSaveToStorage("lawsuits", next);
+            return next;
+          });
+          return true;
+        }
+        if (entityType === "task") {
+          setTasks((prev) => {
+            const next = removeEntityById(prev, entityId);
+            debouncedSaveToStorage("tasks", next);
+            return next;
+          });
+          return true;
+        }
+        if (entityType === "session") {
+          setSessions((prev) => {
+            const next = removeEntityById(prev, entityId);
+            debouncedSaveToStorage("sessions", next);
+            return next;
+          });
+          return true;
+        }
+        if (entityType === "mission") {
+          setMissions((prev) => {
+            const next = removeEntityById(prev, entityId);
+            debouncedSaveToStorage("missions", next);
+            return next;
+          });
+          return true;
+        }
+        if (entityType === "officer") {
+          setOfficers((prev) => {
+            const next = removeEntityById(prev, entityId);
+            debouncedSaveToStorage("officers", next);
+            return next;
+          });
+          return true;
+        }
+        if (entityType === "financial_entry") {
+          setFinancialEntries((prev) => {
+            const next = removeEntityById(prev, entityId);
+            debouncedSaveToStorage("financial", next);
+            return next;
+          });
+          return true;
+        }
+        if (entityType === "personal_task") {
+          setPersonalTasks((prev) => {
+            const next = removeEntityById(prev, entityId);
+            debouncedSaveToStorage("personalTasks", next);
+            return next;
+          });
+          return true;
+        }
+        return true;
+      }
+
+      const route = MUTATION_ENTITY_ROUTE_MAP[entityType];
+      if (!route) return true;
+      if (!Number.isInteger(entityId) || entityId <= 0) return false;
+
+      let fetched;
+      try {
+        fetched = await apiClient.get(`${route}/${entityId}`);
+      } catch {
+        return false;
+      }
+
+      const current = entityCacheRef.current || {};
+      const clientsById = Object.fromEntries((current.clients || []).map((row) => [row.id, row]));
+      const dossiersById = Object.fromEntries((current.dossiers || []).map((row) => [row.id, row]));
+      const lawsuitsById = Object.fromEntries((current.lawsuits || []).map((row) => [row.id, row]));
+
+      if (entityType === "client") {
+        const adapted = adaptClient(fetched);
+        setClients((prev) => {
+          const next = upsertEntityById(prev, adapted);
+          debouncedSaveToStorage("clients", next);
+          return next;
+        });
+        return true;
+      }
+
+      if (entityType === "dossier") {
+        const adapted = adaptDossier(fetched, clientsById);
+        setDossiers((prev) => {
+          const next = upsertEntityById(prev, adapted);
+          debouncedSaveToStorage("dossiers", next);
+          return next;
+        });
+        return true;
+      }
+
+      if (entityType === "lawsuit") {
+        const adapted = adaptLawsuit(fetched, dossiersById);
+        setLawsuits((prev) => {
+          const next = upsertEntityById(prev, adapted);
+          debouncedSaveToStorage("lawsuits", next);
+          return next;
+        });
+        return true;
+      }
+
+      if (entityType === "task") {
+        const adapted = adaptTask(fetched, dossiersById, lawsuitsById);
+        setTasks((prev) => {
+          const next = upsertEntityById(prev, adapted);
+          debouncedSaveToStorage("tasks", next);
+          return next;
+        });
+        return true;
+      }
+
+      if (entityType === "session") {
+        const adapted = adaptSession(fetched, dossiersById, lawsuitsById);
+        setSessions((prev) => {
+          const next = upsertEntityById(prev, adapted);
+          debouncedSaveToStorage("sessions", next);
+          return next;
+        });
+        return true;
+      }
+
+      if (entityType === "mission") {
+        const adapted = adaptMission(fetched, dossiersById, lawsuitsById);
+        setMissions((prev) => {
+          const next = upsertEntityById(prev, adapted);
+          debouncedSaveToStorage("missions", next);
+          return next;
+        });
+        return true;
+      }
+
+      if (entityType === "officer") {
+        const adapted = adaptOfficer(fetched);
+        setOfficers((prev) => {
+          const next = upsertEntityById(prev, adapted);
+          debouncedSaveToStorage("officers", next);
+          return next;
+        });
+        return true;
+      }
+
+      if (entityType === "financial_entry") {
+        const adapted = adaptFinancialEntry(fetched, clientsById, dossiersById, lawsuitsById);
+        setFinancialEntries((prev) => {
+          const next = upsertEntityById(prev, adapted);
+          debouncedSaveToStorage("financial", next);
+          return next;
+        });
+        return true;
+      }
+
+      if (entityType === "personal_task") {
+        const adapted = adaptPersonalTask(fetched);
+        setPersonalTasks((prev) => {
+          const next = upsertEntityById(prev, adapted);
+          debouncedSaveToStorage("personalTasks", next);
+          return next;
+        });
+        return true;
+      }
+
+      return false;
+    },
+    [debouncedSaveToStorage],
+  );
+
+  // Global mutation sync subscription:
+  // 1) apply targeted entity refresh immediately for UX responsiveness
+  // 2) fallback to full context reload when targeted sync misses/fails
   useEffect(() => {
-    let refreshTimer = null;
-    const unsubscribe = subscribeEntityMutationSuccess(() => {
-      if (refreshTimer) clearTimeout(refreshTimer);
-      refreshTimer = setTimeout(() => {
+    let flushTimer = null;
+    let fallbackTimer = null;
+    let running = false;
+    const queue = [];
+
+    const scheduleFallbackReload = () => {
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+      fallbackTimer = setTimeout(() => {
         setSyncTick((prev) => prev + 1);
-      }, 40);
+      }, 80);
+    };
+
+    const flushQueue = async () => {
+      if (running) return;
+      if (queue.length === 0) return;
+      running = true;
+      const batch = queue.splice(0, queue.length);
+      const deduped = new Map();
+      for (const event of batch) {
+        const key = `${String(event?.entityType || "")}:${String(event?.entityId ?? "null")}:${String(event?.operation || "update")}`;
+        deduped.set(key, event);
+      }
+      const results = await Promise.all(
+        [...deduped.values()].map((event) =>
+          applyTargetedMutationSync(event).catch(() => false),
+        ),
+      );
+      running = false;
+      if (results.some((ok) => ok !== true)) {
+        scheduleFallbackReload();
+      }
+      if (queue.length > 0) {
+        if (flushTimer) clearTimeout(flushTimer);
+        flushTimer = setTimeout(() => {
+          void flushQueue();
+        }, 30);
+      }
+    };
+
+    const unsubscribe = subscribeEntityMutationSuccess((event) => {
+      queue.push(event);
+      if (flushTimer) clearTimeout(flushTimer);
+      flushTimer = setTimeout(() => {
+        void flushQueue();
+      }, 30);
     });
+
     return () => {
-      if (refreshTimer) clearTimeout(refreshTimer);
+      if (flushTimer) clearTimeout(flushTimer);
+      if (fallbackTimer) clearTimeout(fallbackTimer);
       unsubscribe();
     };
-  }, []);
+  }, [applyTargetedMutationSync]);
 
   // --- Clients ---
   const addClient = useCallback(async (client) => {

@@ -1,392 +1,139 @@
-# Domain-Aware Execution — Architecture
+# Domain-Aware Execution v2 — Phased Checklist
 
-## The Problem
+## Summary
+- Replaces prompt-driven cascade behavior with deterministic backend workflow planning.
+- Keeps LLM mutation intent entry points as-is: `proposeCreate`, `proposeUpdate`, `proposeDelete`.
+- Expands risky parent/status/delete mutations into workflow steps before confirmation.
+- Uses one confirmation for full workflow execution.
+- Execution policy is MVP-safe: stop on first failure, report step-level results, no global rollback.
+- Financial/destructive transitions can require explicit user decision before execution.
 
-User: "Set client Leila to inactive"
+## Public/Contract Changes
+- `PendingActionPlan` now supports workflow plan payload:
+  - `rootOperation`
+  - `workflowSteps[]`
+  - `diagnostics`
+  - `uiPreview`
+- Added step model:
+  - `DomainWorkflowStep = { id, actionType, operation, entityType, entityId?, payload?, changes?, reason?, dependsOn[] }`
+- Plan artifact preview now supports grouped cascade output and decision prompts.
+- Plan execution result now supports:
+  - `stepResults[]`
+  - `failedStepId`
+  - `errorCode`
+  - `errorMessage`
 
-What happens NOW:
-```
-Agent calls proposeUpdate({ entityType: "client", entityId: 7, 
-  changes: { status: "inactive" } })
-→ Plan Card shows: Status: Active → Inactive
-→ User clicks Confirm
-→ Backend tries to update → FAILS
-→ Domain rules say: "Cannot set inactive — 3 open dossiers, 
-   5 pending tasks, 2 unpaid invoices"
-→ User sees: "Could not confirm the action"
-```
+## Current Status (2026-04-01)
+- Backend typecheck/build: passing.
+- Agent v2 tests: passing (`test:agent-v2`).
+- Frontend baseline build has pre-existing TypeScript errors unrelated to this plan; workflow mapping compiles.
+- Phase 0–5 implementation audit: complete (contracts, planner, analyzer, and executor are aligned with checklist).
+- Phase 7 sync plumbing implemented:
+  - Backend SSE emits `entity_mutation_success` for successful workflow steps (including partial-failure workflows).
+  - Frontend applies targeted sync per mutation event and falls back to scoped full reload on sync miss.
+  - Covered by `plan.phase7.test.js`.
+- Phase 8 hardening implemented:
+  - Added planner scenario coverage for deactivate cascade, settlement decision gating, delete decision gating, and ancestor-reopen planning (`domain.workflow.planner.test.js`).
+  - Added stale-plan confirm safety coverage with step-level failure diagnostics (`plan.phase8.test.js`).
+  - Added backend/frontend rule-parity coverage for status aliases and ancestor constraints (`domain.rule.profile.test.js`).
 
-What SHOULD happen:
-```
-Agent detects: user wants client inactive
-Agent reads: getEntityGraph("client", 7, depth: 2)
-Agent sees: 3 open dossiers, 5 pending tasks, 2 unpaid invoices
-Agent UNDERSTANDS: setting inactive requires closing everything first
-Agent proposes: a CASCADE PLAN — not a single update
+## Phase Checklist
 
-"To set Leila inactive, I need to close all related work first. 
- Here's what I'll do:
+### Phase 0 — Contract Freeze and Rule Inventory
+- [x] Freeze architecture decisions: deterministic planner, no new PLAN tool, stop-on-failure execution.
+- [x] Audit current rule surface in `domainRules.js`, blocker enrichment, and PLAN/EXECUTE flow.
+- [x] Freeze status normalization policy (`inactive/inActive`, `closed/Closed`, paid variants) via canonical normalizer.
+- [x] Add rule matrix table to this doc: transition -> blockers -> resolver steps.
+- [x] Freeze user-decision-required policy list (financial settlement, destructive cascade confirmation).
+- Definition of done: stable contracts and rule policy set.
 
- 1. Mark 5 pending tasks as completed
- 2. Mark 2 upcoming sessions as cancelled
- 3. Close 1 active lawsuit
- 4. Close 3 active dossiers
- 5. Mark 2 unpaid invoices as paid
- 6. Set client Leila to inactive
+### Phase 1 — Domain Rule Profile (Backend Deterministic Core)
+- [x] Implement backend rule profile module for transition constraints and resolver context.
+- [x] Encode dependencies for client, dossier, lawsuit, task/session/mission blockers, financial entries, and officer activity.
+- [x] Add canonical status mapper used by planner and executor.
+- [x] Add rule-profile unit tests for each supported transition.
+- Definition of done: transitions can be validated deterministically without LLM heuristics.
 
- This affects 13 records total. Confirm?"
-```
+### Phase 2 — Graph Analysis and Blocker Detection
+- [x] Implement analyzer on top of `getEntityGraph` + targeted READ tools for planning path.
+- [x] Convert entity relations into blocker sets (`open_*`, `unpaid_receivables`, linked children).
+- [x] Add deterministic ordering strategy (children first, root last).
+- [x] Add diagnostics payload (`blockerCounts`, `notes`, decisions).
+- Definition of done: equivalent input state yields deterministic blocker/step order.
 
-## Why This Needs Architecture
+### Phase 3 — Workflow Expansion (Intent -> Multi-Step Plan)
+- [x] Add `DomainWorkflowPlanner.expand(rootOperation, context)`.
+- [x] Expand blocked mutation into workflow steps with dependency reasons.
+- [x] Support no-cascade path when operation is already valid.
+- [x] Support decision-required plan path for unresolved financial/destructive decisions.
+- Definition of done: blocked root mutations return executable workflow or explicit decision-required plan.
 
-This is NOT a "make proposeUpdate smarter" fix. It requires:
+### Phase 4 — Pending Plan and Artifact Integration
+- [x] Persist workflow plan in pending action payload.
+- [x] Emit enriched `plan_artifact` with workflow preview structure.
+- [x] Preserve amendment flow (recompute/replace pending action).
+- [x] Keep confirmation/rejection event contract stable.
+- Definition of done: UI receives one structured plan for confirm/reject/amend.
 
-1. The agent understanding entity dependency rules
-2. The agent reading the full entity graph before proposing
-3. Building multi-step cascade plans
-4. Executing steps in the right order (children before parents)
-5. Rolling back if any step fails
+### Phase 5 — Domain-Aware Executor
+- [x] Execute `workflowSteps[]` sequentially.
+- [x] Re-validate each step before apply (fail fast on stale/invalid state).
+- [x] Return `stepResults` + domain blocker failure details.
+- [x] Verify and harden idempotency guard for repeated confirm clicks in workflow path.
+- Definition of done: deterministic, auditable execution with safe partial-failure behavior.
 
-This is a new capability layer.
+### Phase 6 — UX and Confirmation Clarity
+- [x] Wire workflow-aware plan preview mapping in frontend proposal state.
+- [x] Finalize user-facing proposal card layout for "Main change" + "Required related changes".
+- [x] Remove remaining technical/internal labels from confirmation UI.
+- [x] Ensure current -> target values always come from live entity data when available.
+- [x] Surface decision-required options in confirmation summary.
+- Definition of done: clean user-facing confirmation cards.
 
-## The Design: Domain-Aware Planning
+### Phase 7 — Instant App Sync (No Manual Refresh)
+- [x] Emit mutation sync events for each successful workflow step.
+- [x] Ensure all affected screens subscribe and reconcile local caches/state.
+- [x] Add targeted refetch fallback on sync miss.
+- [ ] Verify cross-module immediate updates for multi-entity cascades.
+- Definition of done: no manual refresh after confirmation.
 
-### How It Works
+### Phase 8 — Regression, Scenarios, and Hardening
+- [x] Add scenarios: deactivate client with open children, delete with descendants, reopen constraints, paid/unpaid decisions.
+- [x] Add stale-data tests between proposal and confirm.
+- [x] Add mid-workflow failure tests with correct failed-step reporting.
+- [x] Add parity tests vs frontend domain-rule expectations.
+- Definition of done: known confirm-then-fail regressions are prevented.
 
-The agent gets domain rules as SYSTEM PROMPT KNOWLEDGE. It doesn't 
-call `canPerformAction()`. Instead, it understands the rules and 
-builds cascade plans using existing tools.
+## Rule Matrix (Phase 0 Artifact)
 
-```
-SYSTEM PROMPT — DOMAIN RULES:
+| Root transition | Blockers detected | Resolver workflow (ordered) | Decision required |
+|---|---|---|---|
+| `client.status -> inactive` | Open dossiers, open lawsuits, non-terminal tasks/sessions/missions, unpaid receivables | Close tasks/sessions/missions -> close lawsuits -> close dossiers -> set client inactive | Yes if unpaid receivables and no explicit settlement intent |
+| `dossier.status -> closed` | Open lawsuits, non-terminal tasks/sessions/missions, unpaid receivables (linked client) | Close tasks/sessions/missions -> close lawsuits -> set dossier closed | Yes if unpaid receivables and no explicit settlement intent |
+| `lawsuit.status -> closed` | Non-terminal tasks/sessions/missions | Close tasks/sessions/missions -> set lawsuit closed | No |
+| `officer.status -> inactive` | Active missions | Block until missions become terminal | No |
+| `delete client` | Linked dossiers | Block or require explicit force-delete decision | Yes for destructive cascade |
+| `delete dossier` | Linked lawsuits/tasks/sessions/missions | Block or require explicit force-delete decision | Yes for destructive cascade |
+| `delete lawsuit` | Linked tasks/sessions/missions | Block or require explicit force-delete decision | Yes for destructive cascade |
 
-When proposing status changes, you MUST check for dependencies first.
-Use getEntityGraph to see all related entities before proposing changes.
+## User-Decision-Required Policy (Phase 0 Artifact)
+- Financial settlement impact:
+  - Any workflow that would implicitly settle unpaid receivables requires explicit user decision unless intent clearly asks for settlement.
+- Destructive cascade impact:
+  - Delete operations with linked children require explicit force-delete style confirmation.
+- Planner must pause execution path and produce decision options in preview when required.
 
-CLOSURE/DEACTIVATION RULES:
-• Cannot set client inactive while they have:
-  - Open dossiers (must close all dossiers first)
-  - Unpaid invoices (must mark as paid or void first)
+## Test Scenarios (Must Pass)
+- [x] Client inactive request with open dossiers/tasks/sessions/missions/lawsuits -> cascade plan before execution.
+- [x] Client inactive request with unpaid receivables -> explicit decision required, no silent auto-pay.
+- [x] Delete parent with children -> cascade proposal or clear block reason.
+- [x] Update closed-linked child -> valid reopen/alternative deterministic plan.
+- [ ] Confirmed cascade updates all related UI modules instantly.
+- [x] Double confirm click executes once only.
+- [x] Stale snapshot between plan and confirm yields safe failure + actionable retry.
 
-• Cannot close a dossier while it has:
-  - Open lawsuits (must close all lawsuits first)
-  - Pending tasks (must complete or cancel all tasks first)
-  - Upcoming sessions (must complete or cancel all sessions first)
-  - Active missions (must complete or cancel all missions first)
-  - Unpaid invoices linked to the dossier
-
-• Cannot close a lawsuit while it has:
-  - Pending tasks (must complete or cancel first)
-  - Upcoming sessions (must complete or cancel first)
-  - Active missions (must complete or cancel first)
-
-REOPENING RULES (reverse):
-• Cannot reopen a dossier if parent client is inactive
-• Cannot create children under a closed parent
-• Reopening a dossier does NOT auto-reopen its children
-
-DELETION RULES:
-• Cannot delete a client with any dossiers (must delete/close dossiers first)
-• Cannot delete a dossier with any children (tasks, lawsuits, etc.)
-• Soft-delete is preferred over hard-delete
-
-WHEN YOU DETECT A DEPENDENCY CONFLICT:
-1. Call getEntityGraph to see the full picture
-2. Identify ALL blockers (open tasks, unpaid invoices, etc.)
-3. Build a CASCADE plan that resolves dependencies in order
-4. Present the full plan to the user for confirmation
-5. Execute in dependency order (deepest children first, parent last)
-```
-
-### The Cascade Plan Flow
-
-```
-User: "Set client Leila inactive"
-  │
-  ▼
-LLM step 1: READ — get the full picture
-  getEntityGraph("client", 7, depth: 2)
-  → Returns: 3 dossiers (2 active, 1 closed)
-    → Dossier D-51: active, 2 pending tasks, 1 upcoming session
-    → Dossier D-52: active, 3 pending tasks, 1 active mission
-    → Dossier D-53: closed (no blockers)
-  → 2 unpaid invoices
-  │
-  ▼
-LLM step 2: REASON — understand dependencies
-  "Client has 2 active dossiers with open work.
-   I need to close everything before setting inactive."
-  │
-  ▼
-LLM step 3: PLAN — build cascade
-  Calls: proposeCascade({
-    goal: "Set client Leila (C-7) to inactive",
-    steps: [
-      // Deepest children first
-      { action: "update", entityType: "task", entityId: 101, 
-        changes: { status: "completed" }, 
-        reason: "Complete before closing dossier D-51" },
-      { action: "update", entityType: "task", entityId: 102, 
-        changes: { status: "completed" }, 
-        reason: "Complete before closing dossier D-51" },
-      { action: "update", entityType: "session", entityId: 801, 
-        changes: { status: "cancelled" }, 
-        reason: "Cancel before closing dossier D-51" },
-      { action: "update", entityType: "task", entityId: 103, 
-        changes: { status: "completed" }, 
-        reason: "Complete before closing dossier D-52" },
-      { action: "update", entityType: "task", entityId: 104, 
-        changes: { status: "completed" }, 
-        reason: "Complete before closing dossier D-52" },
-      { action: "update", entityType: "task", entityId: 105, 
-        changes: { status: "completed" }, 
-        reason: "Complete before closing dossier D-52" },
-      { action: "update", entityType: "mission", entityId: 301, 
-        changes: { status: "completed" }, 
-        reason: "Complete before closing dossier D-52" },
-      // Then parents
-      { action: "update", entityType: "dossier", entityId: 51, 
-        changes: { status: "closed" }, 
-        reason: "Close before deactivating client" },
-      { action: "update", entityType: "dossier", entityId: 52, 
-        changes: { status: "closed" }, 
-        reason: "Close before deactivating client" },
-      // Financial
-      { action: "update", entityType: "financialEntry", entityId: 501, 
-        changes: { status: "paid" }, 
-        reason: "Settle before deactivating client" },
-      { action: "update", entityType: "financialEntry", entityId: 502, 
-        changes: { status: "paid" }, 
-        reason: "Settle before deactivating client" },
-      // Root action last
-      { action: "update", entityType: "client", entityId: 7, 
-        changes: { status: "inactive" }, 
-        reason: "Original user request" },
-    ]
-  })
-  │
-  ▼
-Frontend: Cascade Plan Card
-  Shows the full plan with all steps grouped by entity type.
-  User can: Confirm All | Modify | Cancel
-```
-
-### The Cascade Plan Tool
-
-```typescript
-{
-  name: "proposeCascade",
-  category: "PLAN",
-  description: "Propose a multi-step cascade operation that modifies "
-    + "multiple entities in dependency order. Use when a single change "
-    + "requires prerequisite changes to related entities. For example: "
-    + "deactivating a client requires closing all their dossiers, which "
-    + "requires completing all tasks and sessions first. The system "
-    + "executes steps in order and rolls back if any step fails.",
-  inputSchema: {
-    type: "object",
-    properties: {
-      goal: {
-        type: "string",
-        description: "The user's original request in plain language"
-      },
-      steps: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            action: { type: "string", enum: ["create", "update", "delete"] },
-            entityType: { type: "string" },
-            entityId: { type: "integer" },
-            changes: { type: "object", additionalProperties: true },
-            reason: { type: "string" }
-          },
-          required: ["action", "entityType", "entityId"]
-        },
-        description: "Ordered list of operations. Execute from first to last. "
-          + "Dependencies (children) must come before their parents."
-      },
-      totalAffected: {
-        type: "integer",
-        description: "Total number of records that will be modified"
-      }
-    },
-    required: ["goal", "steps"]
-  }
-}
-```
-
-### The Cascade Plan Card (Frontend)
-
-```
-┌─────────────────────────────────────────────────────────┐
-│ ┌──────────┐  ┌──────────────────┐                      │
-│ │ CASCADE  │  │ 📋 Multi-Update  │          12 records   │
-│ └──────────┘  └──────────────────┘                      │
-├─────────────────────────────────────────────────────────┤
-│ Set client Leila Ben Youssef to Inactive                │
-│ Requires closing related work first                     │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│ 📋 Tasks (5)                                            │
-│   T-101: "Prepare brief" — Pending → Completed         │
-│   T-102: "File motion" — Pending → Completed           │
-│   T-103: "Review contract" — Pending → Completed       │
-│   T-104: "Gather exhibits" — Pending → Completed       │
-│   T-105: "Send notices" — Pending → Completed          │
-│                                                         │
-│ 📅 Sessions (1)                                         │
-│   S-801: "Hearing Mar 25" — Scheduled → Cancelled      │
-│                                                         │
-│ 📌 Missions (1)                                         │
-│   M-301: "Document service" — Active → Completed       │
-│                                                         │
-│ 📁 Dossiers (2)                                         │
-│   D-51: "Mansouri v. Atlas" — Active → Closed          │
-│   D-52: "Property claim" — Active → Closed             │
-│                                                         │
-│ 💰 Invoices (2)                                         │
-│   INV-501: 2,500 TND — Unpaid → Paid                   │
-│   INV-502: 1,800 TND — Unpaid → Paid                   │
-│                                                         │
-│ 👤 Client                                               │
-│   Leila Ben Youssef — Active → Inactive                 │
-│                                                         │
-├─────────────────────────────────────────────────────────┤
-│  ⚠ This will modify 12 records. Review carefully.       │
-│                        [Cancel]  [Modify]  [✓ Confirm] │
-└─────────────────────────────────────────────────────────┘
-```
-
-### Cascade Execution
-
-When user confirms, the entity executor runs steps IN ORDER:
-
-```typescript
-async function executeCascade(steps: CascadeStep[]): Promise<CascadeResult> {
-  const completed: CascadeStep[] = [];
-  
-  for (const step of steps) {
-    try {
-      const service = getServiceForEntity(step.entityType);
-      
-      if (step.action === 'update') {
-        await service.update(step.entityId, step.changes);
-      } else if (step.action === 'create') {
-        await service.create(step.changes);
-      } else if (step.action === 'delete') {
-        await service.delete(step.entityId);
-      }
-      
-      completed.push(step);
-      
-    } catch (error) {
-      // ROLLBACK all completed steps in reverse order
-      for (const done of completed.reverse()) {
-        await rollbackStep(done);
-      }
-      
-      return {
-        success: false,
-        failedAt: step,
-        error: error.message,
-        rolledBack: completed.length
-      };
-    }
-  }
-  
-  return { success: true, completed: completed.length };
-}
-```
-
-### When NOT to Cascade
-
-The agent should detect when a cascade is needed vs when a simple 
-update is fine:
-
-```
-SIMPLE UPDATE (no cascade):
-  "Update Leila's phone number" → proposeUpdate (single field change)
-  "Change task priority to high" → proposeUpdate (no dependency impact)
-  "Rename dossier D-42" → proposeUpdate (no status change)
-
-CASCADE NEEDED:
-  "Set client inactive" → check for open work → cascade if needed
-  "Close this dossier" → check for pending tasks/sessions → cascade
-  "Delete this client" → check for any children → cascade or block
-  "Archive all old cases" → multi-entity status change → cascade
-
-HOW THE LLM DECIDES:
-  Before calling proposeUpdate with a STATUS change on a parent entity,
-  ALWAYS call getEntityGraph first to check for open children.
-  If open children exist → use proposeCascade.
-  If no blockers → use proposeUpdate (simple single update).
-```
-
-## Implementation Tasks
-
-```
-Task 1: Create proposeCascade tool
-  File: agent/tools/plan/proposeCascade.tool.ts (NEW)
-  - Input: goal, steps[], totalAffected
-  - Category: PLAN
-  - Handler: validates step order, returns cascade proposal
-
-Task 2: Add cascade execution to entity executor
-  File: agent/engine/entity.executor.ts (UPDATE)
-  - executeCascade(steps): runs steps in order
-  - Rollback on failure: reverses completed steps
-  - Returns structured result
-
-Task 3: Add domain rules to system prompt
-  File: agent/prompts/identity.prompt.ts (UPDATE)
-  - Closure/deactivation dependency rules
-  - Reopening rules
-  - Deletion rules
-  - Instruction: always getEntityGraph before status changes
-
-Task 4: Create CascadePlanCard component
-  File: frontend/.../cards/CascadePlanCard.tsx (NEW)
-  - Groups steps by entity type
-  - Shows old → new for each step
-  - Shows total affected count
-  - Actions: Confirm All | Modify | Cancel
-
-Task 5: Handle cascade SSE events
-  File: frontend/hooks/useAgentState.ts (UPDATE)
-  - Handle plan_artifact with cascade type
-  - Handle step-by-step execution progress events
-
-Task 6: Update pending manager for cascades
-  File: agent/engine/pending.manager.ts (UPDATE)
-  - Store cascade plan as pending action
-  - On confirmation: call executeCascade
-  - On failure: emit rollback events
-
-Task 7: Test cascade flows
-  - "Set client inactive" with open dossiers → cascade plan
-  - "Close dossier" with pending tasks → cascade plan
-  - "Set client inactive" with no open work → simple update (no cascade)
-  - Cascade with failure at step 5 → rollback steps 1-4
-  - Modify cascade (remove a step, change a status)
-```
-
-## What About the Existing domainRules.js?
-
-The existing `domainRules.js` is a FRONTEND validation layer. It stays.
-It continues to protect the UI forms from invalid submissions.
-
-The agent has its OWN domain awareness through:
-1. System prompt rules (knows the dependency constraints)
-2. getEntityGraph (reads the actual state before proposing)
-3. proposeCascade (builds multi-step plans that satisfy constraints)
-
-The agent does NOT call `canPerformAction()`. It doesn't need to.
-It understands the rules and builds plans that satisfy them.
-
-If the domain rules change, update BOTH:
-- `domainRules.js` (frontend protection)
-- System prompt domain rules section (agent awareness)
-
-This is intentional duplication — the frontend needs instant validation 
-without LLM calls, and the agent needs domain knowledge in its prompt.
+## Assumptions and Defaults
+- MVP does not add distributed rollback transaction orchestration.
+- Existing PLAN tools remain the only LLM mutation intent tools.
+- Domain planner logic is deterministic backend authority; prompt heuristics are secondary.
+- Financial state changes with accounting impact require explicit confirmation.

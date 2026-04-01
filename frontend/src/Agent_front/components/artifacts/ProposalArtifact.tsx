@@ -31,6 +31,7 @@ interface SemanticRenderItem {
 }
 
 const SEMANTIC_CONFIRMATION_PANEL_DEBUG_STORAGE_KEY = "ordinay:debug:semantic-confirmation-panel";
+const loggedSemanticDebugProposalIds = new Set<string>();
 
 function isSemanticConfirmationPanelDebugEnabled(): boolean {
   if (typeof window === "undefined") return false;
@@ -64,19 +65,20 @@ function emitExecutedMutationEvent(detail: {
 }
 
 function emitExecutedMutationFromExecutionResult(execResult?: ExecutionResult) {
-  if (!execResult || String(execResult.status || "").toLowerCase() !== "success") return;
+  if (!execResult) return;
   const seen = new Set<string>();
   const emitOnce = (detail: { entityType?: unknown; entityId?: unknown; operation?: unknown }) => {
     const entityType = String(detail?.entityType || "").trim().toLowerCase();
     const entityId = Number(detail?.entityId || 0);
     if (!entityType || !Number.isInteger(entityId) || entityId <= 0) return;
-    const key = `${entityType}:${entityId}`;
+    const operation = String(detail?.operation || "update").trim().toLowerCase();
+    const key = `${entityType}:${entityId}:${operation}`;
     if (seen.has(key)) return;
     seen.add(key);
     emitExecutedMutationEvent({
       entityType,
       entityId,
-      operation: typeof detail?.operation === "string" ? detail.operation : "update",
+      operation,
     });
   };
 
@@ -94,13 +96,14 @@ function emitExecutedMutationFromExecutionResult(execResult?: ExecutionResult) {
           }>;
         }
       | undefined;
-    if (!result || result.ok !== true) continue;
-
-    emitOnce(result);
+    if (!result) continue;
+    if (result.ok === true) {
+      emitOnce(result);
+    }
 
     if (Array.isArray(result.stepResults)) {
       for (const step of result.stepResults) {
-        if (!step || step.ok !== true || !step.result || step.result.ok !== true) continue;
+        if (!step || step.ok !== true || !step.result || step.result.ok === false) continue;
         const actionType = String(step.actionType || "").toUpperCase();
         let op = "update";
         if (actionType === "CREATE_ENTITY") op = "create";
@@ -223,9 +226,7 @@ export function ProposalArtifact({
       const execResult = await onConfirm(proposalId, {
         ackRisk: proposal.confirmation?.extraRiskAck === true,
       });
-      if (execResult.status === "success") {
-        emitExecutedMutationFromExecutionResult(execResult);
-      }
+      emitExecutedMutationFromExecutionResult(execResult);
       updateState(
         proposalId,
         toProposalState(execResult, "I could not apply that change. Please try again."),
@@ -308,30 +309,34 @@ function buildProposalRenderItems(
       const semanticInput = proposalToSemanticInput(proposal, contextData);
       const viewModel = mapSemanticAction(semanticInput);
       if (typeof import.meta !== "undefined" && import.meta.env?.DEV && proposal.requiresConfirmation) {
-        console.warn("[CONFIRM_DEBUG][frontend][semanticConfirmation]", {
-          proposalId: proposal.proposalId,
-          actionType: proposal.actionType || proposal.action,
-          humanReadableSummary: proposal.humanReadableSummary,
-          description: proposal.description,
-          reversible: proposal.reversible,
-          confirmation: proposal.confirmation,
-          affectedEntities: proposal.affectedEntities,
-          workflow: proposal.params?.workflow,
-          params: proposal.params,
-          semanticInput,
-          viewModel,
-        });
-        console.warn("[CONFIRM_DEBUG][frontend][semanticConfirmation][parsed]", {
-          proposalId: proposal.proposalId,
-          actionType: proposal.actionType || proposal.action,
-          workflowRequestedGoal: proposal.params?.workflow?.requestedGoal,
-          workflowStepCount: Array.isArray(proposal.params?.workflow?.steps) ? proposal.params?.workflow?.steps.length : 0,
-          workflowFirstStep: Array.isArray(proposal.params?.workflow?.steps) ? proposal.params?.workflow?.steps[0] : undefined,
-          semanticInputChanges: semanticInput.changes,
-          semanticInputChangeKeys: Object.keys(semanticInput.changes || {}),
-          semanticInputImpactHints: semanticInput.context.impactHints,
-          semanticInputPendingFieldNames: semanticInput.context.pendingFieldNames,
-        });
+        const proposalDebugKey = String(proposal.proposalId || "");
+        if (proposalDebugKey && !loggedSemanticDebugProposalIds.has(proposalDebugKey)) {
+          loggedSemanticDebugProposalIds.add(proposalDebugKey);
+          console.warn("[CONFIRM_DEBUG][frontend][semanticConfirmation]", {
+            proposalId: proposal.proposalId,
+            actionType: proposal.actionType || proposal.action,
+            humanReadableSummary: proposal.humanReadableSummary,
+            description: proposal.description,
+            reversible: proposal.reversible,
+            confirmation: proposal.confirmation,
+            affectedEntities: proposal.affectedEntities,
+            workflow: proposal.params?.workflow,
+            params: proposal.params,
+            semanticInput,
+            viewModel,
+          });
+          console.warn("[CONFIRM_DEBUG][frontend][semanticConfirmation][parsed]", {
+            proposalId: proposal.proposalId,
+            actionType: proposal.actionType || proposal.action,
+            workflowRequestedGoal: proposal.params?.workflow?.requestedGoal,
+            workflowStepCount: Array.isArray(proposal.params?.workflow?.steps) ? proposal.params?.workflow?.steps.length : 0,
+            workflowFirstStep: Array.isArray(proposal.params?.workflow?.steps) ? proposal.params?.workflow?.steps[0] : undefined,
+            semanticInputChanges: semanticInput.changes,
+            semanticInputChangeKeys: Object.keys(semanticInput.changes || {}),
+            semanticInputImpactHints: semanticInput.context.impactHints,
+            semanticInputPendingFieldNames: semanticInput.context.pendingFieldNames,
+          });
+        }
       }
       return {
         viewModel,

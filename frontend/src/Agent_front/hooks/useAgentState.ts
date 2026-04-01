@@ -18,9 +18,13 @@ import {
   ExplanationOutput,
   CollectionOutput,
   CommentaryOutput,
+  ConfirmationPreviewCascadeGroup,
+  ConfirmationPreviewChange,
   PlanArtifactEventData,
   PlanExecutedEventData,
   ProposalOutput,
+  StructuredProposal,
+  StructuredProposalField,
   StatusEventData,
   SuggestionArtifactEventData,
   WebSearchResultsOutput,
@@ -237,6 +241,330 @@ function normalizePlanChanges(
   return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
+const PLAN_FIELD_LABELS: Record<string, string> = {
+  status: "Status",
+  phone: "Phone",
+  email: "Email",
+  name: "Name",
+  title: "Title",
+  priority: "Priority",
+  type: "Type",
+  due_date: "Due date",
+  dueDate: "Due date",
+  hearing_date: "Hearing date",
+  hearingDate: "Hearing date",
+  client_id: "Client",
+  clientId: "Client",
+  dossier_id: "Dossier",
+  dossierId: "Dossier",
+  lawsuit_id: "Lawsuit",
+  lawsuitId: "Lawsuit",
+};
+
+function toTitleCase(value: string): string {
+  return String(value || "")
+    .replace(/[_-]+/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+}
+
+function humanizePlanField(key: string): string {
+  const normalized = String(key || "").trim();
+  if (!normalized) return "Field";
+  return PLAN_FIELD_LABELS[normalized] || toTitleCase(normalized);
+}
+
+function formatPlanValue(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "Current";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "number") return String(value);
+  const text = String(value).trim();
+  if (!text) return "Current";
+  return text;
+}
+
+function formatPlanDiffValue(from: unknown, to: unknown): string {
+  const before = formatPlanValue(from);
+  const after = formatPlanValue(to);
+  return `${before} -> ${after}`;
+}
+
+interface PlanPreviewLinkingCandidateValue {
+  entityType: string;
+  entityId: number | string;
+  label?: string;
+  source?: string;
+}
+
+interface PlanPreviewLinkingValue {
+  status: string;
+  source?: string;
+  userSpecified?: boolean;
+  resolutionLabel?: string;
+  target?: {
+    entityType: string;
+    entityId: number | string;
+    label?: string;
+    field?: string;
+  };
+  ambiguousCandidates?: PlanPreviewLinkingCandidateValue[];
+}
+
+function normalizePlanPreviewLinking(value: unknown): PlanPreviewLinkingValue | undefined {
+  const row = toRecord(value);
+  if (!row) return undefined;
+  const status = String(row.status || "").trim().toLowerCase();
+  if (!["unchanged", "resolved", "ambiguous", "unresolved"].includes(status)) {
+    return undefined;
+  }
+  const targetRow = toRecord(row.target);
+  const targetEntityType = String(targetRow?.entityType || "").trim().toLowerCase();
+  const targetEntityId = targetRow?.entityId;
+  const target =
+    targetEntityType && (typeof targetEntityId === "number" || typeof targetEntityId === "string")
+      ? {
+          entityType: targetEntityType,
+          entityId: targetEntityId,
+          ...(typeof targetRow?.label === "string" && targetRow.label.trim().length > 0
+            ? { label: targetRow.label.trim() }
+            : {}),
+          ...(typeof targetRow?.field === "string" && targetRow.field.trim().length > 0
+            ? { field: targetRow.field.trim() }
+            : {}),
+        }
+      : undefined;
+  const candidates = Array.isArray(row.ambiguousCandidates)
+    ? row.ambiguousCandidates
+        .map((entry) => {
+          const item = toRecord(entry);
+          if (!item) return null;
+          const entityType = String(item.entityType || "").trim().toLowerCase();
+          const entityId = item.entityId;
+          if (!entityType || (typeof entityId !== "number" && typeof entityId !== "string")) {
+            return null;
+          }
+          return {
+            entityType,
+            entityId,
+            ...(typeof item.label === "string" && item.label.trim().length > 0
+              ? { label: item.label.trim() }
+              : {}),
+            ...(typeof item.source === "string" && item.source.trim().length > 0
+              ? { source: item.source.trim().toLowerCase() }
+              : {}),
+          };
+        })
+        .filter((entry): entry is PlanPreviewLinkingCandidateValue => Boolean(entry))
+    : [];
+  return {
+    status,
+    ...(typeof row.source === "string" && row.source.trim().length > 0
+      ? { source: row.source.trim().toLowerCase() }
+      : {}),
+    ...(typeof row.userSpecified === "boolean" ? { userSpecified: row.userSpecified } : {}),
+    ...(typeof row.resolutionLabel === "string" && row.resolutionLabel.trim().length > 0
+      ? { resolutionLabel: row.resolutionLabel.trim() }
+      : {}),
+    ...(target ? { target } : {}),
+    ...(candidates.length > 0 ? { ambiguousCandidates: candidates } : {}),
+  };
+}
+
+function formatPlanLinkingTarget(linking?: PlanPreviewLinkingValue): string | null {
+  if (!linking?.target) return null;
+  const target = linking.target;
+  const typeLabel = toTitleCase(String(target.entityType || "").replace(/_/g, " ")) || "Record";
+  const label =
+    typeof target.label === "string" && target.label.trim().length > 0
+      ? target.label.trim()
+      : `${typeLabel} #${String(target.entityId)}`;
+  return `${typeLabel}: ${label}`;
+}
+
+function formatPlanLinkingSource(linking?: PlanPreviewLinkingValue): string | null {
+  if (!linking) return null;
+  if (typeof linking.resolutionLabel === "string" && linking.resolutionLabel.trim().length > 0) {
+    return linking.resolutionLabel.trim();
+  }
+  if (linking.userSpecified === true || linking.source === "payload") {
+    return "User-specified in your request";
+  }
+  if (linking.status === "resolved") {
+    if (linking.source === "draft_context") return "Auto-resolved from current draft context";
+    if (linking.source === "active_entities") return "Auto-resolved from active session context";
+    return "Auto-resolved from available context";
+  }
+  if (linking.status === "ambiguous") {
+    return "Needs parent-link clarification";
+  }
+  if (linking.status === "unresolved") {
+    return "Missing parent-link context";
+  }
+  return null;
+}
+
+function sanitizePlanEffectLine(value: string): string {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (/execution is paused until an explicit domain decision is provided/i.test(text)) {
+    return "Execution will continue after you choose one of the required decisions.";
+  }
+  return text;
+}
+
+function entityTypeLabel(entityType: string): string {
+  const normalized = String(entityType || "").trim().toLowerCase();
+  if (!normalized) return "record";
+  if (normalized === "financial_entry") return "financial entry";
+  if (normalized === "personal_task") return "personal task";
+  return toTitleCase(normalized).toLowerCase();
+}
+
+function pluralizeEntityType(entityType: string, count: number): string {
+  const base = entityTypeLabel(entityType);
+  if (count === 1) return base;
+  if (base.endsWith("y")) return `${base.slice(0, -1)}ies`;
+  if (base.endsWith("s")) return base;
+  return `${base}s`;
+}
+
+function buildPlanStructuredProposal(input: {
+  operation: string;
+  entityType: string;
+  entityId?: number;
+  summary: string;
+  previewSubtitle?: string;
+  rootLabel?: string;
+  rootType?: string;
+  rootId?: number;
+  reversible: boolean;
+  linking?: PlanPreviewLinkingValue;
+  primaryChanges: Array<{
+    field: string;
+    from: unknown;
+    to: unknown;
+  }>;
+  cascadeSummary: ConfirmationPreviewCascadeGroup[];
+  warnings: string[];
+  decisions: string[];
+}): StructuredProposal {
+  const {
+    operation,
+    entityType,
+    entityId,
+    summary,
+    previewSubtitle,
+    rootLabel,
+    rootType,
+    rootId,
+    reversible,
+    linking,
+    primaryChanges,
+    cascadeSummary,
+    warnings,
+    decisions,
+  } = input;
+
+  const fields: StructuredProposalField[] = primaryChanges.slice(0, 6).map((change) => ({
+    key: change.field,
+    label: humanizePlanField(change.field),
+    value: formatPlanDiffValue(change.from, change.to),
+  }));
+
+  if (fields.length === 0) {
+    fields.push({
+      key: "planned_change",
+      label: "Main change",
+      value: summary || "Apply the requested change",
+    });
+  }
+
+  const linkedTarget = formatPlanLinkingTarget(linking);
+  if (linkedTarget) {
+    fields.push({
+      key: "linked_to",
+      label: "Linked to",
+      value: linkedTarget,
+    });
+  }
+  const linkingSource = formatPlanLinkingSource(linking);
+  if (linkingSource) {
+    fields.push({
+      key: "link_source",
+      label: "Link source",
+      value: linkingSource,
+    });
+  }
+
+  const relatedLines: string[] = [];
+  for (const group of cascadeSummary) {
+    const count = Number(group.totalCount || 0);
+    if (!Number.isFinite(count) || count <= 0) continue;
+    const fieldSummary = Array.isArray(group.changedFields)
+      ? group.changedFields.map((row) => humanizePlanField(String(row || ""))).filter(Boolean)
+      : [];
+    const fieldsText =
+      fieldSummary.length > 0
+        ? ` (fields: ${fieldSummary.slice(0, 3).join(", ")}${fieldSummary.length > 3 ? ` +${fieldSummary.length - 3} more` : ""})`
+        : "";
+    relatedLines.push(
+      `${count} ${pluralizeEntityType(String(group.entityType || ""), count)} will be updated${fieldsText}.`,
+    );
+  }
+
+  for (const line of warnings) {
+    const text = sanitizePlanEffectLine(String(line || "").trim());
+    if (!text) continue;
+    relatedLines.push(text);
+  }
+  for (const line of decisions) {
+    const text = String(line || "").trim();
+    if (!text) continue;
+    relatedLines.push(`Decision required: ${text}`);
+  }
+
+  const dedupedRelatedLines = [...new Set(relatedLines)];
+  const derivedRootType = String(rootType || entityType || "").trim().toLowerCase();
+  const derivedRootId =
+    Number.isFinite(rootId) && Number(rootId) > 0
+      ? Number(rootId)
+      : Number.isFinite(entityId) && Number(entityId) > 0
+      ? Number(entityId)
+      : undefined;
+  const derivedRootLabel = String(rootLabel || "").trim();
+
+  return {
+    verb: operation || "update",
+    entityType: entityType || "record",
+    reversible,
+    title: summary || `Confirm ${toTitleCase(operation || "update")} ${entityTypeLabel(entityType)}`,
+    subtitle: previewSubtitle || undefined,
+    fields,
+    ...(dedupedRelatedLines.length > 0
+      ? {
+          contentPreview: {
+            label: "Required related changes",
+            text: dedupedRelatedLines.map((line) => `- ${line}`).join("\n"),
+          },
+        }
+      : {}),
+    ...(derivedRootType && (derivedRootLabel || derivedRootId != null)
+      ? {
+          resultTarget: {
+            type: derivedRootType,
+            ...(derivedRootId != null ? { id: derivedRootId } : {}),
+            label:
+              derivedRootLabel ||
+              `${toTitleCase(entityTypeLabel(derivedRootType))}${
+                derivedRootId != null ? ` #${String(derivedRootId)}` : ""
+              }`,
+          },
+        }
+      : {}),
+  };
+}
+
 function mapPlanArtifactToProposalOutput(
   artifact: PlanArtifactEventData,
   sessionId: string,
@@ -249,13 +577,111 @@ function mapPlanArtifactToProposalOutput(
   const operationPayload = toRecord(artifact?.operation?.payload) || undefined;
   const normalizedChanges = normalizePlanChanges(artifact?.operation?.changes);
   const preview = toRecord(artifact?.preview);
+  const workflow = toRecord(artifact?.workflow);
   const previewTitle = String(preview?.title || "").trim();
+  const previewScope = String(preview?.scope || "").trim().toLowerCase();
+  const workflowTotalSteps = Number(workflow?.totalSteps || 0);
+  const isWorkflowPreview = previewScope === "workflow" || workflowTotalSteps > 1;
   const warnings = Array.isArray(preview?.warnings)
     ? preview.warnings.map((row) => String(row || "").trim()).filter(Boolean)
     : [];
+  const effects = Array.isArray(preview?.effects)
+    ? preview.effects.map((row) => String(row || "").trim()).filter(Boolean)
+    : [];
+  const mergedWarnings = [...new Set([...warnings, ...effects])];
   const previewFields = Array.isArray(preview?.fields) ? preview.fields : [];
+  const incomingPrimaryChanges = Array.isArray(preview?.primaryChanges)
+    ? (preview.primaryChanges
+        .map((row) => {
+          const item = toRecord(row);
+          if (!item) return null;
+          const field = String(item.field || "").trim();
+          if (!field) return null;
+          return {
+            entityType: String(item.entityType || entityType || "").trim().toLowerCase(),
+            entityId:
+              typeof item.entityId === "number"
+                ? item.entityId
+                : hasNumericEntityId
+                ? numericEntityId
+                : null,
+            entityLabel:
+              typeof item.entityLabel === "string" && item.entityLabel.trim().length > 0
+                ? item.entityLabel.trim()
+                : undefined,
+            field,
+            from: Object.prototype.hasOwnProperty.call(item, "from") ? item.from : undefined,
+            to: Object.prototype.hasOwnProperty.call(item, "to") ? item.to : undefined,
+          };
+        })
+        .filter(Boolean) as ConfirmationPreviewChange[])
+    : [];
+  const incomingCascadeSummary = Array.isArray(preview?.cascadeSummary)
+    ? (preview.cascadeSummary
+        .map((row) => {
+          const item = toRecord(row);
+          if (!item) return null;
+          const groupEntityType = String(item.entityType || "").trim().toLowerCase();
+          const totalCount = Number(item.totalCount || 0);
+          if (!groupEntityType || !Number.isFinite(totalCount) || totalCount <= 0) return null;
+          const changedFields = Array.isArray(item.changedFields)
+            ? item.changedFields.map((entry) => String(entry || "").trim()).filter(Boolean)
+            : [];
+          const examples = Array.isArray(item.examples)
+            ? (item.examples
+                .map((entry) => {
+                  const example = toRecord(entry);
+                  if (!example) return null;
+                  const field = String(example.field || "").trim();
+                  if (!field) return null;
+                  return {
+                    entityType: String(example.entityType || groupEntityType).trim().toLowerCase(),
+                    entityId:
+                      typeof example.entityId === "number"
+                        ? example.entityId
+                        : undefined,
+                    entityLabel:
+                      typeof example.entityLabel === "string" && example.entityLabel.trim().length > 0
+                        ? example.entityLabel.trim()
+                        : undefined,
+                    field,
+                    from: Object.prototype.hasOwnProperty.call(example, "from")
+                      ? example.from
+                      : undefined,
+                    to: Object.prototype.hasOwnProperty.call(example, "to")
+                      ? example.to
+                      : undefined,
+                  };
+                })
+                .filter(Boolean) as ConfirmationPreviewChange[])
+            : [];
+          return {
+            entityType: groupEntityType,
+            totalCount,
+            ...(changedFields.length > 0 ? { changedFields } : {}),
+            ...(examples.length > 0 ? { examples } : {}),
+          };
+        })
+        .filter(Boolean) as ConfirmationPreviewCascadeGroup[])
+    : [];
+  const previewLinking = normalizePlanPreviewLinking(preview?.linking);
+  const previewDecisions = Array.isArray(preview?.decisions)
+    ? preview.decisions
+        .map((row) => {
+          const item = toRecord(row);
+          if (!item) return null;
+          const title = String(item.title || "").trim();
+          const description = String(item.description || "").trim();
+          if (!title || !description) return null;
+          return `${title}: ${description}`;
+        })
+        .filter((row): row is string => typeof row === "string" && row.length > 0)
+    : [];
+
   const primaryChangesRaw =
-    previewFields.length > 0
+    incomingPrimaryChanges.length > 0
+      ? incomingPrimaryChanges
+      : previewFields.length > 0
       ? previewFields
           .map((row) => {
             const field = String((row as { key?: unknown })?.key || "").trim();
@@ -287,6 +713,14 @@ function mapPlanArtifactToProposalOutput(
   const summary =
     String(artifact?.summary || "").trim() ||
     `Confirm ${operation || "update"} request`;
+  const previewRoot = toRecord(preview?.root);
+  const previewRootType = String(previewRoot?.type || entityType || "").trim().toLowerCase();
+  const previewRootId = Number(previewRoot?.id);
+  const previewRootLabel = String(previewRoot?.label || previewTitle || "").trim();
+  const previewReversibility = String(preview?.reversibility || "").trim();
+  const actionType: ActionProposal["actionType"] = isWorkflowPreview
+    ? "EXECUTE_MUTATION_WORKFLOW"
+    : toPlanActionType(operation);
 
   const proposal: ActionProposal = {
     proposalId: String(artifact?.pendingActionId || ""),
@@ -295,7 +729,7 @@ function mapPlanArtifactToProposalOutput(
     description: summary,
     requiresConfirmation: true,
     sessionId,
-    actionType: toPlanActionType(operation),
+    actionType,
     toolCategory: "PLAN",
     params: {
       entityType,
@@ -303,30 +737,98 @@ function mapPlanArtifactToProposalOutput(
       ...(operationPayload ? { payload: operationPayload } : {}),
       ...(normalizedChanges ? { changes: normalizedChanges } : {}),
       ...(previewTitle ? { entityLabel: previewTitle } : {}),
+      ...(isWorkflowPreview
+        ? {
+            workflow: {
+              totalSteps: Number.isFinite(workflowTotalSteps) ? workflowTotalSteps : undefined,
+              steps: Array.isArray(workflow?.steps) ? workflow.steps : [],
+              rootEntity: {
+                type: previewRootType || entityType || undefined,
+                id:
+                  Number.isFinite(previewRootId) && previewRootId > 0
+                    ? previewRootId
+                    : hasNumericEntityId
+                    ? numericEntityId
+                    : undefined,
+                label: previewRootLabel || undefined,
+              },
+            },
+          }
+        : {}),
     },
-    reversible: operation !== "delete",
+    reversible:
+      previewReversibility === "not_reversible"
+        ? false
+        : previewReversibility === "reversible"
+        ? true
+        : operation !== "delete",
     humanReadableSummary: summary,
+    structured: buildPlanStructuredProposal({
+      operation,
+      entityType,
+      entityId: hasNumericEntityId ? numericEntityId : undefined,
+      summary,
+      previewSubtitle: String(preview?.subtitle || "").trim() || undefined,
+      rootLabel: previewRootLabel || undefined,
+      rootType: previewRootType || undefined,
+      rootId:
+        Number.isFinite(previewRootId) && previewRootId > 0
+          ? previewRootId
+          : hasNumericEntityId
+          ? numericEntityId
+          : undefined,
+      reversible:
+        previewReversibility === "not_reversible"
+          ? false
+          : previewReversibility === "reversible"
+          ? true
+          : operation !== "delete",
+      ...(previewLinking ? { linking: previewLinking } : {}),
+      primaryChanges: primaryChanges.map((row) => ({
+        field: row.field,
+        from: row.from,
+        to: row.to,
+      })),
+      cascadeSummary: incomingCascadeSummary,
+      warnings: mergedWarnings,
+      decisions: previewDecisions,
+    }),
     confirmation: {
       extraRiskAck: operation === "delete",
-      ...(warnings.length > 0 ? { warnings, impactSummary: warnings } : {}),
+      ...(mergedWarnings.length > 0 ? { warnings: mergedWarnings, impactSummary: mergedWarnings } : {}),
       preview: {
         version: "v1",
-        scope: "single_entity",
+        scope: isWorkflowPreview ? "workflow" : "single_entity",
         root: {
-          type: entityType || undefined,
-          id: hasNumericEntityId ? numericEntityId : null,
-          label: previewTitle || undefined,
-          operation: operation || "update",
+          type: previewRootType || entityType || undefined,
+          id:
+            Number.isFinite(previewRootId) && previewRootId > 0
+              ? previewRootId
+              : hasNumericEntityId
+              ? numericEntityId
+              : null,
+          label: previewRootLabel || undefined,
+          operation: String(previewRoot?.operation || operation || "update"),
         },
         ...(primaryChanges.length > 0 ? { primaryChanges } : {}),
-        ...(warnings.length > 0 ? { effects: warnings } : {}),
-        reversibility: operation === "delete" ? "not_reversible" : "reversible",
+        ...(incomingCascadeSummary.length > 0 ? { cascadeSummary: incomingCascadeSummary } : {}),
+        ...(mergedWarnings.length > 0 ? { effects: mergedWarnings } : {}),
+        ...(previewLinking ? { linking: previewLinking } : {}),
+        reversibility:
+          previewReversibility ||
+          (operation === "delete" ? "not_reversible" : "reversible"),
       },
     },
     ...(entityType && hasNumericEntityId
       ? { affectedEntities: [{ type: entityType, id: numericEntityId }] }
       : {}),
   };
+  if (previewDecisions.length > 0) {
+    proposal.confirmation = {
+      ...proposal.confirmation,
+      impactSummary: [...(proposal.confirmation?.impactSummary || []), ...previewDecisions],
+    };
+  }
 
   return {
     type: "proposal",
@@ -404,7 +906,13 @@ function mapPlanExecutedArtifactToExecutionResult(
 ): ExecutionResult {
   const executedAt = new Date().toISOString();
   if (artifact?.ok !== true) {
-    const message = String(artifact?.errorMessage || "").trim() || "Could not apply that change.";
+    const details = toRecord(artifact?.errorDetails);
+    const hint = String(details?.hint || "").trim();
+    const baseMessage = String(artifact?.errorMessage || "").trim();
+    const message =
+      baseMessage ||
+      hint ||
+      "Could not apply that change.";
     return {
       type: "execution_result",
       proposalId: String(artifact?.pendingActionId || ""),
@@ -414,6 +922,7 @@ function mapPlanExecutedArtifactToExecutionResult(
         message,
         safeMessage: toSafeExecutionErrorMessage(message),
         requiresReproposal: false,
+        ...(details ? { details } : {}),
       },
       audit: {
         executedAt,
