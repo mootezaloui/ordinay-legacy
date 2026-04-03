@@ -141,14 +141,15 @@ Loop + execution:
 - `backend/src/agent/engine/agentic.loop.ts`
 - `backend/src/agent/engine/tool.executor.ts`
 
-Prompt/UX dependencies with mode branching:
+Prompt/loop dependencies for draft safeguards and ambiguity handling:
 
 - `backend/src/agent/memory/context.assembler.js`
-- `backend/src/agent/ux/ambiguity.detector.js`
-- `backend/src/agent/ux/clarification.policy.js`
-- `backend/src/agent/ux/response.posture.js`
-- `backend/src/agent/ux/index.js`
+- `backend/src/agent/engine/ambiguity.detector.js` (re-scoped from legacy UX preflight)
+- `backend/src/agent/engine/agentic.loop.ts`
 - `backend/src/agent/llm/native.provider.ts`
+
+Legacy pre-LLM UX gate modules under `backend/src/agent/ux/*` were removed as part of
+`docs/PREFLIGHT_GATE_REMOVAL.md` (Phases 3-4).
 
 Test fixtures and assertions:
 
@@ -303,7 +304,8 @@ Files:
 - `backend/src/agent/engine/agentic.loop.ts`
 - `backend/src/agent/memory/context.assembler.js`
 - `backend/src/agent/llm/native.provider.ts` (if mode-gated drafting helpers exist)
-- `backend/src/agent/ux/*` files that branch on mode
+- `backend/src/agent/engine/ambiguity.detector.js`
+- `backend/src/agent/transport/sse.handler.ts` (transport bypass metadata + disambiguation compatibility)
 
 Tasks:
 

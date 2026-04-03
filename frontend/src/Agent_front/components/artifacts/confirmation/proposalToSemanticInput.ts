@@ -105,7 +105,188 @@ function orderStructuredFields(fields: StructuredProposalField[]) {
   }));
 }
 
-function buildStructuredCard(proposal: ActionProposal) {
+const STRUCTURED_INTERNAL_FIELD_PATTERNS = [
+  /agentdraftsnapshot/i,
+  /agentdraftprovenance/i,
+  /generationuid/i,
+  /sourcegenerationuid/i,
+  /documentgenerationuid/i,
+  /linksource/i,
+];
+
+const STRUCTURED_PLACEHOLDER_VALUES = new Set([
+  "[draft content placeholder]",
+  "__agent_current_draft__",
+  "[object object]",
+]);
+
+type RelationEntityType =
+  | "client"
+  | "dossier"
+  | "lawsuit"
+  | "task"
+  | "session"
+  | "mission"
+  | "financial_entry";
+
+function normalizeFieldIdentity(value: string): string {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function inferRelationEntityTypeFromField(
+  fieldKey?: string,
+  fieldLabel?: string,
+): RelationEntityType | null {
+  const keyIdentity = normalizeFieldIdentity(fieldKey || "");
+  const labelIdentity = normalizeFieldIdentity(fieldLabel || "");
+  const identity = keyIdentity || labelIdentity;
+
+  if (identity === "client" || identity === "clientid") return "client";
+  if (identity === "dossier" || identity === "dossierid") return "dossier";
+  if (identity === "lawsuit" || identity === "lawsuitid") return "lawsuit";
+  if (identity === "task" || identity === "taskid") return "task";
+  if (identity === "session" || identity === "sessionid") return "session";
+  if (identity === "mission" || identity === "missionid") return "mission";
+  if (identity === "financialentry" || identity === "financialentryid") return "financial_entry";
+  return null;
+}
+
+function isInternalStructuredField(fieldKey?: string, fieldLabel?: string): boolean {
+  const keyRaw = String(fieldKey || "").trim();
+  const keyIdentity = normalizeFieldIdentity(fieldKey || "");
+  const labelIdentity = normalizeFieldIdentity(fieldLabel || "");
+  if (!keyIdentity && !labelIdentity) return false;
+  if (keyRaw.startsWith("_")) return true;
+  if (keyIdentity === "id" || labelIdentity === "id") return true;
+  const haystack = `${keyIdentity} ${labelIdentity}`.trim();
+  return STRUCTURED_INTERNAL_FIELD_PATTERNS.some((pattern) => pattern.test(haystack));
+}
+
+function humanizeStructuredFieldLabel(fieldKey?: string, fieldLabel?: string): string {
+  const relationType = inferRelationEntityTypeFromField(fieldKey, fieldLabel);
+  if (relationType) return toTitleCase(relationType);
+  const source = normalizeText(fieldLabel) || normalizeText(fieldKey);
+  if (!source) return "Field";
+  const spaced = source
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ");
+  return toTitleCase(spaced) || "Field";
+}
+
+function coerceEntityId(value: unknown): number | undefined {
+  if (typeof value === "number") {
+    if (Number.isFinite(value) && value > 0) return Math.trunc(value);
+    return undefined;
+  }
+
+  const text = normalizeText(value);
+  if (!text) return undefined;
+  if (/^\d+$/.test(text)) return Number(text);
+  if (/^#\d+$/.test(text)) return Number(text.slice(1));
+
+  const prefixedMatch = text.match(
+    /^(?:client|dossier|lawsuit|task|session|mission|financial(?:\s|_|-)entry)\s*#?\s*(\d+)$/i,
+  );
+  if (prefixedMatch?.[1]) return Number(prefixedMatch[1]);
+  return undefined;
+}
+
+function extractDisplayTextFromObject(value: Record<string, unknown>): string {
+  const candidateKeys = ["label", "name", "title", "reference", "display"];
+  for (const key of candidateKeys) {
+    const candidate = normalizeText(value[key]);
+    if (candidate && !STRUCTURED_PLACEHOLDER_VALUES.has(candidate.toLowerCase())) {
+      return candidate;
+    }
+  }
+  if (typeof value.value === "string" || typeof value.value === "number") {
+    const candidate = normalizeText(value.value);
+    if (candidate && !STRUCTURED_PLACEHOLDER_VALUES.has(candidate.toLowerCase())) {
+      return candidate;
+    }
+  }
+  return "";
+}
+
+function sanitizeStructuredFieldValue(
+  field: StructuredProposalField,
+  context: DataContextLike,
+): string {
+  const relationType = inferRelationEntityTypeFromField(field.key, field.label);
+  const rawValue = (field as { value?: unknown }).value;
+
+  const resolveRelation = (candidate: unknown): string => {
+    if (!relationType) return "";
+    const entityId = coerceEntityId(candidate);
+    if (!Number.isFinite(entityId) || !entityId) return "";
+    return resolveEntityLabel(relationType, entityId, context) || "";
+  };
+
+  if (Array.isArray(rawValue)) {
+    const flattened = rawValue
+      .map((item) => {
+        if (item && typeof item === "object" && !Array.isArray(item)) {
+          return extractDisplayTextFromObject(item as Record<string, unknown>);
+        }
+        const text = normalizeText(item);
+        return STRUCTURED_PLACEHOLDER_VALUES.has(text.toLowerCase()) ? "" : text;
+      })
+      .filter(Boolean);
+    return flattened.join(", ");
+  }
+
+  if (rawValue && typeof rawValue === "object") {
+    const record = rawValue as Record<string, unknown>;
+    const resolvedById =
+      resolveRelation(record.id) ||
+      resolveRelation(record.entityId) ||
+      resolveRelation(record.value);
+    if (resolvedById) return resolvedById;
+    return extractDisplayTextFromObject(record);
+  }
+
+  const normalized = normalizeText(rawValue);
+  if (!normalized || STRUCTURED_PLACEHOLDER_VALUES.has(normalized.toLowerCase())) return "";
+
+  // Handle diff-format strings like "Current -> 8" or "Current -> [Draft content placeholder]"
+  const diffIdx = normalized.indexOf(" -> ");
+  if (diffIdx > 0) {
+    const beforePart = normalized.slice(0, diffIdx).trim();
+    const afterPart = normalized.slice(diffIdx + 4).trim();
+    if (!afterPart || STRUCTURED_PLACEHOLDER_VALUES.has(afterPart.toLowerCase())) return "";
+    const resolvedAfter = resolveRelation(afterPart);
+    if (resolvedAfter) return `${beforePart} -> ${resolvedAfter}`;
+    return normalized;
+  }
+
+  return resolveRelation(rawValue) || resolveRelation(normalized) || normalized;
+}
+
+function sanitizeStructuredFields(
+  fields: StructuredProposalField[] | undefined,
+  context: DataContextLike,
+): StructuredProposalField[] {
+  if (!Array.isArray(fields)) return [];
+  const sanitized: StructuredProposalField[] = [];
+  for (const field of fields) {
+    if (!field || typeof field !== "object") continue;
+    const key = normalizeText((field as { key?: unknown }).key);
+    const label = normalizeText((field as { label?: unknown }).label);
+    if (isInternalStructuredField(key, label)) continue;
+    const normalizedValue = sanitizeStructuredFieldValue(field, context);
+    if (!normalizedValue) continue;
+    sanitized.push({
+      key: key || normalizeFieldIdentity(label) || "field",
+      label: humanizeStructuredFieldLabel(key, label),
+      value: normalizedValue,
+    });
+  }
+  return sanitized;
+}
+
+function buildStructuredCard(proposal: ActionProposal, context: DataContextLike) {
   const structured = proposal.structured as StructuredProposal | undefined;
   if (!structured || !normalizeText(structured.title)) return undefined;
 
@@ -139,14 +320,28 @@ function buildStructuredCard(proposal: ActionProposal) {
           : "Review required",
     title: normalizeText(structured.title),
     subtitle: normalizeText(structured.subtitle) || undefined,
-    fields: orderStructuredFields(Array.isArray(structured.fields) ? structured.fields.filter((field) => normalizeText(field?.value)) : []),
-    contentPreview:
-      structured.contentPreview && normalizeMultilineText(structured.contentPreview.text)
-        ? {
-            label: normalizeText(structured.contentPreview.label) || "Content Preview",
-            text: normalizeMultilineText(structured.contentPreview.text),
-          }
-        : undefined,
+    fields: orderStructuredFields(
+      sanitizeStructuredFields(
+        Array.isArray(structured.fields) ? structured.fields : undefined,
+        context,
+      ),
+    ),
+    contentPreview: (() => {
+      const rawPreviewText = normalizeMultilineText(structured.contentPreview?.text || "");
+      if (!rawPreviewText) return undefined;
+      const cleanedText = rawPreviewText
+        .split("\n")
+        .map((line) => {
+          if (!/from payload/i.test(line)) return line;
+          const targetMatch = line.match(/Target:\s*(.+?)\.?\s*$/i);
+          return targetMatch ? `Linked to ${targetMatch[1].trim()}` : "";
+        })
+        .filter(Boolean)
+        .join("\n");
+      return cleanedText
+        ? { label: normalizeText(structured.contentPreview?.label) || "Content Preview", text: cleanedText }
+        : undefined;
+    })(),
     warningHint: "Review before confirming",
     confirmLabel: `Confirm & ${confirmSuffix}`,
     cancelLabel: "Cancel",
@@ -848,7 +1043,7 @@ export function proposalToSemanticInput(
       requiresRiskAck: proposal.confirmation?.extraRiskAck === true,
       confirmationPreview: confirmationPreview,
       proposalPreview: proposalPreview || undefined,
-      structuredCard: buildStructuredCard(proposal),
+      structuredCard: buildStructuredCard(proposal, context),
       proposalSummary:
         String(proposal.humanReadableSummary || "").trim() ||
         String(proposal.description || "").trim() ||

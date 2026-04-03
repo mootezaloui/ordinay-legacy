@@ -8,7 +8,6 @@ const { runScenario } = require("../scenario.runner");
 
 test("phase4: PLAN tool call creates pending action and emits plan_artifact", async () => {
   const runtime = createLiveRuntime();
-  const restoreUx = patchMethod(runtime?.ux, "evaluatePreLoop", () => ({ handled: false }));
   const restoreLlm = mockSingleToolCall(runtime, {
     id: "tc_plan_create_1",
     name: "proposeCreate",
@@ -55,7 +54,6 @@ test("phase4: PLAN tool call creates pending action and emits plan_artifact", as
     const confirmedEvent = result.events.find((event) => event.event === "confirmed");
     assert.equal(Boolean(confirmedEvent), false, "PLAN proposal should not execute immediately.");
   } finally {
-    restoreUx?.();
     restoreLlm();
   }
 });
@@ -63,7 +61,6 @@ test("phase4: PLAN tool call creates pending action and emits plan_artifact", as
 test("phase4: AMENDMENT replaces pending action deterministically for PLAN proposals", async () => {
   const runtime = createLiveRuntime();
   const previousPendingId = "pending_phase4_old_1";
-  const restoreUx = patchMethod(runtime?.ux, "evaluatePreLoop", () => ({ handled: false }));
   const restoreLlm = mockSingleToolCall(runtime, {
     id: "tc_plan_update_1",
     name: "proposeUpdate",
@@ -125,7 +122,6 @@ test("phase4: AMENDMENT replaces pending action deterministically for PLAN propo
     assert.equal(planArtifact.operation.operation, "update");
     assert.equal(planArtifact.operation.entityType, "client");
   } finally {
-    restoreUx?.();
     restoreLlm();
   }
 });

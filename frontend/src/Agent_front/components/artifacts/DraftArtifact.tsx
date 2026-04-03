@@ -24,7 +24,7 @@ import type {
 } from "../../../services/api/agent";
 import { DraftRenderer, SectionView } from "./draft/DraftRenderer";
 import { MULTILINE_ROLES, ROLE_DISPLAY_NAMES, getDocumentFontFamily } from "./draft/roleStyles";
-import { detectLanguage, buildContentFromSections, ensureSectionId, normalizeDraftText, stripMarkdown } from "./draft/layoutUtils";
+import { detectLanguage, buildContentFromSections, ensureSectionId, normalizeDraftText } from "./draft/layoutUtils";
 
 type DraftMode = "view" | "edit";
 type DraftState = "pending" | "exported" | "discarded";
@@ -36,6 +36,8 @@ interface DraftRegenerationSnapshot {
   metadata?: Record<string, string>;
   sections: DraftSectionData[];
   layout: DraftLayoutData;
+  linkedEntityType?: string;
+  linkedEntityId?: number;
   version?: number;
   content?: string;
 }
@@ -48,6 +50,7 @@ interface DraftArtifactProps {
     layout: DraftLayoutData;
     content: string;
   }) => void;
+  onExport?: (snapshot: DraftRegenerationSnapshot) => Promise<boolean | void> | boolean | void;
   isStreaming?: boolean;
 }
 
@@ -56,6 +59,10 @@ interface NormalizedDraft {
   subtitle: string;
   draftType: string;
   draftTypeLabel: string;
+  linkedEntityType?: string;
+  linkedEntityId?: number;
+  savedDocumentId?: number;
+  savedAt?: string;
   version: number;
   metadata?: Record<string, string>;
   metaFields: Array<{ label: string; value: string }>;
@@ -112,6 +119,19 @@ function normalizeDraft(data: DraftArtifactData | DraftOutput): NormalizedDraft 
       subtitle: String(data.subtitle || ""),
       draftType: String(data.draftType || "document"),
       draftTypeLabel: String(data.draftType || "document").replace(/_/g, " "),
+      linkedEntityType: String(data.linkedEntityType || "").trim() || undefined,
+      linkedEntityId:
+        typeof data.linkedEntityId === "number" && Number.isFinite(data.linkedEntityId)
+          ? Number(data.linkedEntityId)
+          : undefined,
+      savedDocumentId:
+        typeof data.savedDocumentId === "number" && Number.isFinite(data.savedDocumentId)
+          ? Number(data.savedDocumentId)
+          : undefined,
+      savedAt:
+        typeof data.savedAt === "string" && String(data.savedAt).trim().length > 0
+          ? String(data.savedAt)
+          : undefined,
       version: Number(data.version || 1),
       metadata: data.metadata,
       metaFields,
@@ -193,12 +213,64 @@ function normalizeDraft(data: DraftArtifactData | DraftOutput): NormalizedDraft 
     subtitle: String(data.type || "").replace(/_/g, " "),
     draftType: String(data.type || "document"),
     draftTypeLabel: String(data.type || "document").replace(/_/g, " "),
+    linkedEntityType:
+      String(data.metadata?.targetEntity?.type || "").trim().toLowerCase() || undefined,
+    linkedEntityId:
+      typeof data.metadata?.targetEntity?.id === "number" &&
+      Number.isFinite(data.metadata?.targetEntity?.id)
+        ? Number(data.metadata?.targetEntity?.id)
+        : undefined,
+    savedDocumentId: undefined,
+    savedAt: undefined,
     version: 1,
     metaFields,
     sections,
     layout,
     versionHistory: [],
   };
+}
+
+function toTitleCase(value: string): string {
+  return String(value || "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function normalizeKey(value: string): string {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function resolveLinkedEntityLabel(draft: NormalizedDraft): string | null {
+  const entityType = String(draft.linkedEntityType || "").trim().toLowerCase();
+  if (!entityType) return null;
+
+  const metadata = draft.metadata || {};
+  const entries = Object.entries(metadata);
+  const entityKey = normalizeKey(entityType);
+
+  const exactMatch = entries.find(([key]) => normalizeKey(key) === entityKey);
+  if (exactMatch && String(exactMatch[1] || "").trim().length > 0) {
+    return `${toTitleCase(entityType)}: ${String(exactMatch[1]).trim()}`;
+  }
+
+  const probableMatch = entries.find(([key, value]) => {
+    const normalizedKey = normalizeKey(key);
+    if (!normalizedKey.includes(entityKey)) return false;
+    return String(value || "").trim().length > 0;
+  });
+  if (probableMatch) {
+    return `${toTitleCase(entityType)}: ${String(probableMatch[1]).trim()}`;
+  }
+
+  if (typeof draft.linkedEntityId === "number" && Number.isFinite(draft.linkedEntityId)) {
+    return `${toTitleCase(entityType)} #${String(draft.linkedEntityId)}`;
+  }
+
+  return toTitleCase(entityType);
 }
 
 function SectionEdit({
@@ -288,17 +360,26 @@ export function DraftArtifact({
   data,
   onRegenerate,
   onSave,
+  onExport,
   isStreaming = false,
 }: DraftArtifactProps) {
   const normalized = useMemo(() => normalizeDraft(data), [data]);
+  const normalizedHasPersistedSave =
+    typeof normalized.savedDocumentId === "number" &&
+    Number.isFinite(normalized.savedDocumentId);
   const [mode, setMode] = useState<DraftMode>("view");
-  const [state, setState] = useState<DraftState>("pending");
+  const [state, setState] = useState<DraftState>(
+    normalizedHasPersistedSave ? "exported" : "pending",
+  );
+  const [localSaved, setLocalSaved] = useState<boolean>(normalizedHasPersistedSave);
   const [sections, setSections] = useState<DraftSectionData[]>(normalized.sections);
   const [regenText, setRegenText] = useState("");
   const [regenOpen, setRegenOpen] = useState(false);
   const [viewingVersion, setViewingVersion] = useState<number | null>(null);
   const [regenPending, setRegenPending] = useState(false);
   const [contentFresh, setContentFresh] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportPending, setExportPending] = useState(false);
   const textareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const prevVersionRef = useRef(normalized.version);
 
@@ -306,17 +387,28 @@ export function DraftArtifact({
     // New data arrived (version changed or first mount) — clear regen state, apply content.
     const versionChanged = normalized.version !== prevVersionRef.current;
     prevVersionRef.current = normalized.version;
+    setLocalSaved((prev) => {
+      if (normalizedHasPersistedSave) return true;
+      if (versionChanged) return false;
+      return prev;
+    });
     setSections(normalized.sections);
     setMode("view");
-    setState("pending");
+    setState((prev) => {
+      if (!versionChanged && (prev === "exported" || prev === "discarded")) {
+        return prev;
+      }
+      return "pending";
+    });
     setRegenText("");
     setRegenOpen(false);
     setViewingVersion(null);
+    setExportError(null);
     if (regenPending && versionChanged) {
       setRegenPending(false);
       setContentFresh(true);
     }
-  }, [normalized]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [normalized, normalizedHasPersistedSave]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Clear regenPending when streaming ends (handles errors / no new data).
   useEffect(() => {
@@ -344,6 +436,11 @@ export function DraftArtifact({
   const editFontFamily = getDocumentFontFamily(normalized.layout);
   const contentText = buildContentFromSections(sections);
   const hasHistory = normalized.versionHistory.length > 0;
+  const hasPersistedSave = normalizedHasPersistedSave || localSaved;
+  const linkedDestinationLabel = useMemo(
+    () => resolveLinkedEntityLabel(normalized),
+    [normalized],
+  );
 
   // Resolve what to display based on viewingVersion
   const browsingOld = viewingVersion !== null;
@@ -359,6 +456,7 @@ export function DraftArtifact({
   const handleRestore = useCallback(() => {
     setState("pending");
     setMode("view");
+    setExportError(null);
   }, []);
 
   const handleSectionChange = useCallback((id: string, value: string) => {
@@ -413,6 +511,8 @@ export function DraftArtifact({
       metadata: normalized.metadata,
       sections,
       layout: normalized.layout,
+      linkedEntityType: normalized.linkedEntityType,
+      linkedEntityId: normalized.linkedEntityId,
       version: normalized.version,
       content: contentText,
     };
@@ -427,6 +527,8 @@ export function DraftArtifact({
     isRegenerating,
     normalized.draftType,
     normalized.layout,
+    normalized.linkedEntityId,
+    normalized.linkedEntityType,
     normalized.metadata,
     normalized.subtitle,
     normalized.title,
@@ -435,6 +537,103 @@ export function DraftArtifact({
     regenText,
     sections,
   ]);
+
+  const handleExport = useCallback(async () => {
+    if (!onExport || browsingOld || isRegenerating || exportPending || hasPersistedSave) return;
+    setExportError(null);
+    setExportPending(true);
+    const snapshot: DraftRegenerationSnapshot = {
+      draftType: normalized.draftType,
+      title: normalized.title,
+      subtitle: normalized.subtitle || undefined,
+      metadata: normalized.metadata,
+      sections,
+      layout: normalized.layout,
+      linkedEntityType: normalized.linkedEntityType,
+      linkedEntityId: normalized.linkedEntityId,
+      version: normalized.version,
+      content: contentText,
+    };
+
+    console.info("[DRAFT_EXPORT_CLICK]", {
+      draftType: snapshot.draftType,
+      title: snapshot.title,
+      linkedEntityType: snapshot.linkedEntityType || null,
+      linkedEntityId: snapshot.linkedEntityId ?? null,
+      destinationLabel: linkedDestinationLabel,
+      sectionCount: Array.isArray(snapshot.sections) ? snapshot.sections.length : 0,
+    });
+
+    try {
+      const result = await onExport(snapshot);
+      if (result === false) {
+        setExportError("Could not save this draft. Please try again.");
+        return;
+      }
+      setLocalSaved(true);
+      setState("exported");
+    } catch (error) {
+      const message =
+        error instanceof Error && String(error.message || "").trim().length > 0
+          ? error.message
+          : "Could not save this draft. Please try again.";
+      setExportError(message);
+    } finally {
+      setExportPending(false);
+    }
+  }, [
+    browsingOld,
+    contentText,
+    exportPending,
+    hasPersistedSave,
+    isRegenerating,
+    linkedDestinationLabel,
+    normalized.draftType,
+    normalized.layout,
+    normalized.linkedEntityId,
+    normalized.linkedEntityType,
+    normalized.metadata,
+    normalized.subtitle,
+    normalized.title,
+    normalized.version,
+    onExport,
+    sections,
+  ]);
+
+  if (state === "exported") {
+    return (
+      <div className="artifact-build agent-artifact-card is-draft">
+        <div className="artifact-build-header agent-artifact-header agent-artifact-header-draft flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="agent-icon-container agent-icon-container-emerald">
+              <Check className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <h4 className="text-xs font-semibold text-emerald-400">Draft saved</h4>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                {linkedDestinationLabel
+                  ? `Stored in ${linkedDestinationLabel} documents.`
+                  : "Stored in documents."}
+              </p>
+              {hasPersistedSave ? (
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  Document #{normalized.savedDocumentId}
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <button
+            type="button"
+            className="agent-action-btn agent-action-btn-secondary"
+            onClick={handleRestore}
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            Back to Draft
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (state === "discarded") {
     return (
@@ -516,7 +715,7 @@ export function DraftArtifact({
           >
             v{normalized.version}
           </button>
-          {isRegenerating ? (
+      {isRegenerating ? (
             <span className="inline-flex items-center justify-center min-w-[28px] h-5 px-1.5 rounded text-[10px] font-mono font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse">
               v{normalized.version + 1}
             </span>
@@ -623,10 +822,22 @@ export function DraftArtifact({
               Generating new version...
             </>
           ) : (
-            <>
-              <AlertTriangle className="w-3 h-3" />
-              Review before exporting
-            </>
+            <div className="flex flex-col gap-0.5">
+              <span className="inline-flex items-center gap-1.5">
+                <AlertTriangle className="w-3 h-3" />
+                Review before saving
+              </span>
+              {linkedDestinationLabel ? (
+                <span className="pl-4 text-[10px] text-slate-500/90 dark:text-slate-400/90">
+                  Storage target: {linkedDestinationLabel}
+                </span>
+              ) : null}
+              {hasPersistedSave ? (
+                <span className="pl-4 text-[10px] text-emerald-500 dark:text-emerald-400">
+                  Already saved as document #{normalized.savedDocumentId}
+                </span>
+              ) : null}
+            </div>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -667,15 +878,33 @@ export function DraftArtifact({
           ) : null}
           <button
             type="button"
-            className="agent-action-btn agent-action-btn-secondary opacity-40 cursor-not-allowed"
-            disabled
-            title="Export will be available in a later phase"
+            className={`agent-action-btn agent-action-btn-secondary ${browsingOld || isRegenerating || exportPending || hasPersistedSave || !onExport ? "opacity-40 cursor-not-allowed" : ""}`}
+            disabled={browsingOld || isRegenerating || exportPending || hasPersistedSave || !onExport}
+            onClick={handleExport}
+            title={
+              browsingOld
+                ? "Switch back to current version before exporting"
+                : isRegenerating
+                  ? "Wait for regeneration to complete"
+                  : exportPending
+                    ? "Saving draft..."
+                    : hasPersistedSave
+                      ? "Draft already saved"
+                  : onExport
+                    ? "Store this draft in linked documents"
+                    : "Export action unavailable"
+            }
           >
-            <Download className="w-3.5 h-3.5" />
-            Export
+            {exportPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+            {hasPersistedSave ? "Saved" : exportPending ? "Saving..." : "Save"}
           </button>
         </div>
       </div>
+      {exportError ? (
+        <div className="px-4 pb-2 text-[11px] text-red-500 dark:text-red-400">
+          {exportError}
+        </div>
+      ) : null}
 
       {/* ── Revision Log ── */}
       {hasHistory ? (

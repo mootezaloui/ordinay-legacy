@@ -1579,6 +1579,12 @@ td[data-column-id="actions"] [data-table-action-button] {
   --artifact-accent: rgba(139, 92, 246, 0.8);
 }
 
+.dark .agent-artifact-card.is-proposal {
+  --artifact-accent: rgba(139, 92, 246, 0.75);
+  --artifact-bg: rgba(17, 13, 36, 0.95);
+  --artifact-border: rgba(139, 92, 246, 0.18);
+}
+
 .agent-artifact-card.is-web-search {
   --artifact-accent: rgba(20, 184, 166, 0.8);
 }
@@ -1705,8 +1711,8 @@ td[data-column-id="actions"] [data-table-action-button] {
 }
 
 .dark .agent-artifact-header-proposal {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(124, 58, 237, 0.05) 50%, transparent 100%);
-  border-bottom: 1px solid rgba(139, 92, 246, 0.1);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(124, 58, 237, 0.1) 50%, transparent 100%);
+  border-bottom: 1px solid rgba(139, 92, 246, 0.25);
 }
 
 .agent-artifact-header-web-search {

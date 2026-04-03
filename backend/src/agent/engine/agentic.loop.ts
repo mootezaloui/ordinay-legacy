@@ -63,7 +63,7 @@ const agentDocumentsService = require(_path.resolve(__dirname, "..", "..", "..",
   } | null;
 };
 const { detectAmbiguity: detectGenericAmbiguity } = require(
-  _path.resolve(__dirname, "..", "..", "..", "src", "agent", "ux", "ambiguity.detector"),
+  _path.resolve(__dirname, "..", "..", "..", "src", "agent", "engine", "ambiguity.detector"),
 ) as {
   detectAmbiguity: (params?: {
     input?: { message?: string };
@@ -210,10 +210,23 @@ const READ_POLICY_INSTRUCTIONS = [
   "- Never say a mutation is completed before explicit user confirmation and execution result.",
   "- If the user amends a pending mutation, call a PLAN tool again with revised args to replace the pending proposal.",
   "",
-  "OPTIONAL SUGGESTION RULE (when suggestAction tool is available)",
+  "SUGGESTION POLICY (when suggestAction tool is available)",
   "",
+  "Priority order for suggestion behavior:",
+  "1) Safety and constraints first (permission, policy, and non-mutating guarantees).",
+  "2) Disambiguation and missing-context clarification second.",
+  "3) Suggestion only after safety and disambiguation are satisfied.",
+  "",
+  "Suggestion rules:",
   "- At most one suggestAction call per turn.",
   "- Suggestions must be specific and grounded in current session context.",
+  "- suggestion_artifact is advisory only; it must not create pending actions or execute mutations.",
+  "",
+  "Anti-noise rule:",
+  "- If the user request is explicit and complete (clear direct command + clear target + sufficient details), skip suggestAction and continue with normal flow.",
+  "- For explicit draft requests, proceed with draft flow and generateDraft when details/context are sufficient.",
+  "- For explicit mutation requests, proceed with PLAN flow (proposeCreate/proposeUpdate/proposeDelete).",
+  "- Do not inject proactive suggestions into confirmation/rejection/amendment handling unless explicitly requested.",
   "",
   "DRAFTING",
   "",
@@ -408,10 +421,33 @@ const WORKLOAD_OR_CASES_QUERY_PATTERN =
   /\b(work\s*-?\s*load|workload|cases?|matters?)\b/i;
 const DRAFT_TOOL_ENFORCEMENT_MIN_TEXT_LENGTH = 500;
 const DRAFT_DETAILS_RECOVERY_MAX_ATTEMPTS = 2;
+const SUGGESTION_ENFORCEMENT_MAX_ATTEMPTS = 2;
+const SUGGESTION_TELEMETRY_METADATA_KEY = "suggestionTelemetry";
 const DRAFT_METADATA_SNAPSHOT_KEY = "draftSnapshot";
 const DOCUMENT_DRAFT_SOURCE_TOKEN = "__agent_current_draft__";
 const DOCUMENT_DRAFT_SNAPSHOT_KEY = "_agentDraftSnapshot";
 const DOCUMENT_DRAFT_PROVENANCE_KEY = "_agentDraftProvenance";
+
+const IMPLICIT_INTENT_MARKERS = [
+  "i should",
+  "we should",
+  "should i",
+  "i need to",
+  "we need to",
+  "maybe i should",
+  "maybe we should",
+  "i think i should",
+  "i think we should",
+  "it might be better to",
+  "it may be better to",
+];
+
+const EXPLICIT_DRAFT_COMMAND_PATTERN =
+  /^(please\s+|kindly\s+|can you\s+|could you\s+|would you\s+)?(create|draft|write|compose|prepare|generate|regenerate)\b/i;
+const EXPLICIT_EXECUTE_COMMAND_PATTERN =
+  /^(please\s+|kindly\s+|can you\s+|could you\s+|would you\s+)?(create|update|delete|remove|mark|set|change|close|reopen|archive|activate|deactivate|add)\b/i;
+const EXECUTE_INTENT_CUE_PATTERN =
+  /\b(update|mark|set|change|delete|remove|create|add|close|reopen|archive|activate|deactivate)\b/i;
 
 interface ReadObservabilityCounters {
   READ_TOOL_CALL_COUNT: number;
@@ -444,6 +480,12 @@ interface LoopStreamCallbacks {
   onSuggestionArtifact?: (artifact: SuggestionArtifact) => void;
 }
 
+interface ImplicitSuggestionPolicy {
+  required: boolean;
+  domain: SuggestionArtifact["domain"] | null;
+  trigger: SuggestionArtifact["trigger"];
+}
+
 interface ToolCallProcessingContext {
   input: AgentTurnInput;
   session: Session;
@@ -455,6 +497,8 @@ interface ToolCallProcessingContext {
   stats: LoopStats;
   readCounters: ReadObservabilityCounters;
   linkCounters: LinkResolutionObservabilityCounters;
+  implicitSuggestionPolicy?: ImplicitSuggestionPolicy;
+  suggestionDeclinedThisTurn?: boolean;
   streamCallbacks?: LoopStreamCallbacks;
 }
 
@@ -463,6 +507,49 @@ interface ToolCallProcessingResult {
   confirmationMessage?: string;
   replacedPendingActionId?: string;
   planArtifact?: PlanArtifact;
+  suggestionArtifact?: SuggestionArtifact;
+}
+
+interface SuggestionPendingTelemetry {
+  turnId: string;
+  shownAt: string;
+  domain: SuggestionArtifact["domain"];
+  actionType: SuggestionArtifact["actionType"];
+  targetType: string;
+  trigger: SuggestionArtifact["trigger"];
+}
+
+interface SuggestionTelemetryState {
+  counters: {
+    shown: number;
+    accepted: number;
+    dismissed: number;
+    fallback: number;
+    failures: number;
+  };
+  pending?: SuggestionPendingTelemetry;
+  lastEvent?: {
+    kind:
+      | "suggestion_shown"
+      | "suggestion_accepted"
+      | "suggestion_dismissed"
+      | "suggestion_fallback"
+      | "suggestion_failed";
+    at: string;
+    turnId?: string;
+    requestSource?: string;
+    errorCode?: string;
+    domain?: SuggestionArtifact["domain"];
+    actionType?: SuggestionArtifact["actionType"];
+    targetType?: string;
+  };
+}
+
+export interface AgenticLoopRuntimeOptions {
+  suggestions?: {
+    enabled?: boolean;
+    telemetryEnabled?: boolean;
+  };
 }
 
 export interface AgentMemoryServices {
@@ -502,6 +589,7 @@ export class AgenticLoop {
     private readonly entityExecutor: EntityExecutor = new EntityExecutor(),
     private readonly workflowPlanner: DomainWorkflowPlanner = new DomainWorkflowPlanner(),
     private readonly linkResolver: LinkResolver = new LinkResolver(),
+    private readonly runtimeOptions: AgenticLoopRuntimeOptions = {},
   ) {}
 
   async run(
@@ -520,6 +608,7 @@ export class AgenticLoop {
     const stats: LoopStats = { iterations: 0, toolCalls: 0 };
     const readCounters = this.createReadObservabilityCounters();
     const linkCounters = this.createLinkResolutionObservabilityCounters();
+    this.captureSuggestionFollowUpTelemetry(input, session, audit);
 
     let output!: AgentTurnOutput;
     try {
@@ -921,9 +1010,40 @@ export class AgenticLoop {
     const metadata: Record<string, unknown> = { loopStats: stats };
     const messages = this.buildInitialMessages(input, session, turnType);
     const authScope = this.resolveAuthScope(input);
+    const suggestionDeclinedThisTurn = this.isSuggestionDeclineRequest(input);
+    const suggestionDeclineDomain = suggestionDeclinedThisTurn
+      ? this.resolveSuggestionDeclineDomain(session)
+      : null;
+    const implicitSuggestionPolicy = this.resolveImplicitSuggestionPolicy({
+      input,
+      session,
+      turnType,
+      authScope,
+    });
 
     this.appendTurn(session, "user", input.message, turnType);
     this.pushAudit(audit, input, "user_turn", { turnType, message: input.message });
+    if (suggestionDeclinedThisTurn) {
+      const responseText = this.buildSuggestionDeclineClarificationQuestion(
+        suggestionDeclineDomain,
+      );
+      this.appendTurn(session, "assistant", responseText, turnType);
+      this.collectAssistantWarnings(responseText, warnings);
+      this.pushAudit(audit, input, "suggestion_decline_clarification_prompted", {
+        domain: suggestionDeclineDomain || undefined,
+      });
+      this.touchSession(session, turnType);
+      return this.buildOutput(
+        input,
+        session,
+        turnType,
+        responseText,
+        toolCalls,
+        audit,
+        metadata,
+        warnings,
+      );
+    }
 
     const llmTools = this.llm.supportsTools()
       ? this.listToolsForScope(authScope)
@@ -937,6 +1057,7 @@ export class AgenticLoop {
     let coverageRecoveryAttempts = 0;
     let draftToolEnforcementAttempts = 0;
     let draftDetailsRecoveryAttempts = 0;
+    let suggestionEnforcementAttempts = 0;
     let savedDraftCandidateText = "";
     let iterationBufferedText = "";
 
@@ -1073,6 +1194,58 @@ export class AgenticLoop {
               responseText = sanitized;
               break;
             }
+            continue;
+          }
+          if (
+            this.shouldEnforceImplicitSuggestion({
+              policy: implicitSuggestionPolicy,
+              suggestionCalls: toolCalls,
+              candidateText,
+            })
+          ) {
+            if (suggestionEnforcementAttempts >= SUGGESTION_ENFORCEMENT_MAX_ATTEMPTS) {
+              this.flushAcceptedBufferedText(streamCallbacks, iterationBufferedText);
+              if (implicitSuggestionPolicy.domain) {
+                const fallbackSuggestion = this.buildImplicitSuggestionFallbackArtifact(
+                  input,
+                  implicitSuggestionPolicy.domain,
+                );
+                metadata.suggestionArtifact = fallbackSuggestion;
+                this.recordSuggestionShown(session, input, audit, fallbackSuggestion);
+                streamCallbacks?.onSuggestionArtifact?.(fallbackSuggestion);
+                this.pushAudit(audit, input, "suggestion_fallback_artifact_emitted", {
+                  domain: fallbackSuggestion.domain,
+                  actionType: fallbackSuggestion.actionType,
+                  targetType: fallbackSuggestion.targetType,
+                  stage: "suggestion_tool_enforcement_no_tool_calls",
+                });
+                responseText = this.buildSuggestionReadyAcknowledgement(
+                  input.message,
+                  fallbackSuggestion,
+                );
+              } else {
+                responseText = this.buildSuggestionClarificationMessage(
+                  implicitSuggestionPolicy.domain,
+                );
+              }
+              break;
+            }
+            suggestionEnforcementAttempts += 1;
+            messages.push({
+              role: "system",
+              content: this.buildSuggestionToolEnforcementInstruction({
+                userMessage: input.message,
+                domain: implicitSuggestionPolicy.domain,
+                candidateText,
+              }),
+            });
+            this.clearLastAssistantMessageForRecovery(messages);
+            this.logBufferedTextDiscard(
+              input,
+              iteration,
+              "suggestion_tool_enforcement_no_tool_calls",
+              iterationBufferedText,
+            );
             continue;
           }
           if (draftFlowLikely || this.hasSuccessfulGenerateDraftToolCall(toolCalls)) {
@@ -1331,6 +1504,58 @@ export class AgenticLoop {
             }
             continue;
           }
+          if (
+            this.shouldEnforceImplicitSuggestion({
+              policy: implicitSuggestionPolicy,
+              suggestionCalls: toolCalls,
+              candidateText,
+            })
+          ) {
+            if (suggestionEnforcementAttempts >= SUGGESTION_ENFORCEMENT_MAX_ATTEMPTS) {
+              this.flushAcceptedBufferedText(streamCallbacks, iterationBufferedText);
+              if (implicitSuggestionPolicy.domain) {
+                const fallbackSuggestion = this.buildImplicitSuggestionFallbackArtifact(
+                  input,
+                  implicitSuggestionPolicy.domain,
+                );
+                metadata.suggestionArtifact = fallbackSuggestion;
+                this.recordSuggestionShown(session, input, audit, fallbackSuggestion);
+                streamCallbacks?.onSuggestionArtifact?.(fallbackSuggestion);
+                this.pushAudit(audit, input, "suggestion_fallback_artifact_emitted", {
+                  domain: fallbackSuggestion.domain,
+                  actionType: fallbackSuggestion.actionType,
+                  targetType: fallbackSuggestion.targetType,
+                  stage: "suggestion_tool_enforcement_after_invalid_calls",
+                });
+                responseText = this.buildSuggestionReadyAcknowledgement(
+                  input.message,
+                  fallbackSuggestion,
+                );
+              } else {
+                responseText = this.buildSuggestionClarificationMessage(
+                  implicitSuggestionPolicy.domain,
+                );
+              }
+              break;
+            }
+            suggestionEnforcementAttempts += 1;
+            messages.push({
+              role: "system",
+              content: this.buildSuggestionToolEnforcementInstruction({
+                userMessage: input.message,
+                domain: implicitSuggestionPolicy.domain,
+                candidateText,
+              }),
+            });
+            this.clearLastAssistantMessageForRecovery(messages);
+            this.logBufferedTextDiscard(
+              input,
+              iteration,
+              "suggestion_tool_enforcement_after_invalid_calls",
+              iterationBufferedText,
+            );
+            continue;
+          }
           if (draftFlowLikely || this.hasSuccessfulGenerateDraftToolCall(toolCalls)) {
             const hasDraftToolCallSoFar = this.hasSuccessfulGenerateDraftToolCall(toolCalls);
             console.warn(
@@ -1496,6 +1721,58 @@ export class AgenticLoop {
         savedDraftCandidateText = "";
       }
 
+      if (
+        this.shouldEnforceImplicitSuggestion({
+          policy: implicitSuggestionPolicy,
+          suggestionCalls: toolCalls,
+          llmToolCalls: validToolCalls,
+        })
+      ) {
+        if (suggestionEnforcementAttempts >= SUGGESTION_ENFORCEMENT_MAX_ATTEMPTS) {
+          if (implicitSuggestionPolicy.domain) {
+            const fallbackSuggestion = this.buildImplicitSuggestionFallbackArtifact(
+              input,
+              implicitSuggestionPolicy.domain,
+            );
+            metadata.suggestionArtifact = fallbackSuggestion;
+            this.recordSuggestionShown(session, input, audit, fallbackSuggestion);
+            streamCallbacks?.onSuggestionArtifact?.(fallbackSuggestion);
+            this.pushAudit(audit, input, "suggestion_fallback_artifact_emitted", {
+              domain: fallbackSuggestion.domain,
+              actionType: fallbackSuggestion.actionType,
+              targetType: fallbackSuggestion.targetType,
+              stage: "suggestion_tool_enforcement_missing_system_call",
+            });
+            responseText = this.buildSuggestionReadyAcknowledgement(
+              input.message,
+              fallbackSuggestion,
+            );
+          } else {
+            responseText = this.buildSuggestionClarificationMessage(
+              implicitSuggestionPolicy.domain,
+            );
+          }
+          break;
+        }
+        suggestionEnforcementAttempts += 1;
+        messages.push({
+          role: "system",
+          content: this.buildSuggestionToolEnforcementInstruction({
+            userMessage: input.message,
+            domain: implicitSuggestionPolicy.domain,
+            candidateText: String(response.text || "").trim(),
+          }),
+        });
+        this.clearLastAssistantMessageForRecovery(messages);
+        this.logBufferedTextDiscard(
+          input,
+          iteration,
+          "suggestion_tool_enforcement_missing_system_call",
+          iterationBufferedText,
+        );
+        continue;
+      }
+
       const processed = await this.processToolCalls(validToolCalls, {
         input,
         session,
@@ -1507,6 +1784,8 @@ export class AgenticLoop {
         stats,
         readCounters,
         linkCounters,
+        implicitSuggestionPolicy,
+        suggestionDeclinedThisTurn,
         streamCallbacks,
       });
 
@@ -1518,6 +1797,9 @@ export class AgenticLoop {
         if (processed.planArtifact) {
           metadata.planArtifact = processed.planArtifact;
         }
+      }
+      if (processed.suggestionArtifact) {
+        metadata.suggestionArtifact = processed.suggestionArtifact;
       }
     }
 
@@ -1533,6 +1815,47 @@ export class AgenticLoop {
       stats,
       streamCallbacks,
     });
+
+    if (
+      implicitSuggestionPolicy.required &&
+      implicitSuggestionPolicy.domain &&
+      !suggestionDeclinedThisTurn &&
+      !metadata.suggestionArtifact &&
+      !this.hasSuccessfulSuggestionToolCall(toolCalls) &&
+      !this.isClarificationRequestText(responseText)
+    ) {
+      const fallbackSuggestion = this.buildImplicitSuggestionFallbackArtifact(
+        input,
+        implicitSuggestionPolicy.domain,
+      );
+      metadata.suggestionArtifact = fallbackSuggestion;
+      this.recordSuggestionShown(session, input, audit, fallbackSuggestion);
+      streamCallbacks?.onSuggestionArtifact?.(fallbackSuggestion);
+      this.pushAudit(audit, input, "suggestion_fallback_artifact_emitted", {
+        domain: fallbackSuggestion.domain,
+        actionType: fallbackSuggestion.actionType,
+        targetType: fallbackSuggestion.targetType,
+        stage: "post_loop_fallback",
+      });
+      responseText = this.buildSuggestionReadyAcknowledgement(input.message, fallbackSuggestion);
+    }
+
+    if (!metadata.suggestionArtifact) {
+      const finalizedSuggestion = this.extractLatestSuggestionArtifactFromToolCalls(toolCalls);
+      if (finalizedSuggestion) {
+        metadata.suggestionArtifact = finalizedSuggestion;
+      }
+    }
+    const normalizedSuggestion = this.normalizeSuggestionArtifact(
+      metadata.suggestionArtifact,
+    );
+    if (normalizedSuggestion && !suggestionDeclinedThisTurn) {
+      metadata.suggestionArtifact = normalizedSuggestion;
+      responseText = this.buildSuggestionReadyAcknowledgement(
+        input.message,
+        normalizedSuggestion,
+      );
+    }
 
     this.logNoToolReadWarningIfNeeded(input.message, toolCalls.length, readCounters);
 
@@ -2113,6 +2436,189 @@ export class AgenticLoop {
           confirmationMessage: this.buildConfirmationMessage(pendingAction),
           replacedPendingActionId,
         };
+      }
+
+      if (tool.category === ToolCategory.SYSTEM) {
+        const executionContext = this.createExecutionContext(context.input, context.session);
+        if (toolName === "suggestAction" && !this.isSuggestionFeatureEnabled()) {
+          const deniedResult: ToolExecutionResult = {
+            ok: false,
+            errorCode: "SUGGESTIONS_DISABLED",
+            errorMessage:
+              "Suggestion rollout is currently disabled by feature flag.",
+            metadata: {
+              category: "SYSTEM",
+              stage: "suggestion_feature_flag_guard",
+            },
+          };
+          const record = this.createToolRecord(toolName, args, executionContext, deniedResult);
+          record.id = callId;
+          context.toolCalls.push(record);
+          context.messages.push({
+            role: "tool",
+            name: toolName,
+            toolCallId: callId,
+            content: this.serializeToolMessage(toolName, deniedResult),
+          });
+          this.pushAudit(context.audit, context.input, "tool_call_denied", {
+            toolName,
+            reason: deniedResult.errorMessage || "suggestion feature disabled",
+            errorCode: deniedResult.errorCode,
+          });
+          if (context.implicitSuggestionPolicy?.required) {
+            this.recordSuggestionFallback(
+              context.session,
+              context.input,
+              context.audit,
+              context.implicitSuggestionPolicy.domain,
+              deniedResult.errorCode,
+            );
+            return {
+              stopForConfirmation: true,
+              confirmationMessage: this.buildSuggestionFailureFallbackMessage(
+                context.implicitSuggestionPolicy.domain,
+              ),
+            };
+          }
+          continue;
+        }
+        if (
+          toolName === "suggestAction" &&
+          this.countSuccessfulSuggestionToolCalls(context.toolCalls) >= 1
+        ) {
+          const deniedResult: ToolExecutionResult = {
+            ok: false,
+            errorCode: "SUGGESTION_LIMIT_REACHED",
+            errorMessage:
+              "At most one suggestion can be emitted per turn. Do not call suggestAction again in this turn.",
+            metadata: {
+              category: "SYSTEM",
+              stage: "suggestion_limit_guard",
+            },
+          };
+          const record = this.createToolRecord(toolName, args, executionContext, deniedResult);
+          record.id = callId;
+          context.toolCalls.push(record);
+          context.messages.push({
+            role: "tool",
+            name: toolName,
+            toolCallId: callId,
+            content: this.serializeToolMessage(toolName, deniedResult),
+          });
+          this.pushAudit(context.audit, context.input, "tool_call_denied", {
+            toolName,
+            reason: deniedResult.errorMessage || "suggestion limit reached",
+            errorCode: deniedResult.errorCode,
+          });
+          continue;
+        }
+
+        let result = await this.executor.execute(tool, executionContext, args);
+        this.collectToolWarnings(result, context.warnings);
+        let suggestionArtifact: SuggestionArtifact | null = null;
+        if (toolName === "suggestAction" && result.ok) {
+          suggestionArtifact = this.extractSuggestionArtifactFromToolResult(result);
+          if (!suggestionArtifact) {
+            result = {
+              ok: false,
+              errorCode: "INVALID_SUGGESTION_ARTIFACT",
+              errorMessage:
+                "suggestAction must return data.artifact with required suggestion fields.",
+              metadata: {
+                category: "SYSTEM",
+                stage: "suggestion_validation_guard",
+              },
+            };
+          } else {
+            const resultData = isRecord(result.data) ? result.data : {};
+            const resultMetadata = isRecord(result.metadata) ? result.metadata : {};
+            result = {
+              ...result,
+              data: {
+                ...resultData,
+                artifact: suggestionArtifact,
+              },
+              metadata: {
+                ...resultMetadata,
+                category: "SYSTEM",
+                suggestionArtifact,
+              },
+            };
+            this.recordSuggestionShown(
+              context.session,
+              context.input,
+              context.audit,
+              suggestionArtifact,
+            );
+            context.streamCallbacks?.onSuggestionArtifact?.(suggestionArtifact);
+          }
+        }
+
+        if (toolName === "suggestAction" && !result.ok) {
+          this.recordSuggestionFailure(
+            context.session,
+            context.input,
+            context.audit,
+            result.errorCode,
+            context.implicitSuggestionPolicy?.domain ?? null,
+          );
+          if (context.implicitSuggestionPolicy?.required) {
+            this.recordSuggestionFallback(
+              context.session,
+              context.input,
+              context.audit,
+              context.implicitSuggestionPolicy.domain,
+              result.errorCode,
+            );
+            return {
+              stopForConfirmation: true,
+              confirmationMessage: this.buildSuggestionFailureFallbackMessage(
+                context.implicitSuggestionPolicy.domain,
+              ),
+            };
+          }
+        }
+
+        const record = this.createToolRecord(toolName, args, executionContext, result);
+        record.id = callId;
+        context.toolCalls.push(record);
+        context.messages.push({
+          role: "tool",
+          name: toolName,
+          toolCallId: callId,
+          content: this.serializeToolMessage(toolName, result),
+        });
+
+        this.appendTurn(
+          context.session,
+          "tool",
+          this.summarizeToolMessageForHistory(
+            toolName,
+            this.serializeToolMessage(toolName, result),
+          ),
+          context.turnType,
+          [record],
+        );
+
+        this.pushAudit(context.audit, context.input, "tool_call_processed", {
+          toolName,
+          ok: result.ok,
+          errorCode: result.errorCode,
+          category: "SYSTEM",
+          suggestionArtifact: Boolean(suggestionArtifact),
+        });
+
+        if (suggestionArtifact && context.implicitSuggestionPolicy?.required) {
+          return {
+            stopForConfirmation: true,
+            confirmationMessage: this.buildSuggestionReadyAcknowledgement(
+              context.input.message,
+              suggestionArtifact,
+            ),
+            suggestionArtifact,
+          };
+        }
+        continue;
       }
 
       const executionContext = this.createExecutionContext(context.input, context.session);
@@ -2756,6 +3262,688 @@ export class AgenticLoop {
       (call) =>
         String(call?.toolName || "").trim() === "generateDraft" && Boolean(call?.ok),
     );
+  }
+
+  private countSuccessfulSuggestionToolCalls(toolCalls: ToolCallRecord[]): number {
+    return toolCalls.filter(
+      (call) =>
+        String(call?.toolName || "").trim() === "suggestAction" &&
+        Boolean(call?.ok) &&
+        Boolean(this.extractSuggestionArtifactFromToolCallRecord(call)),
+    ).length;
+  }
+
+  private hasSuccessfulSuggestionToolCall(toolCalls: ToolCallRecord[]): boolean {
+    return this.countSuccessfulSuggestionToolCalls(toolCalls) > 0;
+  }
+
+  private isSuggestionFeatureEnabled(): boolean {
+    const suggestions = isRecord(this.runtimeOptions?.suggestions)
+      ? this.runtimeOptions.suggestions
+      : undefined;
+    if (!suggestions) {
+      return true;
+    }
+    return suggestions.enabled !== false;
+  }
+
+  private isSuggestionTelemetryEnabled(): boolean {
+    const suggestions = isRecord(this.runtimeOptions?.suggestions)
+      ? this.runtimeOptions.suggestions
+      : undefined;
+    if (!suggestions) {
+      return true;
+    }
+    return suggestions.telemetryEnabled !== false;
+  }
+
+  private resolveImplicitSuggestionPolicy(params: {
+    input: AgentTurnInput;
+    session: Session;
+    turnType: TurnType;
+    authScope: string;
+  }): ImplicitSuggestionPolicy {
+    if (this.isSuggestionDeclineRequest(params.input)) {
+      return { required: false, domain: null, trigger: "implicit_intent" };
+    }
+    if (!this.isSuggestionFeatureEnabled()) {
+      return { required: false, domain: null, trigger: "implicit_intent" };
+    }
+    if (!this.isSuggestActionAvailableForScope(params.authScope)) {
+      return { required: false, domain: null, trigger: "implicit_intent" };
+    }
+    if (
+      params.turnType === TurnTypeEnum.AMENDMENT &&
+      Boolean(params.session?.state?.pendingAction)
+    ) {
+      return { required: false, domain: null, trigger: "implicit_intent" };
+    }
+
+    const message = String(params.input.message || "");
+    if (this.isImplicitDraftSuggestionIntent(message)) {
+      return { required: true, domain: "draft", trigger: "implicit_intent" };
+    }
+    if (this.isImplicitExecuteSuggestionIntent(message)) {
+      return { required: true, domain: "execute", trigger: "implicit_intent" };
+    }
+    return { required: false, domain: null, trigger: "implicit_intent" };
+  }
+
+  private shouldEnforceImplicitSuggestion(params: {
+    policy: ImplicitSuggestionPolicy;
+    suggestionCalls: ToolCallRecord[];
+    llmToolCalls?: LLMToolCall[];
+    candidateText?: string;
+  }): boolean {
+    if (!params.policy.required || !params.policy.domain) {
+      return false;
+    }
+    if (this.hasSuccessfulSuggestionToolCall(params.suggestionCalls)) {
+      return false;
+    }
+    if (Array.isArray(params.llmToolCalls) && params.llmToolCalls.length > 0) {
+      return !params.llmToolCalls.some(
+        (toolCall) => String(toolCall?.name || "").trim() === "suggestAction",
+      );
+    }
+    const candidate = String(params.candidateText || "").trim();
+    if (!candidate) {
+      return false;
+    }
+    if (this.isClarificationRequestText(candidate)) {
+      return false;
+    }
+    return true;
+  }
+
+  private isSuggestActionAvailableForScope(authScope: string): boolean {
+    if (!this.isSuggestionFeatureEnabled()) {
+      return false;
+    }
+    const tool = this.registry.get("suggestAction");
+    if (!tool) {
+      return false;
+    }
+    return this.permissionGate.evaluate({ authScope }, tool).allowed;
+  }
+
+  private isImplicitDraftSuggestionIntent(message: string): boolean {
+    const raw = String(message || "").trim();
+    if (!raw) {
+      return false;
+    }
+    if (!this.isDraftingIntent(raw)) {
+      return false;
+    }
+    if (EXPLICIT_DRAFT_COMMAND_PATTERN.test(raw)) {
+      return false;
+    }
+    return this.hasImplicitIntentMarker(raw);
+  }
+
+  private isImplicitExecuteSuggestionIntent(message: string): boolean {
+    const raw = String(message || "").trim();
+    if (!raw) {
+      return false;
+    }
+    if (this.isDraftingIntent(raw)) {
+      return false;
+    }
+    if (!EXECUTE_INTENT_CUE_PATTERN.test(raw)) {
+      return false;
+    }
+    if (EXPLICIT_EXECUTE_COMMAND_PATTERN.test(raw)) {
+      return false;
+    }
+    return this.hasImplicitIntentMarker(raw);
+  }
+
+  private hasImplicitIntentMarker(message: string): boolean {
+    const normalized = this.normalizeIntentText(message);
+    return IMPLICIT_INTENT_MARKERS.some((marker) => normalized.includes(marker));
+  }
+
+  private buildSuggestionToolEnforcementInstruction(params: {
+    userMessage: string;
+    domain: SuggestionArtifact["domain"] | null;
+    candidateText?: string;
+  }): string {
+    const domain = params.domain === "execute" ? "execute" : "draft";
+    const targetHint = domain === "draft" ? "client_letter" : "task";
+    const actionHint = domain === "draft" ? "draft" : "update";
+    const prefillHint =
+      domain === "draft"
+        ? '{"draftType":"client_letter","purpose":"welcome","tone":"friendly","language":"en"}'
+        : '{"operation":"update","entityType":"task","changes":{"status":{"from":"pending","to":"in_progress"}}}';
+
+    return [
+      "IMPLICIT INTENT SUGGESTION FLOW",
+      "The user's message implies intent but does not explicitly request immediate execution.",
+      "Before any draft generation or plan proposal, call suggestAction exactly once.",
+      `Use domain="${domain}", trigger="implicit_intent", actionType="${actionHint}", targetType="${targetHint}".`,
+      "Include a specific title and reason grounded in the current user request.",
+      `Include actionable prefillData. Example shape: ${prefillHint}`,
+      "After suggestAction, ask a direct binary question (Yes/No) to continue.",
+      `Original user request: ${params.userMessage}`,
+      params.candidateText
+        ? `Do not finalize this direct answer yet: ${this.truncate(params.candidateText, 280)}`
+        : "",
+    ]
+      .filter((line) => line.length > 0)
+      .join("\n");
+  }
+
+  private buildSuggestionClarificationMessage(
+    domain: SuggestionArtifact["domain"] | null,
+  ): string {
+    if (domain === "execute") {
+      return "I can suggest the safest next update before applying any change.";
+    }
+    return "I can suggest the best draft option first based on your context.";
+  }
+
+  private buildSuggestionFailureFallbackMessage(
+    domain: SuggestionArtifact["domain"] | null,
+  ): string {
+    if (domain === "execute") {
+      return "I couldn't prepare a proactive suggestion right now. I can continue with a normal plan once you confirm the exact update.";
+    }
+    return "I couldn't prepare a proactive suggestion right now. I can continue with a normal draft flow if you want me to draft it directly.";
+  }
+
+  private buildSuggestionReadyAcknowledgement(
+    userMessage: string,
+    artifact: SuggestionArtifact,
+  ): string {
+    const language = this.detectLanguageHint(userMessage) || "en";
+    if (language === "fr") {
+      if (artifact.domain === "execute") {
+        return "Je peux préparer un plan de mise à jour ciblé. Voulez-vous continuer ?";
+      }
+      return "Je peux vous aider à créer ce brouillon. Voulez-vous continuer ?";
+    }
+    if (language === "ar") {
+      if (artifact.domain === "execute") {
+        return "يمكنني إعداد خطة تحديث مناسبة. هل تريد المتابعة؟";
+      }
+      return "يمكنني مساعدتك في إنشاء هذه المسودة. هل تريد المتابعة؟";
+    }
+    if (artifact.domain === "execute") {
+      return "I can prepare a targeted plan for this update. Continue?";
+    }
+    return "I can help you create this draft. Continue?";
+  }
+
+  private buildSuggestionDeclineClarificationQuestion(
+    domain: SuggestionArtifact["domain"] | null,
+  ): string {
+    if (domain === "execute") {
+      return "Understood. What exact change should I include in the plan?";
+    }
+    return "Understood. What should I include in the draft?";
+  }
+
+  private buildImplicitSuggestionFallbackArtifact(
+    input: AgentTurnInput,
+    domain: SuggestionArtifact["domain"],
+  ): SuggestionArtifact {
+    const message = String(input.message || "").trim();
+    const language = this.detectLanguageHint(message) || "en";
+
+    if (domain === "draft") {
+      return {
+        version: "v1",
+        domain: "draft",
+        trigger: "implicit_intent",
+        actionType: "draft",
+        targetType: "client_letter",
+        title: "Suggested Draft Next Step",
+        reason:
+          "You implied a drafting request. I prepared a suggested draft path before proceeding directly.",
+        prefillData: {
+          draftType: "client_letter",
+          purpose: "follow_up_on_user_request",
+          tone: "professional",
+          language,
+        },
+      };
+    }
+
+    const lower = message.toLowerCase();
+    const executeAction: SuggestionArtifact["actionType"] = /\b(delete|remove|archive)\b/i.test(lower)
+      ? "delete"
+      : /\b(create|add|open|new)\b/i.test(lower)
+      ? "create"
+      : "update";
+    const targetType = /\b(task|todo|to-do)\b/i.test(lower)
+      ? "task"
+      : /\b(client|customer)\b/i.test(lower)
+      ? "client"
+      : /\b(dossier|case|lawsuit)\b/i.test(lower)
+      ? "dossier"
+      : "task";
+    const operation = executeAction;
+
+    return {
+      version: "v1",
+      domain: "execute",
+      trigger: "implicit_intent",
+      actionType: executeAction,
+      targetType,
+      title: "Suggested Plan Next Step",
+      reason:
+        "You implied an execution update. I prepared a suggested plan path before applying any changes.",
+      prefillData: {
+        operation,
+        entityType: targetType,
+        changes: {
+          request: {
+            to: message || "Proceed with the suggested plan update.",
+          },
+        },
+      },
+    };
+  }
+
+  private extractSuggestionArtifactFromToolResult(
+    result: ToolExecutionResult,
+  ): SuggestionArtifact | null {
+    const data = isRecord(result.data) ? result.data : null;
+    if (!data) {
+      return null;
+    }
+    return this.normalizeSuggestionArtifact(data.artifact);
+  }
+
+  private extractSuggestionArtifactFromToolCallRecord(
+    call: ToolCallRecord,
+  ): SuggestionArtifact | null {
+    const metadata = isRecord(call?.metadata) ? call.metadata : null;
+    if (!metadata) {
+      return null;
+    }
+    return this.normalizeSuggestionArtifact(metadata.suggestionArtifact);
+  }
+
+  private extractLatestSuggestionArtifactFromToolCalls(
+    toolCalls: ToolCallRecord[],
+  ): SuggestionArtifact | null {
+    for (let index = toolCalls.length - 1; index >= 0; index -= 1) {
+      const call = toolCalls[index];
+      if (!call || String(call.toolName || "").trim() !== "suggestAction" || !call.ok) {
+        continue;
+      }
+      const artifact = this.extractSuggestionArtifactFromToolCallRecord(call);
+      if (artifact) {
+        return artifact;
+      }
+    }
+    return null;
+  }
+
+  private normalizeSuggestionArtifact(value: unknown): SuggestionArtifact | null {
+    const row = isRecord(value) ? value : null;
+    if (!row) {
+      return null;
+    }
+
+    const actionType = String(row.actionType || "").trim().toLowerCase();
+    if (
+      actionType !== "draft" &&
+      actionType !== "create" &&
+      actionType !== "update" &&
+      actionType !== "delete"
+    ) {
+      return null;
+    }
+
+    const targetType = String(row.targetType || "").trim();
+    const title = String(row.title || "").trim();
+    const reason = String(row.reason || "").trim();
+    if (!targetType || !title || !reason) {
+      return null;
+    }
+
+    const triggerRaw = String(row.trigger || "").trim().toLowerCase();
+    const trigger: SuggestionArtifact["trigger"] =
+      triggerRaw === "implicit_intent" ? "implicit_intent" : "proactive_context";
+
+    const domainRaw = String(row.domain || "").trim().toLowerCase();
+    const inferredDomain: SuggestionArtifact["domain"] =
+      actionType === "draft" ? "draft" : "execute";
+    const domain: SuggestionArtifact["domain"] =
+      domainRaw === "draft" || domainRaw === "execute"
+        ? (domainRaw as SuggestionArtifact["domain"])
+        : inferredDomain;
+    const normalizedDomain =
+      actionType === "draft" ? "draft" : "execute";
+
+    const prefillData = isRecord(row.prefillData) ? row.prefillData : {};
+    const linkedEntityType = String(row.linkedEntityType || "").trim() || undefined;
+    const linkedEntityId = this.coerceSuggestionEntityId(row.linkedEntityId);
+
+    return {
+      version: "v1",
+      domain: domain === normalizedDomain ? domain : normalizedDomain,
+      trigger,
+      actionType: actionType as SuggestionArtifact["actionType"],
+      targetType,
+      title,
+      reason,
+      ...(linkedEntityType ? { linkedEntityType } : {}),
+      ...(typeof linkedEntityId !== "undefined" ? { linkedEntityId } : {}),
+      prefillData,
+    };
+  }
+
+  private coerceSuggestionEntityId(value: unknown): number | string | undefined {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === "string") {
+      const normalized = value.trim();
+      return normalized.length > 0 ? normalized : undefined;
+    }
+    return undefined;
+  }
+
+  private captureSuggestionFollowUpTelemetry(
+    input: AgentTurnInput,
+    session: Session,
+    audit: AuditRecord[],
+  ): void {
+    if (!this.isSuggestionTelemetryEnabled()) {
+      return;
+    }
+    const state = this.getSuggestionTelemetryState(session);
+    const pending = state.pending;
+    if (!pending) {
+      this.persistSuggestionTelemetryState(session, state);
+      return;
+    }
+    if (pending.turnId === input.turnId) {
+      return;
+    }
+
+    const requestSource = this.resolveRequestSource(input);
+    const now = new Date().toISOString();
+    const accepted = requestSource === "assist_suggestion_cta";
+    if (accepted) {
+      state.counters.accepted += 1;
+      state.lastEvent = {
+        kind: "suggestion_accepted",
+        at: now,
+        turnId: input.turnId,
+        requestSource,
+        domain: pending.domain,
+        actionType: pending.actionType,
+        targetType: pending.targetType,
+      };
+      this.pushAudit(audit, input, "suggestion_accepted", {
+        shownByTurnId: pending.turnId,
+        shownAt: pending.shownAt,
+        requestSource,
+        domain: pending.domain,
+        actionType: pending.actionType,
+        targetType: pending.targetType,
+      });
+    } else {
+      state.counters.dismissed += 1;
+      state.lastEvent = {
+        kind: "suggestion_dismissed",
+        at: now,
+        turnId: input.turnId,
+        requestSource: requestSource || "unknown",
+        domain: pending.domain,
+        actionType: pending.actionType,
+        targetType: pending.targetType,
+      };
+      this.pushAudit(audit, input, "suggestion_dismissed", {
+        shownByTurnId: pending.turnId,
+        shownAt: pending.shownAt,
+        requestSource: requestSource || "unknown",
+        domain: pending.domain,
+        actionType: pending.actionType,
+        targetType: pending.targetType,
+      });
+    }
+
+    delete state.pending;
+    this.persistSuggestionTelemetryState(session, state);
+  }
+
+  private recordSuggestionShown(
+    session: Session,
+    input: AgentTurnInput,
+    audit: AuditRecord[],
+    artifact: SuggestionArtifact,
+  ): void {
+    if (!this.isSuggestionTelemetryEnabled()) {
+      return;
+    }
+    const state = this.getSuggestionTelemetryState(session);
+    const now = new Date().toISOString();
+    state.counters.shown += 1;
+    state.pending = {
+      turnId: input.turnId,
+      shownAt: now,
+      domain: artifact.domain,
+      actionType: artifact.actionType,
+      targetType: artifact.targetType,
+      trigger: artifact.trigger,
+    };
+    state.lastEvent = {
+      kind: "suggestion_shown",
+      at: now,
+      turnId: input.turnId,
+      domain: artifact.domain,
+      actionType: artifact.actionType,
+      targetType: artifact.targetType,
+    };
+    this.persistSuggestionTelemetryState(session, state);
+    this.pushAudit(audit, input, "suggestion_shown", {
+      domain: artifact.domain,
+      actionType: artifact.actionType,
+      targetType: artifact.targetType,
+      trigger: artifact.trigger,
+    });
+  }
+
+  private recordSuggestionFailure(
+    session: Session,
+    input: AgentTurnInput,
+    audit: AuditRecord[],
+    errorCode?: string,
+    domain: SuggestionArtifact["domain"] | null = null,
+  ): void {
+    if (!this.isSuggestionTelemetryEnabled()) {
+      return;
+    }
+    const state = this.getSuggestionTelemetryState(session);
+    const now = new Date().toISOString();
+    state.counters.failures += 1;
+    state.lastEvent = {
+      kind: "suggestion_failed",
+      at: now,
+      turnId: input.turnId,
+      errorCode: String(errorCode || "").trim() || undefined,
+      domain: domain || undefined,
+      requestSource: this.resolveRequestSource(input) || undefined,
+    };
+    this.persistSuggestionTelemetryState(session, state);
+    this.pushAudit(audit, input, "suggestion_failed", {
+      errorCode: String(errorCode || "").trim() || "unknown",
+      domain: domain || undefined,
+    });
+  }
+
+  private recordSuggestionFallback(
+    session: Session,
+    input: AgentTurnInput,
+    audit: AuditRecord[],
+    domain: SuggestionArtifact["domain"] | null,
+    errorCode?: string,
+  ): void {
+    if (!this.isSuggestionTelemetryEnabled()) {
+      return;
+    }
+    const state = this.getSuggestionTelemetryState(session);
+    const now = new Date().toISOString();
+    state.counters.fallback += 1;
+    state.lastEvent = {
+      kind: "suggestion_fallback",
+      at: now,
+      turnId: input.turnId,
+      domain: domain || undefined,
+      errorCode: String(errorCode || "").trim() || undefined,
+    };
+    this.persistSuggestionTelemetryState(session, state);
+    this.pushAudit(audit, input, "suggestion_fallback", {
+      domain: domain || undefined,
+      errorCode: String(errorCode || "").trim() || "unknown",
+    });
+  }
+
+  private snapshotSuggestionTelemetryState(
+    session: Session,
+  ): SuggestionTelemetryState | null {
+    if (!this.isSuggestionTelemetryEnabled()) {
+      return null;
+    }
+    const state = this.getSuggestionTelemetryState(session);
+    return {
+      counters: { ...state.counters },
+      ...(state.pending ? { pending: { ...state.pending } } : {}),
+      ...(state.lastEvent ? { lastEvent: { ...state.lastEvent } } : {}),
+    };
+  }
+
+  private getSuggestionTelemetryState(session: Session): SuggestionTelemetryState {
+    const metadata = isRecord(session.metadata) ? session.metadata : {};
+    const row = isRecord(metadata[SUGGESTION_TELEMETRY_METADATA_KEY])
+      ? (metadata[SUGGESTION_TELEMETRY_METADATA_KEY] as Record<string, unknown>)
+      : {};
+    const counters = isRecord(row.counters) ? row.counters : {};
+    const pendingRow = isRecord(row.pending) ? row.pending : null;
+    const lastEvent = isRecord(row.lastEvent) ? row.lastEvent : null;
+
+    const shown = Number(counters.shown);
+    const accepted = Number(counters.accepted);
+    const dismissed = Number(counters.dismissed);
+    const fallback = Number(counters.fallback);
+    const failures = Number(counters.failures);
+
+    const state: SuggestionTelemetryState = {
+      counters: {
+        shown: Number.isFinite(shown) && shown > 0 ? shown : 0,
+        accepted: Number.isFinite(accepted) && accepted > 0 ? accepted : 0,
+        dismissed: Number.isFinite(dismissed) && dismissed > 0 ? dismissed : 0,
+        fallback: Number.isFinite(fallback) && fallback > 0 ? fallback : 0,
+        failures: Number.isFinite(failures) && failures > 0 ? failures : 0,
+      },
+    };
+
+    const pendingTurnId = String(pendingRow?.turnId || "").trim();
+    const pendingShownAt = String(pendingRow?.shownAt || "").trim();
+    const pendingTargetType = String(pendingRow?.targetType || "").trim();
+    const pendingActionType = String(pendingRow?.actionType || "").trim().toLowerCase();
+    const pendingDomain = String(pendingRow?.domain || "").trim().toLowerCase();
+    const pendingTrigger = String(pendingRow?.trigger || "").trim().toLowerCase();
+    if (
+      pendingTurnId &&
+      pendingShownAt &&
+      pendingTargetType &&
+      (pendingActionType === "draft" ||
+        pendingActionType === "create" ||
+        pendingActionType === "update" ||
+        pendingActionType === "delete") &&
+      (pendingDomain === "draft" || pendingDomain === "execute") &&
+      (pendingTrigger === "implicit_intent" || pendingTrigger === "proactive_context")
+    ) {
+      state.pending = {
+        turnId: pendingTurnId,
+        shownAt: pendingShownAt,
+        domain: pendingDomain as SuggestionArtifact["domain"],
+        actionType: pendingActionType as SuggestionArtifact["actionType"],
+        targetType: pendingTargetType,
+        trigger: pendingTrigger as SuggestionArtifact["trigger"],
+      };
+    }
+
+    if (lastEvent) {
+      const kind = String(lastEvent.kind || "").trim();
+      const at = String(lastEvent.at || "").trim();
+      if (kind && at) {
+        state.lastEvent = {
+          kind:
+            kind === "suggestion_shown" ||
+            kind === "suggestion_accepted" ||
+            kind === "suggestion_dismissed" ||
+            kind === "suggestion_fallback" ||
+            kind === "suggestion_failed"
+              ? (kind as
+                  | "suggestion_shown"
+                  | "suggestion_accepted"
+                  | "suggestion_dismissed"
+                  | "suggestion_fallback"
+                  | "suggestion_failed")
+              : "suggestion_failed",
+          at,
+          turnId: String(lastEvent.turnId || "").trim() || undefined,
+          requestSource: String(lastEvent.requestSource || "").trim() || undefined,
+          errorCode: String(lastEvent.errorCode || "").trim() || undefined,
+          domain:
+            String(lastEvent.domain || "").trim() === "draft" ||
+            String(lastEvent.domain || "").trim() === "execute"
+              ? (String(lastEvent.domain || "").trim() as SuggestionArtifact["domain"])
+              : undefined,
+          actionType:
+            String(lastEvent.actionType || "").trim() === "draft" ||
+            String(lastEvent.actionType || "").trim() === "create" ||
+            String(lastEvent.actionType || "").trim() === "update" ||
+            String(lastEvent.actionType || "").trim() === "delete"
+              ? (String(lastEvent.actionType || "").trim() as SuggestionArtifact["actionType"])
+              : undefined,
+          targetType: String(lastEvent.targetType || "").trim() || undefined,
+        };
+      }
+    }
+
+    return state;
+  }
+
+  private persistSuggestionTelemetryState(
+    session: Session,
+    state: SuggestionTelemetryState,
+  ): void {
+    if (!isRecord(session.metadata)) {
+      session.metadata = {};
+    }
+    session.metadata[SUGGESTION_TELEMETRY_METADATA_KEY] = {
+      counters: { ...state.counters },
+      ...(state.pending ? { pending: { ...state.pending } } : {}),
+      ...(state.lastEvent ? { lastEvent: { ...state.lastEvent } } : {}),
+    };
+  }
+
+  private resolveRequestSource(input: AgentTurnInput): string {
+    const metadata = isRecord(input.metadata) ? input.metadata : {};
+    return String(metadata.requestSource || "").trim();
+  }
+
+  private isSuggestionDeclineRequest(input: AgentTurnInput): boolean {
+    return this.resolveRequestSource(input) === "assist_suggestion_decline";
+  }
+
+  private resolveSuggestionDeclineDomain(
+    session: Session,
+  ): SuggestionArtifact["domain"] | null {
+    const telemetry = this.snapshotSuggestionTelemetryState(session);
+    const domain = String(telemetry?.lastEvent?.domain || "").trim().toLowerCase();
+    if (domain === "draft" || domain === "execute") {
+      return domain as SuggestionArtifact["domain"];
+    }
+    return null;
   }
 
   private hasReadGroundingInCurrentTurn(toolCalls: ToolCallRecord[]): boolean {
@@ -4362,6 +5550,22 @@ export class AgenticLoop {
       draftVersion: draft.version,
     };
 
+    console.info(
+      "[DRAFT_STORAGE_BRIDGE_ATTACHED]",
+      this.safeJsonStringify({
+        sessionId: session.id,
+        turnId: input.turnId,
+        draftType: draft.draftType,
+        draftVersion: draft.version,
+        linkedEntityType: draft.linkedEntityType || null,
+        linkedEntityId:
+          typeof draft.linkedEntityId === "number" && Number.isFinite(draft.linkedEntityId)
+            ? draft.linkedEntityId
+            : null,
+        payloadKeys: Object.keys(payload),
+      }),
+    );
+
     return { args: nextArgs };
   }
 
@@ -4966,6 +6170,7 @@ export class AgenticLoop {
     metadata: Record<string, unknown>,
     warnings: string[],
   ): AgentTurnOutput {
+    const suggestionTelemetry = this.snapshotSuggestionTelemetryState(session);
     return {
       sessionId: session.id,
       turnId: input.turnId,
@@ -4976,6 +6181,7 @@ export class AgenticLoop {
       audit,
       metadata: {
         ...metadata,
+        ...(suggestionTelemetry ? { suggestionTelemetry } : {}),
         ...(warnings.length > 0 ? { outputWarnings: [...new Set(warnings)] } : {}),
       },
     };
@@ -5007,7 +6213,15 @@ export class AgenticLoop {
   private listToolsForScope(authScope: string): Array<Record<string, unknown>> {
     return this.registry
       .list()
-      .filter((tool) => this.permissionGate.evaluate({ authScope }, tool).allowed)
+      .filter((tool) => {
+        if (!this.permissionGate.evaluate({ authScope }, tool).allowed) {
+          return false;
+        }
+        if (tool.name === "suggestAction" && !this.isSuggestionFeatureEnabled()) {
+          return false;
+        }
+        return true;
+      })
       .map((tool) => this.toLLMToolSchema(tool));
   }
 

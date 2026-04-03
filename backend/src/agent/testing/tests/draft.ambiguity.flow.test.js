@@ -11,7 +11,6 @@ test("Draft flow Example 1: vague request asks for dossier + type before draftin
     message: "Draft something for Leila",
     mode: "DRAFT",
     setup(runtime) {
-      const restoreUx = forceLoopProceed(runtime);
       installSyntheticReadTool(runtime, "listClients", async () => ({
         ok: true,
         data: {
@@ -73,7 +72,6 @@ test("Draft flow Example 1: vague request asks for dossier + type before draftin
       ]);
 
       return () => {
-        restoreUx?.();
         restoreLlm?.();
       };
     },
@@ -101,7 +99,6 @@ test("Draft flow guard: French clarification is accepted and loop exits before m
     message: "draft something for leila",
     mode: "DRAFT",
     setup(runtime) {
-      const restoreUx = forceLoopProceed(runtime);
       installSyntheticReadTool(runtime, "listClients", async () => ({
         ok: true,
         data: {
@@ -144,7 +141,6 @@ test("Draft flow guard: French clarification is accepted and loop exits before m
       ]);
 
       return () => {
-        restoreUx?.();
         restoreLlm?.();
       };
     },
@@ -176,7 +172,6 @@ test("Draft flow Example 2: entity clear, type vague suggests document options",
     message: "Draft something for dossier D-51",
     mode: "DRAFT",
     setup(runtime) {
-      const restoreUx = forceLoopProceed(runtime);
       installSyntheticReadTool(runtime, "getEntityGraph", async () => ({
         ok: true,
         data: {
@@ -213,7 +208,6 @@ test("Draft flow Example 2: entity clear, type vague suggests document options",
       ]);
 
       return () => {
-        restoreUx?.();
         restoreLlm?.();
       };
     },
@@ -243,7 +237,6 @@ test("Draft flow Example 3: type clear, entity ambiguous asks which case", async
     message: "Write a letter to the judge for Leila",
     mode: "DRAFT",
     setup(runtime) {
-      const restoreUx = forceLoopProceed(runtime);
       installSyntheticReadTool(runtime, "listClients", async () => ({
         ok: true,
         data: {
@@ -306,7 +299,6 @@ test("Draft flow Example 3: type clear, entity ambiguous asks which case", async
       ]);
 
       return () => {
-        restoreUx?.();
         restoreLlm?.();
       };
     },
@@ -334,7 +326,6 @@ test("Draft flow Example 4: type + entity clear asks missing postponement reason
     message: "Write a postponement letter for Leila's commercial case",
     mode: "DRAFT",
     setup(runtime) {
-      const restoreUx = forceLoopProceed(runtime);
       installSyntheticReadTool(runtime, "listClients", async () => ({
         ok: true,
         data: {
@@ -389,7 +380,6 @@ test("Draft flow Example 4: type + entity clear asks missing postponement reason
       ]);
 
       return () => {
-        restoreUx?.();
         restoreLlm?.();
       };
     },
@@ -420,7 +410,6 @@ test("Draft flow Example 5: clear entity + type + reason generates draft", async
       "Write a postponement letter for Leila's commercial case. The client needs more time to gather financial documents.",
     mode: "DRAFT",
     setup(runtime) {
-      const restoreUx = forceLoopProceed(runtime);
       installSyntheticReadTool(runtime, "listClients", async () => ({
         ok: true,
         data: {
@@ -513,7 +502,6 @@ test("Draft flow Example 5: clear entity + type + reason generates draft", async
       ]);
 
       return () => {
-        restoreUx?.();
         restoreLlm?.();
       };
     },
@@ -587,33 +575,5 @@ function queueLlmResponses(runtime, responses) {
 
   return () => {
     llm.generate = original;
-  };
-}
-
-function forceLoopProceed(runtime) {
-  return patchMethod(runtime?.ux, "evaluatePreLoop", () => ({
-    handled: false,
-    action: "proceed",
-    metadata: {
-      uxDecision: {
-        action: "proceed_with_ambiguity",
-        posture: "clarification",
-        ambiguityKind: "unclear_reference",
-        ambiguityConfidence: "medium",
-        workflowType: "none",
-        reason: "Draft flow ambiguity should be resolved with READ tools first.",
-      },
-    },
-  }));
-}
-
-function patchMethod(target, methodName, replacement) {
-  if (!target || typeof target[methodName] !== "function") {
-    return null;
-  }
-  const original = target[methodName];
-  target[methodName] = replacement;
-  return () => {
-    target[methodName] = original;
   };
 }

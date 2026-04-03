@@ -88,6 +88,15 @@ async function gateway(req: AgentRequest): Promise<GatewayResult> {
 }
 ```
 
+### 3.1.1 Current v2 Transport Semantics (Authoritative)
+
+The active runtime no longer has a pre-LLM UX gate.
+
+- Valid turns are routed directly to `runtime.loop.run(...)`.
+- Transport still attaches `metadata.uxDecision` with a deterministic bypass reason for trace compatibility.
+- Transport logs `AGENT_V2_UX_PREFLIGHT_BYPASSED` for each valid streamed turn.
+- Only transport/security checks can block before loop execution (invalid payload, auth scope, rate limit, safe-mode disable).
+
 ### 3.2 Turn Classifier
 
 **Responsibility**: Determine if this message can be handled without a full LLM call.
@@ -489,6 +498,19 @@ sess-001   │  2   │ tool_call      │ { tool: "getEntityGraph", params: {..
 ```
 
 Data is stored in SQLite. Full tool outputs are stored for recent entries, then compressed to summaries after 24 hours.
+
+### 9.1 Operator Diagnostics for Preflight Bypass
+
+Use the following log/event behavior as the source of truth for debugging pre-loop behavior:
+
+- `AGENT_V2_STREAM_TURN_START`: request reached transport and passed parsing/sanitization.
+- `AGENT_V2_UX_PREFLIGHT_BYPASSED`: transport attached bypass metadata and handed off to loop.
+  - `action` should be `proceed`.
+  - `reason` should describe direct routing to the agentic loop.
+- Absence of `AGENT_V2_UX_PREFLIGHT_BYPASSED` with an SSE `error` event indicates a transport/security gate blocked execution before loop.
+- Ambiguity handling is loop/tool-driven:
+  - Draft ambiguity guards are enforced inside `agentic.loop.ts`.
+  - SSE `disambiguation` events are derived from loop/tool outputs and candidate pools, not a transport preflight response.
 
 ## 10. Error Recovery
 

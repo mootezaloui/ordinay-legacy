@@ -21,7 +21,7 @@ Current status confirmed in code:
 - PLAN tools must only propose; they must never mutate DB directly.
 - EXECUTE stays internal to confirmation handling; the LLM must not directly execute side effects.
 - Keep mutation mapping centralized in one executor service (`entity.executor.ts`), not spread across tools.
-- Reuse existing frontend artifact system where possible (`proposal`, `assist_suggestions`) before creating new UI frameworks.
+- Reuse existing frontend artifact system where possible (`proposal`) before creating new UI frameworks.
 - Prefer extending current session/pending structures over adding new persistence tables.
 - Keep mode/permission policy explicit and small; avoid hidden heuristics.
 
@@ -38,8 +38,6 @@ Current status confirmed in code:
 7. On reject, pending is cleared, emits `plan_rejected`.
 8. On amend, LLM reproposes and replaces pending action.
 
-Proactive suggestions are optional in MVP, but can be included if done via one lightweight contract (`suggestAction` -> `suggestion_artifact`).
-
 ---
 
 ## Phase Checklist
@@ -47,12 +45,10 @@ Proactive suggestions are optional in MVP, but can be included if done via one l
 ## Phase 0 - Contract Freeze
 
 - [x] Finalize event contracts for v2 stream:
-  - `suggestion_artifact` (optional for MVP)
   - `plan_artifact`
   - `plan_executed`
   - `plan_rejected`
 - [x] Finalize pending action envelope shape in `src/agent/types.ts` (what data PLAN must persist for EXECUTE).
-- [x] Decide whether to add `ToolCategory.SYSTEM` (recommended if `suggestAction` is included).
 - [x] Freeze entity operation format for executor input (`operation`, `entityType`, `payload`, `changes`, etc.).
 
 Definition of done:
@@ -62,16 +58,14 @@ Definition of done:
 
 ### Phase 0 Frozen Decisions
 
-1. `ToolCategory.SYSTEM` is approved and reserved for non-mutating meta-tools (starting with `suggestAction`).
-2. PLAN remains the only LLM entrypoint for DB mutation intent:
+1. PLAN remains the only LLM entrypoint for DB mutation intent:
    - LLM calls `proposeCreate` / `proposeUpdate` / `proposeDelete`.
    - Confirmation path performs execution internally (no direct LLM EXECUTE tool call).
-3. Stream event names are frozen as:
-   - `suggestion_artifact`
+2. Stream event names are frozen as:
    - `plan_artifact`
    - `plan_executed`
    - `plan_rejected`
-4. Pending action must carry a normalized operation snapshot (not only free-form args) so confirm/amend/retry all work deterministically.
+3. Pending action must carry a normalized operation snapshot (not only free-form args) so confirm/amend/retry all work deterministically.
 
 ---
 
@@ -80,9 +74,8 @@ Definition of done:
 - [x] Update `src/agent/types.ts`:
   - [x] Extend `PendingAction` with structured plan payload (not only summary + raw args).
   - [x] Add typed plan artifact payload type.
-  - [x] Add typed suggestion artifact payload type (if included).
 - [x] Update `src/agent/tools/tool.types.ts`:
-  - [x] Add `ToolCategory.SYSTEM` if `suggestAction` is implemented.
+  - [x] Keep category contracts aligned with active PLAN/EXECUTE flow.
 - [x] Update persistence rebuild helpers:
   - [x] `src/agent/persistence/session.repository.utils.js`
   - [x] `src/agent/persistence/session.repository.js`
@@ -106,9 +99,6 @@ Definition of done:
 - [x] Implement entity schema/normalization:
   - [x] `src/agent/tools/plan/entity.schemas.ts`
   - [x] Validation of required fields, enum safety, and ID types.
-- [ ] Optional proactive suggestion tool:
-  - [ ] `src/agent/tools/system/suggestAction.tool.ts`
-  - [ ] `src/agent/tools/system/index.ts`
 
 Definition of done:
 
@@ -121,7 +111,6 @@ Definition of done:
 
 - [x] Update `src/agent/transport/runtime.factory.ts`:
   - [x] Load and register PLAN tools.
-  - [x] Load and register SYSTEM suggestion tool (if included).
 - [x] Update `src/agent/safety/permission.gate.ts`:
   - [x] Explicit mode matrix for READ, DRAFT, PLAN, EXECUTE, SYSTEM.
   - [x] Keep READ_ONLY strict (no PLAN/EXECUTE).
@@ -142,9 +131,6 @@ Definition of done:
   - [x] Emit `plan_artifact` via stream callbacks/emitter.
   - [x] Keep AMENDMENT replacement behavior with `replacedPendingActionId`.
 - [x] Add loop callbacks for new artifact events.
-- [ ] If suggestion is included:
-  - [ ] Handle `ToolCategory.SYSTEM` call for `suggestAction`.
-  - [ ] Emit `suggestion_artifact` without creating pending action.
 - [x] Keep existing DRAFT guard flow unchanged.
 
 Definition of done:
@@ -183,9 +169,6 @@ Definition of done:
 - [x] Add PLAN usage rules:
   - [x] Use PLAN tools for create/update/delete.
   - [x] Never execute mutation without user confirmation.
-- [ ] If suggestion tool is enabled:
-  - [ ] Add one-suggestion-per-turn rule.
-  - [ ] Enforce specific, contextual suggestions only.
 
 Definition of done:
 
@@ -199,12 +182,11 @@ Definition of done:
   - [x] `src/agent/transport/sse.handler.ts` forwards new artifact callbacks.
   - [x] `src/agent/transport/stream.emitter.ts` supports new event types.
 - [x] Frontend stream parser:
-  - [x] `frontend/src/services/api/agent.ts` handles `plan_artifact`, `plan_executed`, `plan_rejected`, `suggestion_artifact`.
+  - [x] `frontend/src/services/api/agent.ts` handles `plan_artifact`, `plan_executed`, `plan_rejected`.
 - [x] Frontend state mapping:
   - [x] `frontend/src/Agent_front/hooks/useAgentState.ts` maps events to UI message data.
 - [x] UI rendering strategy (recommended minimal path):
   - [x] Reuse `ProposalArtifact` for plan confirmation.
-  - [x] Reuse `AssistSuggestions` (or minimal new card) for proactive suggestions.
 
 Definition of done:
 
@@ -221,7 +203,6 @@ Definition of done:
   - [x] Rejection clears pending.
   - [x] Amendment replaces pending.
   - [x] Mode restrictions.
-  - [x] One suggestion per turn (if enabled) - N/A in current MVP scope (suggestAction not enabled).
 - [x] Extend scenario fixtures in `src/agent/testing/scenario.fixtures.js`.
 - [x] Add stream-level event assertions in v2 tests.
 - [x] Run:
@@ -266,19 +247,6 @@ type PendingActionEnvelope = {
       fields?: Array<{ key: string; from?: unknown; to?: unknown }>;
       warnings?: string[];
     };
-  };
-};
-
-type SuggestionArtifactEvent = {
-  type: "suggestion_artifact";
-  artifact: {
-    actionType: "draft" | "create" | "update" | "delete";
-    targetType: string;
-    title: string;
-    reason: string;
-    linkedEntityType?: string;
-    linkedEntityId?: number;
-    prefillData?: Record<string, unknown>;
   };
 };
 
@@ -328,4 +296,3 @@ Before starting implementation:
 
 - [x] Phase 0 contract freeze completed.
 - [ ] All file paths in this plan still match current repository.
-- [ ] Team agrees on MVP vs optional suggestion scope.

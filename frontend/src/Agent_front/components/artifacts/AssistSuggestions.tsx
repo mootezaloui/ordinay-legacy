@@ -1,66 +1,32 @@
-import { Sparkles, PlusCircle, FileText, StickyNote, PenLine, Trash2 } from "lucide-react";
+import { Check, Sparkles, X } from "lucide-react";
 import type { AssistSuggestionsOutput, AssistSuggestionItem } from "../../../services/api/agent";
+import {
+  resolveAssistSuggestionQuestion,
+  resolveSuggestionActionMeta,
+} from "../../utils/suggestionHelpers";
 
 interface AssistSuggestionsProps {
   data: AssistSuggestionsOutput;
   onDismiss?: () => void;
-  onAction?: (label: string) => void;
+  onAccept?: (suggestion: AssistSuggestionItem) => void;
+  onDecline?: (suggestion: AssistSuggestionItem) => void;
 }
 
-const ACTION_TYPE_META: Record<string, { label: string; color: string }> = {
-  CREATE_ENTITY: { label: "Create", color: "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30" },
-  ADD_NOTE: { label: "Add Note", color: "text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/30" },
-  GENERATE_DOCUMENT: { label: "Generate", color: "text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/30" },
-  ENRICH_FIELD: { label: "Complete", color: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30" },
-  DELETE_ENTITY: { label: "Delete", color: "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30" },
-};
-
-function ActionIcon({ actionType }: { actionType: string }) {
-  const cls = "w-4 h-4 shrink-0";
-  if (actionType === "CREATE_ENTITY") return <PlusCircle className={cls} />;
-  if (actionType === "ADD_NOTE") return <StickyNote className={cls} />;
-  if (actionType === "GENERATE_DOCUMENT") return <FileText className={cls} />;
-  if (actionType === "ENRICH_FIELD") return <PenLine className={cls} />;
-  if (actionType === "DELETE_ENTITY") return <Trash2 className={cls} />;
-  return <Sparkles className={cls} />;
-}
-
-function SuggestionCard({ suggestion, onAction }: { suggestion: AssistSuggestionItem; onAction?: (label: string) => void }) {
-  const meta = ACTION_TYPE_META[suggestion.actionType] || { label: suggestion.actionType, color: "text-slate-600 bg-slate-50" };
-  return (
-    <div className="flex items-start gap-3 py-3 border-b border-slate-100 dark:border-slate-700/50 last:border-0">
-      <div className="mt-0.5 text-amber-500 dark:text-amber-400">
-        <ActionIcon actionType={suggestion.actionType} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-medium text-slate-800 dark:text-slate-100 leading-snug">
-            {suggestion.label}
-          </span>
-          <span className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${meta.color}`}>
-            {meta.label}
-          </span>
-        </div>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
-          {suggestion.reason}
-        </p>
-      </div>
-      {onAction && (
-        <button
-          type="button"
-          onClick={() => onAction(suggestion.label)}
-          className="shrink-0 mt-0.5 text-xs font-medium px-2.5 py-1 rounded-md bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors"
-        >
-          Do it
-        </button>
-      )}
-    </div>
-  );
-}
-
-export function AssistSuggestions({ data, onDismiss, onAction }: AssistSuggestionsProps) {
+export function AssistSuggestions({
+  data,
+  onDismiss,
+  onAccept,
+  onDecline,
+}: AssistSuggestionsProps) {
   const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
   if (suggestions.length === 0) return null;
+
+  const suggestion = suggestions[0];
+  const meta = resolveSuggestionActionMeta(suggestion);
+  const question = resolveAssistSuggestionQuestion(suggestion);
+  const decision = suggestion.decision === "accepted" || suggestion.decision === "declined"
+    ? suggestion.decision
+    : null;
 
   return (
     <div className="artifact-build agent-artifact-card is-assist">
@@ -68,14 +34,15 @@ export function AssistSuggestions({ data, onDismiss, onAction }: AssistSuggestio
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-amber-500 dark:text-amber-400" />
           <span className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-            Suggested Actions
+            Suggestion
           </span>
-          <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">
-            {suggestions.length} suggestion{suggestions.length !== 1 ? "s" : ""}
+          <span className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${meta.color}`}>
+            {meta.label}
           </span>
         </div>
         {onDismiss && (
           <button
+            type="button"
             onClick={onDismiss}
             className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
           >
@@ -83,10 +50,44 @@ export function AssistSuggestions({ data, onDismiss, onAction }: AssistSuggestio
           </button>
         )}
       </div>
-      <div className="px-4 py-1">
-        {suggestions.map((suggestion, idx) => (
-          <SuggestionCard key={idx} suggestion={suggestion} onAction={onAction} />
-        ))}
+      <div className="px-4 py-3 space-y-3">
+        <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">
+          {question}
+        </p>
+        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+          {suggestion.reason}
+        </p>
+        {decision ? (
+          decision === "accepted" ? (
+            <div className="rounded-md border border-emerald-200/80 bg-emerald-50 px-3 py-2 flex items-center gap-1.5 text-xs font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
+              <Check className="h-3.5 w-3.5 shrink-0" />
+              {suggestion.domain === "execute" ? "Action started" : "Draft generation started"}
+            </div>
+          ) : (
+            <div className="rounded-md border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+              Declined
+            </div>
+          )
+        ) : (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onAccept?.(suggestion)}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition-colors"
+            >
+              <Check className="h-4 w-4" />
+              Yes
+            </button>
+            <button
+              type="button"
+              onClick={() => onDecline?.(suggestion)}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 transition-colors"
+            >
+              <X className="h-4 w-4" />
+              No
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

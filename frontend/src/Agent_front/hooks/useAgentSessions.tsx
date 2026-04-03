@@ -205,6 +205,11 @@ interface AgentSessionsContextValue {
   deleteSession: (id: string) => void;
   renameSession: (id: string, title: string) => void;
   updateSessionMessages: (id: string, messages: AgentMessage[]) => void;
+  updateSessionMessageById: (
+    sessionId: string,
+    messageId: string,
+    updater: (message: AgentMessage) => AgentMessage,
+  ) => void;
   updateSessionDraft: (id: string, draft: string) => void;
 
   // Folder actions
@@ -235,6 +240,29 @@ const AgentSessionsContext = createContext<
   AgentSessionsContextValue | undefined
 >(undefined);
 
+function buildSessionWithMessages(
+  session: AgentSession,
+  messages: AgentMessage[],
+): AgentSession {
+  const userMessages = messages.filter((m) => m.role === "user");
+  const lastUserMessage = userMessages[userMessages.length - 1];
+  let title = session.title;
+  if (title === "New Conversation" && userMessages.length > 0) {
+    const firstUserMsg = userMessages[0].content;
+    title = firstUserMsg.slice(0, 50) + (firstUserMsg.length > 50 ? "..." : "");
+  }
+
+  return {
+    ...session,
+    messages,
+    messageCount: messages.length,
+    lastMessage: lastUserMessage?.content || "",
+    timestamp: new Date(),
+    updatedAt: new Date(),
+    title,
+  };
+}
+
 // ============================================================================
 // Provider Component
 // ============================================================================
@@ -248,6 +276,16 @@ export function AgentSessionsProvider({ children }: { children: ReactNode }) {
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const foldersTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestSessionsRef = useRef<AgentSession[]>(sessions);
+  const latestFoldersRef = useRef<AgentFolder[]>(folders);
+
+  useEffect(() => {
+    latestSessionsRef.current = sessions;
+  }, [sessions]);
+
+  useEffect(() => {
+    latestFoldersRef.current = folders;
+  }, [folders]);
 
   // Persist on change (debounced to 1 save per second)
   useEffect(() => {
@@ -269,6 +307,21 @@ export function AgentSessionsProvider({ children }: { children: ReactNode }) {
       if (foldersTimerRef.current) clearTimeout(foldersTimerRef.current);
     };
   }, [folders]);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      if (foldersTimerRef.current) {
+        clearTimeout(foldersTimerRef.current);
+        foldersTimerRef.current = null;
+      }
+      saveSessions(latestSessionsRef.current);
+      saveFolders(latestFoldersRef.current);
+    };
+  }, []);
 
   const activeSession = sessions.find((s) => s.id === activeSessionId);
 
@@ -328,29 +381,41 @@ export function AgentSessionsProvider({ children }: { children: ReactNode }) {
 
   const updateSessionMessages = useCallback(
     (id: string, messages: AgentMessage[]) => {
-      setSessions((prev) =>
-        prev.map((s) => {
+      setSessions((prev) => {
+        const next = prev.map((s) => {
           if (s.id !== id) return s;
-          const userMessages = messages.filter((m) => m.role === "user");
-          const lastUserMessage = userMessages[userMessages.length - 1];
-          let title = s.title;
-          if (title === "New Conversation" && userMessages.length > 0) {
-            const firstUserMsg = userMessages[0].content;
-            title =
-              firstUserMsg.slice(0, 50) +
-              (firstUserMsg.length > 50 ? "..." : "");
-          }
-          return {
-            ...s,
-            messages,
-            messageCount: messages.length,
-            lastMessage: lastUserMessage?.content || "",
-            timestamp: new Date(),
-            updatedAt: new Date(),
-            title,
-          };
-        }),
-      );
+          return buildSessionWithMessages(s, messages);
+        });
+        latestSessionsRef.current = next;
+        return next;
+      });
+    },
+    [],
+  );
+
+  const updateSessionMessageById = useCallback(
+    (
+      sessionId: string,
+      messageId: string,
+      updater: (message: AgentMessage) => AgentMessage,
+    ) => {
+      setSessions((prev) => {
+        const next = prev.map((session) => {
+          if (session.id !== sessionId) return session;
+
+          let touched = false;
+          const nextMessages = session.messages.map((message) => {
+            if (message.id !== messageId) return message;
+            touched = true;
+            return updater(message);
+          });
+
+          if (!touched) return session;
+          return buildSessionWithMessages(session, nextMessages);
+        });
+        latestSessionsRef.current = next;
+        return next;
+      });
     },
     [],
   );
@@ -576,6 +641,7 @@ export function AgentSessionsProvider({ children }: { children: ReactNode }) {
     deleteSession,
     renameSession,
     updateSessionMessages,
+    updateSessionMessageById,
     updateSessionDraft,
     createFolder,
     deleteFolder,

@@ -164,14 +164,22 @@ export interface PendingActionPlan {
   preview?: PlanPreview;
 }
 
+export type SuggestionArtifactVersion = "v1";
+export type SuggestionArtifactDomain = "draft" | "execute";
+export type SuggestionArtifactTrigger = "implicit_intent" | "proactive_context";
+export type SuggestionArtifactAction = "draft" | "create" | "update" | "delete";
+
 export interface SuggestionArtifact {
-  actionType: "draft" | "create" | "update" | "delete";
+  version: SuggestionArtifactVersion;
+  domain: SuggestionArtifactDomain;
+  trigger: SuggestionArtifactTrigger;
+  actionType: SuggestionArtifactAction;
   targetType: string;
   title: string;
   reason: string;
   linkedEntityType?: string;
-  linkedEntityId?: number;
-  prefillData?: Record<string, unknown>;
+  linkedEntityId?: number | string;
+  prefillData: Record<string, unknown>;
 }
 
 export interface PlanArtifact {

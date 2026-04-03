@@ -19,6 +19,8 @@ import type {
   CollectionItem,
   AgentRequestMetadata,
   ChatContextSummaryOutput,
+  AssistSuggestionItem,
+  AssistSuggestionsOutput,
 } from "../../services/api/agent";
 import {
   cancelDocumentGenerationPreview,
@@ -46,6 +48,11 @@ import { AssistSuggestions } from "./artifacts/AssistSuggestions";
 import { ChatbotMutationStatus } from "./chatbot/ChatbotMutationStatus";
 import { MarkdownOutput } from "../../components/MarkdownOutput";
 import { useAgentSessions } from "../hooks/useAgentSessions";
+import { apiClient } from "../../services/api/client";
+import {
+  resolveAssistSuggestionDeclinePrompt,
+  resolveAssistSuggestionPrompt,
+} from "../utils/suggestionHelpers";
 
 // Staged message renderers
 import { AckMessage } from "./messages/AckMessage";
@@ -122,6 +129,351 @@ function coerceSuggestionEntityId(suggestion: {
   return null;
 }
 
+function isSameAssistSuggestion(
+  left: AssistSuggestionItem,
+  right: AssistSuggestionItem,
+): boolean {
+  const fields: Array<keyof AssistSuggestionItem> = [
+    "actionType",
+    "targetEntityType",
+    "sourceEntityType",
+    "sourceEntityId",
+    "label",
+    "reason",
+    "followUpPrompt",
+    "domain",
+  ];
+  return fields.every((field) => String(left?.[field] ?? "") === String(right?.[field] ?? ""));
+}
+
+function applySuggestionDecision(
+  data: AssistSuggestionsOutput | undefined,
+  suggestion: AssistSuggestionItem,
+  decision: "accepted" | "declined",
+): AssistSuggestionsOutput | undefined {
+  if (!data || !Array.isArray(data.suggestions) || data.suggestions.length === 0) {
+    return data;
+  }
+  const actedAt = new Date().toISOString();
+  let matched = false;
+  const nextSuggestions = data.suggestions.map((item, index) => {
+    if (item.decision === "accepted" || item.decision === "declined") {
+      return item;
+    }
+    const isMatch = isSameAssistSuggestion(item, suggestion);
+    if (isMatch) {
+      matched = true;
+      return { ...item, decision, decisionAt: actedAt };
+    }
+    if (!matched && index === 0) {
+      matched = true;
+      return { ...item, decision, decisionAt: actedAt };
+    }
+    return item;
+  });
+  return { ...data, suggestions: nextSuggestions };
+}
+
+type DraftExportSnapshot = {
+  draftType: string;
+  title: string;
+  subtitle?: string;
+  metadata?: Record<string, string>;
+  sections: import("../../services/api/agent").DraftSectionData[];
+  layout: import("../../services/api/agent").DraftLayoutData;
+  linkedEntityType?: string;
+  linkedEntityId?: number;
+  version?: number;
+  content?: string;
+};
+
+type DraftLinkedEntityType =
+  | "client"
+  | "dossier"
+  | "lawsuit"
+  | "mission"
+  | "task"
+  | "session"
+  | "personal_task"
+  | "financial_entry"
+  | "officer";
+
+const DRAFT_ENTITY_LOOKUP: Record<
+  DraftLinkedEntityType,
+  { path: string; parentIdField: string; labelFields: string[] }
+> = {
+  client: {
+    path: "/clients",
+    parentIdField: "client_id",
+    labelFields: ["name", "full_name", "display_name"],
+  },
+  dossier: {
+    path: "/dossiers",
+    parentIdField: "dossier_id",
+    labelFields: ["reference", "title", "name"],
+  },
+  lawsuit: {
+    path: "/lawsuits",
+    parentIdField: "lawsuit_id",
+    labelFields: ["lawsuit_number", "reference", "title", "name"],
+  },
+  mission: {
+    path: "/missions",
+    parentIdField: "mission_id",
+    labelFields: ["title", "name"],
+  },
+  task: {
+    path: "/tasks",
+    parentIdField: "task_id",
+    labelFields: ["title", "name", "subject"],
+  },
+  session: {
+    path: "/sessions",
+    parentIdField: "session_id",
+    labelFields: ["title", "name", "session_number"],
+  },
+  personal_task: {
+    path: "/personal-tasks",
+    parentIdField: "personal_task_id",
+    labelFields: ["title", "name", "subject"],
+  },
+  financial_entry: {
+    path: "/financial",
+    parentIdField: "financial_entry_id",
+    labelFields: ["description", "title", "reference", "label"],
+  },
+  officer: {
+    path: "/officers",
+    parentIdField: "officer_id",
+    labelFields: ["name", "full_name", "display_name"],
+  },
+};
+
+function asPositiveInteger(value: unknown): number | null {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  if (!Number.isInteger(parsed) || parsed <= 0) return null;
+  return parsed;
+}
+
+function normalizeLinkedEntityType(value: unknown): DraftLinkedEntityType | null {
+  const raw = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  if (!raw) return null;
+  if (raw === "case" || raw === "proces" || raw === "lawsuit_case") return "lawsuit";
+  if (raw === "personaltask") return "personal_task";
+  if (raw === "financialentry") return "financial_entry";
+  if (raw in DRAFT_ENTITY_LOOKUP) {
+    return raw as DraftLinkedEntityType;
+  }
+  return null;
+}
+
+function normalizeLookupText(value: unknown): string {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function normalizeMetadataKey(value: string): string {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function resolveDraftTargetLabelFromMetadata(
+  metadata: Record<string, string> | undefined,
+  entityType: DraftLinkedEntityType,
+): string {
+  const entries = Object.entries(metadata || {});
+  if (entries.length === 0) return "";
+
+  const targetKey = normalizeMetadataKey(entityType);
+  const exact = entries.find(([key, val]) => {
+    return (
+      normalizeMetadataKey(key) === targetKey && String(val || "").trim().length > 0
+    );
+  });
+  if (exact) return String(exact[1] || "").trim();
+
+  const compatible = entries.find(([key, val]) => {
+    const normalized = normalizeMetadataKey(key);
+    return normalized.includes(targetKey) && String(val || "").trim().length > 0;
+  });
+  if (compatible) return String(compatible[1] || "").trim();
+
+  const fallback = entries.find(([, val]) => String(val || "").trim().length > 0);
+  return fallback ? String(fallback[1] || "").trim() : "";
+}
+
+function resolveDraftContent(snapshot: DraftExportSnapshot): string {
+  const direct = String(snapshot.content || "").trim();
+  if (direct.length > 0) return direct;
+
+  if (!Array.isArray(snapshot.sections)) return "";
+  return snapshot.sections
+    .map((section) => String(section?.text || "").trim())
+    .filter(Boolean)
+    .join("\n\n")
+    .trim();
+}
+
+function sanitizeDraftFileName(value: string): string {
+  const base = String(value || "")
+    .trim()
+    .replace(/[<>:"/\\|?*]/g, "-")
+    .replace(/\s+/g, " ")
+    .replace(/[. ]+$/g, "")
+    .slice(0, 120);
+  return base || "Draft";
+}
+
+function textToBase64(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  const chunkSize = 0x8000;
+  let binary = "";
+
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+
+  return btoa(binary);
+}
+
+async function resolveLinkedEntityId(snapshot: DraftExportSnapshot): Promise<number | null> {
+  const linkedEntityId = asPositiveInteger(snapshot.linkedEntityId);
+  if (linkedEntityId) return linkedEntityId;
+
+  const linkedEntityType = normalizeLinkedEntityType(snapshot.linkedEntityType);
+  if (!linkedEntityType) return null;
+
+  const lookup = DRAFT_ENTITY_LOOKUP[linkedEntityType];
+  const targetLabel = resolveDraftTargetLabelFromMetadata(
+    snapshot.metadata,
+    linkedEntityType,
+  );
+  if (!targetLabel) return null;
+
+  const normalizedTarget = normalizeLookupText(targetLabel);
+  const rows = await apiClient.get<Array<Record<string, unknown>>>(lookup.path);
+  const candidates = Array.isArray(rows) ? rows : [];
+
+  const findIdFromRow = (row: Record<string, unknown>): number | null => {
+    const id = asPositiveInteger(row.id);
+    if (!id) return null;
+    const labels = lookup.labelFields
+      .map((field) => normalizeLookupText(row[field]))
+      .filter(Boolean);
+    if (labels.some((label) => label === normalizedTarget)) return id;
+    return null;
+  };
+
+  for (const row of candidates) {
+    const id = findIdFromRow(row);
+    if (id) return id;
+  }
+
+  for (const row of candidates) {
+    const id = asPositiveInteger(row.id);
+    if (!id) continue;
+    const labels = lookup.labelFields
+      .map((field) => normalizeLookupText(row[field]))
+      .filter(Boolean);
+    if (labels.some((label) => label.includes(normalizedTarget) || normalizedTarget.includes(label))) {
+      return id;
+    }
+  }
+
+  return null;
+}
+
+async function persistDraftSnapshotDocument(
+  messageId: string,
+  snapshot: DraftExportSnapshot,
+): Promise<{
+  documentId: number;
+  linkedEntityType: DraftLinkedEntityType;
+  linkedEntityId: number;
+}> {
+  const linkedEntityType = normalizeLinkedEntityType(snapshot.linkedEntityType);
+  if (!linkedEntityType) {
+    throw new Error("Draft has no linked entity type.");
+  }
+
+  const linkedEntityId = await resolveLinkedEntityId(snapshot);
+  if (!linkedEntityId) {
+    throw new Error("Draft target could not be resolved to a concrete entity ID.");
+  }
+
+  const content = resolveDraftContent(snapshot);
+  if (!content) {
+    throw new Error("Draft content is empty.");
+  }
+
+  const title = String(snapshot.title || "Draft").trim() || "Draft";
+  const fileName = `${sanitizeDraftFileName(title)}.txt`;
+  const mimeType = "text/plain";
+  const sizeBytes = new TextEncoder().encode(content).byteLength;
+  const uploadPayload = {
+    filename: fileName,
+    mime_type: mimeType,
+    size_bytes: sizeBytes,
+    data_base64: textToBase64(content),
+  };
+
+  const uploadResult = await apiClient.post<{
+    file_path?: string;
+    mime_type?: string;
+    size_bytes?: number;
+  }>("/documents/upload", uploadPayload);
+  const filePath = String(uploadResult?.file_path || "").trim();
+  if (!filePath) {
+    throw new Error("Draft file upload returned no file path.");
+  }
+
+  const lookup = DRAFT_ENTITY_LOOKUP[linkedEntityType];
+  const createPayload: Record<string, unknown> = {
+    title,
+    original_filename: fileName,
+    file_path: filePath,
+    mime_type: String(uploadResult?.mime_type || mimeType),
+    size_bytes:
+      typeof uploadResult?.size_bytes === "number" && Number.isFinite(uploadResult.size_bytes)
+        ? uploadResult.size_bytes
+        : sizeBytes,
+    notes: snapshot.draftType
+      ? `Generated draft (${String(snapshot.draftType).replace(/_/g, " ")})`
+      : "Generated draft",
+  };
+  createPayload[lookup.parentIdField] = linkedEntityId;
+
+  const created = await apiClient.post<{ id?: number | string }>("/documents", createPayload);
+  const documentId = asPositiveInteger(created?.id);
+  if (!documentId) {
+    throw new Error("Document was created without a valid ID.");
+  }
+
+  console.info("[DRAFT_EXPORT_PERSIST_SUCCESS]", {
+    messageId,
+    documentId,
+    linkedEntityType,
+    linkedEntityId,
+    title,
+    filePath,
+  });
+
+  return {
+    documentId,
+    linkedEntityType,
+    linkedEntityId,
+  };
+}
+
 interface AgentWorkflowProps {
   message: AgentMessage;
   onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
@@ -150,14 +502,92 @@ export function AgentWorkflow({
   onConfirmWebSearch,
   onSubmitMessage,
 }: AgentWorkflowProps) {
-  const { activeSessionId, activeSession, updateSessionMessages } =
+  const {
+    activeSessionId,
+    activeSession,
+    updateSessionMessages,
+    updateSessionMessageById,
+  } =
     useAgentSessions();
+  const onSubmitMessageRef = useRef(onSubmitMessage);
+  onSubmitMessageRef.current = onSubmitMessage;
   const isStreaming = message.status === "sending";
   const isError = message.status === "error";
   const isComplete = message.status === "success";
   const hasContent = !!(message.content && message.content.length > 0);
   const hasData = !!message.data;
   const hasStructuredResult = hasData && message.data?.type !== "error";
+  const resolveSuggestionDecision = (
+    suggestion: AssistSuggestionItem,
+    decision: "accepted" | "declined",
+  ) => {
+    if (!activeSessionId || !updateSessionMessageById) return;
+    updateSessionMessageById(activeSessionId, message.id, (current) => {
+      const nextProactiveSuggestions = applySuggestionDecision(
+        current.proactiveSuggestions,
+        suggestion,
+        decision,
+      );
+      const hasAssistSuggestions =
+        current.data?.type === "assist_suggestions" && Boolean(current.data.assistSuggestions);
+      const nextData = hasAssistSuggestions
+        ? {
+            ...current.data,
+            assistSuggestions: applySuggestionDecision(
+              current.data.assistSuggestions,
+              suggestion,
+              decision,
+            ),
+          }
+        : current.data;
+
+      return {
+        ...current,
+        proactiveSuggestions: nextProactiveSuggestions,
+        data: nextData,
+      };
+    });
+  };
+
+  const handleAssistSuggestionAccept = (suggestion: AssistSuggestionItem) => {
+    if (suggestion.decision === "accepted" || suggestion.decision === "declined") return;
+    resolveSuggestionDecision(suggestion, "accepted");
+    const prompt = resolveAssistSuggestionPrompt(suggestion);
+    if (onSubmitMessage) {
+      const targetType = String(suggestion?.targetEntityType || "unknown").trim() || "unknown";
+      const source = String(suggestion?.sourceEntityType || "assistant").trim() || "assistant";
+      const action = String(suggestion?.actionType || "unknown").trim() || "unknown";
+      const domain = String(suggestion?.domain || "unknown").trim() || "unknown";
+      setTimeout(() => {
+        onSubmitMessageRef.current?.(prompt, {
+          requestSource: "assist_suggestion_cta",
+          requestTriggerId: `${domain}:${action}:${targetType}:${source}`,
+        });
+      }, 0);
+      return;
+    }
+    onExampleClick?.(prompt);
+  };
+
+  const handleAssistSuggestionDecline = (suggestion: AssistSuggestionItem) => {
+    if (suggestion.decision === "accepted" || suggestion.decision === "declined") return;
+    resolveSuggestionDecision(suggestion, "declined");
+    const prompt = resolveAssistSuggestionDeclinePrompt(suggestion);
+    if (onSubmitMessage) {
+      const targetType = String(suggestion?.targetEntityType || "unknown").trim() || "unknown";
+      const source = String(suggestion?.sourceEntityType || "assistant").trim() || "assistant";
+      const action = String(suggestion?.actionType || "unknown").trim() || "unknown";
+      const domain = String(suggestion?.domain || "unknown").trim() || "unknown";
+      setTimeout(() => {
+        onSubmitMessageRef.current?.(prompt, {
+          requestSource: "assist_suggestion_decline",
+          requestTriggerId: `${domain}:${action}:${targetType}:${source}:decline`,
+        });
+      }, 0);
+      return;
+    }
+    onExampleClick?.(prompt);
+  };
 
   // ── Phase derivation ──
 
@@ -343,11 +773,14 @@ export function AgentWorkflow({
           message={message}
           onFollowUpClick={onFollowUpClick}
           onExampleClick={onExampleClick}
+          onAssistSuggestionAccept={handleAssistSuggestionAccept}
+          onAssistSuggestionDecline={handleAssistSuggestionDecline}
           onConfirmWebSearch={onConfirmWebSearch}
           onSubmitMessage={onSubmitMessage}
           activeSessionId={activeSessionId}
           activeSessionMessages={activeSession?.messages}
           updateSessionMessages={updateSessionMessages}
+          updateSessionMessageById={updateSessionMessageById}
         />
       </div>
     );
@@ -360,11 +793,14 @@ export function AgentWorkflow({
         message={message}
         onFollowUpClick={onFollowUpClick}
         onExampleClick={onExampleClick}
+        onAssistSuggestionAccept={handleAssistSuggestionAccept}
+        onAssistSuggestionDecline={handleAssistSuggestionDecline}
         onConfirmWebSearch={onConfirmWebSearch}
         onSubmitMessage={onSubmitMessage}
         activeSessionId={activeSessionId}
         activeSessionMessages={activeSession?.messages}
         updateSessionMessages={updateSessionMessages}
+        updateSessionMessageById={updateSessionMessageById}
       />
     </div>
   );
@@ -1197,11 +1633,18 @@ function MinimalChatbotTurn(props: {
   message: AgentMessage;
   onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
   onExampleClick?: (example: string) => void;
+  onAssistSuggestionAccept?: (suggestion: AssistSuggestionItem) => void;
+  onAssistSuggestionDecline?: (suggestion: AssistSuggestionItem) => void;
   onConfirmWebSearch?: (metadata: AgentRequestMetadata) => void;
   onSubmitMessage?: (message: string, metadata?: AgentRequestMetadata) => void;
   activeSessionId?: string;
   activeSessionMessages?: AgentMessage[];
   updateSessionMessages?: (id: string, messages: AgentMessage[]) => void;
+  updateSessionMessageById?: (
+    sessionId: string,
+    messageId: string,
+    updater: (message: AgentMessage) => AgentMessage,
+  ) => void;
 }) {
   const { message } = props;
   const dataType = message.data?.type;
@@ -1230,7 +1673,11 @@ function MinimalChatbotTurn(props: {
   }
 
   const proactiveSuggestionsEl = message.proactiveSuggestions ? (
-    <AssistSuggestions data={message.proactiveSuggestions} onAction={props.onExampleClick} />
+    <AssistSuggestions
+      data={message.proactiveSuggestions}
+      onAccept={props.onAssistSuggestionAccept}
+      onDecline={props.onAssistSuggestionDecline}
+    />
   ) : null;
 
   if (!hasContent && attachment) {
@@ -1285,24 +1732,115 @@ function ArtifactBody({
   message,
   onFollowUpClick,
   onExampleClick,
+  onAssistSuggestionAccept,
+  onAssistSuggestionDecline,
   onConfirmWebSearch,
   onSubmitMessage,
   activeSessionId,
   activeSessionMessages,
   updateSessionMessages,
+  updateSessionMessageById,
 }: {
   message: AgentMessage;
   onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
   onExampleClick?: (example: string) => void;
+  onAssistSuggestionAccept?: (suggestion: AssistSuggestionItem) => void;
+  onAssistSuggestionDecline?: (suggestion: AssistSuggestionItem) => void;
   onConfirmWebSearch?: (metadata: AgentRequestMetadata) => void;
   onSubmitMessage?: (message: string, metadata?: AgentRequestMetadata) => void;
   activeSessionId?: string;
   activeSessionMessages?: AgentMessage[];
   updateSessionMessages?: (id: string, messages: AgentMessage[]) => void;
+  updateSessionMessageById?: (
+    sessionId: string,
+    messageId: string,
+    updater: (message: AgentMessage) => AgentMessage,
+  ) => void;
 }) {
   const isError = message.status === "error";
   const hasContent = !!(message.content && message.content.length > 0);
   const dataType = message.data?.type;
+
+  const handleDraftExportLocal = async (
+    snapshot: DraftExportSnapshot,
+  ): Promise<boolean> => {
+    console.info("[DRAFT_EXPORT_LOCAL_SAVE]", {
+      messageId: message.id,
+      linkedEntityType: snapshot.linkedEntityType || null,
+      linkedEntityId: snapshot.linkedEntityId ?? null,
+      draftType: snapshot.draftType,
+      draftVersion: snapshot.version ?? null,
+      sectionCount: Array.isArray(snapshot.sections) ? snapshot.sections.length : 0,
+    });
+    if (message.data?.type === "draft_v2" && message.data.draftV2?.savedDocumentId) {
+      return true;
+    }
+    try {
+      const persisted = await persistDraftSnapshotDocument(message.id, snapshot);
+      const savedAt = new Date().toISOString();
+      let markerPatched = false;
+
+      if (activeSessionId && updateSessionMessages && Array.isArray(activeSessionMessages)) {
+        const nextMessages = activeSessionMessages.map((msg) => {
+          if (msg.id !== message.id) return msg;
+          if (msg.data?.type !== "draft_v2" || !msg.data.draftV2) return msg;
+          markerPatched = true;
+          return {
+            ...msg,
+            data: {
+              ...msg.data,
+              draftV2: {
+                ...msg.data.draftV2,
+                linkedEntityType: persisted.linkedEntityType,
+                linkedEntityId: persisted.linkedEntityId,
+                savedDocumentId: persisted.documentId,
+                savedAt,
+              },
+            },
+          };
+        });
+        if (markerPatched) {
+          updateSessionMessages(activeSessionId, nextMessages);
+        }
+      }
+
+      if (!markerPatched && activeSessionId && updateSessionMessageById) {
+        updateSessionMessageById(activeSessionId, message.id, (msg) => {
+          if (msg.data?.type !== "draft_v2" || !msg.data.draftV2) return msg;
+          markerPatched = true;
+          return {
+            ...msg,
+            data: {
+              ...msg.data,
+              draftV2: {
+                ...msg.data.draftV2,
+                linkedEntityType: persisted.linkedEntityType,
+                linkedEntityId: persisted.linkedEntityId,
+                savedDocumentId: persisted.documentId,
+                savedAt,
+              },
+            },
+          };
+        });
+      }
+
+      if (!markerPatched) {
+        console.warn("[DRAFT_EXPORT_SAVE_MARKER_NOT_PATCHED]", {
+          messageId: message.id,
+          activeSessionId: activeSessionId || null,
+        });
+      }
+      return true;
+    } catch (error) {
+      console.error("[DRAFT_EXPORT_PERSIST_FAILED]", {
+        messageId: message.id,
+        linkedEntityType: snapshot.linkedEntityType || null,
+        linkedEntityId: snapshot.linkedEntityId ?? null,
+        error: error instanceof Error ? error.message : String(error || "unknown_error"),
+      });
+      return false;
+    }
+  };
 
   if (isError) {
     const fallbackRecovery = {
@@ -1501,6 +2039,7 @@ function ArtifactBody({
             updateSessionMessages(activeSessionId, updatedMessages);
           }
         }}
+        onExport={handleDraftExportLocal}
       />
     );
   }
@@ -1547,6 +2086,7 @@ function ArtifactBody({
             updateSessionMessages(activeSessionId, updatedMessages);
           }
         }}
+        onExport={handleDraftExportLocal}
       />
     );
   }
@@ -1915,7 +2455,13 @@ function ArtifactBody({
     );
   }
   if (dataType === "assist_suggestions" && message.data?.assistSuggestions) {
-    return <AssistSuggestions data={message.data.assistSuggestions} onAction={onExampleClick} />;
+    return (
+      <AssistSuggestions
+        data={message.data.assistSuggestions}
+        onAccept={onAssistSuggestionAccept}
+        onDecline={onAssistSuggestionDecline}
+      />
+    );
   }
   if (
     dataType === "document_generation_missing_fields" &&

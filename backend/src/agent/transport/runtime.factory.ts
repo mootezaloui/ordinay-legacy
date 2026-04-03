@@ -40,29 +40,6 @@ interface RetrievalModuleLike {
   }) => RetrievalRuntimeLike;
 }
 
-interface UxPreflightResultLike {
-  handled?: boolean;
-  action?: string;
-  responseText?: string;
-  metadata?: Record<string, unknown>;
-}
-
-interface UxRuntimeLike {
-  evaluatePreLoop?: (params: {
-    input: unknown;
-    session: unknown;
-    retrievalContext?: unknown;
-    activeEntities?: unknown[];
-    pendingAction?: unknown;
-  }) => UxPreflightResultLike;
-}
-
-interface UxModuleLike {
-  createUxRuntime?: (params?: {
-    policyOverrides?: Record<string, unknown>;
-  }) => UxRuntimeLike;
-}
-
 interface GroundingRuntimeLike {
   beginTurn?: (turnId: string) => unknown;
   registerRetrievalMatches?: (params: {
@@ -245,6 +222,10 @@ interface DeploymentRuntimeSettings {
   operationsPolicy?: Record<string, unknown>;
   deploymentConfig?: Record<string, unknown>;
   deploymentFlags?: Record<string, unknown>;
+  suggestionRuntime?: {
+    enabled: boolean;
+    telemetryEnabled: boolean;
+  };
   securityRateLimiterConfig?: {
     limit?: number;
     windowMs?: number;
@@ -256,7 +237,6 @@ export interface AgentV2Runtime {
   readonly loop: AgenticLoop;
   readonly grounding?: GroundingRuntimeLike;
   readonly retrieval?: RetrievalRuntimeLike;
-  readonly ux?: UxRuntimeLike;
   readonly performance?: PerformanceRuntimeLike;
   readonly observability?: ObservabilityRuntimeLike;
   readonly repository?: SessionPersistenceBridge;
@@ -271,7 +251,6 @@ export function createAgentV2Runtime(): AgentV2Runtime {
   const performance = loadPerformanceRuntime(deploymentSettings?.performancePolicy);
   const retrievalRuntime = loadRetrievalRuntime(deploymentSettings?.retrievalPolicy);
   const grounding = loadGroundingRuntime();
-  const ux = loadUxRuntime();
   const observability = loadObservabilityRuntime(deploymentSettings?.observabilityPolicy);
   const security = loadSecurityRuntime(deploymentSettings?.securityRateLimiterConfig);
   const operations = loadOperationsRuntime({
@@ -318,6 +297,15 @@ export function createAgentV2Runtime(): AgentV2Runtime {
     loopGuard,
     repository,
     memory,
+    undefined,
+    undefined,
+    undefined,
+    {
+      suggestions: {
+        enabled: deploymentSettings?.suggestionRuntime?.enabled !== false,
+        telemetryEnabled: deploymentSettings?.suggestionRuntime?.telemetryEnabled !== false,
+      },
+    },
   );
 
   const runtime: AgentV2Runtime = {
@@ -325,7 +313,6 @@ export function createAgentV2Runtime(): AgentV2Runtime {
     loop,
     grounding,
     retrieval: retrievalRuntime,
-    ux,
     performance,
     observability,
     repository,
@@ -490,21 +477,6 @@ function loadGroundingRuntime(): GroundingRuntimeLike | undefined {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error || "unknown error");
     console.warn(`[agent.grounding] Grounding runtime unavailable: ${message}`);
-    return undefined;
-  }
-}
-
-function loadUxRuntime(): UxRuntimeLike | undefined {
-  const uxModule = loadOptionalAgentModule<UxModuleLike>("ux", "ux");
-  if (!uxModule || typeof uxModule.createUxRuntime !== "function") {
-    return undefined;
-  }
-
-  try {
-    return uxModule.createUxRuntime();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error || "unknown error");
-    console.warn(`[agent.ux] UX runtime unavailable: ${message}`);
     return undefined;
   }
 }
@@ -747,6 +719,10 @@ function mapDeploymentSettings(
   return {
     deploymentConfig: config,
     deploymentFlags: flags,
+    suggestionRuntime: {
+      enabled: resolveDeploymentFeatureFlag(flags, "FEATURE_AGENT_V2_SUGGESTIONS", true),
+      telemetryEnabled: resolveDeploymentFeatureFlag(flags, "FEATURE_AGENT_V2_SUGGESTIONS", true),
+    },
     retrievalPolicy: {
       RETRIEVAL_ENABLED: Boolean(retrieval.enabled),
       RETRIEVAL_TOP_K: asPositiveInt(retrieval.topK, 6),
@@ -793,6 +769,30 @@ function mapDeploymentSettings(
       windowMs: asPositiveInt(security.rateLimitWindowMs, 60000),
     },
   };
+}
+
+function resolveDeploymentFeatureFlag(
+  flags: Record<string, unknown>,
+  key: string,
+  fallback: boolean,
+): boolean {
+  const values = toRecord(flags.values);
+  const candidate =
+    (values && Object.prototype.hasOwnProperty.call(values, key) ? values[key] : undefined) ??
+    (Object.prototype.hasOwnProperty.call(flags, key) ? flags[key] : undefined);
+  if (typeof candidate === "boolean") {
+    return candidate;
+  }
+  if (typeof candidate === "string") {
+    const normalized = candidate.trim().toLowerCase();
+    if (normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on") {
+      return true;
+    }
+    if (normalized === "0" || normalized === "false" || normalized === "no" || normalized === "off") {
+      return false;
+    }
+  }
+  return fallback;
 }
 
 function buildAgentModuleCandidates(moduleName: string): string[] {

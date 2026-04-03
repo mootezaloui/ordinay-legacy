@@ -2,6 +2,7 @@
 
 ## Startup
 - [ ] `FEATURE_AGENT_V2_STREAM` explicitly set for intended rollout state.
+- [ ] `FEATURE_AGENT_V2_SUGGESTIONS` explicitly set for intended suggestion rollout state.
 - [ ] Deployment bootstrap passes with zero blocking errors at server start.
 - [ ] Deprecated agent flags are disabled (warnings reviewed if any remain enabled).
 
@@ -34,6 +35,7 @@
 - [ ] Backend port is exposed only as required by environment.
 - [ ] Public bind opt-in is disabled unless container/runtime requires it.
 - [ ] Safe-mode rollback for v2 route is known: set `FEATURE_AGENT_V2_STREAM=false`.
+- [ ] Suggestion-only rollback is known: set `FEATURE_AGENT_V2_SUGGESTIONS=false`.
 
 ## Health Verification
 - [ ] `/api/ping` reachable and healthy after deployment.

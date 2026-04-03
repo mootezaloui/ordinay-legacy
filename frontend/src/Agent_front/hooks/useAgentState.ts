@@ -5,6 +5,7 @@ import { useAgentSessions } from "./useAgentSessions";
 import {
   streamAgentMessage,
   ActionProposal,
+  AssistSuggestionItem,
   AssistSuggestionsOutput,
   ChatMutationLifecycleEvent,
   ContextScope,
@@ -846,6 +847,117 @@ function mapSuggestionActionType(
   return "ENRICH_FIELD";
 }
 
+function toSuggestionText(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function toSuggestionInlineValue(value: unknown): string {
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    return normalized.length > 0 ? `"${normalized}"` : "updated value";
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+  if (typeof value === "boolean") {
+    return value ? "true" : "false";
+  }
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "updated list";
+  if (value && typeof value === "object") return "updated value";
+  return "updated value";
+}
+
+function buildSuggestionEntityReference(
+  entityType: string | null | undefined,
+  entityId: number | string | null | undefined,
+): string {
+  const type = toSuggestionText(entityType) || "record";
+  if (typeof entityId === "number" && Number.isFinite(entityId)) {
+    return `${type} ${entityId}`;
+  }
+  const idText = toSuggestionText(entityId);
+  if (idText) {
+    return `${type} "${idText}"`;
+  }
+  return type;
+}
+
+function buildExecuteSuggestionChangeHint(prefill: Record<string, unknown> | null): string {
+  const changes = toRecord(prefill?.changes);
+  if (changes) {
+    const firstKey = Object.keys(changes)[0];
+    if (firstKey) {
+      const row = toRecord(changes[firstKey]);
+      if (row && "to" in row) {
+        return ` set ${firstKey} to ${toSuggestionInlineValue(row.to)}.`;
+      }
+      return ` update ${firstKey}.`;
+    }
+  }
+  const payload = toRecord(prefill?.payload);
+  if (payload) {
+    const firstKey = Object.keys(payload)[0];
+    if (firstKey) {
+      return ` with ${firstKey} ${toSuggestionInlineValue(payload[firstKey])}.`;
+    }
+  }
+  return ".";
+}
+
+function buildSuggestionFollowUpPrompt(
+  artifact: SuggestionArtifactEventData,
+  draftType: string | null,
+): string {
+  const prefill = toRecord(artifact?.prefillData);
+  if (artifact.domain === "draft") {
+    const normalizedDraftType = String(
+      draftType || artifact.targetType || "document",
+    ).replace(/_/g, " ");
+    const tone = toSuggestionText(prefill?.tone);
+    const language = toSuggestionText(prefill?.language);
+    const purpose = toSuggestionText(prefill?.purpose);
+    const entityRef = buildSuggestionEntityReference(
+      artifact.linkedEntityType || null,
+      artifact.linkedEntityId ?? null,
+    );
+    const descriptor = [tone, language].filter(Boolean).join(" ");
+    const descriptorPrefix = descriptor ? `${descriptor} ` : "";
+    const purposeSuffix = purpose ? ` Purpose: ${purpose}.` : "";
+    return `Create a ${descriptorPrefix}${normalizedDraftType} draft for ${entityRef}.${purposeSuffix}`;
+  }
+
+  const operation =
+    toSuggestionText(prefill?.operation)?.toLowerCase() ||
+    (artifact.actionType === "create" || artifact.actionType === "delete"
+      ? artifact.actionType
+      : "update");
+  const entityType =
+    toSuggestionText(prefill?.entityType) ||
+    toSuggestionText(artifact.targetType) ||
+    toSuggestionText(artifact.linkedEntityType) ||
+    "record";
+  const entityId =
+    (typeof prefill?.entityId === "number" || typeof prefill?.entityId === "string"
+      ? (prefill.entityId as number | string)
+      : null) ??
+    artifact.linkedEntityId ??
+    null;
+  const entityRef = buildSuggestionEntityReference(entityType, entityId);
+
+  if (operation === "create") {
+    return `Create ${entityRef}${buildExecuteSuggestionChangeHint(prefill)}`
+      .replace(/\s+\./g, ".");
+  }
+  if (operation === "delete") {
+    return `Delete ${entityRef}.`;
+  }
+  return `Update ${entityRef}${buildExecuteSuggestionChangeHint(prefill)}`
+    .replace(/\s+\./g, ".");
+}
+
 function mapSuggestionArtifactToAssistSuggestions(
   artifact: SuggestionArtifactEventData,
 ): AssistSuggestionsOutput {
@@ -874,11 +986,59 @@ function mapSuggestionArtifactToAssistSuggestions(
         reason: String(artifact?.reason || "").trim() || "Suggested based on current context.",
         field: artifact?.actionType === "update" ? firstPrefillKey || null : null,
         documentType: artifact?.actionType === "draft" ? draftType : null,
+        domain: artifact.domain,
+        trigger: artifact.trigger,
+        prefillData: prefill || undefined,
+        followUpPrompt: buildSuggestionFollowUpPrompt(artifact, draftType),
         relevanceScore: 0.75,
         finalScore: 0.75,
-      },
+      } satisfies AssistSuggestionItem,
     ],
   };
+}
+
+function inferSuggestionArtifactFromConfirmationText(
+  content: string,
+): SuggestionArtifactEventData | null {
+  const normalized = String(content || "").trim();
+  if (!normalized) return null;
+  const lower = normalized.toLowerCase();
+
+  if (
+    lower === "i can help you create this draft. continue?" ||
+    lower === "je peux vous aider à créer ce brouillon. voulez-vous continuer ?" ||
+    lower === "يمكنني مساعدتك في إنشاء هذه المسودة. هل تريد المتابعة؟"
+  ) {
+    return {
+      version: "v1",
+      domain: "draft",
+      trigger: "implicit_intent",
+      actionType: "draft",
+      targetType: "document",
+      title: "Suggested Draft Next Step",
+      reason: "Inferred suggestion fallback from confirmation text.",
+      prefillData: { draftType: "document" },
+    };
+  }
+
+  if (
+    lower === "i can prepare a targeted plan for this update. continue?" ||
+    lower === "je peux préparer un plan de mise à jour ciblé. voulez-vous continuer ?" ||
+    lower === "يمكنني إعداد خطة تحديث مناسبة. هل تريد المتابعة؟"
+  ) {
+    return {
+      version: "v1",
+      domain: "execute",
+      trigger: "implicit_intent",
+      actionType: "update",
+      targetType: "record",
+      title: "Suggested Plan Next Step",
+      reason: "Inferred suggestion fallback from confirmation text.",
+      prefillData: { operation: "update", entityType: "record", payload: {} },
+    };
+  }
+
+  return null;
 }
 
 function toSafeExecutionErrorMessage(raw: string): string {
@@ -1524,8 +1684,13 @@ export function useAgentState() {
 
     const updateMessage = (message: AgentMessage) => {
       const nextMessage = decorateAgentMessage(message);
+      const previous = workingMessages.find((msg) => msg.id === message.id);
+      const mergedMessage =
+        previous && !nextMessage.proactiveSuggestions && previous.proactiveSuggestions
+          ? { ...nextMessage, proactiveSuggestions: previous.proactiveSuggestions }
+          : nextMessage;
       workingMessages = workingMessages.map((msg) =>
-        msg.id === message.id ? nextMessage : msg
+        msg.id === message.id ? mergedMessage : msg
       );
       updateSessionMessages(sessionId, workingMessages);
     };
@@ -1745,12 +1910,31 @@ export function useAgentState() {
         },
         onSuggestionArtifact: (artifact) => {
           if (streamSessionRef.current !== sessionId) return;
+          console.info("[AGENT_SUGGESTION_EVENT_RECEIVED]", {
+            sessionId,
+            agentMessageId,
+            domain: artifact?.domain,
+            actionType: artifact?.actionType,
+            targetType: artifact?.targetType,
+          });
           const suggestions = mapSuggestionArtifactToAssistSuggestions(artifact);
           if (hasAgentMessage) {
             const existing = workingMessages.find((msg) => msg.id === agentMessageId);
             if (existing) {
               updateMessage({
                 ...existing,
+                proactiveSuggestions: suggestions,
+              });
+            } else {
+              appendMessage({
+                id: agentMessageId,
+                role: "agent",
+                content: streamedContent,
+                timestamp: new Date(),
+                status: "sending",
+                stage: agentData ? "artifact" : "commentary",
+                intent,
+                data: agentData,
                 proactiveSuggestions: suggestions,
               });
             }
@@ -2015,6 +2199,30 @@ export function useAgentState() {
             };
           }
 
+          let proactiveSuggestions: AssistSuggestionsOutput | undefined;
+          const existingMessage = workingMessages.find((msg) => msg.id === agentMessageId);
+          const hasExistingSuggestions = Boolean(
+            existingMessage?.proactiveSuggestions?.suggestions?.length,
+          );
+          if (!hasExistingSuggestions) {
+            const inferredArtifact = inferSuggestionArtifactFromConfirmationText(streamedContent);
+            if (inferredArtifact) {
+              proactiveSuggestions = mapSuggestionArtifactToAssistSuggestions(inferredArtifact);
+              if (agentData?.type !== "assist_suggestions") {
+                agentData = {
+                  type: "assist_suggestions",
+                  assistSuggestions: proactiveSuggestions,
+                };
+              }
+              console.info("[AGENT_SUGGESTION_FALLBACK_INFERRED]", {
+                sessionId,
+                agentMessageId,
+                domain: inferredArtifact.domain,
+                actionType: inferredArtifact.actionType,
+              });
+            }
+          }
+
           const finalMessage: AgentMessage = {
             id: agentMessageId,
             role: "agent",
@@ -2024,6 +2232,7 @@ export function useAgentState() {
             stage: agentData ? "artifact" : "commentary",
             intent,
             data: agentData,
+            proactiveSuggestions,
             commentary,
           };
           if (hasAgentMessage) {
@@ -2160,8 +2369,13 @@ export function useAgentState() {
 
     const updateMessage = (message: AgentMessage) => {
       const nextMessage = decorateAgentMessage(message);
+      const previous = workingMessages.find((msg) => msg.id === message.id);
+      const mergedMessage =
+        previous && !nextMessage.proactiveSuggestions && previous.proactiveSuggestions
+          ? { ...nextMessage, proactiveSuggestions: previous.proactiveSuggestions }
+          : nextMessage;
       workingMessages = workingMessages.map((msg) =>
-        msg.id === message.id ? nextMessage : msg
+        msg.id === message.id ? mergedMessage : msg
       );
       updateSessionMessages(sessionId, workingMessages);
     };
@@ -2396,12 +2610,31 @@ export function useAgentState() {
         },
         onSuggestionArtifact: (artifact) => {
           if (streamSessionRef.current !== sessionId) return;
+          console.info("[AGENT_SUGGESTION_EVENT_RECEIVED]", {
+            sessionId,
+            agentMessageId,
+            domain: artifact?.domain,
+            actionType: artifact?.actionType,
+            targetType: artifact?.targetType,
+          });
           const suggestions = mapSuggestionArtifactToAssistSuggestions(artifact);
           if (hasAgentMessage) {
             const existing = workingMessages.find((msg) => msg.id === agentMessageId);
             if (existing) {
               updateMessage({
                 ...existing,
+                proactiveSuggestions: suggestions,
+              });
+            } else {
+              appendMessage({
+                id: agentMessageId,
+                role: "agent",
+                content: streamedContent,
+                timestamp: new Date(),
+                status: "sending",
+                stage: agentData ? "artifact" : "commentary",
+                intent,
+                data: agentData,
                 proactiveSuggestions: suggestions,
               });
             }
@@ -2666,6 +2899,30 @@ export function useAgentState() {
             };
           }
 
+          let proactiveSuggestions: AssistSuggestionsOutput | undefined;
+          const existingMessage = workingMessages.find((msg) => msg.id === agentMessageId);
+          const hasExistingSuggestions = Boolean(
+            existingMessage?.proactiveSuggestions?.suggestions?.length,
+          );
+          if (!hasExistingSuggestions) {
+            const inferredArtifact = inferSuggestionArtifactFromConfirmationText(streamedContent);
+            if (inferredArtifact) {
+              proactiveSuggestions = mapSuggestionArtifactToAssistSuggestions(inferredArtifact);
+              if (agentData?.type !== "assist_suggestions") {
+                agentData = {
+                  type: "assist_suggestions",
+                  assistSuggestions: proactiveSuggestions,
+                };
+              }
+              console.info("[AGENT_SUGGESTION_FALLBACK_INFERRED]", {
+                sessionId,
+                agentMessageId,
+                domain: inferredArtifact.domain,
+                actionType: inferredArtifact.actionType,
+              });
+            }
+          }
+
           const finalMessage: AgentMessage = {
             id: agentMessageId,
             role: "agent",
@@ -2675,6 +2932,7 @@ export function useAgentState() {
             stage: agentData ? "artifact" : "commentary",
             intent,
             data: agentData,
+            proactiveSuggestions,
             commentary,
           };
           if (hasAgentMessage) {
@@ -2880,8 +3138,13 @@ export function useAgentState() {
 
     const updateMessage = (message: AgentMessage) => {
       const nextMessage = decorateAgentMessage(message);
+      const previous = workingMessages.find((msg) => msg.id === message.id);
+      const mergedMessage =
+        previous && !nextMessage.proactiveSuggestions && previous.proactiveSuggestions
+          ? { ...nextMessage, proactiveSuggestions: previous.proactiveSuggestions }
+          : nextMessage;
       workingMessages = workingMessages.map((msg) =>
-        msg.id === message.id ? nextMessage : msg
+        msg.id === message.id ? mergedMessage : msg
       );
       updateSessionMessages(activeSessionId, workingMessages);
     };
@@ -3125,6 +3388,13 @@ export function useAgentState() {
         },
         onSuggestionArtifact: (artifact) => {
           if (streamSessionRef.current !== activeSessionId) return;
+          console.info("[AGENT_SUGGESTION_EVENT_RECEIVED]", {
+            sessionId: activeSessionId,
+            agentMessageId: opts?.replaceMessageId || agentMessageId,
+            domain: artifact?.domain,
+            actionType: artifact?.actionType,
+            targetType: artifact?.targetType,
+          });
           const suggestions = mapSuggestionArtifactToAssistSuggestions(artifact);
           const targetId = opts?.replaceMessageId || agentMessageId;
           if (hasAgentMessage) {
@@ -3133,6 +3403,19 @@ export function useAgentState() {
               updateMessage({
                 ...existing,
                 proactiveSuggestions: suggestions,
+              });
+            } else {
+              appendMessage({
+                id: targetId,
+                role: "agent",
+                content: streamedContent,
+                timestamp: new Date(),
+                status: "sending",
+                stage: agentData ? "artifact" : "commentary",
+                intent,
+                data: agentData,
+                proactiveSuggestions: suggestions,
+                retryOf: opts?.retryOf,
               });
             }
             clearSessionStatus(activeSessionId);
@@ -3392,8 +3675,33 @@ export function useAgentState() {
             };
           }
 
+          let proactiveSuggestions: AssistSuggestionsOutput | undefined;
+          const finalMessageId = opts?.replaceMessageId || agentMessageId;
+          const existingMessage = workingMessages.find((msg) => msg.id === finalMessageId);
+          const hasExistingSuggestions = Boolean(
+            existingMessage?.proactiveSuggestions?.suggestions?.length,
+          );
+          if (!hasExistingSuggestions) {
+            const inferredArtifact = inferSuggestionArtifactFromConfirmationText(streamedContent);
+            if (inferredArtifact) {
+              proactiveSuggestions = mapSuggestionArtifactToAssistSuggestions(inferredArtifact);
+              if (agentData?.type !== "assist_suggestions") {
+                agentData = {
+                  type: "assist_suggestions",
+                  assistSuggestions: proactiveSuggestions,
+                };
+              }
+              console.info("[AGENT_SUGGESTION_FALLBACK_INFERRED]", {
+                sessionId: activeSessionId,
+                agentMessageId: finalMessageId,
+                domain: inferredArtifact.domain,
+                actionType: inferredArtifact.actionType,
+              });
+            }
+          }
+
           const finalMessage: AgentMessage = {
-            id: opts?.replaceMessageId || agentMessageId,
+            id: finalMessageId,
             role: "agent",
             content: streamedContent,
             timestamp: new Date(),
@@ -3401,6 +3709,7 @@ export function useAgentState() {
             stage: agentData ? "artifact" : "commentary",
             intent,
             data: agentData,
+            proactiveSuggestions,
             commentary,
             retryOf: opts?.retryOf,
           };

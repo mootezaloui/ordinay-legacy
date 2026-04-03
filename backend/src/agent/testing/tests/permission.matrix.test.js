@@ -64,6 +64,7 @@ test("runtime exposes tools by auth scope, not by runtime mode", async () => {
   for (const toolName of planTools) {
     assert.ok(registry.get(toolName), `Expected ${toolName} to be registered.`);
   }
+  assert.ok(registry.get("suggestAction"), "Expected suggestAction to be registered.");
 
   const captured = new Map();
   let activeKey = null;
@@ -142,6 +143,32 @@ test("runtime exposes tools by auth scope, not by runtime mode", async () => {
     planTools.every((name) => executeWithLegacyReadModeTools.includes(name)),
     true,
     "Explicit authScope must take precedence over legacy mode field.",
+  );
+
+  assert.equal(
+    readTools.includes("suggestAction"),
+    false,
+    "read scope must not expose SYSTEM suggestion tool schemas.",
+  );
+  assert.equal(
+    draftTools.includes("suggestAction"),
+    true,
+    "draft scope must expose SYSTEM suggestion tool schemas.",
+  );
+  assert.equal(
+    executeTools.includes("suggestAction"),
+    true,
+    "execute scope must expose SYSTEM suggestion tool schemas.",
+  );
+  assert.equal(
+    unknownTools.includes("suggestAction"),
+    true,
+    "unknown scope currently exposes SYSTEM suggestion tool schemas (safe execution remains blocked by gate).",
+  );
+  assert.equal(
+    executeWithLegacyReadModeTools.includes("suggestAction"),
+    true,
+    "Explicit authScope must keep SYSTEM suggestions exposed even when legacy mode is READ_ONLY.",
   );
 });
 

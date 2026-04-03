@@ -711,7 +711,8 @@ function StructuredProposalCard({
 
         {card.fields.length > 0 ? (
           <div className="rounded-xl border border-black/[0.06] bg-slate-50/80 px-4 py-3 dark:border-white/[0.08] dark:bg-slate-900/35">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+              <span className="h-1 w-2.5 shrink-0 rounded-full bg-violet-400/70 dark:bg-violet-500/80" />
               Main change
             </div>
             <div className="mt-2 space-y-2">
@@ -722,11 +723,11 @@ function StructuredProposalCard({
                     <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-600 dark:text-slate-300">{field.label}</div>
                     {diff ? (
                       <div className="flex flex-wrap items-center gap-2 text-slate-700 dark:text-slate-200">
-                        <span className="rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                        <span className="rounded-md border border-slate-200/80 bg-slate-100/80 px-2 py-0.5 text-slate-500 line-through decoration-slate-400/50 dark:border-slate-600/60 dark:bg-slate-700/40 dark:text-slate-400 dark:decoration-slate-500/50">
                           {diff.before}
                         </span>
-                        <ArrowRight className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
-                        <span className="rounded-md border border-indigo-300/80 bg-indigo-50 px-2 py-0.5 font-semibold text-indigo-800 dark:border-indigo-700/70 dark:bg-indigo-950/35 dark:text-indigo-200">
+                        <ArrowRight className="h-3.5 w-3.5 shrink-0 text-violet-400 dark:text-violet-400" />
+                        <span className="rounded-md border border-violet-300/80 bg-violet-50 px-2 py-0.5 font-semibold text-violet-800 dark:border-violet-600/60 dark:bg-violet-900/50 dark:text-violet-100">
                           {diff.after}
                         </span>
                       </div>
@@ -743,10 +744,11 @@ function StructuredProposalCard({
         {card.contentPreview && contentLines.length > 0 ? (
           <div className="rounded-xl border border-black/[0.06] bg-white/85 px-4 py-3 dark:border-white/[0.08] dark:bg-slate-900/30">
             <div className="flex items-center justify-between gap-2">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                <span className="h-1 w-2.5 shrink-0 rounded-full bg-violet-400/70 dark:bg-violet-500/80" />
                 {normalizeContentLabel(card.contentPreview.label)}
               </div>
-              <div className="rounded-full border border-slate-200/80 bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-600 dark:border-slate-700/70 dark:bg-slate-800 dark:text-slate-300">
+              <div className="rounded-full border border-violet-200/70 bg-violet-50 px-2.5 py-0.5 text-[11px] font-medium text-violet-700 dark:border-violet-700/50 dark:bg-violet-900/30 dark:text-violet-300">
                 {contentLines.length} item{contentLines.length === 1 ? "" : "s"}
               </div>
             </div>
@@ -781,7 +783,8 @@ function StructuredProposalCard({
             ) : null}
             {contextLines.length > 0 ? (
               <div className={cx("mt-3 space-y-2", impactCards.length > 0 ? "border-t border-slate-200/70 pt-3 dark:border-slate-700/70" : "")}>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                  <span className="h-1 w-2.5 shrink-0 rounded-full bg-slate-400/60 dark:bg-slate-500/70" />
                   Additional context
                 </div>
                 <ol className="space-y-1.5">

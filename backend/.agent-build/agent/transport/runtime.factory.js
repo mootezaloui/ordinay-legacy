@@ -17,7 +17,6 @@ function createAgentV2Runtime() {
     const performance = loadPerformanceRuntime(deploymentSettings?.performancePolicy);
     const retrievalRuntime = loadRetrievalRuntime(deploymentSettings?.retrievalPolicy);
     const grounding = loadGroundingRuntime();
-    const ux = loadUxRuntime();
     const observability = loadObservabilityRuntime(deploymentSettings?.observabilityPolicy);
     const security = loadSecurityRuntime(deploymentSettings?.securityRateLimiterConfig);
     const operations = loadOperationsRuntime({
@@ -46,13 +45,17 @@ function createAgentV2Runtime() {
         ...loadPlanTools(),
         ...loadSystemTools(),
     ]);
-    const loop = new engine_1.AgenticLoop(llmProvider, registry, executor, classifier, pending, permissionGate, loopGuard, repository, memory);
+    const loop = new engine_1.AgenticLoop(llmProvider, registry, executor, classifier, pending, permissionGate, loopGuard, repository, memory, undefined, undefined, undefined, {
+        suggestions: {
+            enabled: deploymentSettings?.suggestionRuntime?.enabled !== false,
+            telemetryEnabled: deploymentSettings?.suggestionRuntime?.telemetryEnabled !== false,
+        },
+    });
     const runtime = {
         sessionStore,
         loop,
         grounding,
         retrieval: retrievalRuntime,
-        ux,
         performance,
         observability,
         repository,
@@ -190,20 +193,6 @@ function loadGroundingRuntime() {
     catch (error) {
         const message = error instanceof Error ? error.message : String(error || "unknown error");
         console.warn(`[agent.grounding] Grounding runtime unavailable: ${message}`);
-        return undefined;
-    }
-}
-function loadUxRuntime() {
-    const uxModule = loadOptionalAgentModule("ux", "ux");
-    if (!uxModule || typeof uxModule.createUxRuntime !== "function") {
-        return undefined;
-    }
-    try {
-        return uxModule.createUxRuntime();
-    }
-    catch (error) {
-        const message = error instanceof Error ? error.message : String(error || "unknown error");
-        console.warn(`[agent.ux] UX runtime unavailable: ${message}`);
         return undefined;
     }
 }
@@ -385,6 +374,10 @@ function mapDeploymentSettings(config, flags = {}) {
     return {
         deploymentConfig: config,
         deploymentFlags: flags,
+        suggestionRuntime: {
+            enabled: resolveDeploymentFeatureFlag(flags, "FEATURE_AGENT_V2_SUGGESTIONS", true),
+            telemetryEnabled: resolveDeploymentFeatureFlag(flags, "FEATURE_AGENT_V2_SUGGESTIONS", true),
+        },
         retrievalPolicy: {
             RETRIEVAL_ENABLED: Boolean(retrieval.enabled),
             RETRIEVAL_TOP_K: asPositiveInt(retrieval.topK, 6),
@@ -425,6 +418,24 @@ function mapDeploymentSettings(config, flags = {}) {
             windowMs: asPositiveInt(security.rateLimitWindowMs, 60000),
         },
     };
+}
+function resolveDeploymentFeatureFlag(flags, key, fallback) {
+    const values = toRecord(flags.values);
+    const candidate = (values && Object.prototype.hasOwnProperty.call(values, key) ? values[key] : undefined) ??
+        (Object.prototype.hasOwnProperty.call(flags, key) ? flags[key] : undefined);
+    if (typeof candidate === "boolean") {
+        return candidate;
+    }
+    if (typeof candidate === "string") {
+        const normalized = candidate.trim().toLowerCase();
+        if (normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on") {
+            return true;
+        }
+        if (normalized === "0" || normalized === "false" || normalized === "no" || normalized === "off") {
+            return false;
+        }
+    }
+    return fallback;
 }
 function buildAgentModuleCandidates(moduleName) {
     const normalized = moduleName.replace(/[\\/]+/g, "/").replace(/^\/+|\/+$/g, "");

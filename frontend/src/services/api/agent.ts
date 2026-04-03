@@ -152,6 +152,8 @@ export interface AgentRequestMetadata {
     metadata?: Record<string, string>;
     sections: DraftSectionData[];
     layout: DraftLayoutData;
+    linkedEntityType?: string;
+    linkedEntityId?: number;
     version?: number;
     content?: string;
   };
@@ -938,6 +940,8 @@ export interface DraftArtifactData {
   content?: string;
   linkedEntityType?: string;
   linkedEntityId?: number;
+  savedDocumentId?: number;
+  savedAt?: string;
   generatedAt: string;
   version: number;
   versionHistory?: DraftVersionEntry[];
@@ -1012,6 +1016,12 @@ export interface AssistSuggestionItem {
   reason: string;
   field?: string | null;
   documentType?: string | null;
+  domain?: 'draft' | 'execute';
+  trigger?: 'implicit_intent' | 'proactive_context';
+  prefillData?: Record<string, unknown>;
+  followUpPrompt?: string | null;
+  decision?: 'accepted' | 'declined';
+  decisionAt?: string | null;
   relevanceScore: number;
   finalScore: number;
 }
@@ -1781,14 +1791,144 @@ export interface PlanRejectedEventData {
   pendingActionId: string;
 }
 
+export type SuggestionArtifactVersion = 'v1';
+export type SuggestionArtifactDomain = 'draft' | 'execute';
+export type SuggestionArtifactTrigger = 'implicit_intent' | 'proactive_context';
+export type SuggestionArtifactActionType = 'draft' | 'create' | 'update' | 'delete';
+
 export interface SuggestionArtifactEventData {
-  actionType: 'draft' | 'create' | 'update' | 'delete';
+  version: SuggestionArtifactVersion;
+  domain: SuggestionArtifactDomain;
+  trigger: SuggestionArtifactTrigger;
+  actionType: SuggestionArtifactActionType;
   targetType: string;
   title: string;
   reason: string;
   linkedEntityType?: string;
-  linkedEntityId?: number;
-  prefillData?: Record<string, unknown>;
+  linkedEntityId?: number | string;
+  prefillData: Record<string, unknown>;
+}
+
+function toSuggestionRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function toSuggestionText(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function parseSuggestionActionType(
+  value: unknown,
+): SuggestionArtifactActionType | null {
+  const normalized = toSuggestionText(value)?.toLowerCase();
+  if (normalized === 'generate_document' || normalized === 'generatedocument') return 'draft';
+  if (normalized === 'create_entity' || normalized === 'createentity') return 'create';
+  if (normalized === 'enrich_field' || normalized === 'enrichfield') return 'update';
+  if (normalized === 'update_entity' || normalized === 'updateentity') return 'update';
+  if (normalized === 'delete_entity' || normalized === 'deleteentity') return 'delete';
+  if (normalized === 'draft') return 'draft';
+  if (normalized === 'create') return 'create';
+  if (normalized === 'update') return 'update';
+  if (normalized === 'delete') return 'delete';
+  return null;
+}
+
+function parseSuggestionDomain(value: unknown): SuggestionArtifactDomain | null {
+  const normalized = toSuggestionText(value)?.toLowerCase();
+  if (normalized === 'execution' || normalized === 'plan' || normalized === 'mutation') return 'execute';
+  if (normalized === 'document') return 'draft';
+  if (normalized === 'draft') return 'draft';
+  if (normalized === 'execute') return 'execute';
+  return null;
+}
+
+function parseSuggestionTrigger(value: unknown): SuggestionArtifactTrigger | null {
+  const normalized = toSuggestionText(value)?.toLowerCase();
+  if (normalized === 'implicit') return 'implicit_intent';
+  if (normalized === 'context') return 'proactive_context';
+  if (normalized === 'implicit_intent') return 'implicit_intent';
+  if (normalized === 'proactive_context') return 'proactive_context';
+  return null;
+}
+
+function normalizeSuggestionDomain(
+  domain: SuggestionArtifactDomain | null,
+  actionType: SuggestionArtifactActionType,
+): SuggestionArtifactDomain {
+  const inferred: SuggestionArtifactDomain =
+    actionType === 'draft' ? 'draft' : 'execute';
+  if (!domain) return inferred;
+  if (actionType === 'draft' && domain !== 'draft') return inferred;
+  if (actionType !== 'draft' && domain !== 'execute') return inferred;
+  return domain;
+}
+
+function toSuggestionEntityId(value: unknown): number | string | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  const normalized = toSuggestionText(value);
+  return normalized ?? undefined;
+}
+
+function parseSuggestionArtifactEventData(
+  value: unknown,
+): SuggestionArtifactEventData | null {
+  const artifact = toSuggestionRecord(value);
+  if (!artifact) return null;
+  const parsedDomain = parseSuggestionDomain(artifact.domain);
+  const actionType =
+    parseSuggestionActionType(artifact.actionType) ??
+    (parsedDomain === 'draft' ? 'draft' : parsedDomain === 'execute' ? 'update' : null);
+  const targetType =
+    toSuggestionText(artifact.targetType) ||
+    toSuggestionText(artifact.targetEntityType) ||
+    toSuggestionText(artifact.entityType) ||
+    'record';
+  const title =
+    toSuggestionText(artifact.title) ||
+    toSuggestionText(artifact.label) ||
+    'Suggested action';
+  const reason =
+    toSuggestionText(artifact.reason) ||
+    toSuggestionText(artifact.rationale) ||
+    toSuggestionText(artifact.description) ||
+    'Suggested based on current context.';
+  if (!actionType) {
+    return null;
+  }
+  const linkedEntityType =
+    toSuggestionText(artifact.linkedEntityType) ||
+    toSuggestionText(artifact.sourceEntityType);
+  const linkedEntityId =
+    toSuggestionEntityId(artifact.linkedEntityId) ??
+    toSuggestionEntityId(artifact.sourceEntityId) ??
+    toSuggestionEntityId(artifact.entityId);
+  const prefillData =
+    toSuggestionRecord(artifact.prefillData) ??
+    toSuggestionRecord(artifact.payload) ??
+    toSuggestionRecord(artifact.changes) ??
+    {};
+
+  return {
+    version: 'v1',
+    domain: normalizeSuggestionDomain(parsedDomain, actionType),
+    trigger: parseSuggestionTrigger(artifact.trigger) ?? 'proactive_context',
+    actionType,
+    targetType,
+    title,
+    reason,
+    ...(linkedEntityType ? { linkedEntityType } : {}),
+    ...(typeof linkedEntityId !== 'undefined' ? { linkedEntityId } : {}),
+    prefillData,
+  };
 }
 
 export function extractChatMutationLifecycleEvent(
@@ -2215,8 +2355,19 @@ export function streamAgentMessage(
               }
               break;
             case 'suggestion_artifact':
-              if (data?.artifact) {
-                callbacks.onSuggestionArtifact?.(data.artifact as SuggestionArtifactEventData);
+              {
+                const artifact = parseSuggestionArtifactEventData(data?.artifact);
+                if (artifact) {
+                  callbacks.onSuggestionArtifact?.(artifact);
+                } else {
+                  console.warn('[AGENT_SUGGESTION_ARTIFACT_PARSE_FAILED]', {
+                    keys:
+                      data?.artifact && typeof data.artifact === 'object'
+                        ? Object.keys(data.artifact as Record<string, unknown>)
+                        : [],
+                    preview: String(JSON.stringify(data?.artifact || {})).slice(0, 240),
+                  });
+                }
               }
               break;
             case 'pending':

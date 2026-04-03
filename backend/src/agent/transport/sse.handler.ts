@@ -1,7 +1,6 @@
 import path from "node:path";
 import type { Session } from "../session";
 import {
-  TurnType,
   type AgentTurnInput,
   type AgentTurnOutput,
 } from "../types";
@@ -17,6 +16,8 @@ import { createAgentV2Runtime, type AgentV2Runtime } from "./runtime.factory";
 
 const TEXT_CHUNK_SIZE = 200;
 const PERFORMANCE_SNAPSHOT_EVENT_TYPE = "performance_snapshot";
+const UX_PREFLIGHT_BYPASS_REASON =
+  "UX preflight bypassed: message routed directly to the agentic loop.";
 type RuntimeMode = "READ_ONLY" | "DRAFT" | "EXECUTE" | "AUTONOMOUS";
 type RuntimeTurnInput = AgentTurnInput & { mode: RuntimeMode };
 const MODELESS_CONTRACT_RUNTIME_MODE: RuntimeMode = "EXECUTE";
@@ -160,73 +161,71 @@ export function createAgentV2StreamHandler(runtime: AgentV2Runtime) {
       let deliveredPlanRejectedArtifact = false;
       let deliveredSuggestionArtifact = false;
       const uxPreflight = evaluateUxPreflight(runtime, input, session);
-      if (uxPreflight.handled) {
-        console.info(
-          "[AGENT_V2_UX_PREFLIGHT_HANDLED]",
-          safeDiagnosticJson({
-            sessionId: input.sessionId,
-            turnId: input.turnId,
-            action: uxPreflight.action,
-            responsePreview: truncateForDiagnostics(uxPreflight.responseText || "", 180),
-          }),
-        );
-      } else {
-        const uxDecision = toRecord(uxPreflight.metadata)?.uxDecision;
-        console.info(
-          "[AGENT_V2_UX_PREFLIGHT_PASSTHROUGH]",
-          safeDiagnosticJson({
-            sessionId: input.sessionId,
-            turnId: input.turnId,
-            action: asString(toRecord(uxDecision)?.action) ?? "proceed",
-            reason: truncateForDiagnostics(asString(toRecord(uxDecision)?.reason) || "", 180),
-          }),
-        );
-      }
-      const loopOutput = uxPreflight.handled
-        ? buildUxHandledOutput(input, session, uxPreflight)
-        : mergePreflightMetadata(
-            await runtime.loop.run(input, session, {
-              onTextDelta: (delta: string) => {
-                if (typeof delta !== "string" || delta.length === 0) {
-                  return;
-                }
-                deliveredLiveText = true;
-                emitter.emit({ type: "text_delta", delta });
-              },
-              onDraftArtifact: (artifact) => {
-                deliveredDraftArtifact = true;
-                console.info(
-                  "[DRAFT_TRACE_SSE_EMIT_DRAFT_ARTIFACT]",
-                  safeDiagnosticJson({
-                    sessionId: input.sessionId,
-                    turnId: input.turnId,
-                    draftType: artifact?.draftType,
-                    title: artifact?.title,
-                    version: artifact?.version,
-                    sectionCount: Array.isArray(artifact?.sections) ? artifact.sections.length : 0,
-                  }),
-                );
-                emitter.emit({ type: "draft_artifact", artifact });
-              },
-              onPlanArtifact: (artifact) => {
-                deliveredPlanArtifact = true;
-                emitter.emit({ type: "plan_artifact", artifact });
-              },
-              onPlanExecuted: (artifact) => {
-                deliveredPlanExecutedArtifact = true;
-                emitter.emit({ type: "plan_executed", artifact });
-              },
-              onPlanRejected: (artifact) => {
-                deliveredPlanRejectedArtifact = true;
-                emitter.emit({ type: "plan_rejected", artifact });
-              },
-              onSuggestionArtifact: (artifact) => {
-                deliveredSuggestionArtifact = true;
-                emitter.emit({ type: "suggestion_artifact", artifact });
-              },
-            }),
-            uxPreflight.metadata,
-          );
+      const uxDecision = toRecord(uxPreflight.metadata)?.uxDecision;
+      console.info(
+        "[AGENT_V2_UX_PREFLIGHT_BYPASSED]",
+        safeDiagnosticJson({
+          sessionId: input.sessionId,
+          turnId: input.turnId,
+          action: asString(toRecord(uxDecision)?.action) ?? "proceed",
+          reason: truncateForDiagnostics(asString(toRecord(uxDecision)?.reason) || "", 180),
+        }),
+      );
+
+      const loopOutput = mergePreflightMetadata(
+        await runtime.loop.run(input, session, {
+          onTextDelta: (delta: string) => {
+            if (typeof delta !== "string" || delta.length === 0) {
+              return;
+            }
+            deliveredLiveText = true;
+            emitter.emit({ type: "text_delta", delta });
+          },
+          onDraftArtifact: (artifact) => {
+            deliveredDraftArtifact = true;
+            console.info(
+              "[DRAFT_TRACE_SSE_EMIT_DRAFT_ARTIFACT]",
+              safeDiagnosticJson({
+                sessionId: input.sessionId,
+                turnId: input.turnId,
+                draftType: artifact?.draftType,
+                title: artifact?.title,
+                version: artifact?.version,
+                sectionCount: Array.isArray(artifact?.sections) ? artifact.sections.length : 0,
+              }),
+            );
+            emitter.emit({ type: "draft_artifact", artifact });
+          },
+          onPlanArtifact: (artifact) => {
+            deliveredPlanArtifact = true;
+            emitter.emit({ type: "plan_artifact", artifact });
+          },
+          onPlanExecuted: (artifact) => {
+            deliveredPlanExecutedArtifact = true;
+            emitter.emit({ type: "plan_executed", artifact });
+          },
+          onPlanRejected: (artifact) => {
+            deliveredPlanRejectedArtifact = true;
+            emitter.emit({ type: "plan_rejected", artifact });
+          },
+          onSuggestionArtifact: (artifact) => {
+            deliveredSuggestionArtifact = true;
+            console.info(
+              "[AGENT_SUGGESTION_SSE_EMIT]",
+              safeDiagnosticJson({
+                sessionId: input.sessionId,
+                turnId: input.turnId,
+                source: "loop_callback",
+                domain: artifact?.domain,
+                actionType: artifact?.actionType,
+                targetType: artifact?.targetType,
+              }),
+            );
+            emitter.emit({ type: "suggestion_artifact", artifact });
+          },
+        }),
+        uxPreflight.metadata,
+      );
       const output = applyGroundingPostprocess(runtime, input, session, loopOutput);
       runtime.sessionStore.updateSession(session);
       schedulePerformanceSnapshot(runtime, input, output);
@@ -301,6 +300,17 @@ export function createAgentV2StreamHandler(runtime: AgentV2Runtime) {
         const fallbackSuggestionArtifact = extractSuggestionArtifactFromOutput(output);
         if (fallbackSuggestionArtifact) {
           deliveredSuggestionArtifact = true;
+          console.info(
+            "[AGENT_SUGGESTION_SSE_EMIT]",
+            safeDiagnosticJson({
+              sessionId: input.sessionId,
+              turnId: input.turnId,
+              source: "output_metadata_fallback",
+              domain: fallbackSuggestionArtifact.domain,
+              actionType: fallbackSuggestionArtifact.actionType,
+              targetType: fallbackSuggestionArtifact.targetType,
+            }),
+          );
           emitter.emit({ type: "suggestion_artifact", artifact: fallbackSuggestionArtifact });
         }
       }
@@ -641,14 +651,90 @@ function extractSuggestionArtifactFromOutput(output: AgentTurnOutput): Suggestio
   if (!artifact) {
     return null;
   }
-  const actionType = asString(artifact.actionType);
-  const targetType = asString(artifact.targetType);
-  const title = asString(artifact.title);
-  const reason = asString(artifact.reason);
+  const actionType = parseSuggestionActionType(artifact.actionType);
+  const targetType = asNonEmptyString(artifact.targetType);
+  const title = asNonEmptyString(artifact.title);
+  const reason = asNonEmptyString(artifact.reason);
   if (!actionType || !targetType || !title || !reason) {
     return null;
   }
-  return artifact as unknown as SuggestionArtifact;
+  const normalizedDomain = normalizeSuggestionDomain(
+    parseSuggestionDomain(artifact.domain),
+    actionType,
+  );
+  const normalizedTrigger =
+    parseSuggestionTrigger(artifact.trigger) ?? "proactive_context";
+  const linkedEntityType = asNonEmptyString(artifact.linkedEntityType) ?? undefined;
+  const linkedEntityId = coerceSuggestionEntityId(artifact.linkedEntityId);
+  const prefillData = toRecord(artifact.prefillData) ?? {};
+
+  return {
+    version: "v1",
+    domain: normalizedDomain,
+    trigger: normalizedTrigger,
+    actionType,
+    targetType,
+    title,
+    reason,
+    ...(linkedEntityType ? { linkedEntityType } : {}),
+    ...(typeof linkedEntityId !== "undefined" ? { linkedEntityId } : {}),
+    prefillData,
+  };
+}
+
+function parseSuggestionActionType(
+  value: unknown,
+): SuggestionArtifact["actionType"] | null {
+  const normalized = asNonEmptyString(value)?.toLowerCase();
+  if (normalized === "draft") return "draft";
+  if (normalized === "create") return "create";
+  if (normalized === "update") return "update";
+  if (normalized === "delete") return "delete";
+  return null;
+}
+
+function parseSuggestionDomain(
+  value: unknown,
+): SuggestionArtifact["domain"] | null {
+  const normalized = asNonEmptyString(value)?.toLowerCase();
+  if (normalized === "draft") return "draft";
+  if (normalized === "execute") return "execute";
+  return null;
+}
+
+function parseSuggestionTrigger(
+  value: unknown,
+): SuggestionArtifact["trigger"] | null {
+  const normalized = asNonEmptyString(value)?.toLowerCase();
+  if (normalized === "implicit_intent") return "implicit_intent";
+  if (normalized === "proactive_context") return "proactive_context";
+  return null;
+}
+
+function normalizeSuggestionDomain(
+  domain: SuggestionArtifact["domain"] | null,
+  actionType: SuggestionArtifact["actionType"],
+): SuggestionArtifact["domain"] {
+  const inferred: SuggestionArtifact["domain"] =
+    actionType === "draft" ? "draft" : "execute";
+  if (!domain) {
+    return inferred;
+  }
+  if (actionType === "draft" && domain !== "draft") {
+    return inferred;
+  }
+  if (actionType !== "draft" && domain !== "execute") {
+    return inferred;
+  }
+  return domain;
+}
+
+function coerceSuggestionEntityId(value: unknown): number | string | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  const text = asNonEmptyString(value);
+  return text ?? undefined;
 }
 
 function parseInput(payload: unknown):
@@ -689,115 +775,22 @@ function parseInput(payload: unknown):
 }
 
 function evaluateUxPreflight(
-  runtime: AgentV2Runtime,
-  input: RuntimeTurnInput,
-  session: Session,
+  _runtime: AgentV2Runtime,
+  _input: RuntimeTurnInput,
+  _session: Session,
 ): UxPreflightResult {
-  if (session.state.pendingAction) {
-    return { handled: false };
-  }
-
-  const evaluator = runtime.ux?.evaluatePreLoop;
-  if (typeof evaluator !== "function") {
-    return { handled: false };
-  }
-
-  const retrievalContext = buildRetrievalContext(runtime, input, session);
-  try {
-    const raw = evaluator({
-      input,
-      session,
-      retrievalContext,
-      activeEntities: session.activeEntities,
-      pendingAction: session.state.pendingAction,
-    });
-    return normalizeUxPreflightResult(raw);
-  } catch (error) {
-    const message =
-      error instanceof Error && error.message.trim().length > 0
-        ? error.message
-        : String(error || "unknown ux preflight error");
-    console.warn(`[agent.ux] pre-loop evaluation skipped: ${message}`);
-    return { handled: false };
-  }
-}
-
-function buildRetrievalContext(
-  runtime: AgentV2Runtime,
-  input: RuntimeTurnInput,
-  session: Session,
-): unknown {
-  if (isRetrievalDisabled(runtime)) {
-    maybeLogRetrievalDecision(runtime, "retrieval context skipped by safe mode");
-    return { text: "", matches: [] };
-  }
-
-  const retrieval = runtime.retrieval;
-  if (!retrieval || typeof retrieval.buildRetrievalContext !== "function") {
-    maybeLogRetrievalDecision(runtime, "retrieval context unavailable for UX preflight");
-    return { text: "", matches: [] };
-  }
-  if (typeof retrieval.isEnabled === "function" && retrieval.isEnabled() === false) {
-    maybeLogRetrievalDecision(runtime, "retrieval runtime disabled for UX preflight");
-    return { text: "", matches: [] };
-  }
-
-  try {
-    return retrieval.buildRetrievalContext({ session, input });
-  } catch (error) {
-    const message =
-      error instanceof Error && error.message.trim().length > 0
-        ? error.message
-        : String(error || "unknown retrieval context error");
-    console.warn(`[agent.ux] retrieval context unavailable for preflight: ${message}`);
-    maybeLogRetrievalDecision(runtime, `retrieval context failed for UX preflight: ${message}`);
-    return { text: "", matches: [] };
-  }
-}
-
-function normalizeUxPreflightResult(value: unknown): UxPreflightResult {
-  const row = toRecord(value);
-  if (!row) {
-    return { handled: false };
-  }
   return {
-    handled: row.handled === true,
-    action: asString(row.action) ?? undefined,
-    responseText: asString(row.responseText) ?? undefined,
-    metadata: toRecord(row.metadata) ?? undefined,
-  };
-}
-
-function buildUxHandledOutput(
-  input: AgentTurnInput,
-  session: Session,
-  preflight: UxPreflightResult,
-): AgentTurnOutput {
-  const responseText = (preflight.responseText || "Please provide more details to continue.").trim();
-  const turnType = TurnType.NEW;
-
-  appendSessionTurn(session, "user", input.message, turnType);
-  appendSessionTurn(session, "assistant", responseText, turnType);
-  session.state.lastTurnType = turnType;
-  session.updatedAt = new Date().toISOString();
-
-  const audit = [
-    createAuditRecord(input, "ux_preflight_handled", {
-      action: preflight.action ?? "ask",
-      reason: asString(preflight.metadata?.uxDecision && toRecord(preflight.metadata.uxDecision)?.reason) ?? "",
-    }),
-  ];
-
-  return {
-    sessionId: session.id,
-    turnId: input.turnId,
-    turnType,
-    responseText,
-    pendingAction: session.state.pendingAction,
-    toolCalls: [],
-    audit,
+    handled: false,
+    action: "proceed",
     metadata: {
-      ...(toRecord(preflight.metadata) ?? {}),
+      uxDecision: {
+        action: "proceed",
+        posture: "direct_answer",
+        ambiguityKind: "none",
+        ambiguityConfidence: "low",
+        workflowType: "none",
+        reason: UX_PREFLIGHT_BYPASS_REASON,
+      },
     },
   };
 }
@@ -816,30 +809,6 @@ function mergePreflightMetadata(
       ...preflightMetadata,
     },
   };
-}
-
-function appendSessionTurn(
-  session: Session,
-  role: "user" | "assistant",
-  message: string,
-  turnType: TurnType,
-): void {
-  const createdAt = new Date().toISOString();
-  const turnId = createLocalId("turn");
-  const text = String(message || "").trim();
-  session.turns.push({
-    id: turnId,
-    role,
-    turnType,
-    message: text,
-    createdAt,
-  });
-  session.history.push({
-    turnId,
-    role,
-    summary: truncate(text, 240),
-    createdAt,
-  });
 }
 
 function createAuditRecord(
@@ -1041,13 +1010,6 @@ function isAgentV2Disabled(runtime: AgentV2Runtime): boolean {
   );
 }
 
-function isRetrievalDisabled(runtime: AgentV2Runtime): boolean {
-  return Boolean(
-    runtime.operations?.safeMode?.isRetrievalDisabled &&
-    runtime.operations.safeMode.isRetrievalDisabled() === true,
-  );
-}
-
 function isGroundingDisabled(runtime: AgentV2Runtime): boolean {
   return Boolean(
     runtime.operations?.safeMode?.isGroundingDisabled &&
@@ -1083,15 +1045,6 @@ function clampModeBySafeMode(
     mode: "READ_ONLY",
     metadata,
   };
-}
-
-function maybeLogRetrievalDecision(runtime: AgentV2Runtime, message: string): void {
-  if (
-    runtime.operations?.debugFlags?.shouldLogRetrievalDecisions &&
-    runtime.operations.debugFlags.shouldLogRetrievalDecisions() === true
-  ) {
-    console.info(`[agent.operations] ${message}`);
-  }
 }
 
 function maybeLogGroundingDecision(runtime: AgentV2Runtime, message: string): void {

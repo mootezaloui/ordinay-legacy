@@ -21,10 +21,6 @@ test("operations: safe mode force-read-only clamps stream mode before loop", asy
     requestUser: { id: "admin_1", scope: "execute" },
     setup(runtime) {
       runtime.operations.safeMode.setSafeModeState({ forceReadOnly: true });
-      const restoreUxPreflight =
-        runtime.ux && typeof runtime.ux.evaluatePreLoop === "function"
-          ? patchMethod(runtime.ux, "evaluatePreLoop", () => ({ handled: false }))
-          : null;
       const originalRun = runtime.loop.run.bind(runtime.loop);
       runtime.loop.run = async (input, session) => ({
         sessionId: session.id,
@@ -38,7 +34,6 @@ test("operations: safe mode force-read-only clamps stream mode before loop", asy
       });
       return () => {
         runtime.loop.run = originalRun;
-        restoreUxPreflight?.();
         runtime.operations.safeMode.setSafeModeState({ forceReadOnly: false });
       };
     },
@@ -148,10 +143,6 @@ test("operations: legacy mode field is accepted but authScope controls permissio
     },
     requestUser: { id: "operator_legacy", scope: "execute" },
     setup(runtime) {
-      const restoreUxPreflight =
-        runtime.ux && typeof runtime.ux.evaluatePreLoop === "function"
-          ? patchMethod(runtime.ux, "evaluatePreLoop", () => ({ handled: false }))
-          : null;
       const llm = runtime?.loop?.llm;
       const restoreGenerate =
         llm && typeof llm.generate === "function"
@@ -190,7 +181,6 @@ test("operations: legacy mode field is accepted but authScope controls permissio
             })
           : null;
       return () => {
-        restoreUxPreflight?.();
         restoreGenerate?.();
         restoreStream?.();
       };

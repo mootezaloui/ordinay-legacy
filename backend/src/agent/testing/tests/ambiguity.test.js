@@ -75,22 +75,6 @@ test("P3-02: ambiguous read with multiple matches emits disambiguation SSE event
     id: "ambiguity_disambiguation_event",
     message: "Show me Leila dossier",
     setup(runtime, context) {
-      // Patch UX preflight to simulate proceed_with_ambiguity
-      const restoreUx = patchMethod(runtime?.ux, "evaluatePreLoop", () => ({
-        handled: false,
-        action: "proceed",
-        metadata: {
-          uxDecision: {
-            action: "proceed_with_ambiguity",
-            posture: "clarification",
-            ambiguityKind: "unclear_reference",
-            ambiguityConfidence: "medium",
-            workflowType: "none",
-            reason: "READ_ONLY ambiguity deferred to tool-first grounding.",
-          },
-        },
-      }));
-
       installSyntheticReadTool(runtime, "listDossiers", async () => ({
         ok: true,
         data: {
@@ -114,7 +98,6 @@ test("P3-02: ambiguous read with multiple matches emits disambiguation SSE event
       ]);
 
       return () => {
-        restoreUx?.();
         restoreLlm?.();
       };
     },
@@ -168,15 +151,15 @@ test("P3-02: ambiguous read with multiple matches emits disambiguation SSE event
 });
 
 // ---------------------------------------------------------------------------
-// P3-03: Mutating ambiguity still blocks safely and asks clarification
-//        before write/execute. Non-READ_ONLY modes must NOT bypass.
+// P3-03: Mutating ambiguity remains loop-first and asks clarification
+//        without relying on preflight short-circuit behavior.
 // ---------------------------------------------------------------------------
-test("P3-03: DRAFT mode ambiguity blocks before loop (no tool calls)", async () => {
+test("P3-03: DRAFT mode ambiguity reaches loop and asks clarification", async () => {
   const fixture = createSseFixture({
     id: "ambiguity_draft_blocks",
     message: "Update the dossier",
     mode: "DRAFT",
-    setup(runtime) {
+    setup(runtime, context) {
       // Allow DRAFT mode through auth scope check
       runtime.security = {
         sanitizeAgentInput: (raw) => ({ ok: true, value: raw }),
@@ -184,32 +167,24 @@ test("P3-03: DRAFT mode ambiguity blocks before loop (no tool calls)", async () 
         checkRateLimit: () => ({ allowed: true, remaining: 100, resetAt: 0 }),
       };
 
-      return patchMethod(runtime?.ux, "evaluatePreLoop", () => ({
-        handled: true,
-        action: "ask",
-        responseText: "Which dossier do you want me to update?",
-        metadata: {
-          security: { authScope: "draft" },
-          uxDecision: {
-            action: "ask",
-            posture: "clarification",
-            ambiguityKind: "multiple_candidates",
-            ambiguityConfidence: "high",
-            workflowType: "none",
-            reason: "Multiple candidate dossiers in mutating mode.",
-          },
+      return patchLlmGenerate(runtime, context, [
+        {
+          text: "Which dossier do you want me to update?",
+          toolCalls: [],
         },
-      }));
+      ]);
     },
     assert(result) {
-      // No tool calls — loop was bypassed
+      assert.ok(result?.capturedLoopInput, "Expected loop to run in DRAFT ambiguity scenario.");
+
+      // No tool calls for this scripted clarification path
       const toolEvents = (result?.events || []).filter(
         (event) => event.event === "tool_start",
       );
       assert.equal(
         toolEvents.length,
         0,
-        "Expected 0 tool_start events in DRAFT ambiguity block.",
+        "Expected 0 tool_start events in scripted DRAFT clarification path.",
       );
 
       // Clarification text was delivered
@@ -243,21 +218,6 @@ test("P3-04: disambiguation event is followed by done without error fallback", a
     id: "ambiguity_stream_no_recovery",
     message: "Show Leila dossier",
     setup(runtime, context) {
-      const restoreUx = patchMethod(runtime?.ux, "evaluatePreLoop", () => ({
-        handled: false,
-        action: "proceed",
-        metadata: {
-          uxDecision: {
-            action: "proceed_with_ambiguity",
-            posture: "clarification",
-            ambiguityKind: "unclear_reference",
-            ambiguityConfidence: "medium",
-            workflowType: "none",
-            reason: "READ_ONLY ambiguity deferred to tool-first grounding.",
-          },
-        },
-      }));
-
       installSyntheticReadTool(runtime, "listClients", async () => ({
         ok: true,
         data: {
@@ -278,7 +238,6 @@ test("P3-04: disambiguation event is followed by done without error fallback", a
       ]);
 
       return () => {
-        restoreUx?.();
         restoreLlm?.();
       };
     },
@@ -488,22 +447,6 @@ test("P3-07: aggregate unpaid-invoice draft emits artifact without clarification
         checkRateLimit: () => ({ allowed: true, remaining: 100, resetAt: 0 }),
       };
 
-      const restoreUx = patchMethod(runtime?.ux, "evaluatePreLoop", () => ({
-        handled: false,
-        action: "proceed",
-        metadata: {
-          security: { authScope: "draft" },
-          uxDecision: {
-            action: "proceed",
-            posture: "answer",
-            ambiguityKind: "none",
-            ambiguityConfidence: "medium",
-            workflowType: "none",
-            reason: "No high-confidence ambiguity detected.",
-          },
-        },
-      }));
-
       installSyntheticReadTool(runtime, "listFinancialEntries", async () => ({
         ok: true,
         data: {
@@ -583,7 +526,6 @@ test("P3-07: aggregate unpaid-invoice draft emits artifact without clarification
       ]);
 
       return () => {
-        restoreUx?.();
         restoreStream?.();
       };
     },

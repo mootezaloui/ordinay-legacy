@@ -29,6 +29,13 @@ const FEATURE_FLAG_REGISTRY = Object.freeze({
     envControlled: true,
     description: "Enable live Agent v2 SSE route.",
   },
+  FEATURE_AGENT_V2_SUGGESTIONS: {
+    category: FLAG_CATEGORIES.ROLLOUT,
+    defaultValue: true,
+    envControlled: true,
+    description:
+      "Enable proactive suggestion generation, suggestion SSE artifacts, and suggestion telemetry in Agent v2.",
+  },
   AGENT_CHAT_MUTATION_DEBUG: {
     category: FLAG_CATEGORIES.DEPRECATED,
     defaultValue: false,

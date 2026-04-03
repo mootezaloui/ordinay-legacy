@@ -174,7 +174,6 @@ const FIXTURES = Object.freeze({
     }),
     requestUser: { id: "fx_plan_stream_pending_user", scope: "execute" },
     setup(runtime, context) {
-      const restoreUx = patchMethod(runtime?.ux, "evaluatePreLoop", () => ({ handled: false }));
       const restoreLlm = patchLlmGenerate(runtime, context, [
         {
           text: "",
@@ -192,7 +191,6 @@ const FIXTURES = Object.freeze({
         },
       ]);
       return () => {
-        restoreUx?.();
         restoreLlm?.();
       };
     },
@@ -305,57 +303,46 @@ const FIXTURES = Object.freeze({
 
   ambiguity_clarification: {
     id: "ambiguity_clarification",
-    description: "UX preflight handled=true blocks loop execution and returns clarification directly.",
+    description: "Loop-first path returns clarification text for underspecified ambiguous request.",
     target: "sse_handler",
     input: buildInput("fx_ambiguity", "Update the dossier"),
     setup(runtime, context) {
       context.flags = context.flags || {};
-      return patchMethod(runtime?.ux, "evaluatePreLoop", () => {
-        context.flags.uxPreflightHandled = true;
-        return {
-          handled: true,
-          action: "ask",
-          responseText: "Which dossier do you want me to update: D-102, D-118, or D-124?",
-          metadata: {
-            uxDecision: {
-              action: "ask",
-              posture: "clarification",
-              ambiguityKind: "multiple_candidates",
-              ambiguityConfidence: "high",
-              workflowType: "none",
-              reason: "Multiple candidate dossiers.",
-            },
-          },
-        };
-      });
+      return patchLlmGenerate(runtime, context, [
+        {
+          text: "Which dossier do you want me to update: D-102, D-118, or D-124?",
+          toolCalls: [],
+        },
+      ]);
     },
     expect: { clarificationTriggered: true, noPendingAction: true },
+    assert(result) {
+      if (!result?.capturedLoopInput) {
+        throw new Error("Expected loop execution for ambiguity clarification scenario.");
+      }
+    },
   },
 
   guided_workflow_suggestion: {
     id: "guided_workflow_suggestion",
-    description: "UX preflight returns guided workflow response when underspecified.",
+    description: "Loop-first path returns guided workflow response when request is underspecified.",
     target: "sse_handler",
     input: buildInput("fx_guided", "Prepare the case."),
-    setup(runtime) {
-      return patchMethod(runtime?.ux, "evaluatePreLoop", () => ({
-        handled: true,
-        action: "guided_workflow",
-        responseText:
-          "To proceed with review dossier, I still need:\n- dossier reference\n- review scope\nSuggested next steps:\n- confirm dossier id\n- choose review dimensions",
-        metadata: {
-          uxDecision: {
-            action: "guided_workflow",
-            posture: "guided_workflow",
-            ambiguityKind: "none",
-            ambiguityConfidence: "medium",
-            workflowType: "review_dossier",
-            reason: "Workflow is underspecified.",
-          },
+    setup(runtime, context) {
+      return patchLlmGenerate(runtime, context, [
+        {
+          text:
+            "To proceed with review dossier, I still need:\n- dossier reference\n- review scope\nSuggested next steps:\n- confirm dossier id\n- choose review dimensions",
+          toolCalls: [],
         },
-      }));
+      ]);
     },
     expect: { noPendingAction: true },
+    assert(result) {
+      if (!result?.capturedLoopInput) {
+        throw new Error("Expected loop execution for guided workflow suggestion scenario.");
+      }
+    },
   },
 
   retrieval_assisted_answer: {
@@ -395,7 +382,6 @@ const FIXTURES = Object.freeze({
       showCitations: true,
     }),
     setup(runtime, context) {
-      const restoreUx = patchMethod(runtime?.ux, "evaluatePreLoop", () => ({ handled: false }));
       const restoreLlm = patchLlmGenerate(runtime, context, [{ text: "Grounded conclusion.", toolCalls: [] }]);
       const restoreSources = patchMethod(runtime?.grounding, "getTurnSources", () => [
         {
@@ -414,7 +400,6 @@ const FIXTURES = Object.freeze({
       }));
       const restoreAppendPolicy = patchMethod(runtime?.grounding, "shouldAppendCitations", () => true);
       return () => {
-        restoreUx?.();
         restoreLlm?.();
         restoreSources?.();
         restoreCitations?.();
@@ -451,7 +436,6 @@ const FIXTURES = Object.freeze({
     target: "sse_handler",
     input: buildInput("fx_draft_stream", "Draft a short hearing confirmation email."),
     setup(runtime, context) {
-      const restoreUx = patchMethod(runtime?.ux, "evaluatePreLoop", () => ({ handled: false }));
       const restoreLlm = patchLlmGenerate(runtime, context, [
         {
           text: "",
@@ -478,7 +462,6 @@ const FIXTURES = Object.freeze({
         { text: "I prepared the draft.", toolCalls: [] },
       ]);
       return () => {
-        restoreUx?.();
         restoreLlm?.();
       };
     },
@@ -500,10 +483,8 @@ const FIXTURES = Object.freeze({
     input: buildInput("fx_unknown_scope", "Read-only status check."),
     setup(runtime, context) {
       context.flags = context.flags || {};
-      const restoreUx = patchMethod(runtime?.ux, "evaluatePreLoop", () => ({ handled: false }));
       const restoreLlm = patchLlmGenerate(runtime, context, [{ text: "Read-only path succeeded.", toolCalls: [] }]);
       return () => {
-        restoreUx?.();
         restoreLlm?.();
       };
     },
