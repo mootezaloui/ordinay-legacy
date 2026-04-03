@@ -14,7 +14,7 @@ function deriveLoaderVariant(phase?: string, action?: string): LoaderVariant {
   if (phase === "uploading") return "uploading";
 
   if (phase === "fetching") {
-    if (a.includes("web") || a.includes("deep search")) return "web-search";
+    if (a.includes("web")) return "web-search";
     return "data-retrieval";
   }
 

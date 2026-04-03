@@ -67,10 +67,7 @@ interface AgentInputProps {
       webSearchEnabled?: boolean;
       webSearchTrigger?: "explicit_language" | "button" | "user_confirmed";
       webSearchQuery?: string;
-      webSearchIntent?: "WEB_SEARCH" | "DEEP_SEARCH";
-      webDeepSearchEnabled?: boolean;
-      webDeepSearchTrigger?: "explicit_language" | "button" | "user_confirmed";
-      webDeepSearchQuery?: string;
+      webSearchIntent?: "WEB_SEARCH";
     },
   ) => void;
   onKeyDown: (e: React.KeyboardEvent) => void;
@@ -103,7 +100,7 @@ export function AgentInput({
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [showDocumentPicker, setShowDocumentPicker] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
-  const [searchModeArmed, setSearchModeArmed] = useState<"web" | "deep" | null>(
+  const [searchModeArmed, setSearchModeArmed] = useState<"web" | null>(
     null,
   );
   const [documentSearch, setDocumentSearch] = useState("");
@@ -226,17 +223,6 @@ export function AgentInput({
   const buildWebSearchMetadata = useCallback(() => {
     if (!searchModeArmed) return undefined;
     const query = input.trim();
-    if (searchModeArmed === "deep") {
-      return {
-        webSearchEnabled: true,
-        webSearchTrigger: "button" as const,
-        webSearchQuery: query || undefined,
-        webSearchIntent: "DEEP_SEARCH" as const,
-        webDeepSearchEnabled: true,
-        webDeepSearchTrigger: "button" as const,
-        webDeepSearchQuery: query || undefined,
-      };
-    }
     return {
       webSearchEnabled: true,
       webSearchTrigger: "button" as const,
@@ -624,45 +610,6 @@ export function AgentInput({
                       <Check className="w-4 h-4 text-blue-500" />
                     )}
                   </button>
-                  <button
-                    type="button"
-                    disabled={isStreaming}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      if (isStreaming) return;
-                      setSearchModeArmed((prev) =>
-                        prev === "deep" ? null : "deep",
-                      );
-                      setShowAttachMenu(false);
-                      inputRef.current?.focus();
-                    }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-black/[0.03] dark:hover:bg-white/[0.04] transition-all group ${
-                      searchModeArmed === "deep"
-                        ? "text-blue-600 dark:text-blue-400"
-                        : "text-slate-700 dark:text-slate-300"
-                    }`}
-                  >
-                    <div
-                      className={`w-10 h-10 flex items-center justify-center rounded-xl group-hover:scale-105 transition-transform ${
-                        searchModeArmed === "deep"
-                          ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                          : "bg-black/[0.04] dark:bg-white/[0.06] text-slate-600 dark:text-slate-300"
-                      }`}
-                    >
-                      <Search className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-semibold">Deep Search</div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
-                        {searchModeArmed === "deep"
-                          ? "Active — click to disable"
-                          : "Thorough web research"}
-                      </div>
-                    </div>
-                    {searchModeArmed === "deep" && (
-                      <Check className="w-4 h-4 text-blue-500" />
-                    )}
-                  </button>
                 </div>
               </div>
             )}
@@ -779,14 +726,10 @@ export function AgentInput({
                 {searchModeArmed && (
                   <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-500/10 border border-blue-500/20 dark:border-blue-400/20 rounded-full premium-badge-enter">
                     <div className="flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-500/20">
-                      {searchModeArmed === "deep" ? (
-                        <Search className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-                      ) : (
-                        <Globe className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-                      )}
+                      <Globe className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                     </div>
                     <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
-                      {searchModeArmed === "deep" ? "Deep Search" : "Web Search"}
+                      Web Search
                     </span>
                     <button
                       type="button"

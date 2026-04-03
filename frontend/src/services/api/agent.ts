@@ -137,10 +137,7 @@ export interface AgentRequestMetadata {
   webSearchEnabled?: boolean;
   webSearchTrigger?: WebSearchTrigger;
   webSearchQuery?: string;
-  webSearchIntent?: 'WEB_SEARCH' | 'DEEP_SEARCH';
-  webDeepSearchEnabled?: boolean;
-  webDeepSearchTrigger?: WebSearchTrigger;
-  webDeepSearchQuery?: string;
+  webSearchIntent?: 'WEB_SEARCH';
   streamingEnabled?: boolean;
   modelPreference?: AgentModelPreference;
   regenerateDraft?: boolean;
@@ -369,7 +366,7 @@ export interface ClarificationOutput {
   confidence?: number; // For routing_clarification
   prompt?: string;
   searchRequest?: {
-    searchIntent?: 'WEB_SEARCH' | 'DEEP_SEARCH';
+    searchIntent?: 'WEB_SEARCH';
     query?: string | null;
     suggestedTrigger?: WebSearchTrigger;
   };
@@ -965,7 +962,7 @@ export interface WebSearchAiSummary {
 export interface WebSearchResultsOutput {
   type: 'web_search_results';
   query: string;
-  searchIntent: 'WEB_SEARCH' | 'DEEP_SEARCH';
+  searchIntent: 'WEB_SEARCH';
   triggeredBy: WebSearchTrigger;
   provider: string;
   results: WebSearchResultItem[];
@@ -974,26 +971,6 @@ export interface WebSearchResultsOutput {
   sources: Array<{ sourceType: string; reference: string; note: string }>;
   timestamp: string;
   status: string;
-  aiSummary?: WebSearchAiSummary | null;
-  source: string;
-  requires_validation: boolean;
-}
-
-export interface WebDeepSearchResultsOutput {
-  type: 'web_deep_search_results';
-  query: string;
-  searchIntent: 'DEEP_SEARCH';
-  triggeredBy: WebSearchTrigger;
-  provider: string;
-  queries: string[];
-  results: WebSearchResultItem[];
-  resultCount: number;
-  message?: string | null;
-  totalEstimatedMatches: number;
-  sources: Array<{ sourceType: string; reference: string; note: string }>;
-  timestamp: string;
-  status: string;
-  reason?: string | null;
   aiSummary?: WebSearchAiSummary | null;
   source: string;
   requires_validation: boolean;
@@ -1078,7 +1055,6 @@ export type AgentOutput =
   | EntityCreationFormOutput
   | RecoveryOutput
   | WebSearchResultsOutput
-  | WebDeepSearchResultsOutput
   | ChatContextSummaryOutput
   | AssistSuggestionsOutput
   | { type: 'action_plan'; actions: ActionProposal[] };
@@ -1115,7 +1091,7 @@ export interface ProcessedAgentResponse {
   recovery?: RecoveryOutput;
   documentGenerationPreview?: DocumentGenerationPreviewOutput;
   documentGenerationMissingFields?: DocumentGenerationMissingFieldsOutput;
-  webSearchResults?: WebSearchResultsOutput | WebDeepSearchResultsOutput;
+  webSearchResults?: WebSearchResultsOutput;
   assistSuggestions?: AssistSuggestionsOutput;
   actionProposals?: ActionProposal[];
   // Error info
@@ -1228,8 +1204,8 @@ export async function sendAgentMessage(
       processed.documentGenerationMissingFields =
         output as DocumentGenerationMissingFieldsOutput;
       processed.displayText = '';
-    } else if (output.type === 'web_search_results' || output.type === 'web_deep_search_results') {
-      processed.webSearchResults = output as WebSearchResultsOutput | WebDeepSearchResultsOutput;
+    } else if (output.type === 'web_search_results') {
+      processed.webSearchResults = output as WebSearchResultsOutput;
       processed.displayText = '';
     } else if (output.type === 'action_plan') {
       const actionPlan = output as { type: 'action_plan'; actions: ActionProposal[] };
@@ -2665,6 +2641,14 @@ export function streamAgentMessage(
             case 'artifact':
               hasResultEnvelope = true;
               if (String(data?.visibility || 'visible').toLowerCase() !== 'metadata') {
+                console.info('[AGENT_STREAM_RESULT_EVENT]', {
+                  event: currentEvent,
+                  outputType:
+                    data?.output && typeof data.output === 'object'
+                      ? String((data.output as { type?: unknown }).type || '')
+                      : '',
+                  intent: String(data?.intent || ''),
+                });
                 callbacks.onResult?.(data);
               }
               break;

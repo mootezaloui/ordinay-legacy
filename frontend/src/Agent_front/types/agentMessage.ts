@@ -14,7 +14,6 @@ import type {
   DocumentGenerationPreviewOutput,
   DocumentDraftOutput,
   WebSearchResultsOutput,
-  WebDeepSearchResultsOutput,
   DocumentGenerationMissingFieldsOutput,
   RecoveryOutput,
   AssistSuggestionsOutput,
@@ -112,7 +111,7 @@ export interface AgentMessage {
 }
 
 export interface AgentMessageData {
-  type: "explanation" | "risks" | "draft" | "draft_v2" | "document_draft" | "actions" | "clarification" | "collection" | "context_suggestion" | "proposal" | "entity_creation_form" | "document_generation_preview" | "document_generation_missing_fields" | "web_search_results" | "web_deep_search_results" | "chat_context_summary" | "recovery" | "assist_suggestions" | "error";
+  type: "explanation" | "risks" | "draft" | "draft_v2" | "document_draft" | "actions" | "clarification" | "collection" | "context_suggestion" | "proposal" | "entity_creation_form" | "document_generation_preview" | "document_generation_missing_fields" | "web_search_results" | "chat_context_summary" | "recovery" | "assist_suggestions" | "error";
   explanation?: ExplanationOutput;
   risks?: RiskAnalysisOutput;
   draft?: DraftOutput;
@@ -127,7 +126,7 @@ export interface AgentMessageData {
   entityCreationForm?: import("../../services/api/agent").EntityCreationFormOutput;
   documentGenerationPreview?: DocumentGenerationPreviewOutput;
   documentGenerationMissingFields?: DocumentGenerationMissingFieldsOutput;
-  webSearchResults?: WebSearchResultsOutput | WebDeepSearchResultsOutput;
+  webSearchResults?: WebSearchResultsOutput;
   recovery?: RecoveryOutput;
   assistSuggestions?: AssistSuggestionsOutput;
   error?: string;

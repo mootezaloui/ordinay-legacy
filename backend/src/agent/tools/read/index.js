@@ -28,6 +28,7 @@ const tools = [
   require("./getHistoryEvent.tool"),
   require("./getEntityGraph.tool"),
   require("./searchDocuments.tool"),
+  require("./mcpWebSearch.tool"),
 ];
 
 function getReadTools() {

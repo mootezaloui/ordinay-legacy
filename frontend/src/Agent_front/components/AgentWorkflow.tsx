@@ -1524,7 +1524,8 @@ function isChatbotActionBlockType(dataType?: string): boolean {
     dataType === "document_generation_preview" ||
     dataType === "document_generation_missing_fields" ||
     dataType === "context_suggestion" ||
-    dataType === "clarification"
+    dataType === "clarification" ||
+    dataType === "web_search_results"
   );
 }
 
@@ -1541,7 +1542,7 @@ function buildGenericContextRows(message: AgentMessage): Array<{ label: string; 
   if (!dataType || !data) return rows;
   rows.push({ label: "Type", value: dataType.replace(/_/g, " ") });
 
-  if (dataType === "web_search_results" || dataType === "web_deep_search_results") {
+  if (dataType === "web_search_results") {
     const searchData = data.webSearchResults;
     if (searchData) {
       rows.push({ label: "Sources", value: String(searchData.results?.length || 0) });
@@ -1657,7 +1658,8 @@ function MinimalChatbotTurn(props: {
   const suppressStandaloneChatBubble =
     (dataType === "proposal" && Boolean(message.data?.proposal)) ||
     dataType === "context_suggestion" ||
-    dataType === "clarification";
+    dataType === "clarification" ||
+    dataType === "web_search_results";
   const renderAttachmentFirst =
     Boolean(dataType) &&
     (dataType === "draft_v2" || dataType === "draft" || dataType === "document_draft");
@@ -2243,20 +2245,7 @@ function ArtifactBody({
                   webSearchEnabled: true,
                   webSearchTrigger: "user_confirmed",
                   webSearchQuery: searchRequest?.query || message.content || "",
-                  webSearchIntent: searchRequest?.searchIntent || "WEB_SEARCH",
-                  webDeepSearchEnabled:
-                    (searchRequest?.searchIntent || "WEB_SEARCH") ===
-                    "DEEP_SEARCH",
-                  webDeepSearchTrigger:
-                    (searchRequest?.searchIntent || "WEB_SEARCH") ===
-                    "DEEP_SEARCH"
-                      ? "user_confirmed"
-                      : undefined,
-                  webDeepSearchQuery:
-                    (searchRequest?.searchIntent || "WEB_SEARCH") ===
-                    "DEEP_SEARCH"
-                      ? searchRequest?.query || message.content || ""
-                      : undefined,
+                  webSearchIntent: "WEB_SEARCH",
                 })
             : undefined
         }
@@ -2271,16 +2260,12 @@ function ArtifactBody({
       />
     );
   }
-  if (
-    (dataType === "web_search_results" ||
-      dataType === "web_deep_search_results") &&
-    message.data?.webSearchResults
-  ) {
+  if (dataType === "web_search_results" && message.data?.webSearchResults) {
     return (
       <WebSearchResultsArtifact
         data={message.data.webSearchResults}
         onConfirmWebSearch={onConfirmWebSearch}
-        commentaryMessage={message.commentary?.message}
+        commentaryMessage={message.commentary?.message || message.content}
         isLive={message.status === "sending"}
       />
     );
@@ -2576,10 +2561,8 @@ function getAcknowledgment(intent?: string): string {
 
   const n = intent.toUpperCase();
 
-  if (n.includes("SEARCH_DEEP_WEB")) return "Running deep legal research...";
   if (n.includes("WEB_SEARCH")) return "Searching public web sources...";
   if (n.includes("SEARCH_WEB")) return "Searching public web sources...";
-  if (n.includes("DEEP_SEARCH")) return "Running deep legal research...";
 
   // Read intents
   if (n.includes("READ_CLIENT") || n.includes("LIST_CLIENT"))
@@ -2656,15 +2639,6 @@ function getWorkSteps(intent?: string): string[] {
 
   const n = intent.toUpperCase();
 
-  if (n.includes("SEARCH_DEEP_WEB")) {
-    return [
-      "Request classified",
-      "Checking deep-search activation",
-      "Running explicit deep search",
-      "Aggregating expanded queries",
-      "Formatting deep-search results",
-    ];
-  }
   if (n.includes("WEB_SEARCH")) {
     return [
       "Request classified",
@@ -2680,16 +2654,6 @@ function getWorkSteps(intent?: string): string[] {
       "Running explicit web search",
       "Collecting cited sources",
       "Formatting search results",
-    ];
-  }
-
-  if (n.includes("DEEP_SEARCH")) {
-    return [
-      "Request classified",
-      "Running explicit deep search",
-      "Collecting legal citations",
-      "Highlighting uncertainties",
-      "Formatting research output",
     ];
   }
 

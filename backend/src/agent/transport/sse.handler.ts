@@ -11,7 +11,7 @@ import type {
   PlanRejectedArtifact,
   SuggestionArtifact,
 } from "../types";
-import { StreamEmitter } from "./stream.emitter";
+import { StreamEmitter, type StreamEvent } from "./stream.emitter";
 import { createAgentV2Runtime, type AgentV2Runtime } from "./runtime.factory";
 
 const TEXT_CHUNK_SIZE = 200;
@@ -316,6 +316,10 @@ export function createAgentV2StreamHandler(runtime: AgentV2Runtime) {
       }
 
       emitOutput(emitter, output, deliveredLiveText);
+      const webSearchArtifactEvent = buildWebSearchArtifactEvent(input, output);
+      if (webSearchArtifactEvent) {
+        emitter.emit(webSearchArtifactEvent);
+      }
       emitEntityMutationSuccessEvents(emitter, input, output);
 
       const disambiguation = detectDisambiguation(uxPreflight, output, session, input);
@@ -554,6 +558,185 @@ function emitOutput(
       ok: confirmedResult.ok === true,
     });
   }
+}
+
+function buildWebSearchArtifactEvent(
+  input: AgentTurnInput,
+  output: AgentTurnOutput,
+): Extract<StreamEvent, { type: "artifact" }> | null {
+  const toolCalls = Array.isArray(output.toolCalls) ? output.toolCalls : [];
+  let sawWebSearchCall = false;
+  let lastWebSearchCallMetadataKeys: string[] = [];
+  for (let index = toolCalls.length - 1; index >= 0; index -= 1) {
+    const call = toolCalls[index];
+    if (!call || call.ok !== true || String(call.toolName || "").trim() !== "mcpWebSearch") {
+      continue;
+    }
+    sawWebSearchCall = true;
+    const metadata = toRecord(call.metadata);
+    lastWebSearchCallMetadataKeys = metadata ? Object.keys(metadata) : [];
+    const result =
+      toRecord(metadata?.webSearchResult) ??
+      toRecord(metadata?.result) ??
+      toRecord(metadata?.data) ??
+      (looksLikeWebSearchResult(metadata) ? metadata : null);
+    if (!result) {
+      continue;
+    }
+    const artifact = toWebSearchArtifactOutput(input, result);
+    if (!artifact) {
+      continue;
+    }
+    console.info(
+      "[AGENT_WEBSEARCH_SSE_EMIT]",
+      safeDiagnosticJson({
+        sessionId: input.sessionId,
+        turnId: input.turnId,
+        source: "tool_call_metadata",
+        resultCount: coerceNumber(artifact.resultCount) ?? 0,
+        status: asString(artifact.status) ?? "complete",
+      }),
+    );
+    return {
+      type: "artifact",
+      output: artifact,
+      intent: "WEB_SEARCH",
+      visibility: "visible",
+      interactionMode: "operational",
+    };
+  }
+  if (sawWebSearchCall) {
+    console.warn(
+      "[AGENT_WEBSEARCH_SSE_MISSING_ARTIFACT]",
+      safeDiagnosticJson({
+        sessionId: input.sessionId,
+        turnId: input.turnId,
+        reason: "websearch_tool_call_found_but_result_metadata_not_extractable",
+        metadataKeys: lastWebSearchCallMetadataKeys,
+      }),
+    );
+  }
+  return null;
+}
+
+function looksLikeWebSearchResult(value: Record<string, unknown> | null): boolean {
+  if (!value) return false;
+  const hasQuery = asNonEmptyString(value.query) !== null;
+  const hasResults = Array.isArray(value.results);
+  const hasStatus = asNonEmptyString(value.status) !== null;
+  const hasProvider = asNonEmptyString(value.provider) !== null;
+  return hasResults || (hasQuery && (hasStatus || hasProvider));
+}
+
+function toWebSearchArtifactOutput(
+  input: AgentTurnInput,
+  result: Record<string, unknown>,
+): Record<string, unknown> | null {
+  const query = asNonEmptyString(result.query) ?? asNonEmptyString(input.message) ?? "";
+  if (!query) {
+    return null;
+  }
+
+  const status = normalizeWebSearchStatus(result.status);
+  const reason = asNonEmptyString(result.reason);
+  const parsedResults = normalizeWebSearchItems(result.results);
+  const triggeredBy = normalizeWebSearchTrigger(toRecord(input.metadata)?.webSearchTrigger);
+  const provider = asNonEmptyString(result.provider) ?? "langsearch";
+  const message = buildWebSearchStatusMessage(status, reason, parsedResults.length);
+  const sourceRows = parsedResults.map((item) => ({
+    sourceType: "web",
+    reference: item.url,
+    note: item.source || item.title,
+  }));
+
+  return {
+    type: "web_search_results",
+    query,
+    searchIntent: "WEB_SEARCH",
+    triggeredBy,
+    provider,
+    results: parsedResults,
+    resultCount: parsedResults.length,
+    message,
+    sources: sourceRows,
+    timestamp: new Date().toISOString(),
+    status,
+    aiSummary: null,
+    source: "agent_v2_langsearch",
+    requires_validation: true,
+  };
+}
+
+function normalizeWebSearchStatus(value: unknown): string {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (
+    normalized === "complete" ||
+    normalized === "rate_limited" ||
+    normalized === "error" ||
+    normalized === "unavailable"
+  ) {
+    return normalized;
+  }
+  return "complete";
+}
+
+function normalizeWebSearchTrigger(
+  value: unknown,
+): "explicit_language" | "button" | "user_confirmed" {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "button") {
+    return "button";
+  }
+  if (normalized === "user_confirmed") {
+    return "user_confirmed";
+  }
+  return "explicit_language";
+}
+
+function normalizeWebSearchItems(value: unknown): Array<Record<string, unknown>> {
+  const list = Array.isArray(value) ? value : [];
+  const normalized: Array<Record<string, unknown>> = [];
+  for (let index = 0; index < list.length; index += 1) {
+    const item = toRecord(list[index]);
+    if (!item) continue;
+    const url = asNonEmptyString(item.url);
+    if (!url) continue;
+    normalized.push({
+      id: asNonEmptyString(item.id) ?? String(index + 1),
+      title: asNonEmptyString(item.title) ?? "Untitled result",
+      snippet: asNonEmptyString(item.snippet) ?? "",
+      url,
+      source: asNonEmptyString(item.source) ?? null,
+      publishedDate:
+        asNonEmptyString(item.publishedDate) ??
+        asNonEmptyString(item.datePublished) ??
+        null,
+    });
+  }
+  return normalized;
+}
+
+function buildWebSearchStatusMessage(
+  status: string,
+  reason: string | null,
+  resultCount: number,
+): string | null {
+  if (status === "complete") {
+    if (resultCount === 0) {
+      return "No external results found for this query.";
+    }
+    return null;
+  }
+  if (status === "rate_limited") {
+    return "External search is currently rate-limited. Please retry shortly.";
+  }
+  if (status === "error") {
+    if (reason === "invalid_api_key") {
+      return "External search is misconfigured. Check the LangSearch API key.";
+    }
+    return "External search failed.";
+  }
+  return "External search provider is unavailable right now.";
 }
 
 function extractDraftArtifactFromOutput(output: AgentTurnOutput): DraftArtifact | null {

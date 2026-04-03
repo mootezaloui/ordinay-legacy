@@ -1,7 +1,7 @@
 'use strict';
 
 const express = require('express');
-const { createWebSearchMCPServer } = require('../src/agent_Back/mcp/servers/websearch.server');
+const { createWebSearchMCPServer } = require('../src/agent/mcp/servers/websearch.server');
 
 const app = express();
 const server = createWebSearchMCPServer();

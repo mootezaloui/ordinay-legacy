@@ -20,6 +20,13 @@ export type StreamEvent =
   | { type: "confirmed"; actionSummary: string; ok: boolean }
   | { type: "entity_mutation_success"; event: Record<string, unknown> }
   | { type: "disambiguation"; payload: Record<string, unknown> }
+  | {
+      type: "artifact";
+      output: Record<string, unknown>;
+      intent: string;
+      visibility?: "visible" | "metadata";
+      interactionMode?: "conversational" | "operational";
+    }
   | { type: "done" }
   | { type: "error"; message: string };
 
@@ -123,6 +130,18 @@ export class StreamEmitter {
     }
     if ("payload" in event) {
       base.payload = event.payload;
+    }
+    if ("output" in event) {
+      base.output = event.output;
+    }
+    if ("intent" in event) {
+      base.intent = event.intent;
+    }
+    if ("visibility" in event) {
+      base.visibility = event.visibility;
+    }
+    if ("interactionMode" in event) {
+      base.interactionMode = event.interactionMode;
     }
     return base;
   }

@@ -9,14 +9,13 @@ import {
 } from "lucide-react";
 import type {
   WebSearchResultsOutput,
-  WebDeepSearchResultsOutput,
   WebSearchAiSummary,
   AgentRequestMetadata,
 } from "../../../services/api/agent";
 import { openExternalLink } from "../../../lib/externalLink";
 
 interface WebSearchResultsArtifactProps {
-  data: WebSearchResultsOutput | WebDeepSearchResultsOutput;
+  data: WebSearchResultsOutput;
   onConfirmWebSearch?: (metadata: AgentRequestMetadata) => void;
   commentaryMessage?: string;
   isLive?: boolean;
@@ -29,6 +28,206 @@ const ANALYZE_STEP_STAGGER_MS = 650;
 const ANSWER_START_DELAY_MS = 300;
 const TYPEWRITER_MS = 8;
 const RELATED_DELAY_MS = 500;
+
+function normalizeWhitespace(value: string): string {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function stripMarkdownInline(value: string): string {
+  return normalizeWhitespace(
+    String(value || "")
+      .replace(/\[(.*?)\]\((.*?)\)/g, "$1")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/\*([^*]+)\*/g, "$1")
+      .replace(/~~([^~]+)~~/g, "$1")
+      .replace(/<br\s*\/?>/gi, " ")
+      .replace(/<\/?[^>]+>/g, " ")
+  );
+}
+
+function ensureSentence(value: string): string {
+  const text = normalizeWhitespace(value);
+  if (!text) return "";
+  return /[.!?]$/.test(text) ? text : `${text}.`;
+}
+
+function buildSourceDrivenFallbackSummary(
+  results: Array<{ source?: string | null; title: string; snippet: string; url: string }>,
+): string {
+  if (!Array.isArray(results) || results.length === 0) {
+    return "";
+  }
+  const top = results.slice(0, 3);
+  const paragraphs = top
+    .map((result, idx) => {
+      const source = sourceLabel(result);
+      const detail = stripMarkdownInline(result.snippet || result.title || "No detail available");
+      if (!detail) return "";
+      return `${ensureSentence(`${source} reports ${detail}`)} [${idx + 1}]`;
+    })
+    .filter(Boolean);
+  if (paragraphs.length === 0) return "";
+  if (results.length > 3) {
+    const remaining = results.length - 3;
+    paragraphs.push(
+      ensureSentence(
+        `Additional corroborating context is available in ${remaining} more source${
+          remaining === 1 ? "" : "s"
+        }`,
+      ),
+    );
+  }
+  return paragraphs.join("\n\n");
+}
+
+function parseMarkdownTableRows(markdown: string): string[][] {
+  const rows: string[][] = [];
+  for (const rawLine of String(markdown || "").split("\n")) {
+    const line = rawLine.trim();
+    if (!line.startsWith("|") || !line.endsWith("|")) continue;
+    const columns = line
+      .slice(1, -1)
+      .split("|")
+      .map((cell) => stripMarkdownInline(cell));
+    if (columns.length < 2) continue;
+    const isSeparator = columns.every((cell) => /^:?-{3,}:?$/.test(cell.replace(/\s+/g, "")));
+    if (isSeparator) continue;
+    rows.push(columns);
+  }
+  if (rows.length <= 1) return [];
+  const [header, ...body] = rows;
+  const headerJoined = header.join(" ").toLowerCase();
+  const hasLikelyHeader =
+    headerJoined.includes("topic") ||
+    headerJoined.includes("key") ||
+    headerJoined.includes("source");
+  return hasLikelyHeader ? body : rows;
+}
+
+function sourceDomainTokens(result: { source?: string | null; title: string; url: string }): string[] {
+  const domain = extractDomain(result.url);
+  const source = String(result.source || "").trim();
+  const hostToken = domain.split(".")[0] || "";
+  return [domain, source, hostToken, result.title]
+    .map((item) => normalizeWhitespace(item).toLowerCase())
+    .filter(Boolean);
+}
+
+function guessCitationIndex(
+  sourceText: string,
+  pointsText: string,
+  results: Array<{ source?: string | null; title: string; url: string }>,
+  rowIndex: number,
+): number | null {
+  if (results.length === 0) return null;
+  const sourceNorm = normalizeWhitespace(sourceText).toLowerCase();
+  const pointsNorm = normalizeWhitespace(pointsText).toLowerCase();
+  let bestScore = -1;
+  let bestIndex = -1;
+
+  results.forEach((result, idx) => {
+    let score = 0;
+    for (const token of sourceDomainTokens(result)) {
+      if (!token) continue;
+      if (sourceNorm.includes(token) || token.includes(sourceNorm)) score += 4;
+      if (pointsNorm.includes(token)) score += 2;
+    }
+    const titleWords = normalizeWhitespace(result.title)
+      .toLowerCase()
+      .split(" ")
+      .filter((word) => word.length > 4)
+      .slice(0, 6);
+    for (const word of titleWords) {
+      if (pointsNorm.includes(word)) score += 1;
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = idx;
+    }
+  });
+
+  if (bestScore > 0 && bestIndex >= 0) return bestIndex + 1;
+  if (rowIndex < results.length) return rowIndex + 1;
+  return null;
+}
+
+function cleanStandaloneMarkdownSummary(rawText: string): string {
+  const lines = String(rawText || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .filter((line) => !/^related$/i.test(line));
+  const output: string[] = [];
+  for (const line of lines) {
+    if (/^[-*]\s+/.test(line)) {
+      output.push(ensureSentence(stripMarkdownInline(line.replace(/^[-*]\s+/, ""))));
+      continue;
+    }
+    if (/^\d+\.\s+/.test(line)) {
+      output.push(ensureSentence(stripMarkdownInline(line.replace(/^\d+\.\s+/, ""))));
+      continue;
+    }
+    if (/^#{1,6}\s*/.test(line)) {
+      output.push(ensureSentence(stripMarkdownInline(line.replace(/^#{1,6}\s*/, ""))));
+      continue;
+    }
+    output.push(ensureSentence(stripMarkdownInline(line)));
+  }
+  return output.join("\n\n").trim();
+}
+
+function normalizeAnswerToNarrative(
+  rawText: string,
+  results: Array<{ source?: string | null; title: string; url: string }>,
+): string {
+  const text = String(rawText || "").trim();
+  if (!text) return "";
+
+  const takeawayMatch = text.match(/(?:\*\*)?\s*Take[-‑]away:\s*(.+)$/i);
+  const bodyWithoutTakeaway = takeawayMatch ? text.slice(0, takeawayMatch.index).trim() : text;
+  const takeawaySentence = takeawayMatch ? ensureSentence(stripMarkdownInline(takeawayMatch[1])) : "";
+
+  const tableRows = parseMarkdownTableRows(bodyWithoutTakeaway);
+  if (tableRows.length > 0) {
+    const paragraphs = tableRows
+      .map((columns, rowIndex) => {
+        const topic = stripMarkdownInline(columns[0] || "");
+        const keyPoints = stripMarkdownInline(columns[1] || "");
+        const source = stripMarkdownInline(columns[2] || "");
+        if (!topic && !keyPoints) return "";
+        const core = topic ? `${topic}: ${keyPoints || "No additional detail available"}` : keyPoints;
+        const citation = guessCitationIndex(source, `${topic} ${keyPoints}`, results, rowIndex);
+        const sourceText = source ? ` Source: ${source}.` : "";
+        const citationText = citation ? ` [${citation}]` : "";
+        return `${ensureSentence(core)}${sourceText}${citationText}`.trim();
+      })
+      .filter(Boolean);
+
+    if (takeawaySentence) {
+      const citationSet = Array.from(
+        new Set(
+          paragraphs
+            .map((paragraph) => [...paragraph.matchAll(/\[(\d+)\]/g)].map((match) => Number(match[1])))
+            .flat()
+            .filter((num) => Number.isFinite(num) && num > 0),
+        ),
+      );
+      const takeawayCitations =
+        citationSet.length > 0 ? ` ${citationSet.map((num) => `[${num}]`).join(" ")}` : "";
+      paragraphs.push(`${takeawaySentence}${takeawayCitations}`.trim());
+    }
+    return paragraphs.join("\n\n");
+  }
+
+  const fallbackNarrative = cleanStandaloneMarkdownSummary(bodyWithoutTakeaway);
+  if (!fallbackNarrative) {
+    return takeawaySentence;
+  }
+  return takeawaySentence ? `${fallbackNarrative}\n\n${takeawaySentence}` : fallbackNarrative;
+}
 
 function extractDomain(url: string): string {
   try {
@@ -52,7 +251,7 @@ function faviconUrl(url: string): string {
   return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`;
 }
 
-function statusMessage(data: WebSearchResultsOutput | WebDeepSearchResultsOutput): string | null {
+function statusMessage(data: WebSearchResultsOutput): string | null {
   if (data.status === "unavailable") {
     return "External search provider is unavailable right now.";
   }
@@ -74,7 +273,7 @@ function buildAnalyzeSteps(resultCount: number): string[] {
 }
 
 function buildRelatedQuestions(
-  data: WebSearchResultsOutput | WebDeepSearchResultsOutput,
+  data: WebSearchResultsOutput,
   aiSummary: WebSearchAiSummary | null,
 ): string[] {
   const base = data.query.trim();
@@ -119,18 +318,12 @@ export function WebSearchResultsArtifact({
   const [brokenFavicons, setBrokenFavicons] = useState<Record<string, boolean>>({});
 
   const aiSummary = data.aiSummary || null;
-  const isDeepSearch = data.type === "web_deep_search_results";
-  const queries = useMemo(() => {
-    if (isDeepSearch && "queries" in data && Array.isArray(data.queries) && data.queries.length > 0) {
-      return data.queries;
-    }
-    return [data.query];
-  }, [data, isDeepSearch]);
+  const queries = useMemo(() => [data.query], [data.query]);
   const shouldAnimate = isLive;
   const analyzeSteps = useMemo(() => buildAnalyzeSteps(data.results.length), [data.results.length]);
   const relatedQuestions = useMemo(() => buildRelatedQuestions(data, aiSummary), [aiSummary, data]);
   const fallbackStatus = useMemo(() => statusMessage(data), [data]);
-  const answerText = useMemo(() => {
+  const rawAnswerText = useMemo(() => {
     if (aiSummary?.shortAnswer && aiSummary.shortAnswer.trim().length > 0) {
       return aiSummary.shortAnswer.trim();
     }
@@ -140,10 +333,14 @@ export function WebSearchResultsArtifact({
     if (fallbackStatus) return fallbackStatus;
     if (data.message && data.message.trim().length > 0) return data.message.trim();
     if (data.results.length > 0) {
-      return "Summary unavailable. Please review sources below.";
+      return buildSourceDrivenFallbackSummary(data.results);
     }
     return "No external results found.";
-  }, [aiSummary, commentaryMessage, data.message, data.results.length, fallbackStatus]);
+  }, [aiSummary, commentaryMessage, data.message, data.results, fallbackStatus]);
+  const answerText = useMemo(() => {
+    if (!rawAnswerText) return rawAnswerText;
+    return normalizeAnswerToNarrative(rawAnswerText, data.results);
+  }, [rawAnswerText, data.results]);
 
   const displayVisibleQueryCount = shouldAnimate ? visibleQueryCount : Math.max(queries.length, 1);
   const displaySearchComplete = shouldAnimate ? searchComplete : true;
@@ -161,8 +358,11 @@ export function WebSearchResultsArtifact({
     [answerText, displayTypedLength],
   );
   const citationIndices = useMemo(
-    () => new Set((aiSummary?.citations || []).map((item) => item.index)),
-    [aiSummary?.citations],
+    () =>
+      aiSummary?.citations?.length
+        ? new Set((aiSummary.citations || []).map((item) => item.index))
+        : new Set(data.results.map((_, idx) => idx + 1)),
+    [aiSummary?.citations, data.results],
   );
   const answerParts = useMemo(() => {
     const parts = visibleAnswer.split(/(\[\d+(?:[,\s]+\d+)*\])/g);
@@ -192,17 +392,13 @@ export function WebSearchResultsArtifact({
 
   const triggerFollowUpSearch = useCallback((query: string) => {
     if (!onConfirmWebSearch) return;
-    const isDeep = data.searchIntent === "DEEP_SEARCH";
     onConfirmWebSearch({
       webSearchEnabled: true,
       webSearchTrigger: "button",
       webSearchQuery: query,
-      webSearchIntent: isDeep ? "DEEP_SEARCH" : "WEB_SEARCH",
-      webDeepSearchEnabled: isDeep,
-      webDeepSearchTrigger: isDeep ? "button" : undefined,
-      webDeepSearchQuery: isDeep ? query : undefined,
+      webSearchIntent: "WEB_SEARCH",
     });
-  }, [data.searchIntent, onConfirmWebSearch]);
+  }, [onConfirmWebSearch]);
 
   useEffect(() => {
     if (!shouldAnimate) return;

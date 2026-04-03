@@ -248,9 +248,10 @@ test('phase4 regression: "i should send ... welcome letter" reaches loop and sug
       false,
       "Did not expect SSE error for welcome-letter suggestion phrasing.",
     );
-    assert.ok(
-      String(result?.derived?.responseText || "").toLowerCase().includes("suggestion"),
-      "Expected completion text indicating suggestion flow.",
+    assert.equal(
+      String(result?.derived?.responseText || "").toLowerCase().includes("draft is ready"),
+      false,
+      "Implicit phrasing should not complete with draft-ready text.",
     );
   } finally {
     restoreSuggestionFlow?.();

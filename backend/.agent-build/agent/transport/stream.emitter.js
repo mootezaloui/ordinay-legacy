@@ -77,6 +77,18 @@ class StreamEmitter {
         if ("payload" in event) {
             base.payload = event.payload;
         }
+        if ("output" in event) {
+            base.output = event.output;
+        }
+        if ("intent" in event) {
+            base.intent = event.intent;
+        }
+        if ("visibility" in event) {
+            base.visibility = event.visibility;
+        }
+        if ("interactionMode" in event) {
+            base.interactionMode = event.interactionMode;
+        }
         return base;
     }
     safeJson(value) {

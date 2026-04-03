@@ -29,7 +29,6 @@ import {
   StatusEventData,
   SuggestionArtifactEventData,
   WebSearchResultsOutput,
-  WebDeepSearchResultsOutput,
 } from "../../services/api/agent";
 import { uploadAttachments } from "../../services/api/agentDocuments";
 import type { AttachedFile } from "../components/AgentInput";
@@ -2058,11 +2057,19 @@ export function useAgentState() {
               documentGenerationMissingFields: output,
             };
             streamedContent = "";
-          } else if (output.type === "web_search_results" || output.type === "web_deep_search_results") {
+          } else if (output.type === "web_search_results") {
             agentData = {
               type: output.type,
-              webSearchResults: output as WebSearchResultsOutput | WebDeepSearchResultsOutput,
+              webSearchResults: output as WebSearchResultsOutput,
             };
+            const preservedChatSummary = String(streamedContent || "").trim();
+            if (preservedChatSummary.length > 0 && !commentary) {
+              commentary = {
+                message: preservedChatSummary,
+                source: "llm",
+                signals: [],
+              };
+            }
             streamedContent = "";
           } else if (output.type === "chat_context_summary") {
             agentData = {
@@ -2763,11 +2770,19 @@ export function useAgentState() {
               documentGenerationMissingFields: output,
             };
             streamedContent = "";
-          } else if (output.type === "web_search_results" || output.type === "web_deep_search_results") {
+          } else if (output.type === "web_search_results") {
             agentData = {
               type: output.type,
-              webSearchResults: output as WebSearchResultsOutput | WebDeepSearchResultsOutput,
+              webSearchResults: output as WebSearchResultsOutput,
             };
+            const preservedChatSummary = String(streamedContent || "").trim();
+            if (preservedChatSummary.length > 0 && !commentary) {
+              commentary = {
+                message: preservedChatSummary,
+                source: "llm",
+                signals: [],
+              };
+            }
             streamedContent = "";
           } else if (output.type === "chat_context_summary") {
             agentData = {
@@ -3536,11 +3551,19 @@ export function useAgentState() {
               documentGenerationMissingFields: output,
             };
             streamedContent = "";
-          } else if (output.type === "web_search_results" || output.type === "web_deep_search_results") {
+          } else if (output.type === "web_search_results") {
             agentData = {
               type: output.type,
-              webSearchResults: output as WebSearchResultsOutput | WebDeepSearchResultsOutput,
+              webSearchResults: output as WebSearchResultsOutput,
             };
+            const preservedChatSummary = String(streamedContent || "").trim();
+            if (preservedChatSummary.length > 0 && !commentary) {
+              commentary = {
+                message: preservedChatSummary,
+                source: "llm",
+                signals: [],
+              };
+            }
             streamedContent = "";
           } else if (output.type === "chat_context_summary") {
             agentData = {
@@ -3800,21 +3823,11 @@ export function useAgentState() {
 
   const confirmWebSearch = useCallback(
     (metadata: AgentRequestMetadata) => {
-      const deepRequested =
-        metadata?.webDeepSearchEnabled === true ||
-        metadata?.webSearchIntent === "DEEP_SEARCH";
       const safeMetadata: AgentRequestMetadata = {
         webSearchEnabled: true,
         webSearchTrigger: metadata?.webSearchTrigger || "user_confirmed",
         webSearchQuery: metadata?.webSearchQuery,
-        webSearchIntent: metadata?.webSearchIntent,
-        webDeepSearchEnabled: deepRequested,
-        webDeepSearchTrigger: deepRequested
-          ? metadata?.webDeepSearchTrigger || metadata?.webSearchTrigger || "user_confirmed"
-          : undefined,
-        webDeepSearchQuery: deepRequested
-          ? metadata?.webDeepSearchQuery || metadata?.webSearchQuery
-          : undefined,
+        webSearchIntent: "WEB_SEARCH",
       };
       const confirmationMessage =
         safeMetadata.webSearchQuery && safeMetadata.webSearchQuery.trim().length > 0
