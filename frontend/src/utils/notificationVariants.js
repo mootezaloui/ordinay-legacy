@@ -1,7 +1,26 @@
 import { t } from "../i18n";
 
-const normalizeKey = (key = "") =>
-  key.startsWith("notifications:") ? key.replace("notifications:", "") : key;
+const LEGACY_TEMPLATE_ALIASES = {
+  "content.dossier.review": "content.dossier.generalReview",
+};
+
+const applyLegacyAlias = (key = "") => {
+  if (!key) return key;
+  for (const [legacy, canonical] of Object.entries(LEGACY_TEMPLATE_ALIASES)) {
+    if (key === legacy) return canonical;
+    if (key.startsWith(`${legacy}.`)) {
+      return `${canonical}${key.slice(legacy.length)}`;
+    }
+  }
+  return key;
+};
+
+const normalizeKey = (key = "") => {
+  const stripped = key.startsWith("notifications:")
+    ? key.replace("notifications:", "")
+    : key;
+  return applyLegacyAlias(stripped);
+};
 
 const getBaseKey = (titleKey, messageKey) => {
   const key = titleKey || messageKey || "";
@@ -110,7 +129,11 @@ const translatePart = (
   const translationPath = `notifications:${fullKey}`;
   const translatedValue = t(translationPath, { ...mergedParams, defaultValue: "" });
   
-  if (translatedValue && translatedValue !== translationPath) {
+  if (
+    translatedValue &&
+    translatedValue !== translationPath &&
+    translatedValue !== fullKey
+  ) {
     return translatedValue;
   }
 

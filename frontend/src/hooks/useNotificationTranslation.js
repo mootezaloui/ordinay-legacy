@@ -119,6 +119,20 @@ const buildSessionDetails = (params, t) => {
   return ` - ${parts.join(" | ")}`;
 };
 
+const withNotificationLabelFallbacks = (params = {}, notification = {}) => {
+  const next = { ...(params || {}) };
+  const fallbackLabel =
+    next.dossierNumber ||
+    next.lawsuitNumber ||
+    next.reference ||
+    (notification?.entityId != null ? `#${notification.entityId}` : "");
+
+  if (!next.dossierNumber && fallbackLabel) next.dossierNumber = fallbackLabel;
+  if (!next.lawsuitNumber && fallbackLabel) next.lawsuitNumber = fallbackLabel;
+  if (!next.priority) next.priority = "normal";
+  return next;
+};
+
 /**
  * Translate a single notification object
  * @param {Object} notification - Notification with template_key and params
@@ -149,7 +163,10 @@ export function useNotificationTranslation(notification) {
     }
 
     // Format date params with current language
-    const formattedParams = formatDateParams(params, i18n.language);
+    const formattedParams = withNotificationLabelFallbacks(
+      formatDateParams(params, i18n.language),
+      notification
+    );
     if (formattedParams.parentContext === undefined) {
       formattedParams.parentContext = buildParentContext(formattedParams, t);
     }
@@ -229,7 +246,10 @@ export function useNotificationListTranslation(notifications) {
       }
 
       // Format date params with current language
-      const formattedParams = formatDateParams(params, i18n.language);
+      const formattedParams = withNotificationLabelFallbacks(
+        formatDateParams(params, i18n.language),
+        notification
+      );
       if (formattedParams.parentContext === undefined) {
         formattedParams.parentContext = buildParentContext(formattedParams, t);
       }

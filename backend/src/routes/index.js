@@ -20,6 +20,7 @@ const profileRouter = require("./profile.routes");
 const dashboardRouter = require("./dashboard.routes");
 const importsRouter = require("./imports.routes");
 const agentDocumentsRouter = require("./agentDocuments.routes");
+const settingsRouter = require("./settings.routes");
 const { FEATURE_AI_AGENT, FEATURE_AGENT_V2_STREAM } = require("../config/features");
 
 const AGENT_ROUTE_DIAGNOSTICS_ENABLED = parseBoolean(
@@ -71,6 +72,7 @@ router.use("/operators", operatorsRouter);
 router.use("/profile", profileRouter);
 router.use("/dashboard", dashboardRouter);
 router.use("/imports", importsRouter);
+router.use("/settings", settingsRouter);
 router.use("/agent/sessions/:sessionId/documents", agentDocumentsRouter);
 router.use((req, _res, next) => {
   if (!AGENT_ROUTE_DIAGNOSTICS_ENABLED) {

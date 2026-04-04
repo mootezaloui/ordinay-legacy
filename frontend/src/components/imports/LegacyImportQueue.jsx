@@ -716,13 +716,6 @@ export default function LegacyImportQueue({
                 {loadError}
               </span>
             )}
-            <button
-              type="button"
-              onClick={() => setManualRefresh((prev) => prev + 1)}
-              className="rounded-md border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-            >
-              {t("importQueue.actions.refresh")}
-            </button>
           </div>
         </div>
       </div>

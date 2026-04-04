@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { AgentMessage, AgentMessageData } from "../types/agentMessage";
 import { useAgentSessions } from "./useAgentSessions";
+import { getAIProviderConfig } from "../../services/api/aiProvider";
 import {
   streamAgentMessage,
   ActionProposal,
@@ -160,20 +161,11 @@ function saveDataAccessToStorage(dataAccess: DataAccessPermissions): void {
 function loadModelPreferenceFromStorage(): AgentModelPreference {
   try {
     const stored = String(localStorage.getItem(MODEL_PREFERENCE_STORAGE_KEY) || "").trim();
-    if (stored === "genna3:1b") {
-      return "gemma3:1b";
-    }
-    if (
-      stored === "gpt-oss:120b-cloud" ||
-      stored === "deepseek-r1:8b" ||
-      stored === "gemma3:1b"
-    ) {
-      return stored;
-    }
+    if (stored) return stored;
   } catch {
     // Ignore storage errors
   }
-  return "gpt-oss:120b-cloud";
+  return "";
 }
 
 function saveModelPreferenceToStorage(value: AgentModelPreference): void {
@@ -1329,6 +1321,22 @@ export function useAgentState() {
   useEffect(() => {
     saveModelPreferenceToStorage(modelPreference);
   }, [modelPreference]);
+
+  // Load model from AI provider config on mount
+  useEffect(() => {
+    let mounted = true;
+    getAIProviderConfig()
+      .then((config) => {
+        if (!mounted) return;
+        if (config.configured && config.model) {
+          setModelPreference(config.model);
+        }
+      })
+      .catch(() => {
+        // Ignore — fall back to localStorage value
+      });
+    return () => { mounted = false; };
+  }, []);
 
   // Persist sidebar visibility
   useEffect(() => {
@@ -3051,6 +3059,7 @@ export function useAgentState() {
       sessionId?: string;
       replaceMessageId?: string;  // ID of assistant message to replace (for edits)
       editedMessageId?: string;   // ID of user message to update (for edits)
+      prependUserBubble?: boolean;
     }
   ) => {
     if (!userContent || !activeSessionId || isLoading || streamRegistry.isStreaming) return;
@@ -3082,6 +3091,21 @@ export function useAgentState() {
           ? { ...m, content: userContent.trim(), edited: true }
           : m
       );
+    }
+
+    if (opts?.prependUserBubble) {
+      const userBubbleContent = String(userContent || "").trim();
+      if (userBubbleContent.length > 0) {
+        workingMessages = [
+          ...workingMessages,
+          {
+            id: createMessageId("u"),
+            role: "user",
+            content: userBubbleContent,
+            timestamp: new Date(),
+          },
+        ];
+      }
     }
 
     // If this is a regenerate/retry replacement, clear existing assistant message content in place
@@ -3829,11 +3853,14 @@ export function useAgentState() {
         webSearchQuery: metadata?.webSearchQuery,
         webSearchIntent: "WEB_SEARCH",
       };
-      const confirmationMessage =
+      const requestMessage =
         safeMetadata.webSearchQuery && safeMetadata.webSearchQuery.trim().length > 0
-          ? `Search the web for ${safeMetadata.webSearchQuery}`
-          : "Yes, search the web.";
-      startAgentStream(confirmationMessage, { metadata: safeMetadata });
+          ? safeMetadata.webSearchQuery.trim()
+          : "Search the web.";
+      startAgentStream(requestMessage, {
+        metadata: safeMetadata,
+        prependUserBubble: true,
+      });
     },
     [startAgentStream],
   );

@@ -12,7 +12,7 @@ const session_1 = require("../session");
 const tools_1 = require("../tools");
 function createAgentV2Runtime() {
     const deploymentSettings = loadDeploymentSettings();
-    const llmProvider = (0, llm_1.createNativeLLMProvider)();
+    const llmProvider = (0, llm_1.resolveProvider)();
     const repository = loadPersistenceRepository();
     const performance = loadPerformanceRuntime(deploymentSettings?.performancePolicy);
     const retrievalRuntime = loadRetrievalRuntime(deploymentSettings?.retrievalPolicy);

@@ -199,6 +199,81 @@
       "downloadFailedMessage": "Téléchargement échoué. Vous pouvez réessayer à tout moment."
     }
   },
+  "agent": {
+    "sectionTitle": "Préférences Agent",
+    "loading": "Chargement des paramètres Agent...",
+    "preferredOutputFormat": {
+      "label": "Format de sortie préféré",
+      "description": "Utilisé par la génération de documents de l’agent quand aucun format n’est explicitement fourni."
+    },
+    "options": {
+      "auto": "Auto",
+      "pdf": "PDF",
+      "docx": "DOCX",
+      "xlsx": "XLSX",
+      "html": "HTML"
+    },
+    "actions": {
+      "save": "Enregistrer les paramètres",
+      "saving": "Enregistrement..."
+    },
+    "toast": {
+      "saved": "Paramètres Agent enregistrés",
+      "loadError": "Échec du chargement des paramètres Agent",
+      "saveError": "Échec de l’enregistrement des paramètres Agent"
+    },
+    "aiConfig": {
+      "sectionTitle": "Configuration IA",
+      "loading": "Chargement de la configuration IA...",
+      "mode": {
+        "label": "Comment Ordinay doit-il exécuter l’IA ?",
+        "byok": "Utiliser ma propre clé API",
+        "ordinay": "Utiliser Ordinay AI",
+        "ordinayComingSoon": "Bientôt disponible"
+      },
+      "provider": {
+        "label": "Fournisseur",
+        "openai_compatible": "Compatible OpenAI (OpenRouter, Groq, OpenAI, etc.)",
+        "ollama": "Ollama (local)",
+        "custom": "Point d’accès personnalisé",
+        "anthropic": "Anthropic (Claude)",
+        "gemini": "Google (Gemini)"
+      },
+      "fields": {
+        "baseUrl": "URL de base",
+        "apiKey": "Clé API",
+        "model": "Modèle",
+        "placeholders": {
+          "baseUrlOpenAI": "https://openrouter.ai/api/v1",
+          "baseUrlOllama": "http://localhost:11434",
+          "baseUrlCustom": "https://votre-endpoint.com/v1",
+          "apiKey": "sk-...",
+          "modelOpenAI": "openai/gpt-4o-mini",
+          "modelOllama": "llama3",
+          "modelCustom": "nom-du-modele",
+          "modelAnthropic": "claude-sonnet-4-5-20250514",
+          "modelGemini": "gemini-2.5-flash"
+        }
+      },
+      "actions": {
+        "save": "Enregistrer la configuration",
+        "saving": "Enregistrement...",
+        "test": "Tester la connexion",
+        "testing": "Test en cours..."
+      },
+      "test": {
+        "success": "Connecté",
+        "latency": "{{ms}}ms",
+        "failed": "Échec du test"
+      },
+      "toast": {
+        "saved": "Configuration IA enregistrée",
+        "saveError": "Échec de l’enregistrement de la configuration IA",
+        "testError": "Échec du test de connexion"
+      },
+      "notConfigured": "Aucun fournisseur IA configuré. L’agent ne sera pas disponible tant qu’un fournisseur n’est pas configuré."
+    }
+  },
   "domains": {
     "general": {
       "label": "Général",
@@ -212,9 +287,9 @@
       "label": "Notifications",
       "description": "Règles de notification et rappels."
     },
-    "documents": {
-      "label": "Documents",
-      "description": "Modèles et génération de documents."
+    "agent": {
+      "label": "Agent",
+      "description": "Préférences utilisées par Ordinay Intelligence."
     },
     "security": {
       "label": "Sécurité & accès",

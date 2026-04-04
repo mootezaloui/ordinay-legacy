@@ -750,7 +750,7 @@ export function generateDossierNotifications(dossiers) {
             entityId: dossier.id,
             subType: "review",
             priority: "info",
-            template_key: "content.dossier.review",
+            template_key: "content.dossier.generalReview",
             params: { lawsuitNumber: dossierNumber, count: daysOpen },
             icon: "fas fa-search",
             timestamp: now.toISOString(),

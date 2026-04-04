@@ -749,7 +749,7 @@ class NotificationScheduler {
       statusUpdate: "notifications:content.dossier.statusUpdateNeeded.title",
       inactivityReminder:
         "notifications:content.dossier.inactivityReminder.title",
-      review: "notifications:content.dossier.review.title",
+      review: "notifications:content.dossier.generalReview.title",
       reviewReminder: "notifications:content.dossier.reviewReminder.title",
     };
     const key = titleKeys[subType];

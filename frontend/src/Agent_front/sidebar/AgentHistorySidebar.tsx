@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useLayoutEffect } from "react";
 import { Plus, FolderPlus, Check, X } from "lucide-react";
 import { AgentSession, AgentFolder } from "../types/agentSession";
 import { AgentSessionItem } from "./AgentSessionItem";
@@ -69,6 +69,7 @@ export function AgentHistorySidebar({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Record<string, HTMLDivElement>>({});
   const indicatorRef = useRef<HTMLDivElement>(null);
+  const indicatorRafRef = useRef<number | null>(null);
   // Module-level: persists across component unmount/remount cycles
   const lastIndicatorY = useRef<number | null>(null);
   const lastIndicatorH = useRef<number | null>(null);
@@ -116,14 +117,19 @@ export function AgentHistorySidebar({
     const indicator = indicatorRef.current;
     if (!indicator) return;
 
+    if (indicatorRafRef.current !== null) {
+      cancelAnimationFrame(indicatorRafRef.current);
+    }
+
     // Target either the folder being created or the active session
     const targetId = isCreatingFolder ? "__new_folder__" : activeSessionId;
 
     // Wait for DOM refs to be ready
-    requestAnimationFrame(() => {
+    indicatorRafRef.current = requestAnimationFrame(() => {
       const target = measureActive(targetId);
       if (!target) {
         indicator.style.opacity = "0";
+        indicatorRafRef.current = null;
         return;
       }
 
@@ -146,8 +152,8 @@ export function AgentHistorySidebar({
             },
           ],
           {
-            duration: 350,
-            easing: "cubic-bezier(0.34, 1.56, 0.64, 1)",
+            duration: 220,
+            easing: "cubic-bezier(0.2, 0, 0, 1)",
             fill: "none",
           }
         );
@@ -156,33 +162,20 @@ export function AgentHistorySidebar({
       // Store for next update
       lastIndicatorY.current = target.y;
       lastIndicatorH.current = target.h;
+      indicatorRafRef.current = null;
     });
   }, [isCreatingFolder, activeSessionId, measureActive]);
 
   // Update indicator when active session or layout changes
-  // Added getSessionsInFolder to ensure we update when sessions are moved/reordered
-  useEffect(() => {
+  useLayoutEffect(() => {
     updateIndicatorPosition();
-  }, [activeSessionId, folders, isCreatingFolder, updateIndicatorPosition, getSessionsInFolder]);
-
-  // Use MutationObserver for robust layout tracking (moves, expansions, header changes)
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    const observer = new MutationObserver(() => {
-      updateIndicatorPosition();
-    });
-
-    observer.observe(container, {
-      childList: true,
-      subtree: true,
-      characterData: false,
-      attributes: true, // Watch for classes like 'expanded'
-    });
-
-    return () => observer.disconnect();
-  }, [updateIndicatorPosition]);
+    return () => {
+      if (indicatorRafRef.current !== null) {
+        cancelAnimationFrame(indicatorRafRef.current);
+        indicatorRafRef.current = null;
+      }
+    };
+  }, [activeSessionId, folders, isCreatingFolder, updateIndicatorPosition]);
 
   // Update indicator when window resizes
   useEffect(() => {

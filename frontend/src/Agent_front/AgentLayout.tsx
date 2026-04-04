@@ -148,7 +148,6 @@ export function AgentLayout({
   };
 
   const contextProps = {
-    onExampleClick: handleExampleClick,
     dataAccess,
     setDataAccess,
   };
@@ -162,7 +161,7 @@ export function AgentLayout({
 
       {/* Desktop Sidebar with Animation */}
       <div 
-        className={`hidden lg:block h-full flex-shrink-0 overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+        className={`hidden lg:block h-full flex-shrink-0 overflow-hidden transition-[width] duration-260 ease-[cubic-bezier(0.2,0,0,1)] ${
           showHistorySidebar ? "w-72" : "w-0"
         }`}
       >
@@ -176,18 +175,18 @@ export function AgentLayout({
 
       {/* Mobile Sidebar with Animation */}
       <div 
-        className={`lg:hidden fixed inset-0 z-50 transition-all duration-300 ${
+        className={`lg:hidden fixed inset-0 z-50 transition-[visibility] duration-200 ${
           showHistorySidebar ? "visible" : "invisible pointer-events-none"
         }`}
       >
         <div 
-          className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${
+          className={`absolute inset-0 bg-black/40 transition-opacity duration-220 ${
             showHistorySidebar ? "opacity-100" : "opacity-0"
           }`}
           onClick={() => setShowHistorySidebar(false)}
         />
         <div 
-          className={`absolute inset-y-0 left-0 w-80 max-w-[85vw] bg-[#f9fafb] dark:bg-[#0f172a] shadow-2xl transition-transform duration-300 ease-out ${
+          className={`absolute inset-y-0 left-0 w-80 max-w-[85vw] bg-[#f9fafb] dark:bg-[#0f172a] shadow-2xl transition-transform duration-220 ease-[cubic-bezier(0.2,0,0,1)] ${
             showHistorySidebar ? "translate-x-0" : "-translate-x-full"
           }`}
         >
@@ -261,7 +260,7 @@ export function AgentLayout({
 
       {/* RIGHT SIDEBAR - Context Panel */}
       <div 
-        className={`hidden 2xl:block h-full flex-shrink-0 overflow-hidden relative transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+        className={`hidden 2xl:block h-full flex-shrink-0 overflow-hidden relative transition-[width] duration-260 ease-[cubic-bezier(0.2,0,0,1)] ${
           showContextSidebar ? "w-80" : "w-0"
         }`}
       >
@@ -314,18 +313,18 @@ export function AgentLayout({
 
       {/* Mobile/Tablet Context Overlay */}
       <div 
-        className={`2xl:hidden fixed inset-0 z-50 transition-all duration-300 ${
+        className={`2xl:hidden fixed inset-0 z-50 transition-[visibility] duration-200 ${
           showContextSidebar ? "visible" : "invisible pointer-events-none"
         }`}
       >
         <div 
-          className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${
+          className={`absolute inset-0 bg-black/40 transition-opacity duration-220 ${
             showContextSidebar ? "opacity-100" : "opacity-0"
           }`}
           onClick={() => setShowContextSidebar(false)}
         />
         <div 
-          className={`absolute inset-y-0 right-0 w-80 max-w-[85vw] bg-[#f9fafb] dark:bg-[#0f172a] shadow-2xl transition-transform duration-300 ease-out flex flex-col ${
+          className={`absolute inset-y-0 right-0 w-80 max-w-[85vw] bg-[#f9fafb] dark:bg-[#0f172a] shadow-2xl transition-transform duration-220 ease-[cubic-bezier(0.2,0,0,1)] flex flex-col ${
             showContextSidebar ? "translate-x-0" : "translate-x-full"
           }`}
         >

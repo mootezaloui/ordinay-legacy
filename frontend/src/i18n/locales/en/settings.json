@@ -206,6 +206,81 @@
       "downloadFailedMessage": "Download failed. You can try again anytime."
     }
   },
+  "agent": {
+    "sectionTitle": "Agent Preferences",
+    "loading": "Loading agent settings...",
+    "preferredOutputFormat": {
+      "label": "Preferred output format",
+      "description": "Used by agent document generation when format is not explicitly provided."
+    },
+    "options": {
+      "auto": "Auto",
+      "pdf": "PDF",
+      "docx": "DOCX",
+      "xlsx": "XLSX",
+      "html": "HTML"
+    },
+    "actions": {
+      "save": "Save settings",
+      "saving": "Saving..."
+    },
+    "toast": {
+      "saved": "Agent settings saved",
+      "loadError": "Failed to load agent settings",
+      "saveError": "Failed to save agent settings"
+    },
+    "aiConfig": {
+      "sectionTitle": "AI Configuration",
+      "loading": "Loading AI configuration...",
+      "mode": {
+        "label": "How should Ordinay run AI?",
+        "byok": "Use my own API key",
+        "ordinay": "Use Ordinay AI",
+        "ordinayComingSoon": "Coming soon"
+      },
+      "provider": {
+        "label": "Provider",
+        "openai_compatible": "OpenAI-compatible (OpenRouter, Groq, OpenAI, etc.)",
+        "ollama": "Ollama (local)",
+        "custom": "Custom endpoint",
+        "anthropic": "Anthropic (Claude)",
+        "gemini": "Google (Gemini)"
+      },
+      "fields": {
+        "baseUrl": "Base URL",
+        "apiKey": "API Key",
+        "model": "Model",
+        "placeholders": {
+          "baseUrlOpenAI": "https://openrouter.ai/api/v1",
+          "baseUrlOllama": "http://localhost:11434",
+          "baseUrlCustom": "https://your-endpoint.com/v1",
+          "apiKey": "sk-...",
+          "modelOpenAI": "openai/gpt-4o-mini",
+          "modelOllama": "llama3",
+          "modelCustom": "model-name",
+          "modelAnthropic": "claude-sonnet-4-5-20250514",
+          "modelGemini": "gemini-2.5-flash"
+        }
+      },
+      "actions": {
+        "save": "Save configuration",
+        "saving": "Saving...",
+        "test": "Test connection",
+        "testing": "Testing..."
+      },
+      "test": {
+        "success": "Connected",
+        "latency": "{{ms}}ms",
+        "failed": "Test failed"
+      },
+      "toast": {
+        "saved": "AI configuration saved",
+        "saveError": "Failed to save AI configuration",
+        "testError": "Connection test failed"
+      },
+      "notConfigured": "No AI provider configured. The agent will not be available until you configure a provider."
+    }
+  },
   "domains": {
     "general": {
       "label": "General",
@@ -219,9 +294,9 @@
       "label": "Notifications",
       "description": "Notification rules and reminder behavior."
     },
-    "documents": {
-      "label": "Documents",
-      "description": "Templates and document generation behavior."
+    "agent": {
+      "label": "Agent",
+      "description": "Behavior preferences used by Ordinay Intelligence."
     },
     "security": {
       "label": "Security & Access",

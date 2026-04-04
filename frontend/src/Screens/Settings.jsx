@@ -1,11 +1,11 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useLayoutEffect, useState, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import PageLayout from '../components/layout/PageLayout';
 import PageHeader from '../components/layout/PageHeader';
 import SettingsGeneral from '../components/settings/SettingsGeneral';
 import SettingsWorkspace from '../components/settings/SettingsWorkspace';
 import SettingsNotifications from '../components/settings/SettingsNotifications';
-import SettingsDocuments from '../components/settings/SettingsDocuments';
+import SettingsAgent from '../components/settings/SettingsAgent';
 import SettingsSecurityAccess from '../components/settings/SettingsSecurityAccess';
 import SettingsAdvanced from '../components/settings/SettingsAdvanced';
 import SettingsUpdates from '../components/settings/SettingsUpdates';
@@ -29,16 +29,16 @@ export default function Settings() {
       component: SettingsWorkspace,
     },
     {
+      id: 'agent',
+      label: t('domains.agent.label'),
+      description: t('domains.agent.description'),
+      component: SettingsAgent,
+    },
+    {
       id: 'notifications',
       label: t('domains.notifications.label'),
       description: t('domains.notifications.description'),
       component: SettingsNotifications,
-    },
-    {
-      id: 'documents',
-      label: t('domains.documents.label'),
-      description: t('domains.documents.description'),
-      component: SettingsDocuments,
     },
     {
       id: 'security',
@@ -122,8 +122,8 @@ export default function Settings() {
             },
           ],
           {
-            duration: 350,
-            easing: "cubic-bezier(0.34, 1.56, 0.64, 1)",
+            duration: 220,
+            easing: "cubic-bezier(0.2, 0, 0, 1)",
             fill: "none",
           }
         );
@@ -135,7 +135,7 @@ export default function Settings() {
     });
   }, [measureActive]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     updateIndicator();
   }, [activeDomainId, updateIndicator]);
 
@@ -191,7 +191,7 @@ export default function Settings() {
             }}
           >
             <div className="absolute inset-0 rounded-xl bg-primary shadow-lg shadow-primary/25" />
-            <div className="absolute inset-0 rounded-xl bg-primary/10 blur-md" />
+            <div className="absolute inset-0 rounded-xl bg-primary/10" />
             <div className="absolute left-0 top-[15%] bottom-[15%] w-[3px] rounded-full bg-white/60" />
           </div>
 
@@ -224,7 +224,7 @@ export default function Settings() {
                   key={domain.id}
                   ref={(el) => (itemRefs.current[domain.id] = el)}
                   onClick={() => setActiveDomainId(domain.id)}
-                  className={`hidden lg:block min-w-[160px] lg:min-w-0 px-4 py-3 rounded-xl border text-left transition-all duration-200 z-[1] relative ${
+                  className={`hidden lg:block min-w-[160px] lg:min-w-0 px-4 py-3 rounded-xl border text-left transition-[border-color,color,box-shadow,background-color] duration-180 z-[1] relative ${
                     isActive
                       ? 'border-transparent text-white'
                       : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-blue-400 hover:shadow-sm'
@@ -257,7 +257,7 @@ export default function Settings() {
                       key={domain.id}
                       ref={(el) => (itemRefs.current[domain.id] = el)}
                       onClick={() => setActiveDomainId(domain.id)}
-                      className={`hidden lg:block min-w-[160px] lg:min-w-0 px-4 py-3 rounded-xl border text-left transition-all duration-200 z-[1] relative ${
+                      className={`hidden lg:block min-w-[160px] lg:min-w-0 px-4 py-3 rounded-xl border text-left transition-[border-color,color,box-shadow,background-color] duration-180 z-[1] relative ${
                         isActive
                           ? 'border-transparent text-white'
                           : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-blue-400 hover:shadow-sm'

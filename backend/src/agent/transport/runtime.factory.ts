@@ -8,6 +8,7 @@ import {
 } from "../engine";
 import {
   createNativeLLMProvider,
+  resolveProvider,
   type ILLMProvider,
 } from "../llm";
 import { LoopGuard, PermissionGate } from "../safety";
@@ -246,7 +247,7 @@ export interface AgentV2Runtime {
 
 export function createAgentV2Runtime(): AgentV2Runtime {
   const deploymentSettings = loadDeploymentSettings();
-  const llmProvider = createNativeLLMProvider();
+  const llmProvider = resolveProvider();
   const repository = loadPersistenceRepository();
   const performance = loadPerformanceRuntime(deploymentSettings?.performancePolicy);
   const retrievalRuntime = loadRetrievalRuntime(deploymentSettings?.retrievalPolicy);

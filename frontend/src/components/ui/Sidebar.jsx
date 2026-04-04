@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { useTheme } from "../../contexts/theme";
 import { useSidebar } from "../../contexts/SidebarContext";
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
 // Module-level: persists across component unmount/remount cycles
@@ -114,13 +114,13 @@ export default function Sidebar() {
     };
   }, [allRoutes, location.pathname]);
 
-  // On mount: snap to old position, then animate to new position
-  useEffect(() => {
+  // Animate indicator only when navigation state changes.
+  useLayoutEffect(() => {
     const indicator = indicatorRef.current;
     if (!indicator) return;
 
     // Wait for DOM refs to be ready
-    requestAnimationFrame(() => {
+    const raf = requestAnimationFrame(() => {
       const target = measureActive();
       if (!target) {
         indicator.style.opacity = "0";
@@ -146,8 +146,8 @@ export default function Sidebar() {
             },
           ],
           {
-            duration: 350,
-            easing: "cubic-bezier(0.34, 1.56, 0.64, 1)",
+            duration: 220,
+            easing: "cubic-bezier(0.2, 0, 0, 1)",
             fill: "none",
           }
         );
@@ -157,7 +157,8 @@ export default function Sidebar() {
       _lastIndicatorY = target.y;
       _lastIndicatorH = target.h;
     });
-  }); // Run on every render (component remounts each nav)
+    return () => cancelAnimationFrame(raf);
+  }, [location.pathname, isCollapsed, isCompact, measureActive]);
 
   // On sidebar collapse: recalculate after the sidebar's own CSS transition finishes
   useEffect(() => {
@@ -195,7 +196,7 @@ export default function Sidebar() {
   return (
     <aside
       id="mobile-sidebar"
-      className={`sidebar-shell fixed left-0 flex flex-col transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] border-r z-40 titlebar-offset-top titlebar-offset-height bg-background text-foreground border-border ${isMobileOpen ? "translate-x-0" : "-translate-x-full"
+      className={`sidebar-shell fixed left-0 flex flex-col border-r z-40 titlebar-offset-top titlebar-offset-height bg-background text-foreground border-border transition-[width,transform] duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${isMobileOpen ? "translate-x-0" : "-translate-x-full"
         } md:translate-x-0 ${isCollapsed ? "md:w-[72px]" : "md:w-64"} w-[84vw] max-w-[320px]`}
     >
       {/* Modern Edge-attached Sidebar Toggle Pill */}
@@ -226,7 +227,7 @@ export default function Sidebar() {
           }}
         >
           <div className="absolute inset-0 rounded-xl bg-primary shadow-lg shadow-primary/25" />
-          <div className="absolute inset-0 rounded-xl bg-primary/10 blur-md" />
+          <div className="absolute inset-0 rounded-xl bg-primary/10" />
           <div className="absolute left-0 top-[15%] bottom-[15%] w-[3px] rounded-full bg-white/60" />
         </div>
 

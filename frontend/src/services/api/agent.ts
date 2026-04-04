@@ -43,10 +43,7 @@ export interface DataAccessPermissions {
 }
 
 export type WebSearchTrigger = 'explicit_language' | 'button' | 'user_confirmed';
-export type AgentModelPreference =
-  | 'gpt-oss:120b-cloud'
-  | 'deepseek-r1:8b'
-  | 'gemma3:1b';
+export type AgentModelPreference = string;
 
 export interface ConfirmationPreviewChange {
   entityType: string;

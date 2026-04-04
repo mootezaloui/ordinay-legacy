@@ -471,12 +471,6 @@ export default function TableToolbar({
                   {t("table.toolbar.export")}
                 </button>
               )}
-              <button
-                onClick={() => window.location.reload()}
-                className="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-700/60 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300"
-              >
-                {t("table.toolbar.refresh", { defaultValue: "Refresh" })}
-              </button>
             </div>
           </div>
         </SheetContent>
@@ -608,16 +602,6 @@ export default function TableToolbar({
             </button>
           )}
 
-          {/* Refresh button */}
-          <button
-            onClick={() => window.location.reload()}
-            className="p-2.5 bg-white dark:bg-slate-900/70 border border-slate-300 dark:border-slate-700/60 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800/70 transition-colors text-slate-700 dark:text-slate-300 shadow-sm"
-            title="Refresh"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-          </button>
         </div>
       </div>
     </div>

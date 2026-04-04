@@ -199,6 +199,81 @@
       "downloadFailedMessage": "فشل التنزيل. يمكنك المحاولة مرة أخرى في أي وقت."
     }
   },
+  "agent": {
+    "sectionTitle": "تفضيلات الوكيل",
+    "loading": "جاري تحميل إعدادات الوكيل...",
+    "preferredOutputFormat": {
+      "label": "تنسيق الإخراج المفضل",
+      "description": "يُستخدم عند إنشاء المستندات بواسطة الوكيل عندما لا يتم تحديد التنسيق صراحةً."
+    },
+    "options": {
+      "auto": "تلقائي",
+      "pdf": "PDF",
+      "docx": "DOCX",
+      "xlsx": "XLSX",
+      "html": "HTML"
+    },
+    "actions": {
+      "save": "حفظ الإعدادات",
+      "saving": "جارٍ الحفظ..."
+    },
+    "toast": {
+      "saved": "تم حفظ إعدادات الوكيل",
+      "loadError": "فشل تحميل إعدادات الوكيل",
+      "saveError": "فشل حفظ إعدادات الوكيل"
+    },
+    "aiConfig": {
+      "sectionTitle": "إعدادات الذكاء الاصطناعي",
+      "loading": "جاري تحميل إعدادات الذكاء الاصطناعي...",
+      "mode": {
+        "label": "كيف يجب أن يشغّل Ordinay الذكاء الاصطناعي؟",
+        "byok": "استخدام مفتاح API الخاص بي",
+        "ordinay": "استخدام Ordinay AI",
+        "ordinayComingSoon": "قريبًا"
+      },
+      "provider": {
+        "label": "المزوّد",
+        "openai_compatible": "متوافق مع OpenAI (OpenRouter، Groq، OpenAI، إلخ)",
+        "ollama": "Ollama (محلي)",
+        "custom": "نقطة وصول مخصصة",
+        "anthropic": "Anthropic (Claude)",
+        "gemini": "Google (Gemini)"
+      },
+      "fields": {
+        "baseUrl": "عنوان URL الأساسي",
+        "apiKey": "مفتاح API",
+        "model": "النموذج",
+        "placeholders": {
+          "baseUrlOpenAI": "https://openrouter.ai/api/v1",
+          "baseUrlOllama": "http://localhost:11434",
+          "baseUrlCustom": "https://your-endpoint.com/v1",
+          "apiKey": "sk-...",
+          "modelOpenAI": "openai/gpt-4o-mini",
+          "modelOllama": "llama3",
+          "modelCustom": "اسم-النموذج",
+          "modelAnthropic": "claude-sonnet-4-5-20250514",
+          "modelGemini": "gemini-2.5-flash"
+        }
+      },
+      "actions": {
+        "save": "حفظ الإعدادات",
+        "saving": "جارٍ الحفظ...",
+        "test": "اختبار الاتصال",
+        "testing": "جارٍ الاختبار..."
+      },
+      "test": {
+        "success": "متصل",
+        "latency": "{{ms}} مللي ثانية",
+        "failed": "فشل الاختبار"
+      },
+      "toast": {
+        "saved": "تم حفظ إعدادات الذكاء الاصطناعي",
+        "saveError": "فشل حفظ إعدادات الذكاء الاصطناعي",
+        "testError": "فشل اختبار الاتصال"
+      },
+      "notConfigured": "لم يتم تكوين مزوّد ذكاء اصطناعي. لن يكون الوكيل متاحًا حتى يتم تكوين مزوّد."
+    }
+  },
   "domains": {
     "general": {
       "label": "عام",
@@ -212,9 +287,9 @@
       "label": "الإشعارات",
       "description": "قواعد الإشعارات وسلوك التذكيرات."
     },
-    "documents": {
-      "label": "المستندات",
-      "description": "القوالب وسلوك إنشاء المستندات."
+    "agent": {
+      "label": "الوكيل",
+      "description": "تفضيلات السلوك المستخدمة بواسطة Ordinay Intelligence."
     },
     "security": {
       "label": "الأمان والوصول",

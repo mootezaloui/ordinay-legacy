@@ -14,6 +14,8 @@
     "test:agent-v2:load": "node --test src/agent/testing/tests/load.smoke.test.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.82.0",
+    "@google/generative-ai": "^0.24.1",
     "ajv": "^8.12.0",
     "ajv-formats": "^2.1.1",
     "better-sqlite3": "^9.6.0",

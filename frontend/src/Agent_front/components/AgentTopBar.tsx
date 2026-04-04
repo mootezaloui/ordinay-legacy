@@ -51,22 +51,9 @@ export function AgentTopBar({
       </div>
 
       <div className="flex items-center gap-2">
-        <label className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
-          <span className="hidden sm:inline">Model</span>
-          <select
-            value={modelPreference}
-            disabled={isStreaming}
-            onChange={(event) =>
-              onModelPreferenceChange(event.target.value as AgentModelPreference)
-            }
-            className="px-2 py-1 rounded-md border border-black/[0.08] dark:border-white/[0.08] bg-white dark:bg-[#0f172a] text-slate-700 dark:text-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50"
-            aria-label="Select model"
-          >
-            <option value="gpt-oss:120b-cloud">chatgpt oss</option>
-            <option value="deepseek-r1:8b">deepseek-r1:8b</option>
-            <option value="gemma3:1b">gemma3:1b</option>
-          </select>
-        </label>
+        <span className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate max-w-[200px]">
+          {modelPreference || "Configure AI in Settings"}
+        </span>
         <button
           onClick={onToggleContext}
           className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] rounded-lg transition-colors whitespace-nowrap"

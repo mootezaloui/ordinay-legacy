@@ -17,6 +17,8 @@ import { calculateNextHearing } from "../utils/deadlineUtils";
 import { getGreetingKey, getContextMessage } from "../utils/greetings";
 import DashboardSkeleton from "../components/skeleton/DashboardSkeleton";
 
+let _summaryCache = null;
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -45,8 +47,8 @@ export default function Dashboard() {
     revenue: 0,
     revenueDelta: 0,
   };
-  const [summary, setSummary] = useState(initialSummary);
-  const [isLoadingSummary, setIsLoadingSummary] = useState(true);
+  const [summary, setSummary] = useState(_summaryCache ?? initialSummary);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(_summaryCache === null);
   const latinizeDigits = (value) => {
     const text = String(value ?? "");
     const map = {
@@ -76,9 +78,9 @@ export default function Dashboard() {
 
     const fetchSummary = async () => {
       try {
-        setIsLoadingSummary(true);
         const data = await getDashboardSummary();
         if (isMounted) {
+          _summaryCache = data;
           setSummary(data);
         }
       } catch (error) {

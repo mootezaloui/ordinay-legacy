@@ -4,7 +4,7 @@ import HeaderBar from "../components/ui/Header";
 import { useSidebar } from "../contexts/SidebarContext";
 import useBodyScrollLock from "../hooks/useBodyScrollLock";
 import { useLocation } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useRef } from "react";
 
 // Synchronize with PageLayout persistence
 // We use a shared module-level variable to track across the app
@@ -26,11 +26,6 @@ const NAVIGATION_ORDER = [
   "/notifications"
 ];
 
-// Reference the same internal counter (this works because they share the same JS bundle environment)
-// But to be 100% sure we use the window object for cross-file global state if they were separate (they are not).
-// Here we just define it locally for the Agent scope.
-let _lastPageIndexAgent = -1;
-
 export default function AgentScreen() {
   const { isCollapsed, isMobileOpen, closeMobile } = useSidebar();
   const location = useLocation();
@@ -39,17 +34,20 @@ export default function AgentScreen() {
   // Direction logic same as PageLayout.jsx
   const baseRoute = "/" + (location.pathname.split("/")[1] || "dashboard");
   const currentIndex = NAVIGATION_ORDER.indexOf(baseRoute);
-  
-  const [animationClass, setAnimationClass] = useState(() => {
-    // Use a ref-like approach to get the previous value from the global window or similar
-    // To avoid circular dependencies with PageLayout, we'll use a window property or just a shared let
-    const lastIdx = (window as any)._ordinayLastPageIndex ?? -1;
-    return lastIdx === -1 ? "animate-page-content-up" : currentIndex >= lastIdx ? "animate-page-content-up" : "animate-page-content-down";
-  });
 
-  useEffect(() => {
+  const animationClassRef = useRef<string | null>(null);
+  const prevIndexRef = useRef<number>((window as any)._ordinayLastPageIndex ?? -1);
+
+  if (prevIndexRef.current !== currentIndex) {
+    const lastIdx = (window as any)._ordinayLastPageIndex ?? -1;
+    animationClassRef.current = (lastIdx === -1 || currentIndex >= lastIdx)
+      ? "animate-page-content-up"
+      : "animate-page-content-down";
     (window as any)._ordinayLastPageIndex = currentIndex;
-  }, [currentIndex]);
+    prevIndexRef.current = currentIndex;
+  }
+
+  const animationClass = animationClassRef.current ?? "animate-page-content-up";
 
   return (
     <div className="fixed inset-0 flex flex-col titlebar-offset-padding overflow-hidden">
@@ -77,14 +75,7 @@ export default function AgentScreen() {
         <div className="flex-shrink-0 h-0 md:h-14" aria-hidden="true" />
 
         {/* Agent Intelligence */}
-        <div 
-          className={`flex-1 min-h-0 p-0 ${animationClass}`}
-          onAnimationEnd={(e) => {
-            if (e.target === e.currentTarget) {
-              setAnimationClass("");
-            }
-          }}
-        >
+        <div className={`flex-1 min-h-0 p-0 ${animationClass}`}>
           <AgentLayout isGlobalSidebarCollapsed={isCollapsed} />
         </div>
       </div>

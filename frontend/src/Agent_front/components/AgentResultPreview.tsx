@@ -10,8 +10,6 @@ import {
   Wallet,
   Bell,
   History,
-  TrendingUp,
-  Search,
 } from "lucide-react";
 import { useData } from "../../contexts/DataContext";
 import { useNotifications } from "../../contexts/NotificationContext";
@@ -58,14 +56,6 @@ interface DataContext {
   loading?: boolean;
 }
 
-interface DynamicCapability {
-  id: string;
-  title: string;
-  icon: typeof TrendingUp;
-  examples: Array<{ prompt: string; reason: string }>;
-  priority: number;
-}
-
 const DATA_SOURCE_CONFIG = [
   { id: "dossiers", label: "Dossiers", icon: FolderOpen },
   { id: "clients", label: "Clients", icon: Users },
@@ -80,230 +70,17 @@ const DATA_SOURCE_CONFIG = [
   { id: "documents", label: "Documents", icon: FileText },
 ];
 
-/**
- * Generates dynamic capabilities based on actual user data.
- * Each capability shows contextual examples referencing real entities.
- */
-function useDynamicCapabilities(): DynamicCapability[] {
-  const data = useData() as DataContext;
-
-  return useMemo(() => {
-    const capabilities: DynamicCapability[] = [];
-    const now = new Date();
-
-    if (data?.loading) return [];
-
-    const clients = data?.clients || [];
-    const dossiers = data?.dossiers || [];
-    const tasks = data?.tasks || [];
-    const sessions = data?.sessions || [];
-    const financialEntries = data?.financialEntries || [];
-
-    // ── Analysis & Insights ──
-    const analysisExamples: Array<{ prompt: string; reason: string }> = [];
-
-    // Overdue tasks analysis
-    const overdueTasks = tasks.filter((t) => {
-      if (!t.due_date || t.status === "done" || t.status === "completed") return false;
-      return new Date(t.due_date) < now;
-    });
-    if (overdueTasks.length > 0) {
-      analysisExamples.push({
-        prompt: "Show overdue tasks",
-        reason: `${overdueTasks.length} overdue`,
-      });
-    }
-
-    // Active dossiers analysis
-    const activeDossiers = dossiers.filter(
-      (d) => d.status !== "closed" && d.status !== "archived"
-    );
-    if (activeDossiers.length > 0) {
-      analysisExamples.push({
-        prompt: "Which dossiers need attention?",
-        reason: `${activeDossiers.length} active`,
-      });
-    }
-
-    // Priority tasks
-    const urgentTasks = tasks.filter(
-      (t) => t.priority === "urgent" && t.status !== "done" && t.status !== "completed"
-    );
-    if (urgentTasks.length > 0) {
-      analysisExamples.push({
-        prompt: "List urgent tasks",
-        reason: `${urgentTasks.length} urgent`,
-      });
-    }
-
-    if (analysisExamples.length > 0) {
-      capabilities.push({
-        id: "analysis",
-        title: "Analysis & Insights",
-        icon: TrendingUp,
-        examples: analysisExamples.slice(0, 2),
-        priority: 0,
-      });
-    }
-
-    // ── Reports & Summaries ──
-    const reportExamples: Array<{ prompt: string; reason: string }> = [];
-
-    // Dossier summaries
-    if (activeDossiers.length > 0) {
-      const dossier = activeDossiers[0];
-      const ref = dossier.reference || dossier.title || "selected dossier";
-      reportExamples.push({
-        prompt: `Summarize dossier ${ref}`,
-        reason: "Get case overview",
-      });
-    }
-
-    // Client summaries
-    if (clients.length > 0) {
-      const client = clients[0];
-      const name = client.name || client.reference || "selected client";
-      reportExamples.push({
-        prompt: `Show client ${name}`,
-        reason: "View client details",
-      });
-    }
-
-    if (reportExamples.length > 0) {
-      capabilities.push({
-        id: "reporting",
-        title: "Reports & Summaries",
-        icon: FileText,
-        examples: reportExamples.slice(0, 2),
-        priority: 1,
-      });
-    }
-
-    // ── Scheduling & Sessions ──
-    const scheduleExamples: Array<{ prompt: string; reason: string }> = [];
-
-    const upcomingSessions = sessions.filter((s) => {
-      const date = s.scheduled_at || s.session_date;
-      if (!date) return false;
-      return new Date(date) >= now;
-    });
-
-    if (upcomingSessions.length > 0) {
-      scheduleExamples.push({
-        prompt: "List upcoming sessions",
-        reason: `${upcomingSessions.length} scheduled`,
-      });
-    }
-
-    // Sessions this week
-    const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    const thisWeekSessions = upcomingSessions.filter((s) => {
-      const date = new Date(s.scheduled_at || s.session_date || "");
-      return date <= weekFromNow;
-    });
-
-    if (thisWeekSessions.length > 0) {
-      scheduleExamples.push({
-        prompt: "Sessions this week",
-        reason: `${thisWeekSessions.length} this week`,
-      });
-    }
-
-    if (scheduleExamples.length > 0) {
-      capabilities.push({
-        id: "scheduling",
-        title: "Scheduling",
-        icon: Calendar,
-        examples: scheduleExamples.slice(0, 2),
-        priority: 2,
-      });
-    }
-
-    // ── Financial Overview ──
-    const financialExamples: Array<{ prompt: string; reason: string }> = [];
-
-    const unpaidEntries = financialEntries.filter(
-      (e) => !e.paid_at && e.status !== "paid"
-    );
-    const overduePayments = unpaidEntries.filter((e) => {
-      if (!e.due_date) return false;
-      return new Date(e.due_date) < now;
-    });
-
-    if (overduePayments.length > 0) {
-      financialExamples.push({
-        prompt: "Show overdue payments",
-        reason: `${overduePayments.length} overdue`,
-      });
-    } else if (unpaidEntries.length > 0) {
-      financialExamples.push({
-        prompt: "List unpaid entries",
-        reason: `${unpaidEntries.length} unpaid`,
-      });
-    }
-
-    if (financialEntries.length > 0) {
-      financialExamples.push({
-        prompt: "Financial summary",
-        reason: `${financialEntries.length} entries`,
-      });
-    }
-
-    if (financialExamples.length > 0) {
-      capabilities.push({
-        id: "financial",
-        title: "Financial",
-        icon: Wallet,
-        examples: financialExamples.slice(0, 2),
-        priority: 3,
-      });
-    }
-
-    // ── Search (always available if we have data) ──
-    const searchExamples: Array<{ prompt: string; reason: string }> = [];
-
-    if (clients.length > 0) {
-      searchExamples.push({
-        prompt: "List all clients",
-        reason: `${clients.length} available`,
-      });
-    }
-
-    if (dossiers.length > 0) {
-      searchExamples.push({
-        prompt: "List all dossiers",
-        reason: `${dossiers.length} total`,
-      });
-    }
-
-    if (searchExamples.length > 0) {
-      capabilities.push({
-        id: "search",
-        title: "Search & Browse",
-        icon: Search,
-        examples: searchExamples.slice(0, 2),
-        priority: 4,
-      });
-    }
-
-    return capabilities.sort((a, b) => a.priority - b.priority).slice(0, 4);
-  }, [data]);
-}
-
 interface AgentResultPreviewProps {
-  onExampleClick?: (example: string) => void;
   dataAccess: DataAccessPermissions;
   setDataAccess: React.Dispatch<React.SetStateAction<DataAccessPermissions>>;
 }
 
 export function AgentResultPreview({
-  onExampleClick,
   dataAccess,
   setDataAccess,
 }: AgentResultPreviewProps) {
   const data = useData() as DataContext;
   const { notifications = [] } = useNotifications();
-  const capabilities = useDynamicCapabilities();
   const [auxCounts, setAuxCounts] = useState<{
     history: number | null;
     documents: number | null;
@@ -489,50 +266,6 @@ export function AgentResultPreview({
         </div>
       </div>
 
-      {/* Dynamic Capabilities based on actual data */}
-      {capabilities.length > 0 && onExampleClick && (
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Zap className="w-4 h-4 text-slate-600 dark:text-slate-400" />
-            <h3 className="text-xs font-bold text-[#0f172a] dark:text-[#f1f5f9] uppercase tracking-wide">
-              Quick Actions
-            </h3>
-          </div>
-          <div className="space-y-3">
-            {capabilities.map((capability) => {
-              const IconComponent = capability.icon;
-              return (
-                <div
-                  key={capability.id}
-                  className="p-3 bg-black/[0.03] dark:bg-white/[0.04] rounded-lg"
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <IconComponent className="w-3.5 h-3.5 text-[#3b82f6] dark:text-[#60a5fa]" />
-                    <span className="text-xs font-semibold text-[#0f172a] dark:text-[#f1f5f9]">
-                      {capability.title}
-                    </span>
-                  </div>
-                  <div className="space-y-1.5">
-                    {capability.examples.map((example, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => onExampleClick(example.prompt)}
-                        className="group flex items-center justify-between w-full text-left text-xs text-slate-600 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#60a5fa] transition-colors"
-                      >
-                        <span className="truncate">• {example.prompt}</span>
-                        <span className="text-[10px] text-slate-400 dark:text-slate-500 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {example.reason}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

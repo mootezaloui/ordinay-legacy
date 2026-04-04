@@ -4,7 +4,7 @@
  * Handles consistent spacing and works with sidebar
  */
 
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { useSidebar } from "../../contexts/SidebarContext";
 import useBodyScrollLock from "../../hooks/useBodyScrollLock";
@@ -33,17 +33,29 @@ export default function PageLayout({ children, fullHeight = false, noHeaderSpace
   const { isCollapsed, isMobileOpen, closeMobile } = useSidebar();
   const location = useLocation();
   useBodyScrollLock(isMobileOpen);
-  const [animationClassState, setAnimationClassState] = useState("");
 
   // Determine navigation direction
   const baseRoute = "/" + (location.pathname.split("/")[1] || "dashboard");
   const currentIndex = NAVIGATION_ORDER.indexOf(baseRoute);
-  
-  // Share index via window object
-  const lastIdx = window._ordinayLastPageIndex ?? -1;
-  const animationClass = lastIdx === -1 
-    ? "animate-page-content-up" 
-    : currentIndex >= lastIdx ? "animate-page-content-up" : "animate-page-content-down";
+
+  // Lock animation class per navigation using refs.
+  // useEffect updating window._ordinayLastPageIndex AFTER render means any re-render
+  // (e.g. context update mid-animation) would recompute the wrong direction and restart
+  // the CSS animation from opacity:0, causing a visible flash. Computing and locking
+  // synchronously during render prevents the class from changing on re-renders.
+  const animationClassRef = useRef(null);
+  const prevIndexRef = useRef(window._ordinayLastPageIndex ?? -1);
+
+  if (prevIndexRef.current !== currentIndex) {
+    const lastIdx = window._ordinayLastPageIndex ?? -1;
+    animationClassRef.current = (lastIdx === -1 || currentIndex >= lastIdx)
+      ? "animate-page-content-up"
+      : "animate-page-content-down";
+    window._ordinayLastPageIndex = currentIndex;
+    prevIndexRef.current = currentIndex;
+  }
+
+  const animationClass = animationClassRef.current ?? "animate-page-content-up";
 
   // Lock overflow on <html> for full-height screens
   useLayoutEffect(() => {
@@ -54,11 +66,6 @@ export default function PageLayout({ children, fullHeight = false, noHeaderSpace
     return () => { html.style.overflow = prev; };
   }, [fullHeight]);
 
-  // Use effect to keep track of previous page index for next navigation
-  useEffect(() => {
-    window._ordinayLastPageIndex = currentIndex;
-    setAnimationClassState(animationClass);
-  }, [currentIndex, animationClass]);
 
   const rootClassName = fullHeight
     ? "w-full h-screen titlebar-offset-padding overflow-hidden"
@@ -92,17 +99,7 @@ export default function PageLayout({ children, fullHeight = false, noHeaderSpace
 
         {/* Content Area */}
         <main className={mainClassName}>
-          <div 
-            key={location.pathname} 
-            className={animationClassState}
-            onAnimationEnd={(e) => {
-              // Ensure that only the main page transition animation (and not nested child animations)
-              // triggers the cleanup of the animation class.
-              if (e.target === e.currentTarget) {
-                setAnimationClassState("");
-              }
-            }}
-          >
+          <div className={animationClass}>
             {children}
           </div>
         </main>
