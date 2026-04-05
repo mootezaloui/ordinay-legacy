@@ -88,19 +88,166 @@ const CONFIG_KEYS = [
   "ai_provider_model",
 ];
 
+function normalizeBaseUrl(value) {
+  return String(value || "").replace(/\/+$/, "");
+}
+
+function normalizeOpenAiCompatibleBase(value) {
+  const normalized = normalizeBaseUrl(value);
+  if (!normalized) return "";
+  return normalized.endsWith("/v1") ? normalized : `${normalized}/v1`;
+}
+
+function resolveProviderPreset(baseUrl) {
+  const normalized = String(baseUrl || "").trim().toLowerCase();
+  if (!normalized) return "manual";
+  if (normalized.includes("openrouter.ai")) return "openrouter";
+  if (normalized.includes("groq.com")) return "groq";
+  if (normalized.includes("openai.com")) return "openai";
+  return "manual";
+}
+
+function deriveUiMetadata(config) {
+  const providerType = String(config?.provider_type || "").trim();
+  const preset = resolveProviderPreset(config?.base_url);
+
+  if (providerType === "openai_compatible") {
+    return {
+      provider_display: "openai",
+      provider_preset:
+        preset === "openrouter" || preset === "groq" ? preset : "openai",
+    };
+  }
+
+  if (providerType === "custom") {
+    return {
+      provider_display: "custom",
+      provider_preset: preset,
+    };
+  }
+
+  if (providerType === "ollama") {
+    return {
+      provider_display: "ollama",
+      provider_preset: "manual",
+    };
+  }
+
+  if (providerType === "anthropic") {
+    return {
+      provider_display: "anthropic",
+      provider_preset: "manual",
+    };
+  }
+
+  if (providerType === "gemini") {
+    return {
+      provider_display: "gemini",
+      provider_preset: "manual",
+    };
+  }
+
+  return {
+    provider_display: "custom",
+    provider_preset: "manual",
+  };
+}
+
+function getNativeFallbackConfig() {
+  const llmBaseUrl = process.env.LLM_BASE_URL || "http://127.0.0.1:11434";
+  const llmModel = process.env.LLM_MODEL || "gpt-oss:120b-cloud";
+  const llmApiKey = process.env.LLM_API_KEY || process.env.OPENAI_API_KEY || "";
+  const openAiBaseUrl =
+    process.env.OPENAI_BASE_URL ||
+    process.env.LLM_OPENAI_BASE_URL ||
+    "https://api.openai.com";
+  const openRouterApiKey =
+    process.env.OPENROUTER_API_KEY || process.env.LLM_OPENROUTER_API_KEY || "";
+  const openRouterModel = process.env.OPENROUTER_MODEL || "openai/gpt-oss-120b";
+  const openRouterBaseUrl =
+    process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
+  const groqApiKey = process.env.GROQ_API_KEY || "";
+  const groqModel = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
+  const groqBaseUrl = process.env.GROQ_BASE_URL || "https://api.groq.com/openai";
+
+  if (String(llmApiKey).trim()) {
+    return {
+      provider_type: "openai_compatible",
+      base_url: normalizeOpenAiCompatibleBase(openAiBaseUrl),
+      api_key_masked: "****",
+      model: llmModel,
+      source: "native_fallback",
+      persisted: false,
+    };
+  }
+
+  // Native runtime tries Ollama before OpenRouter/Groq when no OpenAI key is present.
+  if (String(llmBaseUrl).trim() && String(llmModel).trim()) {
+    return {
+      provider_type: "ollama",
+      base_url: normalizeBaseUrl(llmBaseUrl),
+      api_key_masked: "",
+      model: llmModel,
+      source: "native_fallback",
+      persisted: false,
+    };
+  }
+
+  if (String(openRouterApiKey).trim()) {
+    return {
+      provider_type: "openai_compatible",
+      base_url: normalizeOpenAiCompatibleBase(openRouterBaseUrl),
+      api_key_masked: "****",
+      model: openRouterModel,
+      source: "native_fallback",
+      persisted: false,
+    };
+  }
+
+  if (String(groqApiKey).trim()) {
+    return {
+      provider_type: "openai_compatible",
+      base_url: normalizeOpenAiCompatibleBase(groqBaseUrl),
+      api_key_masked: "****",
+      model: groqModel,
+      source: "native_fallback",
+      persisted: false,
+    };
+  }
+
+  return null;
+}
+
 function getProviderConfig() {
   const providerType = getSetting("ai_provider_type", null);
   if (!providerType) {
-    return { configured: false };
+    const fallback = getNativeFallbackConfig();
+    if (!fallback) {
+      return { configured: false };
+    }
+    const uiMeta = deriveUiMetadata(fallback);
+    return {
+      configured: false,
+      ...fallback,
+      ...uiMeta,
+    };
   }
-  return {
-    configured: true,
+  const providerConfig = {
     provider_type: providerType,
     base_url: getSetting("ai_provider_base_url", ""),
+  };
+  const uiMeta = deriveUiMetadata(providerConfig);
+  return {
+    configured: true,
+    source: "database",
+    persisted: true,
+    provider_type: providerConfig.provider_type,
+    base_url: providerConfig.base_url,
     api_key_masked: getSetting("ai_provider_api_key_encrypted", null)
       ? "****"
       : "",
     model: getSetting("ai_provider_model", ""),
+    ...uiMeta,
   };
 }
 

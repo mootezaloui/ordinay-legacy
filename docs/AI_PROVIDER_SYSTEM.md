@@ -33,6 +33,7 @@ Target state:
 - API keys must be encrypted at rest — never stored as plaintext in the DB
 - `native.provider.ts` stays as a fallback for `.env`-based config during transition — it is not deleted until the new system is fully stable and validated
 - Provider selection happens at runtime init inside `runtime.factory.ts`, not inside the agent loop
+- Runtime route loading uses `backend/.agent-build/agent/transport` (see `backend/src/routes/index.js`), so changes under `backend/src/agent/**` require `npm run build:agent` before they affect the live chatbot process
 
 ---
 
@@ -48,23 +49,36 @@ Mode 2: Use Ordinay AI  [Coming Soon — greyed out in UI]
 
 ---
 
-## Provider Groups
+## UI Taxonomy vs Internal Types
 
 ```
-Group A — OpenAI-Compatible  (Phase 4 — single integration path)
-  Covers: OpenRouter, Groq, OpenAI, Together.ai, Mistral, any compatible endpoint
-  Fields: Base URL, API Key, Model
+User-facing provider taxonomy (Settings UI):
+  - OpenAI
+  - Anthropic
+  - Gemini
+  - Ollama
+  - Custom endpoint
+  - Azure OpenAI (Coming soon, disabled)
+  - AWS Bedrock (Coming soon, disabled)
 
-Group B — Ollama  (Phase 4 — local)
-  Fields: Ollama URL, Model name
+Internal backend provider_type values (unchanged, persisted):
+  - openai_compatible
+  - custom
+  - ollama
+  - anthropic
+  - gemini
 
-Group C — Custom Endpoint  (Phase 4 — advanced users)
-  Fields: Base URL, API Key, Model
-  Behavior: same as OpenAI-compatible, no assumptions about provider
+Display-to-backend mapping:
+  - OpenAI          -> openai_compatible
+  - Custom endpoint -> custom
+  - Ollama          -> ollama
+  - Anthropic       -> anthropic
+  - Gemini          -> gemini
 
-Group D — Native SDK Providers  (Phase 6 — non-OpenAI-compatible)
-  Anthropic Claude  → different request/response format, requires @anthropic-ai/sdk
-  Google Gemini     → different request/response format, requires @google/generative-ai
+Custom endpoint presets in UI:
+  - OpenRouter
+  - Groq
+  - Manual custom
 ```
 
 ---
@@ -143,7 +157,11 @@ Tasks:
 - [x] Create `settings.routes.js` with exactly 3 endpoints:
   - [x] `GET /api/settings/ai-provider`
     - Returns current config with API key masked as `"****"`
-    - Returns `{ configured: false }` when no config is saved
+    - When no DB config is saved, returns `{ configured: false }` plus effective native fallback values (`provider_type`, `base_url`, `model`, `source: "native_fallback"`) so Settings reflects what runtime is currently using
+    - Returns optional UI metadata for hydration: `provider_display` and `provider_preset`
+  - [x] `GET /api/settings/ai-provider/ollama-status`
+    - Returns runtime readiness metadata: `installed`, `running`, `models`, `model_count`, `status`
+    - Enables live Settings polling so users can install/start Ollama without restarting the app
   - [x] `PUT /api/settings/ai-provider`
     - Validates payload: `provider_type` required (400 if invalid), `model` required (400 if missing)
     - Saves via `aiProvider.service.saveProviderConfig()`
@@ -158,7 +176,7 @@ Tasks:
 
 Definition of done:
 
-- [x] `GET` with no config saved → `{ configured: false }`
+- [x] `GET` with no config saved → `{ configured: false }` plus native fallback provider/model fields and optional UI metadata
 - [x] `PUT` valid OpenAI-compatible config → `{ ok: true }`
 - [x] `GET` after save → config returned with masked key
 - [x] `PUT` invalid provider_type → 400 with descriptive error
@@ -393,6 +411,6 @@ Before this plan is considered complete, all of the following must pass:
 - [ ] User with local Ollama: enters `http://localhost:11434` + model name → tests → agent responds
 - [ ] User with Anthropic key: enters key + model → tests → agent responds with tool calls working
 - [ ] User with Gemini key: enters key + model → tests → agent responds with tool calls working
-- [ ] User with no config saved: sees clear prompt to configure in Settings, agent does not crash
+- [ ] User with no config saved: Settings still reflects active native fallback provider values, and agent does not crash
 - [ ] Backend restart with config saved in DB: config persists, agent uses it immediately on next request
 - [ ] Config changed in Settings while app is running: next agent request uses new provider

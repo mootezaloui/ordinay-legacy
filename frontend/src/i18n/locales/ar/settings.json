@@ -231,24 +231,47 @@
         "ordinay": "استخدام Ordinay AI",
         "ordinayComingSoon": "قريبًا"
       },
+      "source": {
+        "saved": "إعداد محفوظ",
+        "savedNote": "تم حفظ هذا المزوّد في الإعدادات ويُستخدم مباشرة من الوكيل.",
+        "fallback": "وضع احتياطي من الخادم (.env)",
+        "fallbackNote": "الوكيل يعمل بإعدادات البيئة من الخادم. احفظ القيم هنا لتثبيت الإعدادات.",
+        "notConfigured": "غير مُعدّ",
+        "notConfiguredNote": "املأ الحقول واختبر الاتصال ثم احفظ."
+      },
+      "guide": {
+        "title": "دليل إعداد سريع",
+        "step1": "اختر نوع المزوّد.",
+        "step2": "أدخل مفتاح API وعنوان URL الأساسي والنموذج (حسب الحاجة).",
+        "step3": "اضغط اختبار الاتصال ثم حفظ الإعداد."
+      },
       "provider": {
         "label": "المزوّد",
-        "openai_compatible": "متوافق مع OpenAI (OpenRouter، Groq، OpenAI، إلخ)",
+        "openai": "OpenAI",
         "ollama": "Ollama (محلي)",
         "custom": "نقطة وصول مخصصة",
         "anthropic": "Anthropic (Claude)",
-        "gemini": "Google (Gemini)"
+        "gemini": "Google (Gemini)",
+        "azure_openai": "Azure OpenAI",
+        "bedrock": "AWS Bedrock",
+        "comingSoon": "قريبًا"
+      },
+      "customPreset": {
+        "label": "إعداد مخصص",
+        "openrouter": "OpenRouter",
+        "groq": "Groq",
+        "manual": "يدوي مخصص"
       },
       "fields": {
         "baseUrl": "عنوان URL الأساسي",
         "apiKey": "مفتاح API",
         "model": "النموذج",
         "placeholders": {
-          "baseUrlOpenAI": "https://openrouter.ai/api/v1",
+          "baseUrlOpenAI": "https://api.openai.com/v1",
           "baseUrlOllama": "http://localhost:11434",
           "baseUrlCustom": "https://your-endpoint.com/v1",
           "apiKey": "sk-...",
-          "modelOpenAI": "openai/gpt-4o-mini",
+          "modelOpenAI": "gpt-4.1-mini",
           "modelOllama": "llama3",
           "modelCustom": "اسم-النموذج",
           "modelAnthropic": "claude-sonnet-4-5-20250514",
@@ -270,6 +293,97 @@
         "saved": "تم حفظ إعدادات الذكاء الاصطناعي",
         "saveError": "فشل حفظ إعدادات الذكاء الاصطناعي",
         "testError": "فشل اختبار الاتصال"
+      },
+      "help": {
+        "providerHelpTitle": "مساعدة المزوّد",
+        "fieldMeaningTitle": "معنى الحقول",
+        "summary": {
+          "openai": "استخدم الوصول المباشر إلى واجهة OpenAI.",
+          "custom": "استخدم هذا لـ OpenRouter أو Groq أو أي واجهة متوافقة مع صيغة OpenAI.",
+          "ollama": "استخدم هذا لنماذج Ollama المحلية أو المستضافة ذاتيًا.",
+          "anthropic": "استخدم الوصول المباشر إلى واجهة Anthropic لنماذج Claude.",
+          "gemini": "استخدم وصول Google AI Studio لنماذج Gemini.",
+          "azure_openai": "تكامل Azure OpenAI مخطط له لكنه غير متاح في هذا الإصدار.",
+          "bedrock": "تكامل AWS Bedrock مخطط له لكنه غير متاح في هذا الإصدار."
+        },
+        "baseUrl": {
+          "openai": "عنوان OpenAI الافتراضي غالبًا مناسب إلا إذا كنت تستخدم وسيطًا.",
+          "custom": "أدخل عنوان مزوّدك (مثل OpenRouter أو Groq).",
+          "ollama": "عنوان Ollama المحلي الافتراضي هو http://localhost:11434."
+        },
+        "apiKey": {
+          "standard": "أنشئ مفتاح API من لوحة مزوّد الخدمة ثم الصقه هنا.",
+          "anthropic": "أنشئ مفتاح API من Anthropic Console.",
+          "gemini": "أنشئ مفتاح API من Google AI Studio.",
+          "savedMaskHint": "المفتاح الحالي محفوظ بالفعل."
+        },
+        "model": {
+          "openai": "استخدم معرف نموذج OpenAI (مثل gpt-4.1-mini).",
+          "custom": "استخدم المعرف الدقيق الذي يتوقعه مزوّدك المخصص.",
+          "ollama": "استخدم نموذجًا مثبتًا في Ollama (مثل llama3.1:8b).",
+          "anthropic": "استخدم معرف نموذج Claude من وثائق Anthropic.",
+          "gemini": "استخدم معرف نموذج Gemini من وثائق Google."
+        },
+        "fieldMeaning": {
+          "baseUrl": "جذر عنوان واجهة API المستخدمة في الطلبات.",
+          "apiKey": "بيانات اعتماد سرية للمصادقة على الطلبات.",
+          "model": "معرف النموذج الدقيق الذي يستخدمه المزوّد."
+        },
+        "missingModelWarning": "اختر مزوّدًا ونموذجًا أولًا، ثم اختبر الاتصال قبل الحفظ."
+      },
+      "ollamaStatus": {
+        "title": "حالة تشغيل Ollama",
+        "checking": "جارٍ التحقق من Ollama...",
+        "refreshing": "جارٍ التحديث...",
+        "autoRefresh": "تحديث تلقائي كل 5 ثوانٍ",
+        "states": {
+          "not_installed": "Ollama غير مثبت على هذا الجهاز.",
+          "not_running": "لا يمكن الوصول إلى Ollama عبر هذا العنوان.",
+          "running_no_models": "Ollama يعمل لكن لا توجد نماذج محلية متاحة.",
+          "ready": "Ollama يعمل وجاهز.",
+          "api_mismatch": "هذا العنوان يستجيب لكنه ليس خادم Ollama."
+        },
+        "labels": {
+          "installed": "مثبّت",
+          "running": "قيد التشغيل",
+          "models": "النماذج",
+          "endpoint": "نقطة الاتصال"
+        },
+        "values": {
+          "yes": "نعم",
+          "no": "لا",
+          "unknown": "غير معروف"
+        },
+        "hints": {
+          "install": "ثبّت Ollama. إذا كان مثبتًا بالفعل، اضغط فتح / تشغيل Ollama.",
+          "start": "افتح أو شغّل Ollama من التطبيق ثم ستتحدث الصفحة تلقائيًا.",
+          "pullModel": "أضف نموذجًا واحدًا على الأقل داخل Ollama قبل الاختبار.",
+          "apiMismatch": "استخدم عنوان Ollama مع هذا المزوّد، أو بدّل إلى مزوّد مخصص/OpenAI لهذا العنوان."
+        },
+        "actions": {
+          "install": "تثبيت Ollama",
+          "start": "فتح / تشغيل Ollama",
+          "starting": "جارٍ التشغيل...",
+          "openLibrary": "فتح مكتبة النماذج",
+          "refresh": "تحديث الآن"
+        },
+        "toast": {
+          "startRequested": "تم طلب تشغيل Ollama",
+          "startFailed": "تعذر تشغيل Ollama"
+        }
+      },
+      "links": {
+        "openaiKeys": "مفاتيح OpenAI API",
+        "openaiModels": "توثيق نماذج OpenAI",
+        "openrouterKeys": "مفاتيح OpenRouter",
+        "groqKeys": "مفاتيح Groq",
+        "ollamaInstall": "تثبيت Ollama",
+        "ollamaLibrary": "مكتبة نماذج Ollama",
+        "anthropicKeys": "مفاتيح Anthropic API",
+        "anthropicModels": "توثيق نماذج Claude",
+        "geminiKey": "مفتاح Gemini API",
+        "geminiModels": "توثيق نماذج Gemini",
+        "openaiFormat": "مرجع واجهة API بصيغة OpenAI"
       },
       "notConfigured": "لم يتم تكوين مزوّد ذكاء اصطناعي. لن يكون الوكيل متاحًا حتى يتم تكوين مزوّد."
     }

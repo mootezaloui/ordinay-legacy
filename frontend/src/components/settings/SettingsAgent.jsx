@@ -1,43 +1,248 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import ContentSection from "../layout/ContentSection";
 import { useToast } from "../../contexts/ToastContext";
+import { openExternalLink } from "../../lib/externalLink";
 import {
   getDocumentAiSettings,
   updateDocumentAiSettings,
 } from "../../services/api/documentAi";
 import {
   getAIProviderConfig,
+  getOllamaStatus,
   saveAIProviderConfig,
+  startOllamaRuntime,
   testAIProviderConfig,
 } from "../../services/api/aiProvider";
 
-const PROVIDER_TYPES = ["openai_compatible", "ollama", "custom", "anthropic", "gemini"];
+const DISPLAY_PROVIDER_OPTIONS = [
+  {
+    id: "openai",
+    backendType: "openai_compatible",
+    hasBaseUrl: true,
+    hasApiKey: true,
+    placeholderBaseUrl: "baseUrlOpenAI",
+    placeholderModel: "modelOpenAI",
+    summaryKey: "agent.aiConfig.help.summary.openai",
+    baseUrlHintKey: "agent.aiConfig.help.baseUrl.openai",
+    apiKeyHintKey: "agent.aiConfig.help.apiKey.standard",
+    modelHintKey: "agent.aiConfig.help.model.openai",
+  },
+  {
+    id: "anthropic",
+    backendType: "anthropic",
+    hasBaseUrl: false,
+    hasApiKey: true,
+    placeholderBaseUrl: "",
+    placeholderModel: "modelAnthropic",
+    summaryKey: "agent.aiConfig.help.summary.anthropic",
+    baseUrlHintKey: "",
+    apiKeyHintKey: "agent.aiConfig.help.apiKey.anthropic",
+    modelHintKey: "agent.aiConfig.help.model.anthropic",
+  },
+  {
+    id: "gemini",
+    backendType: "gemini",
+    hasBaseUrl: false,
+    hasApiKey: true,
+    placeholderBaseUrl: "",
+    placeholderModel: "modelGemini",
+    summaryKey: "agent.aiConfig.help.summary.gemini",
+    baseUrlHintKey: "",
+    apiKeyHintKey: "agent.aiConfig.help.apiKey.gemini",
+    modelHintKey: "agent.aiConfig.help.model.gemini",
+  },
+  {
+    id: "ollama",
+    backendType: "ollama",
+    hasBaseUrl: true,
+    hasApiKey: false,
+    placeholderBaseUrl: "baseUrlOllama",
+    placeholderModel: "modelOllama",
+    summaryKey: "agent.aiConfig.help.summary.ollama",
+    baseUrlHintKey: "agent.aiConfig.help.baseUrl.ollama",
+    apiKeyHintKey: "",
+    modelHintKey: "agent.aiConfig.help.model.ollama",
+  },
+  {
+    id: "custom",
+    backendType: "custom",
+    hasBaseUrl: true,
+    hasApiKey: true,
+    placeholderBaseUrl: "baseUrlCustom",
+    placeholderModel: "modelCustom",
+    summaryKey: "agent.aiConfig.help.summary.custom",
+    baseUrlHintKey: "agent.aiConfig.help.baseUrl.custom",
+    apiKeyHintKey: "agent.aiConfig.help.apiKey.standard",
+    modelHintKey: "agent.aiConfig.help.model.custom",
+  },
+  {
+    id: "azure_openai",
+    backendType: "",
+    hasBaseUrl: true,
+    hasApiKey: true,
+    placeholderBaseUrl: "baseUrlCustom",
+    placeholderModel: "modelCustom",
+    summaryKey: "agent.aiConfig.help.summary.azure_openai",
+    baseUrlHintKey: "",
+    apiKeyHintKey: "",
+    modelHintKey: "",
+    disabled: true,
+  },
+  {
+    id: "bedrock",
+    backendType: "",
+    hasBaseUrl: true,
+    hasApiKey: true,
+    placeholderBaseUrl: "baseUrlCustom",
+    placeholderModel: "modelCustom",
+    summaryKey: "agent.aiConfig.help.summary.bedrock",
+    baseUrlHintKey: "",
+    apiKeyHintKey: "",
+    modelHintKey: "",
+    disabled: true,
+  },
+];
 
-const PLACEHOLDERS = {
-  openai_compatible: {
-    baseUrl: "baseUrlOpenAI",
-    model: "modelOpenAI",
+const CUSTOM_PRESETS = [
+  {
+    id: "openrouter",
+    baseUrl: "https://openrouter.ai/api/v1",
   },
-  ollama: {
-    baseUrl: "baseUrlOllama",
-    model: "modelOllama",
+  {
+    id: "groq",
+    baseUrl: "https://api.groq.com/openai/v1",
   },
-  custom: {
-    baseUrl: "baseUrlCustom",
-    model: "modelCustom",
-  },
-  anthropic: {
+  {
+    id: "manual",
     baseUrl: "",
-    model: "modelAnthropic",
   },
-  gemini: {
-    baseUrl: "",
-    model: "modelGemini",
-  },
-};
+];
 
-const PROVIDERS_WITHOUT_BASE_URL = ["anthropic", "gemini"];
+const FALLBACK_OPENAI_BASE_URL = "https://api.openai.com/v1";
+const FALLBACK_OLLAMA_BASE_URL = "http://localhost:11434";
+
+function normalizeOllamaBaseUrl(value) {
+  return String(value || "").trim().replace(/\/+$/, "").replace(/\/v1$/i, "");
+}
+
+function getCustomPresetValue(presetId) {
+  const row = CUSTOM_PRESETS.find((preset) => preset.id === presetId);
+  return row ? row.baseUrl : "";
+}
+
+function normalizeCustomPreset(preset, baseUrl) {
+  const normalizedPreset = String(preset || "").trim().toLowerCase();
+  if (normalizedPreset === "openrouter" || normalizedPreset === "groq" || normalizedPreset === "manual") {
+    return normalizedPreset;
+  }
+  const normalizedBaseUrl = String(baseUrl || "").trim().toLowerCase();
+  if (normalizedBaseUrl.includes("openrouter.ai")) return "openrouter";
+  if (normalizedBaseUrl.includes("groq.com")) return "groq";
+  return "manual";
+}
+
+function mapBackendToDisplayProvider(providerType) {
+  const normalized = String(providerType || "").trim().toLowerCase();
+  if (normalized === "openai_compatible") return "openai";
+  if (normalized === "custom") return "custom";
+  if (normalized === "ollama") return "ollama";
+  if (normalized === "anthropic") return "anthropic";
+  if (normalized === "gemini") return "gemini";
+  return "openai";
+}
+
+function getSourceBadge(t, source) {
+  if (source === "database") {
+    return {
+      label: t("agent.aiConfig.source.saved"),
+      className:
+        "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800",
+      note: t("agent.aiConfig.source.savedNote"),
+    };
+  }
+  if (source === "native_fallback") {
+    return null;
+  }
+  return {
+    label: t("agent.aiConfig.source.notConfigured"),
+    className:
+      "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+    note: t("agent.aiConfig.source.notConfiguredNote"),
+  };
+}
+
+function getHelpLinks(displayProvider, customPreset) {
+  if (displayProvider === "openai") {
+    return ["openaiKeys", "openaiModels"];
+  }
+  if (displayProvider === "ollama") {
+    return ["ollamaInstall", "ollamaLibrary"];
+  }
+  if (displayProvider === "anthropic") {
+    return ["anthropicKeys", "anthropicModels"];
+  }
+  if (displayProvider === "gemini") {
+    return ["geminiKey", "geminiModels"];
+  }
+  if (displayProvider === "custom") {
+    if (customPreset === "openrouter") return ["openrouterKeys", "openaiFormat"];
+    if (customPreset === "groq") return ["groqKeys", "openaiFormat"];
+    return ["openaiFormat"];
+  }
+  return [];
+}
+
+function getLinkUrl(linkKey) {
+  if (linkKey === "openaiKeys") return "https://platform.openai.com/api-keys";
+  if (linkKey === "openaiModels") return "https://platform.openai.com/docs/models";
+  if (linkKey === "openrouterKeys") return "https://openrouter.ai/keys";
+  if (linkKey === "groqKeys") return "https://console.groq.com/keys";
+  if (linkKey === "ollamaInstall") return "https://ollama.com/download";
+  if (linkKey === "ollamaLibrary") return "https://ollama.com/library";
+  if (linkKey === "anthropicKeys") return "https://console.anthropic.com/settings/keys";
+  if (linkKey === "anthropicModels")
+    return "https://docs.anthropic.com/en/docs/about-claude/models/overview";
+  if (linkKey === "geminiKey") return "https://aistudio.google.com/apikey";
+  if (linkKey === "geminiModels") return "https://ai.google.dev/gemini-api/docs/models";
+  return "https://platform.openai.com/docs/api-reference/chat";
+}
+
+function getOllamaStatusVariant(status) {
+  if (status === "ready") {
+    return "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-300";
+  }
+  if (status === "running_no_models") {
+    return "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-300";
+  }
+  if (status === "api_mismatch") {
+    return "bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-900/20 dark:border-rose-800 dark:text-rose-300";
+  }
+  return "bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-900/20 dark:border-rose-800 dark:text-rose-300";
+}
+
+function resolveBaseUrlForSubmit(displayProvider, customPreset, baseUrl) {
+  const normalized = String(baseUrl || "").trim();
+  if (displayProvider === "openai") {
+    return normalized || FALLBACK_OPENAI_BASE_URL;
+  }
+  if (displayProvider === "ollama") {
+    return normalizeOllamaBaseUrl(normalized || FALLBACK_OLLAMA_BASE_URL);
+  }
+  if (displayProvider === "custom") {
+    if (customPreset === "openrouter" || customPreset === "groq") {
+      return getCustomPresetValue(customPreset);
+    }
+    return normalized;
+  }
+  return "";
+}
+
+function getOllamaInstallValue(t, installed) {
+  if (installed === true) return t("agent.aiConfig.ollamaStatus.values.yes");
+  if (installed === false) return t("agent.aiConfig.ollamaStatus.values.no");
+  return t("agent.aiConfig.ollamaStatus.values.unknown");
+}
 
 export default function SettingsAgent() {
   const { t } = useTranslation(["settings"]);
@@ -46,16 +251,62 @@ export default function SettingsAgent() {
   const [saving, setSaving] = useState(false);
   const [formatPreference, setFormatPreference] = useState("auto");
 
-  // AI config state
   const [aiLoading, setAiLoading] = useState(true);
   const [aiSaving, setAiSaving] = useState(false);
   const [aiTesting, setAiTesting] = useState(false);
   const [aiMode, setAiMode] = useState("byok");
-  const [providerType, setProviderType] = useState("openai_compatible");
+  const [displayProvider, setDisplayProvider] = useState("openai");
+  const [customPreset, setCustomPreset] = useState("manual");
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("");
   const [testResult, setTestResult] = useState(null);
+  const [configSource, setConfigSource] = useState(null);
+  const [ollamaStatus, setOllamaStatus] = useState(null);
+  const [ollamaStatusLoading, setOllamaStatusLoading] = useState(false);
+  const [ollamaActionBusy, setOllamaActionBusy] = useState(false);
+
+  const selectedProvider = useMemo(
+    () =>
+      DISPLAY_PROVIDER_OPTIONS.find((provider) => provider.id === displayProvider) ||
+      DISPLAY_PROVIDER_OPTIONS[0],
+    [displayProvider],
+  );
+
+  const helpLinkKeys = useMemo(
+    () => getHelpLinks(displayProvider, customPreset),
+    [displayProvider, customPreset],
+  );
+
+  const refreshOllamaStatus = useCallback(
+    async ({ showLoader = false } = {}) => {
+      if (aiMode !== "byok" || displayProvider !== "ollama") {
+        return;
+      }
+      if (showLoader) {
+        setOllamaStatusLoading(true);
+      }
+      try {
+        const status = await getOllamaStatus(baseUrl);
+        setOllamaStatus(status);
+      } catch (error) {
+        setOllamaStatus({
+          base_url: baseUrl || FALLBACK_OLLAMA_BASE_URL,
+          installed: null,
+          running: false,
+          models: [],
+          model_count: 0,
+          status: "not_running",
+          error: error?.message || String(error || "Unknown status error"),
+        });
+      } finally {
+        if (showLoader) {
+          setOllamaStatusLoading(false);
+        }
+      }
+    },
+    [aiMode, displayProvider, baseUrl],
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -63,9 +314,7 @@ export default function SettingsAgent() {
       try {
         const remoteSettings = await getDocumentAiSettings();
         if (!mounted) return;
-        setFormatPreference(
-          remoteSettings.document_output_format_preference || "auto"
-        );
+        setFormatPreference(remoteSettings.document_output_format_preference || "auto");
       } catch (error) {
         console.error("[SettingsAgent] Failed to load agent settings:", error);
         showToast(t("agent.toast.loadError"), "error");
@@ -84,12 +333,28 @@ export default function SettingsAgent() {
       try {
         const config = await getAIProviderConfig();
         if (!mounted) return;
-        if (config.configured) {
-          setProviderType(config.provider_type || "openai_compatible");
-          setBaseUrl(config.base_url || "");
+
+        const resolvedDisplayProvider =
+          String(config.provider_display || "").trim() ||
+          mapBackendToDisplayProvider(config.provider_type);
+        setDisplayProvider(resolvedDisplayProvider);
+
+        if (resolvedDisplayProvider === "custom") {
+          setCustomPreset(normalizeCustomPreset(config.provider_preset, config.base_url));
+        } else {
+          setCustomPreset("manual");
+        }
+
+        if (config.provider_type || config.base_url || config.model) {
+          if (resolvedDisplayProvider === "ollama") {
+            setBaseUrl(normalizeOllamaBaseUrl(config.base_url || ""));
+          } else {
+            setBaseUrl(config.base_url || "");
+          }
           setApiKey(config.api_key_masked || "");
           setModel(config.model || "");
         }
+        setConfigSource(config.source || null);
       } catch (error) {
         console.error("[SettingsAgent] Failed to load AI config:", error);
       } finally {
@@ -100,6 +365,28 @@ export default function SettingsAgent() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (aiMode !== "byok" || displayProvider !== "ollama") {
+      setOllamaStatus(null);
+      setOllamaStatusLoading(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    refreshOllamaStatus({ showLoader: true });
+
+    const interval = setInterval(() => {
+      if (!cancelled) {
+        refreshOllamaStatus({ showLoader: false });
+      }
+    }, 5000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [aiMode, displayProvider, refreshOllamaStatus]);
 
   const save = async () => {
     setSaving(true);
@@ -118,15 +405,23 @@ export default function SettingsAgent() {
   };
 
   const saveAiConfig = async () => {
+    if (selectedProvider.disabled) {
+      return;
+    }
     setAiSaving(true);
     setTestResult(null);
     try {
+      const submitBaseUrl = resolveBaseUrlForSubmit(displayProvider, customPreset, baseUrl);
       await saveAIProviderConfig({
-        provider_type: providerType,
-        base_url: baseUrl,
-        api_key: apiKey,
+        provider_type: selectedProvider.backendType,
+        base_url: submitBaseUrl,
+        api_key: selectedProvider.hasApiKey ? apiKey : "",
         model,
       });
+      if (selectedProvider.hasBaseUrl) {
+        setBaseUrl(submitBaseUrl);
+      }
+      setConfigSource("database");
       showToast(t("agent.aiConfig.toast.saved"), "success");
     } catch (error) {
       console.error("[SettingsAgent] Failed to save AI config:", error);
@@ -137,31 +432,109 @@ export default function SettingsAgent() {
   };
 
   const testAiConfig = async () => {
+    if (selectedProvider.disabled) {
+      return;
+    }
     setAiTesting(true);
     setTestResult(null);
     try {
+      const submitBaseUrl = resolveBaseUrlForSubmit(displayProvider, customPreset, baseUrl);
       const result = await testAIProviderConfig({
-        provider_type: providerType,
-        base_url: baseUrl,
-        api_key: apiKey,
+        provider_type: selectedProvider.backendType,
+        base_url: submitBaseUrl,
+        api_key: selectedProvider.hasApiKey ? apiKey : "",
         model,
       });
+      if (selectedProvider.hasBaseUrl) {
+        setBaseUrl(submitBaseUrl);
+      }
       setTestResult(result);
     } catch (error) {
       console.error("[SettingsAgent] AI config test failed:", error);
-      setTestResult({ ok: false, error: error.message || t("agent.aiConfig.toast.testError") });
+      setTestResult({
+        ok: false,
+        error: error.message || t("agent.aiConfig.toast.testError"),
+      });
     } finally {
       setAiTesting(false);
     }
   };
 
-  const ph = PLACEHOLDERS[providerType] || PLACEHOLDERS.openai_compatible;
-  const showApiKey = providerType !== "ollama";
-  const showBaseUrl = !PROVIDERS_WITHOUT_BASE_URL.includes(providerType);
+  const handleInstallOllama = async () => {
+    await openExternalLink("https://ollama.com/download", "settings_ollama_install");
+  };
+
+  const handleStartOllama = async () => {
+    setOllamaActionBusy(true);
+    try {
+      const result = await startOllamaRuntime();
+      if (result.ok) {
+        showToast(t("agent.aiConfig.ollamaStatus.toast.startRequested"), "success");
+      } else {
+        showToast(
+          result.error || t("agent.aiConfig.ollamaStatus.toast.startFailed"),
+          "error",
+        );
+      }
+    } catch (error) {
+      showToast(
+        error?.message || t("agent.aiConfig.ollamaStatus.toast.startFailed"),
+        "error",
+      );
+    } finally {
+      setOllamaActionBusy(false);
+      await refreshOllamaStatus({ showLoader: true });
+    }
+  };
+
+  const onProviderChange = (nextProvider) => {
+    const option = DISPLAY_PROVIDER_OPTIONS.find((provider) => provider.id === nextProvider);
+    if (!option || option.disabled) {
+      return;
+    }
+    setDisplayProvider(option.id);
+    setTestResult(null);
+
+    if (option.id === "custom") {
+      const inferredPreset = normalizeCustomPreset(undefined, baseUrl);
+      setCustomPreset(inferredPreset);
+      if (inferredPreset !== "manual") {
+        setBaseUrl(getCustomPresetValue(inferredPreset));
+      }
+      return;
+    }
+
+    setCustomPreset("manual");
+    if (!option.hasBaseUrl) {
+      setBaseUrl("");
+      return;
+    }
+    if (option.id === "openai" && !String(baseUrl || "").trim()) {
+      setBaseUrl(FALLBACK_OPENAI_BASE_URL);
+      return;
+    }
+    if (option.id === "ollama" && !String(baseUrl || "").trim()) {
+      setBaseUrl(FALLBACK_OLLAMA_BASE_URL);
+    }
+  };
+
+  const onCustomPresetChange = (nextPreset) => {
+    const normalizedPreset = normalizeCustomPreset(nextPreset, "");
+    setCustomPreset(normalizedPreset);
+    setTestResult(null);
+    if (normalizedPreset === "manual") {
+      setBaseUrl("");
+      return;
+    }
+    setBaseUrl(getCustomPresetValue(normalizedPreset));
+  };
+
+  const sourceBadge = getSourceBadge(t, configSource);
+  const showBaseUrl = selectedProvider.hasBaseUrl === true;
+  const showApiKey = selectedProvider.hasApiKey === true;
 
   return (
     <div className="space-y-6">
-      {/* AI Configuration */}
       <ContentSection title={t("agent.aiConfig.sectionTitle")}>
         <div className="p-6 space-y-6">
           {aiLoading ? (
@@ -170,7 +543,29 @@ export default function SettingsAgent() {
             </p>
           ) : (
             <>
-              {/* Mode selection */}
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/40 p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                    {t("agent.aiConfig.guide.title")}
+                  </h3>
+                  {sourceBadge?.label ? (
+                    <span
+                      className={`text-xs px-2.5 py-1 rounded-full border ${sourceBadge.className}`}
+                    >
+                      {sourceBadge.label}
+                    </span>
+                  ) : null}
+                </div>
+                {sourceBadge?.note ? (
+                  <p className="text-xs text-slate-600 dark:text-slate-300">{sourceBadge.note}</p>
+                ) : null}
+                <ol className="text-xs text-slate-700 dark:text-slate-300 space-y-1 list-decimal list-inside">
+                  <li>{t("agent.aiConfig.guide.step1")}</li>
+                  <li>{t("agent.aiConfig.guide.step2")}</li>
+                  <li>{t("agent.aiConfig.guide.step3")}</li>
+                </ol>
+              </div>
+
               <div className="space-y-3">
                 <label className="block text-sm font-medium text-slate-900 dark:text-white">
                   {t("agent.aiConfig.mode.label")}
@@ -208,118 +603,377 @@ export default function SettingsAgent() {
               </div>
 
               {aiMode === "byok" && (
-                <>
-                  {/* Provider type */}
-                  <div>
-                    <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
-                      {t("agent.aiConfig.provider.label")}
-                    </label>
-                    <select
-                      value={providerType}
-                      onChange={(e) => {
-                        setProviderType(e.target.value);
-                        setTestResult(null);
-                      }}
-                      className="w-full md:w-96 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                    >
-                      {PROVIDER_TYPES.map((pt) => (
-                        <option key={pt} value={pt}>
-                          {t(`agent.aiConfig.provider.${pt}`)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Base URL (hidden for Anthropic/Gemini) */}
-                  {showBaseUrl && (
+                <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]">
+                  <div className="space-y-5">
                     <div>
                       <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
-                        {t("agent.aiConfig.fields.baseUrl")}
+                        {t("agent.aiConfig.provider.label")}
                       </label>
-                      <input
-                        type="text"
-                        value={baseUrl}
-                        onChange={(e) => setBaseUrl(e.target.value)}
-                        placeholder={t(`agent.aiConfig.fields.placeholders.${ph.baseUrl}`)}
-                        className="w-full md:w-96 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400"
-                      />
+                      <select
+                        value={displayProvider}
+                        onChange={(e) => onProviderChange(e.target.value)}
+                        className="w-full max-w-xl px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                      >
+                        {DISPLAY_PROVIDER_OPTIONS.map((provider) => (
+                          <option key={provider.id} value={provider.id} disabled={provider.disabled}>
+                            {t(`agent.aiConfig.provider.${provider.id}`)}
+                            {provider.disabled ? ` (${t("agent.aiConfig.provider.comingSoon")})` : ""}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        {t(selectedProvider.summaryKey)}
+                      </p>
                     </div>
-                  )}
 
-                  {/* API Key (hidden for Ollama) */}
-                  {showApiKey && (
+                    {displayProvider === "custom" && (
+                      <div>
+                        <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
+                          {t("agent.aiConfig.customPreset.label")}
+                        </label>
+                        <select
+                          value={customPreset}
+                          onChange={(e) => onCustomPresetChange(e.target.value)}
+                          className="w-full max-w-xl px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                        >
+                          {CUSTOM_PRESETS.map((preset) => (
+                            <option key={preset.id} value={preset.id}>
+                              {t(`agent.aiConfig.customPreset.${preset.id}`)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {showBaseUrl && (
+                      <div>
+                        <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
+                          {t("agent.aiConfig.fields.baseUrl")}
+                        </label>
+                        <input
+                          type="text"
+                          value={baseUrl}
+                          onChange={(e) => setBaseUrl(e.target.value)}
+                          placeholder={t(
+                            `agent.aiConfig.fields.placeholders.${selectedProvider.placeholderBaseUrl}`,
+                          )}
+                          className="w-full max-w-xl px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400"
+                        />
+                        {selectedProvider.baseUrlHintKey ? (
+                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                            {t(selectedProvider.baseUrlHintKey)}
+                          </p>
+                        ) : null}
+                      </div>
+                    )}
+
+                    {displayProvider === "ollama" && (
+                      <div
+                        className={`rounded-lg border px-3 py-3 text-xs space-y-2 ${getOllamaStatusVariant(
+                          ollamaStatus?.status,
+                        )}`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold">
+                            {t("agent.aiConfig.ollamaStatus.title")}
+                          </span>
+                          <span className="opacity-80">
+                            {ollamaStatusLoading
+                              ? t("agent.aiConfig.ollamaStatus.refreshing")
+                              : t("agent.aiConfig.ollamaStatus.autoRefresh")}
+                          </span>
+                        </div>
+
+                        <div>
+                          {ollamaStatusLoading && !ollamaStatus ? (
+                            <span>{t("agent.aiConfig.ollamaStatus.checking")}</span>
+                          ) : (
+                            <span>
+                              {t(`agent.aiConfig.ollamaStatus.states.${ollamaStatus?.status || "not_running"}`)}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <div>
+                            <span className="font-medium">
+                              {t("agent.aiConfig.ollamaStatus.labels.installed")}:
+                            </span>{" "}
+                            {getOllamaInstallValue(t, ollamaStatus?.installed)}
+                          </div>
+                          <div>
+                            <span className="font-medium">
+                              {t("agent.aiConfig.ollamaStatus.labels.running")}:
+                            </span>{" "}
+                            {ollamaStatus?.running
+                              ? t("agent.aiConfig.ollamaStatus.values.yes")
+                              : t("agent.aiConfig.ollamaStatus.values.no")}
+                          </div>
+                          <div>
+                            <span className="font-medium">
+                              {t("agent.aiConfig.ollamaStatus.labels.models")}:
+                            </span>{" "}
+                            {Number(ollamaStatus?.model_count || 0)}
+                          </div>
+                        </div>
+
+                        {ollamaStatus?.base_url ? (
+                          <div>
+                            <span className="font-medium">
+                              {t("agent.aiConfig.ollamaStatus.labels.endpoint")}:
+                            </span>{" "}
+                            <code>{ollamaStatus.base_url}</code>
+                          </div>
+                        ) : null}
+
+                        {ollamaStatus?.status === "not_installed" && (
+                          <div className="space-y-1">
+                            <div>{t("agent.aiConfig.ollamaStatus.hints.install")}</div>
+                          </div>
+                        )}
+
+                        {ollamaStatus?.status === "not_running" && (
+                          <div className="space-y-1">
+                            <div>{t("agent.aiConfig.ollamaStatus.hints.start")}</div>
+                          </div>
+                        )}
+
+                        {ollamaStatus?.status === "running_no_models" && (
+                          <div className="space-y-1">
+                            <div>{t("agent.aiConfig.ollamaStatus.hints.pullModel")}</div>
+                          </div>
+                        )}
+
+                        {ollamaStatus?.status === "api_mismatch" && (
+                          <div className="space-y-1">
+                            <div>{t("agent.aiConfig.ollamaStatus.hints.apiMismatch")}</div>
+                          </div>
+                        )}
+
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          {(ollamaStatus?.status === "not_installed" ||
+                            ollamaStatus?.status === "running_no_models") && (
+                            <button
+                              type="button"
+                              onClick={handleInstallOllama}
+                              className="px-2.5 py-1 rounded border border-current/30 hover:bg-white/30 dark:hover:bg-black/20"
+                            >
+                              {t("agent.aiConfig.ollamaStatus.actions.install")}
+                            </button>
+                          )}
+
+                          {(ollamaStatus?.status === "not_installed" ||
+                            ollamaStatus?.status === "not_running" ||
+                            ollamaStatus?.status === "running_no_models") && (
+                            <button
+                              type="button"
+                              onClick={handleStartOllama}
+                              disabled={ollamaActionBusy}
+                              className="px-2.5 py-1 rounded border border-current/30 hover:bg-white/30 dark:hover:bg-black/20 disabled:opacity-60"
+                            >
+                              {ollamaActionBusy
+                                ? t("agent.aiConfig.ollamaStatus.actions.starting")
+                                : t("agent.aiConfig.ollamaStatus.actions.start")}
+                            </button>
+                          )}
+
+                          {ollamaStatus?.status === "running_no_models" && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openExternalLink(
+                                  "https://ollama.com/library",
+                                  "settings_ollama_library",
+                                )
+                              }
+                              className="px-2.5 py-1 rounded border border-current/30 hover:bg-white/30 dark:hover:bg-black/20"
+                            >
+                              {t("agent.aiConfig.ollamaStatus.actions.openLibrary")}
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => refreshOllamaStatus({ showLoader: true })}
+                            disabled={ollamaStatusLoading}
+                            className="px-2.5 py-1 rounded border border-current/30 hover:bg-white/30 dark:hover:bg-black/20 disabled:opacity-60"
+                          >
+                            {t("agent.aiConfig.ollamaStatus.actions.refresh")}
+                          </button>
+                        </div>
+
+                        {ollamaStatus?.error ? (
+                          <div className="opacity-80">{String(ollamaStatus.error)}</div>
+                        ) : null}
+                      </div>
+                    )}
+
+                    {showApiKey && (
+                      <div>
+                        <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
+                          {t("agent.aiConfig.fields.apiKey")}
+                        </label>
+                        <input
+                          type="password"
+                          value={apiKey}
+                          onChange={(e) => setApiKey(e.target.value)}
+                          placeholder={t("agent.aiConfig.fields.placeholders.apiKey")}
+                          className="w-full max-w-xl px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400"
+                        />
+                        {selectedProvider.apiKeyHintKey ? (
+                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                            {t(selectedProvider.apiKeyHintKey)}
+                            {apiKey === "****"
+                              ? ` ${t("agent.aiConfig.help.apiKey.savedMaskHint")}`
+                              : ""}
+                          </p>
+                        ) : null}
+                      </div>
+                    )}
+
                     <div>
                       <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
-                        {t("agent.aiConfig.fields.apiKey")}
+                        {t("agent.aiConfig.fields.model")}
                       </label>
-                      <input
-                        type="password"
-                        value={apiKey}
-                        onChange={(e) => setApiKey(e.target.value)}
-                        placeholder={t("agent.aiConfig.fields.placeholders.apiKey")}
-                        className="w-full md:w-96 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400"
-                      />
+                      {displayProvider === "ollama" &&
+                      ollamaStatus?.models?.length > 0 ? (
+                        <select
+                          value={model}
+                          onChange={(e) => setModel(e.target.value)}
+                          className="w-full max-w-xl px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                        >
+                          {!model && (
+                            <option value="">
+                              {t(
+                                `agent.aiConfig.fields.placeholders.${selectedProvider.placeholderModel}`,
+                              )}
+                            </option>
+                          )}
+                          {ollamaStatus.models.map((m) => (
+                            <option key={m} value={m}>
+                              {m}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          value={model}
+                          onChange={(e) => setModel(e.target.value)}
+                          placeholder={t(
+                            `agent.aiConfig.fields.placeholders.${selectedProvider.placeholderModel}`,
+                          )}
+                          className="w-full max-w-xl px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400"
+                        />
+                      )}
+                      {selectedProvider.modelHintKey ? (
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                          {t(selectedProvider.modelHintKey)}
+                        </p>
+                      ) : null}
                     </div>
-                  )}
 
-                  {/* Model */}
-                  <div>
-                    <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
-                      {t("agent.aiConfig.fields.model")}
-                    </label>
-                    <input
-                      type="text"
-                      value={model}
-                      onChange={(e) => setModel(e.target.value)}
-                      placeholder={t(`agent.aiConfig.fields.placeholders.${ph.model}`)}
-                      className="w-full md:w-96 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400"
-                    />
+                    {testResult && (
+                      <div
+                        className={`text-sm px-3 py-2 rounded-lg border ${
+                          testResult.ok
+                            ? "bg-green-50 border-green-200 dark:bg-green-900/20 text-green-700 dark:text-green-400 dark:border-green-800"
+                            : "bg-red-50 border-red-200 dark:bg-red-900/20 text-red-700 dark:text-red-400 dark:border-red-800"
+                        }`}
+                      >
+                        {testResult.ok
+                          ? `${t("agent.aiConfig.test.success")} — ${t(
+                              "agent.aiConfig.test.latency",
+                              { ms: testResult.latency_ms },
+                            )}`
+                          : `${t("agent.aiConfig.test.failed")}: ${testResult.error}`}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <button
+                        onClick={testAiConfig}
+                        disabled={aiTesting || !model || selectedProvider.disabled}
+                        className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-60"
+                      >
+                        {aiTesting
+                          ? t("agent.aiConfig.actions.testing")
+                          : t("agent.aiConfig.actions.test")}
+                      </button>
+                      <button
+                        onClick={saveAiConfig}
+                        disabled={aiSaving || !model || selectedProvider.disabled}
+                        className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+                      >
+                        {aiSaving
+                          ? t("agent.aiConfig.actions.saving")
+                          : t("agent.aiConfig.actions.save")}
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Test result */}
-                  {testResult && (
-                    <div
-                      className={`text-sm px-3 py-2 rounded ${
-                        testResult.ok
-                          ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400"
-                          : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400"
-                      }`}
-                    >
-                      {testResult.ok
-                        ? `${t("agent.aiConfig.test.success")} — ${t("agent.aiConfig.test.latency", { ms: testResult.latency_ms })}`
-                        : `${t("agent.aiConfig.test.failed")}: ${testResult.error}`}
+                  <aside className="space-y-4">
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/30 p-4">
+                      <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2">
+                        {t("agent.aiConfig.help.providerHelpTitle")}
+                      </h4>
+                      <p className="text-xs text-slate-600 dark:text-slate-300 mb-3">
+                        {t(`agent.aiConfig.provider.${displayProvider}`)}
+                      </p>
+                      <div className="space-y-2">
+                        {helpLinkKeys.map((linkKey) => (
+                          <a
+                            key={linkKey}
+                            href={getLinkUrl(linkKey)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block text-xs text-blue-700 dark:text-blue-400 hover:underline break-all"
+                          >
+                            {t(`agent.aiConfig.links.${linkKey}`)}
+                          </a>
+                        ))}
+                      </div>
                     </div>
-                  )}
 
-                  {/* Action buttons */}
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={testAiConfig}
-                      disabled={aiTesting || !model}
-                      className="px-4 py-2 rounded border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-60"
-                    >
-                      {aiTesting
-                        ? t("agent.aiConfig.actions.testing")
-                        : t("agent.aiConfig.actions.test")}
-                    </button>
-                    <button
-                      onClick={saveAiConfig}
-                      disabled={aiSaving || !model}
-                      className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
-                    >
-                      {aiSaving
-                        ? t("agent.aiConfig.actions.saving")
-                        : t("agent.aiConfig.actions.save")}
-                    </button>
-                  </div>
-                </>
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/30 p-4">
+                      <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2">
+                        {t("agent.aiConfig.help.fieldMeaningTitle")}
+                      </h4>
+                      <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
+                        <li>
+                          <span className="font-medium text-slate-800 dark:text-slate-100">
+                            {t("agent.aiConfig.fields.baseUrl")}:
+                          </span>{" "}
+                          {t("agent.aiConfig.help.fieldMeaning.baseUrl")}
+                        </li>
+                        <li>
+                          <span className="font-medium text-slate-800 dark:text-slate-100">
+                            {t("agent.aiConfig.fields.apiKey")}:
+                          </span>{" "}
+                          {t("agent.aiConfig.help.fieldMeaning.apiKey")}
+                        </li>
+                        <li>
+                          <span className="font-medium text-slate-800 dark:text-slate-100">
+                            {t("agent.aiConfig.fields.model")}:
+                          </span>{" "}
+                          {t("agent.aiConfig.help.fieldMeaning.model")}
+                        </li>
+                      </ul>
+                    </div>
+                  </aside>
+                </div>
+              )}
+
+              {!model && (
+                <div className="text-xs px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                  {t("agent.aiConfig.help.missingModelWarning")}
+                </div>
               )}
             </>
           )}
         </div>
       </ContentSection>
 
-      {/* Agent Preferences (existing) */}
       <ContentSection title={t("agent.sectionTitle")}>
         <div className="p-6 space-y-6">
           {loading ? (
@@ -364,4 +1018,3 @@ export default function SettingsAgent() {
     </div>
   );
 }
-

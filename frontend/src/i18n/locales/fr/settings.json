@@ -231,24 +231,47 @@
         "ordinay": "Utiliser Ordinay AI",
         "ordinayComingSoon": "Bientôt disponible"
       },
+      "source": {
+        "saved": "Configuration enregistrée",
+        "savedNote": "Ce fournisseur est enregistré dans les paramètres et utilisé directement par l’agent.",
+        "fallback": "Fallback backend (.env)",
+        "fallbackNote": "L’agent utilise les valeurs d’environnement du backend. Enregistrez ici pour persister la configuration.",
+        "notConfigured": "Non configuré",
+        "notConfiguredNote": "Renseignez les champs, testez la connexion, puis enregistrez."
+      },
+      "guide": {
+        "title": "Guide de configuration rapide",
+        "step1": "Choisissez le type de fournisseur.",
+        "step2": "Renseignez la clé API, l’URL de base et le modèle (selon le fournisseur).",
+        "step3": "Cliquez sur Tester la connexion, puis Enregistrer la configuration."
+      },
       "provider": {
         "label": "Fournisseur",
-        "openai_compatible": "Compatible OpenAI (OpenRouter, Groq, OpenAI, etc.)",
+        "openai": "OpenAI",
         "ollama": "Ollama (local)",
         "custom": "Point d’accès personnalisé",
         "anthropic": "Anthropic (Claude)",
-        "gemini": "Google (Gemini)"
+        "gemini": "Google (Gemini)",
+        "azure_openai": "Azure OpenAI",
+        "bedrock": "AWS Bedrock",
+        "comingSoon": "Bientôt disponible"
+      },
+      "customPreset": {
+        "label": "Préréglage personnalisé",
+        "openrouter": "OpenRouter",
+        "groq": "Groq",
+        "manual": "Personnalisé manuel"
       },
       "fields": {
         "baseUrl": "URL de base",
         "apiKey": "Clé API",
         "model": "Modèle",
         "placeholders": {
-          "baseUrlOpenAI": "https://openrouter.ai/api/v1",
+          "baseUrlOpenAI": "https://api.openai.com/v1",
           "baseUrlOllama": "http://localhost:11434",
           "baseUrlCustom": "https://votre-endpoint.com/v1",
           "apiKey": "sk-...",
-          "modelOpenAI": "openai/gpt-4o-mini",
+          "modelOpenAI": "gpt-4.1-mini",
           "modelOllama": "llama3",
           "modelCustom": "nom-du-modele",
           "modelAnthropic": "claude-sonnet-4-5-20250514",
@@ -270,6 +293,97 @@
         "saved": "Configuration IA enregistrée",
         "saveError": "Échec de l’enregistrement de la configuration IA",
         "testError": "Échec du test de connexion"
+      },
+      "help": {
+        "providerHelpTitle": "Aide fournisseur",
+        "fieldMeaningTitle": "Signification des champs",
+        "summary": {
+          "openai": "Utilisez l’accès direct à l’API OpenAI.",
+          "custom": "Utilisez ceci pour OpenRouter, Groq ou tout endpoint au format API OpenAI.",
+          "ollama": "Utilisez ceci pour des modèles Ollama locaux ou auto-hébergés.",
+          "anthropic": "Utilisez l’accès direct à l’API Anthropic pour Claude.",
+          "gemini": "Utilisez l’accès API Google AI Studio pour Gemini.",
+          "azure_openai": "L’intégration Azure OpenAI est prévue mais indisponible dans cette version.",
+          "bedrock": "L’intégration AWS Bedrock est prévue mais indisponible dans cette version."
+        },
+        "baseUrl": {
+          "openai": "L’endpoint OpenAI par défaut suffit généralement, sauf si vous utilisez un proxy.",
+          "custom": "Renseignez l’endpoint de votre fournisseur (ex. OpenRouter ou Groq).",
+          "ollama": "L’endpoint Ollama local par défaut est http://localhost:11434."
+        },
+        "apiKey": {
+          "standard": "Créez une clé API dans le tableau de bord du fournisseur puis collez-la ici.",
+          "anthropic": "Créez une clé API dans Anthropic Console.",
+          "gemini": "Créez une clé API dans Google AI Studio.",
+          "savedMaskHint": "La clé existante est déjà enregistrée."
+        },
+        "model": {
+          "openai": "Utilisez un identifiant de modèle OpenAI (ex. gpt-4.1-mini).",
+          "custom": "Utilisez l’identifiant exact attendu par votre endpoint personnalisé.",
+          "ollama": "Utilisez un modèle installé dans Ollama (ex. llama3.1:8b).",
+          "anthropic": "Utilisez un identifiant de modèle Claude depuis la documentation Anthropic.",
+          "gemini": "Utilisez un identifiant de modèle Gemini depuis la documentation Google."
+        },
+        "fieldMeaning": {
+          "baseUrl": "Racine de l’endpoint API utilisée pour les requêtes.",
+          "apiKey": "Secret utilisé pour authentifier les requêtes.",
+          "model": "Identifiant exact du modèle utilisé par le fournisseur."
+        },
+        "missingModelWarning": "Choisissez d’abord un fournisseur et un modèle, puis testez la connexion avant d’enregistrer."
+      },
+      "ollamaStatus": {
+        "title": "Statut runtime Ollama",
+        "checking": "Vérification d’Ollama...",
+        "refreshing": "Actualisation...",
+        "autoRefresh": "Rafraîchissement auto toutes les 5s",
+        "states": {
+          "not_installed": "Ollama n’est pas installé sur cette machine.",
+          "not_running": "Ollama n’est pas joignable avec cette URL.",
+          "running_no_models": "Ollama est démarré mais aucun modèle local n’est disponible.",
+          "ready": "Ollama est démarré et prêt.",
+          "api_mismatch": "Cette URL répond mais ce n’est pas un serveur Ollama."
+        },
+        "labels": {
+          "installed": "Installé",
+          "running": "Actif",
+          "models": "Modèles",
+          "endpoint": "Endpoint"
+        },
+        "values": {
+          "yes": "Oui",
+          "no": "Non",
+          "unknown": "Inconnu"
+        },
+        "hints": {
+          "install": "Installez Ollama. S’il est déjà installé, cliquez sur Ouvrir / démarrer Ollama.",
+          "start": "Lancez Ollama depuis l’application, puis la page se mettra à jour automatiquement.",
+          "pullModel": "Ajoutez au moins un modèle dans Ollama avant de tester.",
+          "apiMismatch": "Utilisez une URL Ollama pour ce fournisseur, ou passez à Fournisseur personnalisé/OpenAI pour cet endpoint."
+        },
+        "actions": {
+          "install": "Installer Ollama",
+          "start": "Ouvrir / démarrer Ollama",
+          "starting": "Démarrage...",
+          "openLibrary": "Ouvrir la bibliothèque de modèles",
+          "refresh": "Actualiser maintenant"
+        },
+        "toast": {
+          "startRequested": "Démarrage d’Ollama demandé",
+          "startFailed": "Impossible de lancer Ollama"
+        }
+      },
+      "links": {
+        "openaiKeys": "Clés API OpenAI",
+        "openaiModels": "Documentation modèles OpenAI",
+        "openrouterKeys": "Clés OpenRouter",
+        "groqKeys": "Clés Groq",
+        "ollamaInstall": "Installer Ollama",
+        "ollamaLibrary": "Bibliothèque de modèles Ollama",
+        "anthropicKeys": "Clés API Anthropic",
+        "anthropicModels": "Documentation modèles Claude",
+        "geminiKey": "Clé API Gemini",
+        "geminiModels": "Documentation modèles Gemini",
+        "openaiFormat": "Référence API format OpenAI"
       },
       "notConfigured": "Aucun fournisseur IA configuré. L’agent ne sera pas disponible tant qu’un fournisseur n’est pas configuré."
     }

@@ -1328,7 +1328,7 @@ export function useAgentState() {
     getAIProviderConfig()
       .then((config) => {
         if (!mounted) return;
-        if (config.configured && config.model) {
+        if (config.model) {
           setModelPreference(config.model);
         }
       })

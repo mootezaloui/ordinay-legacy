@@ -5,11 +5,9 @@ const native_provider_1 = require("./native.provider");
 const configured_provider_1 = require("./configured.provider");
 const anthropic_provider_1 = require("./anthropic.provider");
 const gemini_provider_1 = require("./gemini.provider");
-function resolveProvider() {
+function resolveCurrentProvider() {
     let config = null;
     try {
-        // Dynamic require — aiProvider.service.js is a JS module in the services layer.
-        // This avoids a compile-time dependency from the TS agent module to the JS service layer.
         const aiProviderService = require("../../services/aiProvider.service");
         config = aiProviderService.getRawProviderConfig();
     }
@@ -39,4 +37,21 @@ function resolveProvider() {
     }
     console.info("[PROVIDER_FACTORY] No user config found, falling back to .env-based provider");
     return (0, native_provider_1.createNativeLLMProvider)();
+}
+/**
+ * Returns a proxy ILLMProvider that re-reads DB config on every call.
+ * Settings changes take effect on the next agent request — no restart needed.
+ */
+function resolveProvider() {
+    return {
+        generate(params) {
+            return resolveCurrentProvider().generate(params);
+        },
+        stream(params) {
+            return resolveCurrentProvider().stream(params);
+        },
+        supportsTools() {
+            return resolveCurrentProvider().supportsTools();
+        },
+    };
 }
