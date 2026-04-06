@@ -79,7 +79,7 @@ function setSetting(key, value) {
 
 // ── Provider config ────────────────────────────────────────
 
-const VALID_PROVIDER_TYPES = ["openai_compatible", "ollama", "custom", "anthropic", "gemini"];
+const VALID_PROVIDER_TYPES = ["openai_compatible", "ollama", "custom", "anthropic", "gemini", "ordinay"];
 
 const CONFIG_KEYS = [
   "ai_provider_type",
@@ -144,6 +144,13 @@ function deriveUiMetadata(config) {
     return {
       provider_display: "gemini",
       provider_preset: "manual",
+    };
+  }
+
+  if (providerType === "ordinay") {
+    return {
+      provider_display: "ordinay",
+      provider_preset: "managed",
     };
   }
 
@@ -294,6 +301,37 @@ function clearProviderConfig() {
   });
 }
 
+// ── Agent token cache (Ordinay AI mode) ───────────────────
+
+const AGENT_TOKEN_KEY = "ai_agent_token_encrypted";
+const AGENT_TOKEN_EXPIRES_KEY = "ai_agent_token_expires_at";
+
+function cacheAgentToken(token, expiresIn) {
+  if (!token) return;
+  setSetting(AGENT_TOKEN_KEY, encrypt(String(token)));
+  const expiresAt = Date.now() + (Number(expiresIn) || 3600) * 1000;
+  setSetting(AGENT_TOKEN_EXPIRES_KEY, String(expiresAt));
+}
+
+function getCachedAgentToken() {
+  const encrypted = getSetting(AGENT_TOKEN_KEY, null);
+  if (!encrypted) return null;
+  const expiresAt = Number(getSetting(AGENT_TOKEN_EXPIRES_KEY, "0"));
+  const token = decrypt(encrypted);
+  if (!token) return null;
+  return {
+    token,
+    expires_at: expiresAt,
+    expired: Date.now() >= expiresAt,
+    expires_in_ms: Math.max(0, expiresAt - Date.now()),
+  };
+}
+
+function clearAgentToken() {
+  db.prepare("DELETE FROM app_settings WHERE key = @key").run({ key: AGENT_TOKEN_KEY });
+  db.prepare("DELETE FROM app_settings WHERE key = @key").run({ key: AGENT_TOKEN_EXPIRES_KEY });
+}
+
 ensureSchema();
 
 module.exports = {
@@ -301,5 +339,8 @@ module.exports = {
   getRawProviderConfig,
   saveProviderConfig,
   clearProviderConfig,
+  cacheAgentToken,
+  getCachedAgentToken,
+  clearAgentToken,
   VALID_PROVIDER_TYPES,
 };

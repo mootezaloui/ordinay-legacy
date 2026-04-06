@@ -10,6 +10,7 @@ import { createNativeLLMProvider } from "./native.provider";
 import { createConfiguredLLMProvider } from "./configured.provider";
 import { createAnthropicLLMProvider } from "./anthropic.provider";
 import { createGeminiLLMProvider } from "./gemini.provider";
+import { createOrdinayLLMProvider } from "./ordinay.provider";
 
 interface ProviderConfigRow {
   provider_type: string;
@@ -53,6 +54,10 @@ function resolveCurrentProvider(): ILLMProvider {
         api_key: config.api_key,
         model: config.model,
       });
+    }
+
+    if (config.provider_type === "ordinay") {
+      return createOrdinayLLMProvider();
     }
 
     return createConfiguredLLMProvider(config);

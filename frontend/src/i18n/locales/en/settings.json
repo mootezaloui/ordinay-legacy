@@ -235,8 +235,23 @@
       "mode": {
         "label": "How should Ordinay run AI?",
         "byok": "Use my own API key",
-        "ordinay": "Use Ordinay AI",
-        "ordinayComingSoon": "Coming soon"
+        "ordinay": "Use Ordinay AI"
+      },
+      "ordinay": {
+        "description": "Your AI requests are handled by Ordinay. No API key needed.",
+        "requiresLicense": "Ordinay AI requires an active license. Activate your license to use this feature.",
+        "status": {
+          "connected": "Connected to Ordinay AI",
+          "notConnected": "Not connected"
+        },
+        "actions": {
+          "authenticate": "Connect license",
+          "authenticating": "Connecting..."
+        },
+        "toast": {
+          "authenticated": "Connected to Ordinay AI",
+          "authFailed": "Failed to connect to Ordinay AI"
+        }
       },
       "source": {
         "saved": "Saved configuration",

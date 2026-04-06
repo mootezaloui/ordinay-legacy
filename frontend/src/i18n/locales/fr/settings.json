@@ -228,8 +228,23 @@
       "mode": {
         "label": "Comment Ordinay doit-il exécuter l’IA ?",
         "byok": "Utiliser ma propre clé API",
-        "ordinay": "Utiliser Ordinay AI",
-        "ordinayComingSoon": "Bientôt disponible"
+        "ordinay": "Utiliser Ordinay AI"
+      },
+      "ordinay": {
+        "description": "Vos requêtes IA sont gérées par Ordinay. Aucune clé API nécessaire.",
+        "requiresLicense": "Ordinay AI nécessite une licence active. Activez votre licence pour utiliser cette fonctionnalité.",
+        "status": {
+          "connected": "Connecté à Ordinay AI",
+          "notConnected": "Non connecté"
+        },
+        "actions": {
+          "authenticate": "Connecter la licence",
+          "authenticating": "Connexion..."
+        },
+        "toast": {
+          "authenticated": "Connecté à Ordinay AI",
+          "authFailed": "Échec de connexion à Ordinay AI"
+        }
       },
       "source": {
         "saved": "Configuration enregistrée",

@@ -126,6 +126,49 @@ router.put("/ai-provider", (req, res, next) => {
   }
 });
 
+// POST /api/settings/ai-provider/agent-token
+// Frontend pushes a JWT obtained from the license server; backend caches it encrypted.
+router.post("/ai-provider/agent-token", (req, res, next) => {
+  try {
+    const { token, expires_in } = req.body || {};
+    if (!token || typeof token !== "string") {
+      return res.status(400).json({ ok: false, error: "token is required" });
+    }
+    aiProviderService.cacheAgentToken(token, expires_in);
+    return res.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/settings/ai-provider/agent-token/status
+// Returns whether a cached token exists and its expiry status (never returns the token itself).
+router.get("/ai-provider/agent-token/status", (req, res, next) => {
+  try {
+    const cached = aiProviderService.getCachedAgentToken();
+    if (!cached) {
+      return res.json({ has_token: false });
+    }
+    return res.json({
+      has_token: true,
+      expired: cached.expired,
+      expires_in_ms: cached.expires_in_ms,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /api/settings/ai-provider/agent-token
+router.delete("/ai-provider/agent-token", (req, res, next) => {
+  try {
+    aiProviderService.clearAgentToken();
+    return res.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // POST /api/settings/ai-provider/test
 router.post("/ai-provider/test", async (req, res) => {
   try {
@@ -161,6 +204,9 @@ router.post("/ai-provider/test", async (req, res) => {
     }
     if (config.provider_type === "gemini") {
       return await testGeminiProvider(config, res);
+    }
+    if (config.provider_type === "ordinay") {
+      return await testOrdinayProvider(res);
     }
 
     const endpoint = buildCompletionEndpoint(
@@ -269,6 +315,45 @@ async function testGeminiProvider(config, res) {
     const latencyMs = Date.now() - startMs;
     const msg = error.message || "Gemini API error";
     return res.json({ ok: false, error: msg, latency_ms: latencyMs });
+  }
+}
+
+async function testOrdinayProvider(res) {
+  const startMs = Date.now();
+  try {
+    const cached = aiProviderService.getCachedAgentToken();
+    if (!cached || !cached.token) {
+      return res.json({ ok: false, error: "No agent token cached. Authenticate with your license first." });
+    }
+    if (cached.expired) {
+      return res.json({ ok: false, error: "Agent token expired. Re-authenticate from Settings." });
+    }
+    const proxyBase = process.env.ORDINAY_PROXY_URL || "https://api.ordinay.app";
+    const response = await fetch(`${proxyBase}/health`, {
+      method: "GET",
+      headers: { "Authorization": `Bearer ${cached.token}` },
+      signal: AbortSignal.timeout(10000),
+    });
+    const latencyMs = Date.now() - startMs;
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      return res.json({ ok: false, error: `Proxy returned HTTP ${response.status}: ${text.slice(0, 200)}`, latency_ms: latencyMs });
+    }
+    return res.json({ ok: true, latency_ms: latencyMs });
+  } catch (error) {
+    const latencyMs = Date.now() - startMs;
+    const cause = error.cause || error;
+    let message;
+    if (error.name === "TimeoutError") {
+      message = "Connection to Ordinay proxy timed out";
+    } else if (cause.code === "ECONNREFUSED" || String(error.message || "").includes("ECONNREFUSED")) {
+      message = "Cannot reach Ordinay proxy — connection refused";
+    } else if (cause.code === "ENOTFOUND" || String(error.message || "").includes("ENOTFOUND")) {
+      message = "Ordinay proxy host not found — check network connection";
+    } else {
+      message = cause.message || error.message || "Unknown error";
+    }
+    return res.json({ ok: false, error: message, latency_ms: latencyMs });
   }
 }
 

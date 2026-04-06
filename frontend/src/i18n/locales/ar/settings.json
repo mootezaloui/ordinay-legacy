@@ -228,8 +228,23 @@
       "mode": {
         "label": "كيف يجب أن يشغّل Ordinay الذكاء الاصطناعي؟",
         "byok": "استخدام مفتاح API الخاص بي",
-        "ordinay": "استخدام Ordinay AI",
-        "ordinayComingSoon": "قريبًا"
+        "ordinay": "استخدام Ordinay AI"
+      },
+      "ordinay": {
+        "description": "طلبات الذكاء الاصطناعي تتم عبر Ordinay. لا حاجة لمفتاح API.",
+        "requiresLicense": "يتطلب Ordinay AI ترخيصًا نشطًا. قم بتفعيل ترخيصك لاستخدام هذه الميزة.",
+        "status": {
+          "connected": "متصل بـ Ordinay AI",
+          "notConnected": "غير متصل"
+        },
+        "actions": {
+          "authenticate": "ربط الترخيص",
+          "authenticating": "جارٍ الاتصال..."
+        },
+        "toast": {
+          "authenticated": "تم الاتصال بـ Ordinay AI",
+          "authFailed": "فشل الاتصال بـ Ordinay AI"
+        }
       },
       "source": {
         "saved": "إعداد محفوظ",

@@ -9,11 +9,19 @@ import {
 } from "../../services/api/documentAi";
 import {
   getAIProviderConfig,
+  getAgentTokenStatus,
   getOllamaStatus,
+  pushAgentToken,
   saveAIProviderConfig,
   startOllamaRuntime,
   testAIProviderConfig,
 } from "../../services/api/aiProvider";
+import { useLicense } from "../../contexts/LicenseContext";
+import {
+  fetchAgentToken,
+  getCachedAgentToken,
+  getOrCreateDeviceId,
+} from "../../services/licenseService";
 
 const DISPLAY_PROVIDER_OPTIONS = [
   {
@@ -247,6 +255,7 @@ function getOllamaInstallValue(t, installed) {
 export default function SettingsAgent() {
   const { t } = useTranslation(["settings"]);
   const { showToast } = useToast();
+  const { licenseState, licenseData } = useLicense();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [formatPreference, setFormatPreference] = useState("auto");
@@ -265,6 +274,10 @@ export default function SettingsAgent() {
   const [ollamaStatus, setOllamaStatus] = useState(null);
   const [ollamaStatusLoading, setOllamaStatusLoading] = useState(false);
   const [ollamaActionBusy, setOllamaActionBusy] = useState(false);
+  const [ordinayTokenStatus, setOrdinayTokenStatus] = useState(null);
+  const [ordinayAuthenticating, setOrdinayAuthenticating] = useState(false);
+
+  const isLicenseActive = licenseState === "ACTIVE";
 
   const selectedProvider = useMemo(
     () =>
@@ -345,7 +358,16 @@ export default function SettingsAgent() {
           setCustomPreset("manual");
         }
 
-        if (config.provider_type || config.base_url || config.model) {
+        if (config.provider_type === "ordinay") {
+          setAiMode("ordinay");
+          setModel("ordinay-default");
+          setConfigSource(config.source || null);
+          // Check token status
+          try {
+            const tokenStatus = await getAgentTokenStatus();
+            setOrdinayTokenStatus(tokenStatus);
+          } catch { /* ignore */ }
+        } else if (config.provider_type || config.base_url || config.model) {
           if (resolvedDisplayProvider === "ollama") {
             setBaseUrl(normalizeOllamaBaseUrl(config.base_url || ""));
           } else {
@@ -487,6 +509,65 @@ export default function SettingsAgent() {
     }
   };
 
+  const authenticateOrdinay = async () => {
+    if (!isLicenseActive || !licenseData) return;
+    setOrdinayAuthenticating(true);
+    try {
+      const deviceId = await getOrCreateDeviceId();
+      const result = await fetchAgentToken(deviceId, licenseData.license_id);
+      if (result.ok && result.token) {
+        await pushAgentToken(result.token, result.expires_in || 3600);
+        const status = await getAgentTokenStatus();
+        setOrdinayTokenStatus(status);
+        showToast(t("agent.aiConfig.ordinay.toast.authenticated"), "success");
+      } else {
+        showToast(result.error || t("agent.aiConfig.ordinay.toast.authFailed"), "error");
+      }
+    } catch (error) {
+      showToast(error?.message || t("agent.aiConfig.ordinay.toast.authFailed"), "error");
+    } finally {
+      setOrdinayAuthenticating(false);
+    }
+  };
+
+  const saveOrdinayConfig = async () => {
+    setAiSaving(true);
+    setTestResult(null);
+    try {
+      await saveAIProviderConfig({
+        provider_type: "ordinay",
+        base_url: "",
+        api_key: "",
+        model: "ordinay-default",
+      });
+      setConfigSource("database");
+      setModel("ordinay-default");
+      showToast(t("agent.aiConfig.toast.saved"), "success");
+    } catch (error) {
+      showToast(t("agent.aiConfig.toast.saveError"), "error");
+    } finally {
+      setAiSaving(false);
+    }
+  };
+
+  const testOrdinayConfig = async () => {
+    setAiTesting(true);
+    setTestResult(null);
+    try {
+      const result = await testAIProviderConfig({
+        provider_type: "ordinay",
+        base_url: "",
+        api_key: "",
+        model: "ordinay-default",
+      });
+      setTestResult(result);
+    } catch (error) {
+      setTestResult({ ok: false, error: error?.message || "Test failed" });
+    } finally {
+      setAiTesting(false);
+    }
+  };
+
   const onProviderChange = (nextProvider) => {
     const option = DISPLAY_PROVIDER_OPTIONS.find((provider) => provider.id === nextProvider);
     if (!option || option.disabled) {
@@ -584,23 +665,96 @@ export default function SettingsAgent() {
                       {t("agent.aiConfig.mode.byok")}
                     </span>
                   </label>
-                  <label className="flex items-center gap-3 opacity-50 cursor-not-allowed">
+                  <label className="flex items-center gap-3 cursor-pointer">
                     <input
                       type="radio"
                       name="aiMode"
                       value="ordinay"
-                      disabled
+                      checked={aiMode === "ordinay"}
+                      onChange={() => setAiMode("ordinay")}
                       className="accent-blue-600"
                     />
-                    <span className="text-sm text-slate-500 dark:text-slate-400">
+                    <span className="text-sm text-slate-900 dark:text-white">
                       {t("agent.aiConfig.mode.ordinay")}
-                      <span className="ml-2 text-xs px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
-                        {t("agent.aiConfig.mode.ordinayComingSoon")}
-                      </span>
                     </span>
                   </label>
                 </div>
               </div>
+
+              {aiMode === "ordinay" && (
+                <div className="space-y-4">
+                  {!isLicenseActive ? (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20 px-4 py-3 space-y-2">
+                      <p className="text-sm text-amber-800 dark:text-amber-300">
+                        {t("agent.aiConfig.ordinay.requiresLicense")}
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20 px-4 py-3">
+                        <p className="text-sm text-blue-800 dark:text-blue-300">
+                          {t("agent.aiConfig.ordinay.description")}
+                        </p>
+                      </div>
+
+                      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/30 px-4 py-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${ordinayTokenStatus?.has_token && !ordinayTokenStatus?.expired ? "bg-green-500" : "bg-red-500"}`} />
+                          <span className="text-sm font-medium text-slate-900 dark:text-white">
+                            {ordinayTokenStatus?.has_token && !ordinayTokenStatus?.expired
+                              ? t("agent.aiConfig.ordinay.status.connected")
+                              : t("agent.aiConfig.ordinay.status.notConnected")}
+                          </span>
+                        </div>
+                        <button
+                          onClick={authenticateOrdinay}
+                          disabled={ordinayAuthenticating}
+                          className="px-3 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-60"
+                        >
+                          {ordinayAuthenticating
+                            ? t("agent.aiConfig.ordinay.actions.authenticating")
+                            : t("agent.aiConfig.ordinay.actions.authenticate")}
+                        </button>
+                      </div>
+
+                      {testResult && (
+                        <div
+                          className={`text-sm px-3 py-2 rounded-lg border ${
+                            testResult.ok
+                              ? "bg-green-50 border-green-200 dark:bg-green-900/20 text-green-700 dark:text-green-400 dark:border-green-800"
+                              : "bg-red-50 border-red-200 dark:bg-red-900/20 text-red-700 dark:text-red-400 dark:border-red-800"
+                          }`}
+                        >
+                          {testResult.ok
+                            ? `${t("agent.aiConfig.test.success")} — ${t("agent.aiConfig.test.latency", { ms: testResult.latency_ms })}`
+                            : `${t("agent.aiConfig.test.failed")}: ${testResult.error}`}
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <button
+                          onClick={testOrdinayConfig}
+                          disabled={aiTesting || !ordinayTokenStatus?.has_token}
+                          className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-60"
+                        >
+                          {aiTesting
+                            ? t("agent.aiConfig.actions.testing")
+                            : t("agent.aiConfig.actions.test")}
+                        </button>
+                        <button
+                          onClick={saveOrdinayConfig}
+                          disabled={aiSaving || !ordinayTokenStatus?.has_token}
+                          className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+                        >
+                          {aiSaving
+                            ? t("agent.aiConfig.actions.saving")
+                            : t("agent.aiConfig.actions.save")}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
               {aiMode === "byok" && (
                 <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]">
@@ -964,7 +1118,7 @@ export default function SettingsAgent() {
                 </div>
               )}
 
-              {!model && (
+              {!model && aiMode === "byok" && (
                 <div className="text-xs px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
                   {t("agent.aiConfig.help.missingModelWarning")}
                 </div>

@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "test:ordinay-e2e": "vitest run tests/e2e/ordinay-ai-provider.test.ts"
+  },
   "dependencies": {
     "@tailwindcss/typography": "^0.5.19",
     "crypto-js": "^4.2.0",
@@ -10,6 +13,8 @@
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
-    "@types/crypto-js": "^4.2.2"
+    "@types/crypto-js": "^4.2.2",
+    "ioredis-mock": "^8.13.1",
+    "vitest": "^4.1.2"
   }
 }

@@ -1,0 +1,64 @@
+services:
+  proxy:
+    build: .
+    container_name: ordinay-proxy
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://openrouter.ai/api/v1}
+      LLM_API_KEY: ${LLM_API_KEY:?LLM_API_KEY is required}
+      LLM_MODEL: ${LLM_MODEL:-gpt-oss:120b-cloud}
+      LLM_FAST_BASE_URL: ${LLM_FAST_BASE_URL:-}
+      LLM_FAST_API_KEY: ${LLM_FAST_API_KEY:-}
+      LLM_FAST_MODEL: ${LLM_FAST_MODEL:-}
+      LLM_CAPABLE_BASE_URL: ${LLM_CAPABLE_BASE_URL:-}
+      LLM_CAPABLE_API_KEY: ${LLM_CAPABLE_API_KEY:-}
+      LLM_CAPABLE_MODEL: ${LLM_CAPABLE_MODEL:-}
+      ROUTE_COMPLEX_MSG_THRESHOLD: ${ROUTE_COMPLEX_MSG_THRESHOLD:-10}
+      ROUTE_COMPLEX_TOOL_THRESHOLD: ${ROUTE_COMPLEX_TOOL_THRESHOLD:-1}
+      ANALYTICS_DB: /data/analytics.db
+      QUOTA_MONTHLY: ${QUOTA_MONTHLY:-500000}
+      QUOTA_YEARLY: ${QUOTA_YEARLY:-1000000}
+      QUOTA_PERPETUAL: ${QUOTA_PERPETUAL:-2000000}
+      RATE_LIMIT_MAX_REQUESTS: ${RATE_LIMIT_MAX_REQUESTS:-20}
+    volumes:
+      - proxy_data:/data
+    depends_on:
+      redis:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: ordinay-redis
+    volumes:
+      - redis_data:/data
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: ordinay-nginx
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - proxy
+    restart: unless-stopped
+
+volumes:
+  proxy_data:
+  redis_data:

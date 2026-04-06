@@ -72,3 +72,29 @@ export async function getOllamaStatus(baseUrl?: string): Promise<OllamaStatusRes
 export async function startOllamaRuntime(): Promise<OllamaStartResult> {
   return apiClient.post<OllamaStartResult>('/settings/ai-provider/ollama/start', {});
 }
+
+// ── Ordinay AI agent token ────────────────────────────────
+
+export interface AgentTokenStatus {
+  has_token: boolean;
+  expired?: boolean;
+  expires_in_ms?: number;
+}
+
+export async function pushAgentToken(
+  token: string,
+  expiresIn: number,
+): Promise<{ ok: boolean }> {
+  return apiClient.post<{ ok: boolean }>('/settings/ai-provider/agent-token', {
+    token,
+    expires_in: expiresIn,
+  });
+}
+
+export async function getAgentTokenStatus(): Promise<AgentTokenStatus> {
+  return apiClient.get<AgentTokenStatus>('/settings/ai-provider/agent-token/status');
+}
+
+export async function clearAgentToken(): Promise<{ ok: boolean }> {
+  return apiClient.delete<{ ok: boolean }>('/settings/ai-provider/agent-token');
+}

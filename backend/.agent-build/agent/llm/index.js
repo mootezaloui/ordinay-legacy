@@ -19,4 +19,5 @@ __exportStar(require("./native.provider"), exports);
 __exportStar(require("./configured.provider"), exports);
 __exportStar(require("./anthropic.provider"), exports);
 __exportStar(require("./gemini.provider"), exports);
+__exportStar(require("./ordinay.provider"), exports);
 __exportStar(require("./provider.factory"), exports);

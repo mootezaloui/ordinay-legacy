@@ -263,6 +263,75 @@ export function getPendingReferralCode(): string | null {
   return window.localStorage.getItem(PENDING_REFERRAL_STORAGE_KEY);
 }
 
+// ── Ordinay AI Agent Token ────────────────────────────────
+
+export interface AgentTokenResult {
+  ok: boolean;
+  token?: string;
+  expires_in?: number;
+  error?: string;
+}
+
+const AGENT_TOKEN_CACHE_KEY = "ordinay_agent_token";
+const AGENT_TOKEN_EXPIRY_KEY = "ordinay_agent_token_expires_at";
+
+export async function fetchAgentToken(
+  deviceId: string,
+  licenseId: string,
+): Promise<AgentTokenResult> {
+  const origin = getLicenseServerOrigin();
+  try {
+    const response = await fetch(`${origin}/api/agent-token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device_id: deviceId, license_id: licenseId }),
+    });
+    const payload = (await response.json().catch(() => ({}))) as AgentTokenResult;
+    if (!response.ok || !payload.ok) {
+      return {
+        ok: false,
+        error: payload.error || `License server returned ${response.status}`,
+      };
+    }
+    if (payload.token) {
+      cacheAgentTokenLocally(payload.token, payload.expires_in || 3600);
+    }
+    return payload;
+  } catch (error) {
+    return {
+      ok: false,
+      error: (error as Error).message || "Failed to contact license server",
+    };
+  }
+}
+
+function cacheAgentTokenLocally(token: string, expiresIn: number): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(AGENT_TOKEN_CACHE_KEY, token);
+  const expiresAt = Date.now() + expiresIn * 1000;
+  window.localStorage.setItem(AGENT_TOKEN_EXPIRY_KEY, String(expiresAt));
+}
+
+export function getCachedAgentToken(): { token: string; expired: boolean } | null {
+  if (typeof window === "undefined") return null;
+  const token = window.localStorage.getItem(AGENT_TOKEN_CACHE_KEY);
+  if (!token) return null;
+  const expiresAt = Number(window.localStorage.getItem(AGENT_TOKEN_EXPIRY_KEY) || "0");
+  return { token, expired: Date.now() >= expiresAt };
+}
+
+export function clearCachedAgentToken(): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(AGENT_TOKEN_CACHE_KEY);
+  window.localStorage.removeItem(AGENT_TOKEN_EXPIRY_KEY);
+}
+
+export function isAgentTokenNearExpiry(thresholdMs = 5 * 60 * 1000): boolean {
+  if (typeof window === "undefined") return true;
+  const expiresAt = Number(window.localStorage.getItem(AGENT_TOKEN_EXPIRY_KEY) || "0");
+  return Date.now() >= expiresAt - thresholdMs;
+}
+
 export function clearPendingReferralCode(): void {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(PENDING_REFERRAL_STORAGE_KEY);

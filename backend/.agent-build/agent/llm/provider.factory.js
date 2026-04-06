@@ -5,6 +5,7 @@ const native_provider_1 = require("./native.provider");
 const configured_provider_1 = require("./configured.provider");
 const anthropic_provider_1 = require("./anthropic.provider");
 const gemini_provider_1 = require("./gemini.provider");
+const ordinay_provider_1 = require("./ordinay.provider");
 function resolveCurrentProvider() {
     let config = null;
     try {
@@ -32,6 +33,9 @@ function resolveCurrentProvider() {
                 api_key: config.api_key,
                 model: config.model,
             });
+        }
+        if (config.provider_type === "ordinay") {
+            return (0, ordinay_provider_1.createOrdinayLLMProvider)();
         }
         return (0, configured_provider_1.createConfiguredLLMProvider)(config);
     }
