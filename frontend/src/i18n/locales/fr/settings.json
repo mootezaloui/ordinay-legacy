@@ -346,6 +346,38 @@
         },
         "missingModelWarning": "Choisissez d’abord un fournisseur et un modèle, puis testez la connexion avant d’enregistrer."
       },
+      "modelPicker": {
+        "placeholder": "Sélectionnez un modèle...",
+        "hint": "{{count}} modèle(s) installé(s) dans Ollama",
+        "vendor": {
+          "meta": "Meta",
+          "mistral": "Mistral AI",
+          "google": "Google",
+          "microsoft": "Microsoft",
+          "alibaba": "Alibaba (Qwen)",
+          "deepseek": "DeepSeek",
+          "cohere": "Cohere",
+          "huggingface": "Hugging Face",
+          "01ai": "01.AI",
+          "upstage": "Upstage",
+          "lmsys": "LMSYS",
+          "tii": "TII (Falcon)",
+          "wizardlm": "WizardLM",
+          "nousresearch": "Nous Research",
+          "nomic": "Nomic",
+          "mixedbread": "Mixedbread",
+          "snowflake": "Snowflake",
+          "ibm": "IBM",
+          "other": "Autre"
+        },
+        "tier": {
+          "small": "Léger — rapide, peu de ressources",
+          "medium": "Équilibré — bonne qualité, ressources modérées",
+          "large": "Puissant — haute qualité, plus de RAM nécessaire",
+          "xlarge": "Très puissant — excellente qualité, usage intensif",
+          "xxlarge": "Maximum — meilleure qualité, matériel haut de gamme requis"
+        }
+      },
       "ollamaStatus": {
         "title": "Statut runtime Ollama",
         "checking": "Vérification d’Ollama...",
@@ -353,7 +385,8 @@
         "autoRefresh": "Rafraîchissement auto toutes les 5s",
         "states": {
           "not_installed": "Ollama n’est pas installé sur cette machine.",
-          "not_running": "Ollama n’est pas joignable avec cette URL.",
+          "not_running": "Ollama n’est pas en cours d’exécution.",
+          "starting": "Démarrage d’Ollama...",
           "running_no_models": "Ollama est démarré mais aucun modèle local n’est disponible.",
           "ready": "Ollama est démarré et prêt.",
           "api_mismatch": "Cette URL répond mais ce n’est pas un serveur Ollama."
@@ -371,7 +404,7 @@
         },
         "hints": {
           "install": "Installez Ollama. S’il est déjà installé, cliquez sur Ouvrir / démarrer Ollama.",
-          "start": "Lancez Ollama depuis l’application, puis la page se mettra à jour automatiquement.",
+          "start": "Ollama est installé mais n’est pas en cours d’exécution. Cliquez sur Démarrer.",
           "pullModel": "Ajoutez au moins un modèle dans Ollama avant de tester.",
           "apiMismatch": "Utilisez une URL Ollama pour ce fournisseur, ou passez à Fournisseur personnalisé/OpenAI pour cet endpoint."
         },
@@ -382,8 +415,10 @@
           "openLibrary": "Ouvrir la bibliothèque de modèles",
           "refresh": "Actualiser maintenant"
         },
+        "connecting": "Connexion en cours...",
         "toast": {
-          "startRequested": "Démarrage d’Ollama demandé",
+          "startRequested": "Démarrage d’Ollama demandé — connexion en cours...",
+          "startSuccess": "Ollama démarré avec succès",
           "startFailed": "Impossible de lancer Ollama"
         }
       },

@@ -346,6 +346,38 @@
         },
         "missingModelWarning": "اختر مزوّدًا ونموذجًا أولًا، ثم اختبر الاتصال قبل الحفظ."
       },
+      "modelPicker": {
+        "placeholder": "اختر نموذجًا...",
+        "hint": "{{count}} نموذج(نماذج) مثبّت في Ollama",
+        "vendor": {
+          "meta": "Meta",
+          "mistral": "Mistral AI",
+          "google": "Google",
+          "microsoft": "Microsoft",
+          "alibaba": "Alibaba (Qwen)",
+          "deepseek": "DeepSeek",
+          "cohere": "Cohere",
+          "huggingface": "Hugging Face",
+          "01ai": "01.AI",
+          "upstage": "Upstage",
+          "lmsys": "LMSYS",
+          "tii": "TII (Falcon)",
+          "wizardlm": "WizardLM",
+          "nousresearch": "Nous Research",
+          "nomic": "Nomic",
+          "mixedbread": "Mixedbread",
+          "snowflake": "Snowflake",
+          "ibm": "IBM",
+          "other": "أخرى"
+        },
+        "tier": {
+          "small": "خفيف — سريع، استهلاك موارد قليل",
+          "medium": "متوازن — جودة جيدة، موارد معتدلة",
+          "large": "قوي — جودة عالية، يحتاج ذاكرة أكبر",
+          "xlarge": "قوي جدًا — جودة ممتازة، استهلاك موارد عالي",
+          "xxlarge": "أقصى أداء — أفضل جودة، يتطلب عتاد متقدم"
+        }
+      },
       "ollamaStatus": {
         "title": "حالة تشغيل Ollama",
         "checking": "جارٍ التحقق من Ollama...",
@@ -353,7 +385,8 @@
         "autoRefresh": "تحديث تلقائي كل 5 ثوانٍ",
         "states": {
           "not_installed": "Ollama غير مثبت على هذا الجهاز.",
-          "not_running": "لا يمكن الوصول إلى Ollama عبر هذا العنوان.",
+          "not_running": "Ollama لا يعمل.",
+          "starting": "جارٍ تشغيل Ollama...",
           "running_no_models": "Ollama يعمل لكن لا توجد نماذج محلية متاحة.",
           "ready": "Ollama يعمل وجاهز.",
           "api_mismatch": "هذا العنوان يستجيب لكنه ليس خادم Ollama."
@@ -371,7 +404,7 @@
         },
         "hints": {
           "install": "ثبّت Ollama. إذا كان مثبتًا بالفعل، اضغط فتح / تشغيل Ollama.",
-          "start": "افتح أو شغّل Ollama من التطبيق ثم ستتحدث الصفحة تلقائيًا.",
+          "start": "Ollama مثبّت لكنه لا يعمل. اضغط تشغيل لبدء التشغيل.",
           "pullModel": "أضف نموذجًا واحدًا على الأقل داخل Ollama قبل الاختبار.",
           "apiMismatch": "استخدم عنوان Ollama مع هذا المزوّد، أو بدّل إلى مزوّد مخصص/OpenAI لهذا العنوان."
         },
@@ -382,8 +415,10 @@
           "openLibrary": "فتح مكتبة النماذج",
           "refresh": "تحديث الآن"
         },
+        "connecting": "جارٍ الاتصال...",
         "toast": {
-          "startRequested": "تم طلب تشغيل Ollama",
+          "startRequested": "تم طلب تشغيل Ollama — جارٍ الاتصال...",
+          "startSuccess": "تم تشغيل Ollama بنجاح",
           "startFailed": "تعذر تشغيل Ollama"
         }
       },

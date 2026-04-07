@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Brain, Cpu, Sparkles, Zap, ChevronDown, Check } from "lucide-react";
 import ContentSection from "../layout/ContentSection";
 import { useToast } from "../../contexts/ToastContext";
 import { openExternalLink } from "../../lib/externalLink";
+import { PROVIDER_LOGOS } from "../brand";
 import {
   getDocumentAiSettings,
   updateDocumentAiSettings,
@@ -130,6 +132,114 @@ const CUSTOM_PRESETS = [
 const FALLBACK_OPENAI_BASE_URL = "https://api.openai.com/v1";
 const FALLBACK_OLLAMA_BASE_URL = "http://localhost:11434";
 
+// ── Ollama model metadata ──────────────────────────────────
+// Maps known model family prefixes to display metadata.
+// Unknown models gracefully fall back to a generic entry.
+
+const MODEL_FAMILIES = {
+  llama:     { color: "bg-blue-500",    icon: PROVIDER_LOGOS.meta,    vendorKey: "meta" },
+  codellama: { color: "bg-blue-600",    icon: PROVIDER_LOGOS.meta,    vendorKey: "meta" },
+  mistral:   { color: "bg-orange-500",  icon: PROVIDER_LOGOS.mistral, vendorKey: "mistral" },
+  mixtral:   { color: "bg-orange-400",  icon: PROVIDER_LOGOS.mistral, vendorKey: "mistral" },
+  gemma:     { color: "bg-cyan-500",    icon: PROVIDER_LOGOS.google,  vendorKey: "google" },
+  gemma2:    { color: "bg-cyan-500",    icon: PROVIDER_LOGOS.google,  vendorKey: "google" },
+  gemma3:    { color: "bg-cyan-500",    icon: PROVIDER_LOGOS.google,  vendorKey: "google" },
+  phi:       { color: "bg-teal-500",    icon: PROVIDER_LOGOS.microsoft, vendorKey: "microsoft" },
+  phi3:      { color: "bg-teal-500",    icon: PROVIDER_LOGOS.microsoft, vendorKey: "microsoft" },
+  phi4:      { color: "bg-teal-500",    icon: PROVIDER_LOGOS.microsoft, vendorKey: "microsoft" },
+  qwen:      { color: "bg-purple-500",  icon: PROVIDER_LOGOS.alibaba, vendorKey: "alibaba" },
+  qwen2:     { color: "bg-purple-500",  icon: PROVIDER_LOGOS.alibaba, vendorKey: "alibaba" },
+  "qwen2.5": { color: "bg-purple-500",  icon: PROVIDER_LOGOS.alibaba, vendorKey: "alibaba" },
+  qwen3:     { color: "bg-purple-500",  icon: PROVIDER_LOGOS.alibaba, vendorKey: "alibaba" },
+  deepseek:  { color: "bg-indigo-500",  icon: PROVIDER_LOGOS.deepseek, vendorKey: "deepseek" },
+  "deepseek-coder": { color: "bg-indigo-600", icon: PROVIDER_LOGOS.deepseek, vendorKey: "deepseek" },
+  "deepseek-r1":    { color: "bg-indigo-400", icon: PROVIDER_LOGOS.deepseek, vendorKey: "deepseek" },
+  command:   { color: "bg-green-500",   icon: PROVIDER_LOGOS.cohere, vendorKey: "cohere" },
+  "command-r": { color: "bg-green-500", icon: PROVIDER_LOGOS.cohere, vendorKey: "cohere" },
+  starcoder: { color: "bg-yellow-500",  icon: PROVIDER_LOGOS.huggingface, vendorKey: "huggingface" },
+  codegemma: { color: "bg-cyan-600",    icon: PROVIDER_LOGOS.google, vendorKey: "google" },
+  yi:        { color: "bg-rose-500",    icon: PROVIDER_LOGOS["01ai"], vendorKey: "01ai" },
+  solar:     { color: "bg-amber-500",   icon: PROVIDER_LOGOS.upstage, vendorKey: "upstage" },
+  vicuna:    { color: "bg-slate-500",   icon: PROVIDER_LOGOS.lmsys, vendorKey: "lmsys" },
+  falcon:    { color: "bg-sky-500",     icon: PROVIDER_LOGOS.tii, vendorKey: "tii" },
+  orca:      { color: "bg-blue-400",    icon: PROVIDER_LOGOS.microsoft, vendorKey: "microsoft" },
+  wizardlm:  { color: "bg-violet-500",  icon: PROVIDER_LOGOS.wizardlm, vendorKey: "wizardlm" },
+  nous:      { color: "bg-red-500",     icon: PROVIDER_LOGOS.nousresearch, vendorKey: "nousresearch" },
+  "nous-hermes": { color: "bg-red-500", icon: PROVIDER_LOGOS.nousresearch, vendorKey: "nousresearch" },
+  nomic:     { color: "bg-gray-500",    icon: PROVIDER_LOGOS.nomic, vendorKey: "nomic" },
+  mxbai:     { color: "bg-gray-500",    icon: PROVIDER_LOGOS.mixedbread, vendorKey: "mixedbread" },
+  snowflake: { color: "bg-sky-400",     icon: PROVIDER_LOGOS.snowflake, vendorKey: "snowflake" },
+  granite:   { color: "bg-stone-500",   icon: PROVIDER_LOGOS.ibm, vendorKey: "ibm" },
+};
+
+const FALLBACK_FAMILY = { color: "bg-slate-400", icon: PROVIDER_LOGOS.other, vendorKey: "other" };
+
+// Size tier thresholds in billions of parameters
+const SIZE_TIERS = [
+  { maxB: 3,    tierKey: "small" },
+  { maxB: 10,   tierKey: "medium" },
+  { maxB: 35,   tierKey: "large" },
+  { maxB: 80,   tierKey: "xlarge" },
+  { maxB: Infinity, tierKey: "xxlarge" },
+];
+
+function parseOllamaModel(rawName) {
+  const name = String(rawName || "").trim();
+  const [baseName, tag] = name.includes(":") ? name.split(":", 2) : [name, "latest"];
+
+  // Find longest matching family key
+  let familyKey = null;
+  let matchLen = 0;
+  for (const key of Object.keys(MODEL_FAMILIES)) {
+    if (baseName.toLowerCase().startsWith(key) && key.length > matchLen) {
+      familyKey = key;
+      matchLen = key.length;
+    }
+  }
+
+  const family = familyKey ? MODEL_FAMILIES[familyKey] : FALLBACK_FAMILY;
+
+  // Extract parameter count from tag (e.g. "8b", "70b", "1.5b")
+  const sizeMatch = tag.match(/([\d.]+)b/i);
+  const paramB = sizeMatch ? parseFloat(sizeMatch[1]) : null;
+  const tier = paramB !== null
+    ? SIZE_TIERS.find((t) => paramB <= t.maxB) || SIZE_TIERS[SIZE_TIERS.length - 1]
+    : null;
+
+  return {
+    raw: name,
+    baseName,
+    tag,
+    familyKey: familyKey || baseName.toLowerCase(),
+    family,
+    paramB,
+    tier,
+    displayName: baseName,
+    sizeLabel: paramB !== null ? `${paramB}B` : null,
+  };
+}
+
+function groupAndSortModels(modelNames) {
+  const parsed = modelNames.map(parseOllamaModel);
+  // Group by vendor
+  const groups = {};
+  for (const m of parsed) {
+    const vendor = m.family.vendorKey;
+    if (!groups[vendor]) groups[vendor] = [];
+    groups[vendor].push(m);
+  }
+  // Sort models within each group by size descending
+  for (const key of Object.keys(groups)) {
+    groups[key].sort((a, b) => (b.paramB || 0) - (a.paramB || 0));
+  }
+  // Sort groups: put groups with more models first, "other" last
+  return Object.entries(groups).sort(([a, modelsA], [b, modelsB]) => {
+    if (a === "other") return 1;
+    if (b === "other") return -1;
+    return modelsB.length - modelsA.length;
+  });
+}
+
 function normalizeOllamaBaseUrl(value) {
   return String(value || "").trim().replace(/\/+$/, "").replace(/\/v1$/i, "");
 }
@@ -252,6 +362,137 @@ function getOllamaInstallValue(t, installed) {
   return t("agent.aiConfig.ollamaStatus.values.unknown");
 }
 
+// ── Ollama Model Picker (rich grouped UI) ──────────────────
+
+function OllamaModelPicker({ t, displayProvider, ollamaModels, model, setModel, selectedProvider }) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const pickerRef = useRef(null);
+
+  useEffect(() => {
+    if (!pickerOpen) return undefined;
+    const handleClick = (e) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target)) {
+        setPickerOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [pickerOpen]);
+
+  const hasOllamaModels = displayProvider === "ollama" && ollamaModels?.length > 0;
+
+  if (!hasOllamaModels) {
+    return (
+      <div>
+        <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
+          {t("agent.aiConfig.fields.model")}
+        </label>
+        <input
+          type="text"
+          value={model}
+          onChange={(e) => setModel(e.target.value)}
+          placeholder={t(
+            `agent.aiConfig.fields.placeholders.${selectedProvider.placeholderModel}`,
+          )}
+          className="w-full max-w-xl px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400"
+        />
+        {selectedProvider.modelHintKey ? (
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            {t(selectedProvider.modelHintKey)}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  const groups = groupAndSortModels(ollamaModels);
+  const selectedParsed = model ? parseOllamaModel(model) : null;
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
+        {t("agent.aiConfig.fields.model")}
+      </label>
+
+      {/* Trigger button */}
+      <div className="relative max-w-xl" ref={pickerRef}>
+        <button
+          type="button"
+          onClick={() => setPickerOpen(!pickerOpen)}
+          className="w-full flex items-center gap-3 px-3 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-left hover:border-slate-400 dark:hover:border-slate-500 transition-colors"
+        >
+          {selectedParsed ? (
+            <>
+              <div className="w-7 h-7 rounded-md bg-white flex items-center justify-center flex-shrink-0">
+                <selectedParsed.family.icon size={20} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-medium text-slate-900 dark:text-white truncate block">
+                  {selectedParsed.displayName}
+                </span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {t(`agent.aiConfig.modelPicker.vendor.${selectedParsed.family.vendorKey}`, selectedParsed.family.vendorKey)}
+                  {selectedParsed.sizeLabel ? ` · ${selectedParsed.sizeLabel}` : ""}
+                  {selectedParsed.tag !== "latest" ? ` · ${selectedParsed.tag}` : ""}
+                </span>
+              </div>
+            </>
+          ) : (
+            <span className="text-sm text-slate-400">
+              {t("agent.aiConfig.modelPicker.placeholder")}
+            </span>
+          )}
+          <ChevronDown className={`w-4 h-4 text-slate-400 flex-shrink-0 transition-transform ${pickerOpen ? "rotate-180" : ""}`} />
+        </button>
+
+        {/* Dropdown panel */}
+        {pickerOpen && (
+          <div className="absolute z-50 mt-1 w-full max-h-80 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg">
+            {groups.map(([vendorKey, models]) => (
+              <div key={vendorKey}>
+                <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-900/40 sticky top-0">
+                  {t(`agent.aiConfig.modelPicker.vendor.${vendorKey}`, vendorKey)}
+                </div>
+                {models.map((m) => {
+                  const isSelected = m.raw === model;
+                  const IconComp = m.family.icon;
+                  return (
+                    <button
+                      key={m.raw}
+                      type="button"
+                      onClick={() => { setModel(m.raw); setPickerOpen(false); }}
+                      className={`w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${isSelected ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}
+                    >
+                      <div className="w-7 h-7 rounded-md bg-white flex items-center justify-center flex-shrink-0">
+                        <IconComp size={20} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium text-slate-900 dark:text-white truncate block">
+                          {m.displayName}
+                        </span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                          {m.sizeLabel ? `${m.sizeLabel} · ` : ""}
+                          {m.tier ? t(`agent.aiConfig.modelPicker.tier.${m.tier.tierKey}`, m.tier.tierKey) : ""}
+                          {m.tag !== "latest" ? ` · ${m.tag}` : ""}
+                        </span>
+                      </div>
+                      {isSelected && <Check className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+        {t("agent.aiConfig.modelPicker.hint", { count: ollamaModels.length })}
+      </p>
+    </div>
+  );
+}
+
 export default function SettingsAgent() {
   const { t } = useTranslation(["settings"]);
   const { showToast } = useToast();
@@ -274,6 +515,7 @@ export default function SettingsAgent() {
   const [ollamaStatus, setOllamaStatus] = useState(null);
   const [ollamaStatusLoading, setOllamaStatusLoading] = useState(false);
   const [ollamaActionBusy, setOllamaActionBusy] = useState(false);
+  const [ollamaFastPoll, setOllamaFastPoll] = useState(false);
   const [ordinayTokenStatus, setOrdinayTokenStatus] = useState(null);
   const [ordinayAuthenticating, setOrdinayAuthenticating] = useState(false);
 
@@ -398,17 +640,40 @@ export default function SettingsAgent() {
     let cancelled = false;
     refreshOllamaStatus({ showLoader: true });
 
+    const pollMs = ollamaFastPoll ? 1000 : 5000;
     const interval = setInterval(() => {
       if (!cancelled) {
         refreshOllamaStatus({ showLoader: false });
       }
-    }, 5000);
+    }, pollMs);
 
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [aiMode, displayProvider, refreshOllamaStatus]);
+  }, [aiMode, displayProvider, refreshOllamaStatus, ollamaFastPoll]);
+
+  // Stop fast polling once Ollama is running OR after 20s timeout
+  useEffect(() => {
+    if (!ollamaFastPoll) return undefined;
+    if (ollamaStatus?.running) {
+      setOllamaFastPoll(false);
+      return undefined;
+    }
+    const timeout = setTimeout(() => setOllamaFastPoll(false), 20000);
+    return () => clearTimeout(timeout);
+  }, [ollamaFastPoll, ollamaStatus?.running]);
+
+  // Auto-select first model when models become available
+  useEffect(() => {
+    if (
+      displayProvider === "ollama" &&
+      ollamaStatus?.models?.length > 0 &&
+      !model
+    ) {
+      setModel(ollamaStatus.models[0]);
+    }
+  }, [displayProvider, ollamaStatus?.models, model]);
 
   const save = async () => {
     setSaving(true);
@@ -491,7 +756,13 @@ export default function SettingsAgent() {
     try {
       const result = await startOllamaRuntime();
       if (result.ok) {
-        showToast(t("agent.aiConfig.ollamaStatus.toast.startRequested"), "success");
+        if (result.ready) {
+          showToast(t("agent.aiConfig.ollamaStatus.toast.startSuccess"), "success");
+          await refreshOllamaStatus({ showLoader: true });
+        } else {
+          showToast(t("agent.aiConfig.ollamaStatus.toast.startRequested"), "success");
+          setOllamaFastPoll(true);
+        }
       } else {
         showToast(
           result.error || t("agent.aiConfig.ollamaStatus.toast.startFailed"),
@@ -505,7 +776,6 @@ export default function SettingsAgent() {
       );
     } finally {
       setOllamaActionBusy(false);
-      await refreshOllamaStatus({ showLoader: true });
     }
   };
 
@@ -616,7 +886,7 @@ export default function SettingsAgent() {
 
   return (
     <div className="space-y-6">
-      <ContentSection title={t("agent.aiConfig.sectionTitle")}>
+      <ContentSection title={t("agent.aiConfig.sectionTitle")} allowOverflow={true}>
         <div className="p-6 space-y-6">
           {aiLoading ? (
             <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -834,12 +1104,16 @@ export default function SettingsAgent() {
                           <span className="opacity-80">
                             {ollamaStatusLoading
                               ? t("agent.aiConfig.ollamaStatus.refreshing")
-                              : t("agent.aiConfig.ollamaStatus.autoRefresh")}
+                              : ollamaFastPoll
+                                ? t("agent.aiConfig.ollamaStatus.connecting")
+                                : t("agent.aiConfig.ollamaStatus.autoRefresh")}
                           </span>
                         </div>
 
                         <div>
-                          {ollamaStatusLoading && !ollamaStatus ? (
+                          {ollamaActionBusy ? (
+                            <span>{t("agent.aiConfig.ollamaStatus.states.starting")}</span>
+                          ) : ollamaStatusLoading && !ollamaStatus ? (
                             <span>{t("agent.aiConfig.ollamaStatus.checking")}</span>
                           ) : (
                             <span>
@@ -985,47 +1259,14 @@ export default function SettingsAgent() {
                       </div>
                     )}
 
-                    <div>
-                      <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
-                        {t("agent.aiConfig.fields.model")}
-                      </label>
-                      {displayProvider === "ollama" &&
-                      ollamaStatus?.models?.length > 0 ? (
-                        <select
-                          value={model}
-                          onChange={(e) => setModel(e.target.value)}
-                          className="w-full max-w-xl px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                        >
-                          {!model && (
-                            <option value="">
-                              {t(
-                                `agent.aiConfig.fields.placeholders.${selectedProvider.placeholderModel}`,
-                              )}
-                            </option>
-                          )}
-                          {ollamaStatus.models.map((m) => (
-                            <option key={m} value={m}>
-                              {m}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          type="text"
-                          value={model}
-                          onChange={(e) => setModel(e.target.value)}
-                          placeholder={t(
-                            `agent.aiConfig.fields.placeholders.${selectedProvider.placeholderModel}`,
-                          )}
-                          className="w-full max-w-xl px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400"
-                        />
-                      )}
-                      {selectedProvider.modelHintKey ? (
-                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                          {t(selectedProvider.modelHintKey)}
-                        </p>
-                      ) : null}
-                    </div>
+                    <OllamaModelPicker
+                      t={t}
+                      displayProvider={displayProvider}
+                      ollamaModels={ollamaStatus?.models}
+                      model={model}
+                      setModel={setModel}
+                      selectedProvider={selectedProvider}
+                    />
 
                     {testResult && (
                       <div

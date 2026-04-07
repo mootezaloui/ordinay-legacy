@@ -20,7 +20,7 @@ function getProxyBaseUrl(): string {
 
 function loadAgentToken(): string | null {
   try {
-    const svc = require("../../services/aiProvider.service");
+    const svc = require("../../../src/services/aiProvider.service");
     const cached = svc.getCachedAgentToken();
     if (!cached || !cached.token) return null;
     if (cached.expired) {

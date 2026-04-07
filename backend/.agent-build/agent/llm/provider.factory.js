@@ -9,7 +9,7 @@ const ordinay_provider_1 = require("./ordinay.provider");
 function resolveCurrentProvider() {
     let config = null;
     try {
-        const aiProviderService = require("../../services/aiProvider.service");
+        const aiProviderService = require("../../../src/services/aiProvider.service");
         config = aiProviderService.getRawProviderConfig();
     }
     catch (error) {
@@ -36,6 +36,9 @@ function resolveCurrentProvider() {
         }
         if (config.provider_type === "ordinay") {
             return (0, ordinay_provider_1.createOrdinayLLMProvider)();
+        }
+        if (config.provider_type === "ollama") {
+            return (0, native_provider_1.createNativeLLMProvider)();
         }
         return (0, configured_provider_1.createConfiguredLLMProvider)(config);
     }

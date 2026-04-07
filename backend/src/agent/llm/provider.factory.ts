@@ -22,7 +22,7 @@ interface ProviderConfigRow {
 function resolveCurrentProvider(): ILLMProvider {
   let config: ProviderConfigRow | null = null;
   try {
-    const aiProviderService = require("../../services/aiProvider.service");
+    const aiProviderService = require("../../../src/services/aiProvider.service");
     config = aiProviderService.getRawProviderConfig();
   } catch (error) {
     console.warn(
@@ -58,6 +58,10 @@ function resolveCurrentProvider(): ILLMProvider {
 
     if (config.provider_type === "ordinay") {
       return createOrdinayLLMProvider();
+    }
+
+    if (config.provider_type === "ollama") {
+      return createNativeLLMProvider();
     }
 
     return createConfiguredLLMProvider(config);

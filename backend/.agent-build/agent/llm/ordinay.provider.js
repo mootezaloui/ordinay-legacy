@@ -7,7 +7,7 @@ function getProxyBaseUrl() {
 }
 function loadAgentToken() {
     try {
-        const svc = require("../../services/aiProvider.service");
+        const svc = require("../../../src/services/aiProvider.service");
         const cached = svc.getCachedAgentToken();
         if (!cached || !cached.token)
             return null;
@@ -106,12 +106,26 @@ class OrdinayLLMProvider {
             messageCount: Array.isArray(params.messages) ? params.messages.length : 0,
             toolCount: Array.isArray(params.tools) ? params.tools.length : 0,
         }));
-        const response = await fetch(url, {
-            method: "POST",
-            headers,
-            body: JSON.stringify(body),
-            signal: params.signal,
-        });
+        let response;
+        try {
+            response = await fetch(url, {
+                method: "POST",
+                headers,
+                body: JSON.stringify(body),
+                signal: params.signal,
+            });
+        }
+        catch (error) {
+            if (isAbortError(error))
+                throw createAbortError();
+            console.warn("[ORDINAY_LLM_GENERATE_FETCH_ERROR]", String(error));
+            return {
+                text: "Failed to connect to Ordinay AI. Please try again shortly.",
+                toolCalls: [],
+                finishReason: "error",
+                raw: { source: "ordinay", error: "fetch_error" },
+            };
+        }
         if (!response.ok) {
             const errBody = await response.text().catch(() => "");
             console.warn("[ORDINAY_LLM_GENERATE_HTTP_ERROR]", JSON.stringify({

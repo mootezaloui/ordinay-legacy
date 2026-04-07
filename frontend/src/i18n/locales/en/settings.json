@@ -353,6 +353,38 @@
         },
         "missingModelWarning": "Choose a provider and model first, then run a connection test before saving."
       },
+      "modelPicker": {
+        "placeholder": "Select a model...",
+        "hint": "{{count}} model(s) installed in Ollama",
+        "vendor": {
+          "meta": "Meta",
+          "mistral": "Mistral AI",
+          "google": "Google",
+          "microsoft": "Microsoft",
+          "alibaba": "Alibaba (Qwen)",
+          "deepseek": "DeepSeek",
+          "cohere": "Cohere",
+          "huggingface": "Hugging Face",
+          "01ai": "01.AI",
+          "upstage": "Upstage",
+          "lmsys": "LMSYS",
+          "tii": "TII (Falcon)",
+          "wizardlm": "WizardLM",
+          "nousresearch": "Nous Research",
+          "nomic": "Nomic",
+          "mixedbread": "Mixedbread",
+          "snowflake": "Snowflake",
+          "ibm": "IBM",
+          "other": "Other"
+        },
+        "tier": {
+          "small": "Lightweight — fast, low resource usage",
+          "medium": "Balanced — good quality, moderate resources",
+          "large": "Powerful — high quality, needs more RAM",
+          "xlarge": "Very powerful — excellent quality, heavy resource usage",
+          "xxlarge": "Maximum — best quality, requires high-end hardware"
+        }
+      },
       "ollamaStatus": {
         "title": "Ollama runtime status",
         "checking": "Checking Ollama availability...",
@@ -360,7 +392,8 @@
         "autoRefresh": "Auto-refresh every 5s",
         "states": {
           "not_installed": "Ollama is not installed on this machine.",
-          "not_running": "Ollama is not reachable at this URL.",
+          "not_running": "Ollama is not running.",
+          "starting": "Starting Ollama...",
           "running_no_models": "Ollama is running but no local models are available.",
           "ready": "Ollama is running and ready.",
           "api_mismatch": "This URL responds, but it is not an Ollama server."
@@ -378,7 +411,7 @@
         },
         "hints": {
           "install": "Install Ollama. If it is already installed, click Open / Start.",
-          "start": "Open or start Ollama from the app, then this page will auto-refresh.",
+          "start": "Ollama is installed but not running. Click Start to launch it.",
           "pullModel": "Add at least one model in Ollama before testing.",
           "apiMismatch": "Use Ollama URL for Ollama provider, or switch to Custom/OpenAI provider for this endpoint."
         },
@@ -389,8 +422,10 @@
           "openLibrary": "Open model library",
           "refresh": "Refresh now"
         },
+        "connecting": "Connecting...",
         "toast": {
-          "startRequested": "Ollama start requested",
+          "startRequested": "Ollama start requested — connecting...",
+          "startSuccess": "Ollama started successfully",
           "startFailed": "Failed to launch Ollama"
         }
       },

@@ -38,8 +38,17 @@ export interface OllamaStatusResult {
 
 export interface OllamaStartResult {
   ok: boolean;
-  launched?: 'desktop' | 'app' | 'serve';
+  launched?: 'desktop' | 'app' | 'serve' | 'already_running';
   message?: string;
+  error?: string;
+  ready?: boolean;
+  models?: string[];
+  elapsed_ms?: number;
+}
+
+export interface OllamaModelsResult {
+  ok: boolean;
+  models: string[];
   error?: string;
 }
 
@@ -71,6 +80,13 @@ export async function getOllamaStatus(baseUrl?: string): Promise<OllamaStatusRes
 
 export async function startOllamaRuntime(): Promise<OllamaStartResult> {
   return apiClient.post<OllamaStartResult>('/settings/ai-provider/ollama/start', {});
+}
+
+export async function getOllamaModels(baseUrl?: string): Promise<OllamaModelsResult> {
+  const query = baseUrl && baseUrl.trim().length > 0
+    ? `?base_url=${encodeURIComponent(baseUrl.trim())}`
+    : '';
+  return apiClient.get<OllamaModelsResult>(`/settings/ai-provider/ollama/models${query}`);
 }
 
 // ── Ordinay AI agent token ────────────────────────────────
