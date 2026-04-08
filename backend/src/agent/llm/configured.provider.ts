@@ -21,6 +21,11 @@ export interface ConfiguredProviderConfig {
   model: string;
 }
 
+const DEFAULT_CONFIGURED_MAX_TOKENS = 2048;
+const CONFIGURED_MAX_OUTPUT_TOKENS = readOptionalPositiveInt(
+  process.env.CONFIGURED_LLM_MAX_OUTPUT_TOKENS,
+);
+
 export function createConfiguredLLMProvider(
   config: ConfiguredProviderConfig,
 ): ILLMProvider {
@@ -41,7 +46,11 @@ class ConfiguredLLMProvider implements ILLMProvider {
     const model = this.resolveModel(params);
     const url = this.buildCompletionUrl();
     const headers = this.buildHeaders();
-    const body = toChatCompletionBody(model, params);
+    const body = toChatCompletionBody(
+      model,
+      params,
+      this.resolveMaxTokens(params),
+    );
 
     console.info(
       "[CONFIGURED_LLM_GENERATE_START]",
@@ -56,7 +65,7 @@ class ConfiguredLLMProvider implements ILLMProvider {
       }),
     );
 
-    const response = await fetch(url, {
+    let response = await fetch(url, {
       method: "POST",
       headers,
       body: JSON.stringify(body),
@@ -65,6 +74,32 @@ class ConfiguredLLMProvider implements ILLMProvider {
 
     if (!response.ok) {
       const errBody = await response.text().catch(() => "");
+      const adjustedMaxTokens = deriveAffordableRetryMaxTokens(
+        response.status,
+        errBody,
+        Number(body.max_tokens),
+      );
+      if (adjustedMaxTokens) {
+        const retryBody = { ...body, max_tokens: adjustedMaxTokens };
+        console.info(
+          "[CONFIGURED_LLM_GENERATE_RETRY_LOWER_MAX_TOKENS]",
+          JSON.stringify({
+            model,
+            previousMaxTokens: body.max_tokens,
+            retryMaxTokens: adjustedMaxTokens,
+          }),
+        );
+        response = await fetch(url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(retryBody),
+          signal: params.signal,
+        });
+        if (response.ok) {
+          const payload = (await response.json()) as Record<string, unknown>;
+          return normalizeChatCompletionResponse(payload);
+        }
+      }
       console.warn(
         "[CONFIGURED_LLM_GENERATE_HTTP_ERROR]",
         JSON.stringify({
@@ -73,8 +108,11 @@ class ConfiguredLLMProvider implements ILLMProvider {
           model,
         }),
       );
+      const providerMessage = extractProviderErrorMessage(errBody).slice(0, 300);
       return {
-        text: "I cannot access the language model right now. Please try again.",
+        text: providerMessage
+          ? `Provider error (${response.status}): ${providerMessage}`
+          : "I cannot access the language model right now. Please try again.",
         toolCalls: [],
         finishReason: "error",
         raw: { source: "configured", status: response.status },
@@ -93,7 +131,11 @@ class ConfiguredLLMProvider implements ILLMProvider {
     const url = this.buildCompletionUrl();
     const headers = this.buildHeaders();
     const body = {
-      ...toChatCompletionBody(model, params),
+      ...toChatCompletionBody(
+        model,
+        params,
+        this.resolveMaxTokens(params),
+      ),
       stream: true,
     };
 
@@ -272,6 +314,14 @@ class ConfiguredLLMProvider implements ILLMProvider {
     }
     return headers;
   }
+
+  private resolveMaxTokens(params: LLMGenerateParams): number {
+    const requested = Number(params?.maxTokens);
+    if (Number.isFinite(requested) && requested > 0) {
+      return Math.floor(requested);
+    }
+    return CONFIGURED_MAX_OUTPUT_TOKENS || DEFAULT_CONFIGURED_MAX_TOKENS;
+  }
 }
 
 // ── Shared utilities (mirrored from native.provider.ts) ────
@@ -279,6 +329,7 @@ class ConfiguredLLMProvider implements ILLMProvider {
 function toChatCompletionBody(
   model: string,
   params: LLMGenerateParams,
+  maxTokens: number,
 ): Record<string, unknown> {
   const messages = (params.messages ?? []).map((msg, idx) => {
     if (msg.role === "tool") {
@@ -294,11 +345,53 @@ function toChatCompletionBody(
     tool_choice: "auto",
     temperature:
       typeof params.temperature === "number" ? params.temperature : 0.1,
-    ...(typeof params.maxTokens === "number"
-      ? { max_tokens: params.maxTokens }
-      : {}),
+    max_tokens: maxTokens,
     stream: false,
   };
+}
+
+function readOptionalPositiveInt(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
+  return Math.floor(parsed);
+}
+
+function deriveAffordableRetryMaxTokens(
+  status: number,
+  errorBody: string,
+  requestedMaxTokens: number,
+): number | null {
+  if (status !== 402) return null;
+  const current = Number(requestedMaxTokens);
+  if (!Number.isFinite(current) || current <= 128) return null;
+
+  const text = extractProviderErrorMessage(errorBody);
+  const affordMatch = text.match(/can only afford\s+(\d+)/i);
+  if (!affordMatch) return null;
+  const afford = Number(affordMatch[1]);
+  if (!Number.isFinite(afford) || afford <= 0) return null;
+
+  // Keep some headroom for provider accounting variance.
+  const target = Math.max(128, Math.min(current - 1, afford - 64));
+  return target > 0 && target < current ? target : null;
+}
+
+function extractProviderErrorMessage(errorBody: string): string {
+  const fallback = String(errorBody || "");
+  try {
+    const parsed = JSON.parse(fallback);
+    const message = parsed?.error?.message;
+    if (typeof message === "string" && message.trim().length > 0) {
+      return message;
+    }
+    if (typeof parsed?.error === "string" && parsed.error.trim().length > 0) {
+      return parsed.error;
+    }
+  } catch {
+    // ignore and return fallback
+  }
+  return fallback;
 }
 
 function normalizeChatCompletionResponse(

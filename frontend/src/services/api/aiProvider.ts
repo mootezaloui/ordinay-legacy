@@ -25,6 +25,26 @@ export interface AIProviderTestResult {
   error?: string;
 }
 
+export interface ProviderModelsPayload {
+  provider_type: string;
+  base_url?: string;
+  api_key?: string;
+}
+
+export interface ProviderModelsResult {
+  ok: boolean;
+  models: Array<{
+    id: string;
+    source?: 'cloud' | 'local';
+    owned_by?: string;
+    supports_tools?: boolean;
+    capability_source?: string;
+    checked_at?: string;
+  }>;
+  source?: 'cloud' | 'local' | 'ollama' | 'anthropic' | 'gemini';
+  error?: string;
+}
+
 export interface OllamaStatusResult {
   base_url: string;
   installed: boolean | null;
@@ -52,6 +72,64 @@ export interface OllamaModelsResult {
   error?: string;
 }
 
+export interface OllamaCatalogResult {
+  ok: boolean;
+  models: Array<{
+    name: string;
+    source: 'local' | 'cloud';
+    downloadable: boolean;
+    installed: boolean;
+    size_label?: string | null;
+    context_length?: string | null;
+    input_modalities?: string | null;
+    capabilities?: string[];
+    supports_tools?: boolean | null;
+    capability_source?: string;
+    compatibility?: {
+      level: 'good' | 'limited' | 'unlikely' | 'unknown' | 'cloud';
+      message: string;
+      estimated_min_ram_gb: number | null;
+      estimated_min_vram_gb: number | null;
+      param_b: number | null;
+    };
+  }>;
+  hardware?: {
+    ram_gb: number;
+    cpu_cores: number;
+    gpu_max_vram_gb: number;
+  };
+  error?: string;
+}
+
+export interface OllamaPullStartResult {
+  ok: boolean;
+  job_id?: string;
+  model?: string;
+  error?: string;
+}
+
+export interface OllamaPullJob {
+  id: string;
+  model: string;
+  base_url: string;
+  status: string;
+  progress: number;
+  total: number;
+  completed: number;
+  digest?: string;
+  done: boolean;
+  error?: string | null;
+  started_at: number;
+  updated_at: number;
+  ended_at?: number | null;
+}
+
+export interface OllamaPullJobResult {
+  ok: boolean;
+  job?: OllamaPullJob;
+  error?: string;
+}
+
 export async function getAIProviderConfig(): Promise<AIProviderConfig> {
   return apiClient.get<AIProviderConfig>('/settings/ai-provider');
 }
@@ -71,6 +149,15 @@ export async function testAIProviderConfig(
   );
 }
 
+export async function getProviderModels(
+  payload: ProviderModelsPayload,
+): Promise<ProviderModelsResult> {
+  return apiClient.post<ProviderModelsResult>(
+    '/settings/ai-provider/models',
+    payload,
+  );
+}
+
 export async function getOllamaStatus(baseUrl?: string): Promise<OllamaStatusResult> {
   const query = baseUrl && baseUrl.trim().length > 0
     ? `?base_url=${encodeURIComponent(baseUrl.trim())}`
@@ -87,6 +174,29 @@ export async function getOllamaModels(baseUrl?: string): Promise<OllamaModelsRes
     ? `?base_url=${encodeURIComponent(baseUrl.trim())}`
     : '';
   return apiClient.get<OllamaModelsResult>(`/settings/ai-provider/ollama/models${query}`);
+}
+
+export async function getOllamaCatalog(
+  queryText = "",
+  limit = 80,
+  baseUrl?: string,
+): Promise<OllamaCatalogResult> {
+  const query = `?query=${encodeURIComponent(String(queryText || "").trim())}&limit=${Math.max(1, Math.min(limit, 200))}${baseUrl && baseUrl.trim() ? `&base_url=${encodeURIComponent(baseUrl.trim())}` : ""}`;
+  return apiClient.get<OllamaCatalogResult>(`/settings/ai-provider/ollama/catalog${query}`);
+}
+
+export async function startOllamaPull(
+  model: string,
+  baseUrl?: string,
+): Promise<OllamaPullStartResult> {
+  return apiClient.post<OllamaPullStartResult>("/settings/ai-provider/ollama/pull", {
+    model,
+    base_url: baseUrl || "",
+  });
+}
+
+export async function getOllamaPullJob(jobId: string): Promise<OllamaPullJobResult> {
+  return apiClient.get<OllamaPullJobResult>(`/settings/ai-provider/ollama/pull/${encodeURIComponent(jobId)}`);
 }
 
 // ── Ordinay AI agent token ────────────────────────────────

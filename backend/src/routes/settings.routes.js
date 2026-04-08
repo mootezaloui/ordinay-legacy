@@ -1,8 +1,11 @@
 const express = require("express");
+const crypto = require("node:crypto");
 const aiProviderService = require("../services/aiProvider.service");
 const ollamaService = require("../services/ollama.service");
+const modelCapabilityService = require("../services/modelCapability.service");
 
 const router = express.Router();
+const ollamaPullJobs = new Map();
 
 // GET /api/settings/ai-provider
 router.get("/ai-provider", (req, res, next) => {
@@ -137,13 +140,260 @@ router.get("/ai-provider/ollama/models", async (req, res) => {
   return res.json(result);
 });
 
+// GET /api/settings/ai-provider/ollama/catalog
+router.get("/ai-provider/ollama/catalog", async (req, res) => {
+  const query = String(req.query?.query || "").trim();
+  const limit = Number.parseInt(String(req.query?.limit || "80"), 10);
+  const baseUrl = resolveOllamaBaseUrl(req.query?.base_url);
+  const installed = await ollamaService.getModels(baseUrl);
+  const installedModels = installed?.ok && Array.isArray(installed.models) ? installed.models : [];
+  const result = await ollamaService.getCatalogModels({ query, limit, installedModels });
+  if (!result?.ok || !Array.isArray(result.models)) {
+    return res.json(result);
+  }
+  const filtered = [];
+  for (const row of result.models) {
+    const model = String(row?.name || "").trim();
+    if (!model) continue;
+    const isInstalled = Boolean(row?.installed);
+    const libraryCapabilities = Array.isArray(row?.capabilities) ? row.capabilities : [];
+    const hasToolsFromLibrary = libraryCapabilities.includes("tools");
+
+    if (isInstalled) {
+      // For installed models, verify tool support via /api/show
+      const capability = await modelCapabilityService.resolveModelCapability({
+        provider_type: "ollama",
+        base_url: baseUrl,
+        api_key: "",
+        model,
+      });
+      if (!capability.supports_tools) continue;
+      filtered.push({
+        ...row,
+        supports_tools: true,
+        capability_source: capability.source_of_truth,
+        checked_at: capability.checked_at,
+      });
+    } else if (hasToolsFromLibrary) {
+      // For uninstalled models, trust the library page capability tags
+      filtered.push({
+        ...row,
+        supports_tools: true,
+        capability_source: "ollama_library_tags",
+        checked_at: new Date().toISOString(),
+      });
+    } else if (libraryCapabilities.length === 0) {
+      // No capability data available — include with unknown tool support
+      // so users can still see and download models
+      filtered.push({
+        ...row,
+        supports_tools: null,
+        capability_source: "unknown",
+        checked_at: new Date().toISOString(),
+      });
+    }
+    // Models with capabilities that explicitly lack "tools" are excluded
+  }
+  return res.json({ ...result, models: filtered });
+});
+
+// POST /api/settings/ai-provider/ollama/pull
+router.post("/ai-provider/ollama/pull", async (req, res) => {
+  const baseUrl = resolveOllamaBaseUrl(req.body?.base_url || req.query?.base_url);
+  const model = String(req.body?.model || "").trim();
+
+  if (!model) {
+    return res.status(400).json({ ok: false, error: "model is required" });
+  }
+
+  const runtime = await ollamaService.checkIfRunning(baseUrl);
+  if (!runtime.running) {
+    return res.status(400).json({ ok: false, error: runtime.error || "Ollama is not running" });
+  }
+
+  const jobId = `pull_${crypto.randomBytes(8).toString("hex")}`;
+  const now = Date.now();
+  ollamaPullJobs.set(jobId, {
+    id: jobId,
+    model,
+    base_url: baseUrl,
+    status: "queued",
+    progress: 0,
+    total: 0,
+    completed: 0,
+    digest: "",
+    done: false,
+    error: null,
+    started_at: now,
+    updated_at: now,
+    ended_at: null,
+  });
+
+  void (async () => {
+    try {
+      const onProgress = (event) => {
+        const current = ollamaPullJobs.get(jobId);
+        if (!current) return;
+
+        const total = Number(event?.total || 0);
+        const completed = Number(event?.completed || 0);
+        const progress = total > 0 ? Math.min(Math.max((completed / total) * 100, 0), 100) : current.progress;
+
+        current.status = String(event?.status || current.status || "pulling");
+        current.total = Number.isFinite(total) ? total : current.total;
+        current.completed = Number.isFinite(completed) ? completed : current.completed;
+        current.progress = Number.isFinite(progress) ? progress : current.progress;
+        current.digest = String(event?.digest || current.digest || "");
+        current.updated_at = Date.now();
+
+        if (event?.error) {
+          current.error = String(event.error);
+          current.done = true;
+          current.ended_at = Date.now();
+          current.status = "error";
+        }
+
+        if (event?.done) {
+          current.done = true;
+          current.ended_at = Date.now();
+          if (!current.error) {
+            current.status = "success";
+            current.progress = 100;
+          }
+        }
+      };
+
+      const current = ollamaPullJobs.get(jobId);
+      if (current) {
+        current.status = "pulling";
+        current.updated_at = Date.now();
+      }
+
+      const result = await ollamaService.pullModel(baseUrl, model, onProgress);
+      const finalJob = ollamaPullJobs.get(jobId);
+      if (!finalJob) return;
+
+      finalJob.done = true;
+      finalJob.updated_at = Date.now();
+      finalJob.ended_at = Date.now();
+
+      if (!result.ok) {
+        finalJob.status = "error";
+        finalJob.error = result.error || "Ollama pull failed";
+        return;
+      }
+
+      finalJob.status = "success";
+      finalJob.error = null;
+      finalJob.progress = 100;
+    } catch (error) {
+      const finalJob = ollamaPullJobs.get(jobId);
+      if (!finalJob) return;
+      finalJob.status = "error";
+      finalJob.error = error?.message || String(error || "Ollama pull failed");
+      finalJob.done = true;
+      finalJob.updated_at = Date.now();
+      finalJob.ended_at = Date.now();
+    }
+  })();
+
+  return res.json({ ok: true, job_id: jobId, model });
+});
+
+// GET /api/settings/ai-provider/ollama/pull/:jobId
+router.get("/ai-provider/ollama/pull/:jobId", (req, res) => {
+  const jobId = String(req.params?.jobId || "").trim();
+  const job = ollamaPullJobs.get(jobId);
+  if (!job) {
+    return res.status(404).json({ ok: false, error: "Pull job not found" });
+  }
+  return res.json({ ok: true, job });
+});
+
+// POST /api/settings/ai-provider/models
+router.post("/ai-provider/models", async (req, res) => {
+  try {
+    const body = req.body || {};
+    let config;
+    if (body.provider_type) {
+      config = {
+        provider_type: String(body.provider_type || "").trim(),
+        base_url: String(body.base_url || "").trim(),
+        api_key: String(body.api_key || "").trim(),
+      };
+      if (config.api_key === "****") {
+        const saved = aiProviderService.getRawProviderConfig();
+        config.api_key = String(saved?.api_key || "").trim();
+      }
+    } else {
+      const saved = aiProviderService.getRawProviderConfig();
+      if (!saved) {
+        return res.status(400).json({ ok: false, error: "No AI provider configured." });
+      }
+      config = saved;
+    }
+
+    if (!config.provider_type) {
+      return res.status(400).json({ ok: false, error: "provider_type is required" });
+    }
+
+    if (
+      config.provider_type !== "ollama" &&
+      config.provider_type !== "ordinay" &&
+      !String(config.api_key || "").trim()
+    ) {
+      return res.status(400).json({
+        ok: false,
+        models: [],
+        error: "API key is required to list cloud models for this provider.",
+      });
+    }
+
+    const normalizedConfig = {
+      ...config,
+      base_url:
+        config.provider_type === "ollama"
+          ? resolveOllamaBaseUrl(config.base_url)
+          : String(config.base_url || "").trim(),
+    };
+    const result = await modelCapabilityService.listToolCapableModels(normalizedConfig);
+    return res.json(result);
+  } catch (error) {
+    return res.json({
+      ok: false,
+      models: [],
+      error: error?.message || String(error || "Failed to list provider models"),
+    });
+  }
+});
+
 // PUT /api/settings/ai-provider
-router.put("/ai-provider", (req, res, next) => {
+router.put("/ai-provider", async (req, res, next) => {
   try {
     const { provider_type, base_url, api_key, model } = req.body || {};
+    const configToValidate = {
+      provider_type,
+      base_url:
+        provider_type === "ollama"
+          ? resolveOllamaBaseUrl(base_url)
+          : String(base_url || "").trim(),
+      api_key,
+      model,
+    };
+
+    if (provider_type !== "ordinay") {
+      const supportResult = await modelCapabilityService.ensureModelSupportsTools(configToValidate);
+      if (!supportResult.ok) {
+        return res.status(400).json({
+          ok: false,
+          error: supportResult.error || "Selected model does not support tool calling.",
+        });
+      }
+    }
+
     aiProviderService.saveProviderConfig({
       provider_type,
-      base_url,
+      base_url: configToValidate.base_url,
       api_key,
       model,
     });
@@ -211,7 +461,10 @@ router.post("/ai-provider/test", async (req, res) => {
     if (body.provider_type && body.model) {
       config = {
         provider_type: body.provider_type,
-        base_url: body.base_url || "",
+        base_url:
+          body.provider_type === "ollama"
+            ? resolveOllamaBaseUrl(body.base_url)
+            : body.base_url || "",
         api_key: body.api_key || "",
         model: body.model,
       };
@@ -222,6 +475,9 @@ router.post("/ai-provider/test", async (req, res) => {
       }
     } else {
       config = aiProviderService.getRawProviderConfig();
+      if (config?.provider_type === "ollama") {
+        config.base_url = resolveOllamaBaseUrl(config.base_url);
+      }
     }
 
     if (!config) {
@@ -229,6 +485,26 @@ router.post("/ai-provider/test", async (req, res) => {
         ok: false,
         error: "No AI provider configured. Save a configuration first.",
       });
+    }
+
+    if (
+      (config.provider_type === "openai_compatible" || config.provider_type === "custom") &&
+      !String(config.api_key || "").trim()
+    ) {
+      return res.json({
+        ok: false,
+        error: "API key is required for this provider.",
+      });
+    }
+
+    if (config.provider_type !== "ordinay") {
+      const supportResult = await modelCapabilityService.ensureModelSupportsTools(config);
+      if (!supportResult.ok) {
+        return res.json({
+          ok: false,
+          error: supportResult.error || "Selected model does not support tool calling.",
+        });
+      }
     }
 
     // Native SDK providers use their own test path
@@ -277,8 +553,8 @@ router.post("/ai-provider/test", async (req, res) => {
           errorMsg = parsed.error;
         }
       } catch {
-        if (text.length > 0 && text.length < 200) {
-          errorMsg = text;
+        if (text.length > 0) {
+          errorMsg = text.slice(0, 500);
         }
       }
       return res.json({ ok: false, error: errorMsg, latency_ms: latencyMs });
@@ -302,6 +578,9 @@ router.post("/ai-provider/test", async (req, res) => {
       message = "Host not found — check the URL";
     } else if (cause.code === "UNABLE_TO_VERIFY_LEAF_SIGNATURE") {
       message = "SSL certificate error — check the URL";
+    } else if (cause?.name === "AggregateError" || error?.name === "AggregateError") {
+      message =
+        "Cannot connect to the provider endpoint. For Ollama, ensure it is running and use http://127.0.0.1:11434.";
     } else {
       message = cause.message || error.message || "Unknown error";
     }
@@ -398,6 +677,22 @@ function buildCompletionEndpoint(providerType, baseUrl) {
   }
   // openai_compatible and custom: base_url already includes /v1 path typically
   return `${url}/chat/completions`;
+}
+
+function normalizeBaseUrl(value) {
+  return String(value || "").trim().replace(/\/+$/, "");
+}
+
+function buildModelListEndpoints(providerType, baseUrl) {
+  const normalized = normalizeBaseUrl(baseUrl);
+  if (!normalized) return [];
+  if (providerType !== "openai_compatible" && providerType !== "custom") {
+    return [];
+  }
+  if (normalized.endsWith("/v1")) {
+    return [`${normalized}/models`];
+  }
+  return [`${normalized}/v1/models`, `${normalized}/models`];
 }
 
 function resolveOllamaBaseUrl(baseUrlQueryValue) {

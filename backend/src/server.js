@@ -51,5 +51,7 @@ console.log(`[LLM] Active model: ${activeLlmModel}`);
 const app = require("./app");
 const { port } = require("./config/app.config");
 const { startBackendServers } = require("./server.start");
+const { autoStartOllamaOnBoot } = require("./bootstrap/ollama.autostart");
 
 startBackendServers(app, { port });
+void autoStartOllamaOnBoot({ logger: console, env: process.env });

@@ -13,18 +13,31 @@ export {
   AnthropicLogo,
   OpenAILogo,
   GoogleLogo,
+  GeminiLogo,
   MetaLogo,
   MicrosoftLogo,
+  AzureLogo,
+  BedrockLogo,
   AlibabaLogo,
   DeepSeekLogo,
   CohereLogo,
   HuggingFaceLogo,
   MistralLogo,
+  MoonshotLogo,
   IBMLogo,
+  GemmaLogo,
+  QwenLogo,
+  YiLogo,
+  NousResearchLogo,
+  UpstageLogo,
+  TIILogo,
+  ZeroOneLogo,
+  OllamaLogo,
   GenericAILogo,
-  PROVIDER_LOGOS,
 } from './ProviderLogos';
-export type { ProviderLogoProps, ProviderKey } from './ProviderLogos';
+export type { ProviderLogoProps } from './ProviderLogos';
+export { PROVIDER_LOGOS, PROVIDER_LOGO_AVATARS } from './ProviderLogoMap';
+export type { ProviderKey } from './ProviderLogoMap';
 
 // Startup loader (cold start)
 export { default as OrdinayStartupLoader, useStartupLoader } from './OrdinayStartupLoader';
