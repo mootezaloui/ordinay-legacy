@@ -295,6 +295,27 @@ async function resolveFromOllamaShow(config) {
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
+    // Cloud variants may not be present locally; fall back to Ollama library metadata.
+    if (/-cloud$/i.test(model)) {
+      const catalog = await ollamaService.getCatalogModels({
+        query: model,
+        limit: 200,
+        installedModels: [],
+      });
+      const match = Array.isArray(catalog?.models)
+        ? catalog.models.find((row) => String(row?.name || "").trim().toLowerCase() === model.toLowerCase())
+        : null;
+      const capabilities = Array.isArray(match?.capabilities)
+        ? match.capabilities.map((c) => String(c || "").trim().toLowerCase())
+        : [];
+      if (capabilities.includes("tools")) {
+        return {
+          supports_tools: true,
+          source_of_truth: "ollama_library_tags",
+          checked_at: nowIso(),
+        };
+      }
+    }
     return {
       supports_tools: false,
       source_of_truth: "ollama_show_http_error",
@@ -308,6 +329,26 @@ async function resolveFromOllamaShow(config) {
     ? payload.capabilities.map((c) => String(c || "").trim().toLowerCase())
     : [];
   const supports = capabilities.includes("tools");
+  if (!supports && /-cloud$/i.test(model)) {
+    const catalog = await ollamaService.getCatalogModels({
+      query: model,
+      limit: 200,
+      installedModels: [],
+    });
+    const match = Array.isArray(catalog?.models)
+      ? catalog.models.find((row) => String(row?.name || "").trim().toLowerCase() === model.toLowerCase())
+      : null;
+    const libCaps = Array.isArray(match?.capabilities)
+      ? match.capabilities.map((c) => String(c || "").trim().toLowerCase())
+      : [];
+    if (libCaps.includes("tools")) {
+      return {
+        supports_tools: true,
+        source_of_truth: "ollama_library_tags",
+        checked_at: nowIso(),
+      };
+    }
+  }
 
   return {
     supports_tools: supports,

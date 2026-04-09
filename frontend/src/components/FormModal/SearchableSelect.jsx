@@ -29,6 +29,7 @@ export default function SearchableSelect({
   createLabel = null, // ✅ NEW: Label for create button
   placement = "bottom", // NEW: allow opening above when dropdown would be clipped
   isLoading = false,
+  showClear = true,
 }) {
   const { t } = useTranslation("common");
   const [isOpen, setIsOpen] = useState(false);
@@ -232,7 +233,7 @@ export default function SearchableSelect({
 
         {/* Icons - ✅ UNIFIED: Consistent sizing and spacing */}
         <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-          {value && !disabled && (
+          {showClear && value && !disabled && (
             <button
               type="button"
               onClick={handleClear}

@@ -72,6 +72,8 @@ export default function Settings() {
   const navContainerRef = useRef(null);
   const itemRefs = useRef({});
   const indicatorRef = useRef(null);
+  const headerPanelRef = useRef(null);
+  const contentPanelRef = useRef(null);
   const lastIndicatorY = useRef(null);
   const lastIndicatorH = useRef(null);
 
@@ -168,6 +170,49 @@ export default function Settings() {
       setActiveDomainId(tab);
     }
   }, [location.search]);
+
+  // Smoothly animate the settings layout content (header + panel)
+  // when switching sections, without animating list items.
+  useEffect(() => {
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) return;
+
+    const animateNode = (node, keyframes, options) => {
+      if (!node || typeof node.animate !== "function") return;
+      node.animate(keyframes, options);
+    };
+
+    requestAnimationFrame(() => {
+      animateNode(
+        headerPanelRef.current,
+        [
+          { opacity: 0, transform: "translateY(6px)" },
+          { opacity: 1, transform: "translateY(0px)" },
+        ],
+        {
+          duration: 180,
+          easing: "cubic-bezier(0.2, 0, 0, 1)",
+          fill: "both",
+        },
+      );
+
+      animateNode(
+        contentPanelRef.current,
+        [
+          { opacity: 0, transform: "translateY(10px) scale(0.995)" },
+          { opacity: 1, transform: "translateY(0px) scale(1)" },
+        ],
+        {
+          duration: 240,
+          easing: "cubic-bezier(0.2, 0, 0, 1)",
+          fill: "both",
+        },
+      );
+    });
+  }, [activeDomainId]);
 
   return (
     <PageLayout>
@@ -281,7 +326,7 @@ export default function Settings() {
         </nav>
 
         <section className="flex-1 space-y-6">
-          <div className="px-1">
+          <div ref={headerPanelRef} className="px-1">
             <h2 className="text-2xl font-semibold text-slate-900 dark:text-white">
               {activeDomain.label}
             </h2>
@@ -290,7 +335,9 @@ export default function Settings() {
             </p>
           </div>
 
-          <ActiveComponent />
+          <div ref={contentPanelRef}>
+            <ActiveComponent />
+          </div>
         </section>
       </div>
     </PageLayout>

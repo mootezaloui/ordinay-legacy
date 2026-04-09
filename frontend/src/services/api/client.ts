@@ -33,8 +33,8 @@ async function ipcRequest<T>(
 
   if (result.status >= 400) {
     const detail =
-      typeof result.data === "object" && result.data?.message
-        ? result.data.message
+      typeof result.data === "object" && (result.data?.error || result.data?.message)
+        ? (result.data.error || result.data.message)
         : typeof result.data === "string"
           ? result.data
           : "";

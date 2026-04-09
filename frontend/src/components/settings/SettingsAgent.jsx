@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Brain, Cpu, Sparkles, Zap, ChevronDown, Check } from "lucide-react";
+import { Brain, Cpu, Sparkles, Zap, ChevronDown, Check, Eye, EyeOff } from "lucide-react";
 import ContentSection from "../layout/ContentSection";
 import { useToast } from "../../contexts/ToastContext";
 import { openExternalLink } from "../../lib/externalLink";
@@ -167,6 +167,40 @@ const CUSTOM_PRESET_AVATARS = {
 
 const FALLBACK_OPENAI_BASE_URL = "https://api.openai.com/v1";
 const FALLBACK_OLLAMA_BASE_URL = "http://localhost:11434";
+const AI_PROVIDER_DRAFT_STORAGE_KEY = "ordinay:settings:ai-provider-draft:v1";
+
+function readAiProviderDraft() {
+  if (typeof window === "undefined" || !window.localStorage) return null;
+  try {
+    const raw = window.localStorage.getItem(AI_PROVIDER_DRAFT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeAiProviderDraft(payload) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    window.localStorage.setItem(
+      AI_PROVIDER_DRAFT_STORAGE_KEY,
+      JSON.stringify({ ...payload, updated_at: Date.now() }),
+    );
+  } catch {
+    // Ignore storage quota/availability issues.
+  }
+}
+
+function getApiKeySlotKey(displayProvider, customPreset) {
+  const provider = String(displayProvider || "").trim().toLowerCase();
+  if (provider === "custom") {
+    const preset = String(customPreset || "manual").trim().toLowerCase() || "manual";
+    return `custom:${preset}`;
+  }
+  return provider || "openai";
+}
 
 // ── Ollama model metadata ──────────────────────────────────
 // Maps known model family prefixes to display metadata.
@@ -597,6 +631,7 @@ function OllamaModelPicker({ t, displayProvider, ollamaModels, model, setModel, 
   const hasOllamaModels = displayProvider === "ollama" && ollamaModels?.length > 0;
 
   if (!hasOllamaModels) {
+    const isOllama = displayProvider === "ollama";
     return (
       <div>
         <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
@@ -605,13 +640,29 @@ function OllamaModelPicker({ t, displayProvider, ollamaModels, model, setModel, 
         <input
           type="text"
           value={model}
-          onChange={(e) => setModel(e.target.value)}
+          onChange={(e) => {
+            if (isOllama) return;
+            setModel(e.target.value);
+          }}
+          readOnly={isOllama}
+          disabled={isOllama}
           placeholder={t(
             `agent.aiConfig.fields.placeholders.${selectedProvider.placeholderModel}`,
           )}
-          className="w-full max-w-xl px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400"
+          className={`w-full max-w-xl px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 ${
+            isOllama
+              ? "bg-slate-100 dark:bg-slate-900/50 cursor-not-allowed opacity-80"
+              : "bg-white dark:bg-slate-800"
+          }`}
         />
-        {selectedProvider.modelHintKey ? (
+        {isOllama ? (
+          <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+            {t("agent.aiConfig.ollamaCatalog.toolOnlyBlock", {
+              defaultValue:
+                "Only tool-capable Ollama models can be selected. Install/add one from Browse Ollama Models.",
+            })}
+          </p>
+        ) : selectedProvider.modelHintKey ? (
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             {t(selectedProvider.modelHintKey)}
           </p>
@@ -728,6 +779,8 @@ export default function SettingsAgent() {
   const [customPreset, setCustomPreset] = useState("manual");
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [apiKeysBySlot, setApiKeysBySlot] = useState({});
+  const [isApiKeyVisible, setIsApiKeyVisible] = useState(false);
   const [model, setModel] = useState("");
   const [testResult, setTestResult] = useState(null);
   const [configSource, setConfigSource] = useState(null);
@@ -743,12 +796,19 @@ export default function SettingsAgent() {
   const [ollamaPullJob, setOllamaPullJob] = useState(null);
   const [ollamaPullStartingModel, setOllamaPullStartingModel] = useState("");
   const [ollamaCatalogExpanded, setOllamaCatalogExpanded] = useState({});
+  const [ollamaToolModels, setOllamaToolModels] = useState([]);
   const [cloudCatalog, setCloudCatalog] = useState([]);
   const [cloudCatalogLoading, setCloudCatalogLoading] = useState(false);
   const [cloudCatalogQuery, setCloudCatalogQuery] = useState("");
   const [cloudCatalogError, setCloudCatalogError] = useState("");
   const [ordinayTokenStatus, setOrdinayTokenStatus] = useState(null);
   const [ordinayAuthenticating, setOrdinayAuthenticating] = useState(false);
+  const aiDraftHydratedRef = useRef(false);
+  const formatHydratedRef = useRef(false);
+  const aiConfigHydratedRef = useRef(false);
+  const lastAiConfigFingerprintRef = useRef("");
+  const lastAiConfigFailedFingerprintRef = useRef("");
+  const lastFormatSavedRef = useRef("");
 
   const isLicenseActive = licenseState === "ACTIVE";
 
@@ -761,6 +821,10 @@ export default function SettingsAgent() {
 
   const helpLinkKeys = useMemo(
     () => getHelpLinks(displayProvider, customPreset),
+    [displayProvider, customPreset],
+  );
+  const apiKeySlotKey = useMemo(
+    () => getApiKeySlotKey(displayProvider, customPreset),
     [displayProvider, customPreset],
   );
   const cloudCatalogSupported =
@@ -877,7 +941,10 @@ export default function SettingsAgent() {
       try {
         const remoteSettings = await getDocumentAiSettings();
         if (!mounted) return;
-        setFormatPreference(remoteSettings.document_output_format_preference || "auto");
+        const initialFormat = remoteSettings.document_output_format_preference || "auto";
+        setFormatPreference(initialFormat);
+        lastFormatSavedRef.current = initialFormat;
+        formatHydratedRef.current = true;
       } catch (error) {
         console.error("[SettingsAgent] Failed to load agent settings:", error);
         showToast(t("agent.toast.loadError"), "error");
@@ -923,13 +990,68 @@ export default function SettingsAgent() {
           } else {
             setBaseUrl(config.base_url || "");
           }
-          setApiKey(config.api_key_masked || "");
+          const backendApiKeyValue = String(config.api_key_masked || "");
+          const initialSlotKey = getApiKeySlotKey(
+            resolvedDisplayProvider,
+            resolvedDisplayProvider === "custom"
+              ? normalizeCustomPreset(config.provider_preset, config.base_url)
+              : "manual",
+          );
+          setApiKeysBySlot((prev) => ({
+            ...prev,
+            [initialSlotKey]: backendApiKeyValue,
+          }));
+          setApiKey(backendApiKeyValue);
           setModel(config.model || "");
         }
         setConfigSource(config.source || null);
+
+        const draft = readAiProviderDraft();
+        if (draft && typeof draft === "object") {
+          const nextMode = String(draft.aiMode || "").trim();
+          if (nextMode === "byok" || nextMode === "ordinay") {
+            setAiMode(nextMode);
+          }
+
+          const nextDisplayProvider = String(draft.displayProvider || "").trim();
+          if (DISPLAY_PROVIDER_OPTIONS.some((row) => row.id === nextDisplayProvider && !row.disabled)) {
+            setDisplayProvider(nextDisplayProvider);
+          }
+
+          const nextCustomPreset = String(draft.customPreset || "").trim();
+          if (["openrouter", "groq", "manual"].includes(nextCustomPreset)) {
+            setCustomPreset(nextCustomPreset);
+          }
+
+          const nextBaseUrl = String(draft.baseUrl || "").trim();
+          if (nextBaseUrl) {
+            if (nextDisplayProvider === "ollama") {
+              setBaseUrl(sanitizeOllamaBaseUrl(nextBaseUrl));
+            } else {
+              setBaseUrl(nextBaseUrl);
+            }
+          }
+
+          if (typeof draft.apiKey === "string") {
+            setApiKey(draft.apiKey);
+          }
+          if (draft.apiKeysBySlot && typeof draft.apiKeysBySlot === "object") {
+            setApiKeysBySlot((prev) => ({
+              ...prev,
+              ...draft.apiKeysBySlot,
+            }));
+          }
+
+          const nextModel = String(draft.model || "").trim();
+          if (nextModel) {
+            setModel(nextModel);
+          }
+        }
       } catch (error) {
         console.error("[SettingsAgent] Failed to load AI config:", error);
       } finally {
+        aiDraftHydratedRef.current = true;
+        aiConfigHydratedRef.current = true;
         if (mounted) setAiLoading(false);
       }
     })();
@@ -939,9 +1061,52 @@ export default function SettingsAgent() {
   }, []);
 
   useEffect(() => {
+    if (!aiDraftHydratedRef.current) return;
+    writeAiProviderDraft({
+      aiMode,
+      displayProvider,
+      customPreset,
+      baseUrl,
+      apiKey,
+      apiKeysBySlot,
+      model,
+    });
+  }, [aiMode, displayProvider, customPreset, baseUrl, apiKey, apiKeysBySlot, model]);
+
+  useEffect(() => {
+    if (!aiDraftHydratedRef.current || aiLoading) return;
+    const slotValue = String(apiKeysBySlot?.[apiKeySlotKey] || "");
+    setApiKey(slotValue);
+  }, [aiLoading, apiKeySlotKey, apiKeysBySlot]);
+
+  useEffect(() => {
+    if (!formatHydratedRef.current || loading) return undefined;
+    if (formatPreference === lastFormatSavedRef.current) return undefined;
+
+    const timer = setTimeout(async () => {
+      setSaving(true);
+      try {
+        const updated = await updateDocumentAiSettings({
+          document_output_format_preference: formatPreference,
+        });
+        const savedValue = updated.document_output_format_preference || "auto";
+        setFormatPreference(savedValue);
+        lastFormatSavedRef.current = savedValue;
+      } catch (error) {
+        console.error("[SettingsAgent] Failed to auto-save agent settings:", error);
+      } finally {
+        setSaving(false);
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [formatPreference, loading]);
+
+  useEffect(() => {
     if (aiMode !== "byok" || displayProvider !== "ollama") {
       setOllamaStatus(null);
       setOllamaStatusLoading(false);
+      setOllamaToolModels([]);
       setOllamaCatalog([]);
       setOllamaCatalogHardware(null);
       setOllamaCatalogLoading(false);
@@ -966,6 +1131,32 @@ export default function SettingsAgent() {
       clearInterval(interval);
     };
   }, [aiMode, displayProvider, refreshOllamaStatus, ollamaFastPoll]);
+
+  useEffect(() => {
+    if (aiMode !== "byok" || displayProvider !== "ollama") {
+      setOllamaToolModels([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await getProviderModels({
+          provider_type: "ollama",
+          base_url: sanitizeOllamaBaseUrl(baseUrl),
+        });
+        if (cancelled) return;
+        const ids = Array.isArray(result?.models)
+          ? result.models.map((m) => String(m?.id || "").trim()).filter(Boolean)
+          : [];
+        setOllamaToolModels(ids);
+      } catch {
+        if (!cancelled) setOllamaToolModels([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [aiMode, displayProvider, baseUrl, ollamaStatus?.running]);
 
   useEffect(() => {
     if (aiMode !== "byok" || displayProvider !== "ollama") return undefined;
@@ -1056,61 +1247,25 @@ export default function SettingsAgent() {
   useEffect(() => {
     if (
       displayProvider === "ollama" &&
-      ollamaStatus?.models?.length > 0 &&
+      ollamaToolModels?.length > 0 &&
       !model
     ) {
-      setModel(ollamaStatus.models[0]);
+      setModel(ollamaToolModels[0]);
     }
-  }, [displayProvider, ollamaStatus?.models, model]);
-
-  const save = async () => {
-    setSaving(true);
-    try {
-      const updated = await updateDocumentAiSettings({
-        document_output_format_preference: formatPreference,
-      });
-      setFormatPreference(updated.document_output_format_preference || "auto");
-      showToast(t("agent.toast.saved"), "success");
-    } catch (error) {
-      console.error("[SettingsAgent] Failed to save agent settings:", error);
-      showToast(t("agent.toast.saveError"), "error");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const saveAiConfig = async () => {
-    if (selectedProvider.disabled) {
-      return;
-    }
-    setAiSaving(true);
-    setTestResult(null);
-    try {
-      const submitBaseUrl = resolveBaseUrlForSubmit(displayProvider, customPreset, baseUrl);
-      await saveAIProviderConfig({
-        provider_type: selectedProvider.backendType,
-        base_url: submitBaseUrl,
-        api_key: selectedProvider.hasApiKey ? apiKey : "",
-        model,
-      });
-      if (selectedProvider.hasBaseUrl) {
-        setBaseUrl(submitBaseUrl);
-      }
-      setConfigSource("database");
-      showToast(t("agent.aiConfig.toast.saved"), "success");
-    } catch (error) {
-      console.error("[SettingsAgent] Failed to save AI config:", error);
-      showToast(
-        error?.message || t("agent.aiConfig.toast.saveError"),
-        "error",
-      );
-    } finally {
-      setAiSaving(false);
-    }
-  };
+  }, [displayProvider, ollamaToolModels, model]);
 
   const testAiConfig = async () => {
     if (selectedProvider.disabled) {
+      return;
+    }
+    if (displayProvider === "ollama" && !isOllamaModelAllowed) {
+      setTestResult({
+        ok: false,
+        error: t("agent.aiConfig.ollamaCatalog.toolOnlyBlock", {
+          defaultValue:
+            "Only tool-capable Ollama models can be selected. Install/add one from Browse Ollama Models.",
+        }),
+      });
       return;
     }
     setAiTesting(true);
@@ -1239,26 +1394,6 @@ export default function SettingsAgent() {
     }
   };
 
-  const saveOrdinayConfig = async () => {
-    setAiSaving(true);
-    setTestResult(null);
-    try {
-      await saveAIProviderConfig({
-        provider_type: "ordinay",
-        base_url: "",
-        api_key: "",
-        model: "ordinay-default",
-      });
-      setConfigSource("database");
-      setModel("ordinay-default");
-      showToast(t("agent.aiConfig.toast.saved"), "success");
-    } catch (error) {
-      showToast(t("agent.aiConfig.toast.saveError"), "error");
-    } finally {
-      setAiSaving(false);
-    }
-  };
-
   const testOrdinayConfig = async () => {
     setAiTesting(true);
     setTestResult(null);
@@ -1338,28 +1473,140 @@ export default function SettingsAgent() {
       ),
     [ollamaStatus?.models],
   );
+  const toolCapableCloudModelSet = useMemo(
+    () =>
+      new Set(
+        (Array.isArray(ollamaCatalog) ? ollamaCatalog : [])
+          .filter((row) => row?.source === "cloud" && row?.supports_tools === true)
+          .map((row) => String(row?.name || "").trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    [ollamaCatalog],
+  );
   const effectiveOllamaModels = useMemo(() => {
-    const localModels = Array.isArray(ollamaStatus?.models) ? ollamaStatus.models : [];
+    const localModels = Array.isArray(ollamaToolModels) ? ollamaToolModels : [];
     const merged = new Set(
       localModels
         .map((item) => String(item || "").trim())
         .filter(Boolean),
     );
-    // Keep selected cloud model visible in the picker even though it's not locally installed.
+    // Keep selected cloud model visible only when it is tool-capable.
     if (displayProvider === "ollama") {
       const selectedModel = String(model || "").trim();
-      if (selectedModel && selectedModel.toLowerCase().includes("-cloud")) {
+      if (
+        selectedModel &&
+        selectedModel.toLowerCase().includes("-cloud") &&
+        toolCapableCloudModelSet.has(selectedModel.toLowerCase())
+      ) {
         merged.add(selectedModel);
       }
     }
     return Array.from(merged);
-  }, [displayProvider, model, ollamaStatus?.models]);
+  }, [displayProvider, model, ollamaToolModels, toolCapableCloudModelSet]);
   const filteredCloudCatalog = useMemo(() => {
     const normalized = String(cloudCatalogQuery || "").trim().toLowerCase();
     const rows = Array.isArray(cloudCatalog) ? cloudCatalog : [];
     if (!normalized) return rows;
     return rows.filter((row) => String(row?.id || "").toLowerCase().includes(normalized));
   }, [cloudCatalog, cloudCatalogQuery]);
+  const isOllamaModelAllowed = useMemo(() => {
+    if (displayProvider !== "ollama") return true;
+    const selected = String(model || "").trim().toLowerCase();
+    if (!selected) return false;
+    return effectiveOllamaModels.some(
+      (m) => String(m || "").trim().toLowerCase() === selected,
+    );
+  }, [displayProvider, model, effectiveOllamaModels]);
+
+  useEffect(() => {
+    if (!aiConfigHydratedRef.current || aiLoading) return undefined;
+    const selectedModel = String(model || "").trim();
+    const isOllamaModelAllowedForSave =
+      displayProvider !== "ollama" ||
+      !selectedModel ||
+      effectiveOllamaModels.some((m) => String(m || "").trim().toLowerCase() === selectedModel.toLowerCase());
+
+    const canAutoSaveByok =
+      aiMode === "byok" &&
+      !selectedProvider.disabled &&
+      selectedModel.length > 0 &&
+      isOllamaModelAllowedForSave &&
+      (!selectedProvider.hasApiKey || String(apiKey || "").trim().length > 0);
+    const canAutoSaveOrdinay =
+      aiMode === "ordinay" &&
+      Boolean(ordinayTokenStatus?.has_token);
+
+    if (!canAutoSaveByok && !canAutoSaveOrdinay) return undefined;
+
+    const submitBaseUrl = canAutoSaveByok
+      ? resolveBaseUrlForSubmit(displayProvider, customPreset, baseUrl)
+      : "";
+    const fingerprint = JSON.stringify({
+      mode: aiMode,
+      provider_type: canAutoSaveByok ? selectedProvider.backendType : "ordinay",
+      base_url: canAutoSaveByok ? (selectedProvider.hasBaseUrl ? submitBaseUrl : "") : "",
+      api_key: canAutoSaveByok ? (selectedProvider.hasApiKey ? apiKey : "") : "",
+      model: canAutoSaveByok ? model : "ordinay-default",
+    });
+
+    if (!lastAiConfigFingerprintRef.current) {
+      lastAiConfigFingerprintRef.current = fingerprint;
+      return undefined;
+    }
+
+    if (fingerprint === lastAiConfigFingerprintRef.current) return undefined;
+    if (fingerprint === lastAiConfigFailedFingerprintRef.current) return undefined;
+
+    const timer = setTimeout(async () => {
+      setAiSaving(true);
+      setTestResult(null);
+      try {
+        if (canAutoSaveByok) {
+          await saveAIProviderConfig({
+            provider_type: selectedProvider.backendType,
+            base_url: selectedProvider.hasBaseUrl ? submitBaseUrl : "",
+            api_key: selectedProvider.hasApiKey ? apiKey : "",
+            model,
+          });
+          if (selectedProvider.hasBaseUrl) {
+            setBaseUrl(submitBaseUrl);
+          }
+        } else {
+          await saveAIProviderConfig({
+            provider_type: "ordinay",
+            base_url: "",
+            api_key: "",
+            model: "ordinay-default",
+          });
+          setModel("ordinay-default");
+        }
+        setConfigSource("database");
+        lastAiConfigFingerprintRef.current = fingerprint;
+        lastAiConfigFailedFingerprintRef.current = "";
+      } catch (error) {
+        console.error("[SettingsAgent] Failed to auto-save AI config:", error);
+        lastAiConfigFailedFingerprintRef.current = fingerprint;
+      } finally {
+        setAiSaving(false);
+      }
+    }, 900);
+
+    return () => clearTimeout(timer);
+  }, [
+    aiLoading,
+    aiMode,
+    apiKey,
+    baseUrl,
+    customPreset,
+    displayProvider,
+    model,
+    ordinayTokenStatus?.has_token,
+    selectedProvider.backendType,
+    selectedProvider.disabled,
+    selectedProvider.hasApiKey,
+    selectedProvider.hasBaseUrl,
+    effectiveOllamaModels,
+  ]);
 
   return (
     <div className="space-y-6">
@@ -1487,15 +1734,11 @@ export default function SettingsAgent() {
                             ? t("agent.aiConfig.actions.testing")
                             : t("agent.aiConfig.actions.test")}
                         </button>
-                        <button
-                          onClick={saveOrdinayConfig}
-                          disabled={aiSaving || !ordinayTokenStatus?.has_token}
-                          className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
-                        >
-                          {aiSaving
-                            ? t("agent.aiConfig.actions.saving")
-                            : t("agent.aiConfig.actions.save")}
-                        </button>
+                        {aiSaving ? (
+                          <span className="text-xs text-slate-500 dark:text-slate-400">
+                            {t("agent.aiConfig.actions.saving")}
+                          </span>
+                        ) : null}
                       </div>
                     </>
                   )}
@@ -1990,13 +2233,35 @@ export default function SettingsAgent() {
                         <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
                           {t("agent.aiConfig.fields.apiKey")}
                         </label>
-                        <input
-                          type="password"
-                          value={apiKey}
-                          onChange={(e) => setApiKey(e.target.value)}
-                          placeholder={t("agent.aiConfig.fields.placeholders.apiKey")}
-                          className="w-full max-w-xl px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400"
-                        />
+                        <div className="relative w-full max-w-xl">
+                          <input
+                            type={isApiKeyVisible ? "text" : "password"}
+                            value={apiKey}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setApiKey(value);
+                              setApiKeysBySlot((prev) => ({
+                                ...prev,
+                                [apiKeySlotKey]: value,
+                              }));
+                            }}
+                            placeholder={t("agent.aiConfig.fields.placeholders.apiKey")}
+                            className="w-full pr-10 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setIsApiKeyVisible((prev) => !prev)}
+                            className="absolute inset-y-0 right-0 px-3 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                            aria-label={isApiKeyVisible
+                              ? t("agent.aiConfig.fields.hideApiKey", { defaultValue: "Hide API key" })
+                              : t("agent.aiConfig.fields.showApiKey", { defaultValue: "Show API key" })}
+                            title={isApiKeyVisible
+                              ? t("agent.aiConfig.fields.hideApiKey", { defaultValue: "Hide API key" })
+                              : t("agent.aiConfig.fields.showApiKey", { defaultValue: "Show API key" })}
+                          >
+                            {isApiKeyVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+                          </button>
+                        </div>
                         {selectedProvider.apiKeyHintKey ? (
                           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                             {t(selectedProvider.apiKeyHintKey)}
@@ -2016,6 +2281,14 @@ export default function SettingsAgent() {
                       setModel={setModel}
                       selectedProvider={selectedProvider}
                     />
+                    {displayProvider === "ollama" && String(model || "").trim() && !isOllamaModelAllowed ? (
+                      <p className="text-xs text-amber-700 dark:text-amber-300">
+                        {t("agent.aiConfig.ollamaCatalog.invalidSelectedModel", {
+                          defaultValue:
+                            "This selected model is blocked because it is not verified as tool-capable. Please pick a tool-capable model.",
+                        })}
+                      </p>
+                    ) : null}
 
                     {cloudCatalogSupported && (
                       <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/40 p-3 space-y-3">
@@ -2141,22 +2414,18 @@ export default function SettingsAgent() {
                     <div className="flex items-center gap-3 flex-wrap">
                       <button
                         onClick={testAiConfig}
-                        disabled={aiTesting || !model || selectedProvider.disabled}
+                        disabled={aiTesting || !model || selectedProvider.disabled || (displayProvider === "ollama" && !isOllamaModelAllowed)}
                         className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-60"
                       >
                         {aiTesting
                           ? t("agent.aiConfig.actions.testing")
                           : t("agent.aiConfig.actions.test")}
                       </button>
-                      <button
-                        onClick={saveAiConfig}
-                        disabled={aiSaving || !model || selectedProvider.disabled}
-                        className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
-                      >
-                        {aiSaving
-                          ? t("agent.aiConfig.actions.saving")
-                          : t("agent.aiConfig.actions.save")}
-                      </button>
+                      {aiSaving ? (
+                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                          {t("agent.aiConfig.actions.saving")}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
 
@@ -2250,15 +2519,13 @@ export default function SettingsAgent() {
                 </select>
               </div>
 
-              <div className="flex justify-end">
-                <button
-                  onClick={save}
-                  disabled={saving}
-                  className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
-                >
-                  {saving ? t("agent.actions.saving") : t("agent.actions.save")}
-                </button>
-              </div>
+              {saving ? (
+                <div className="flex justify-end">
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    {t("agent.actions.saving")}
+                  </span>
+                </div>
+              ) : null}
             </>
           )}
         </div>

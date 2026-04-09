@@ -806,9 +806,16 @@ async function fetchLibraryVariants(baseModelName) {
   if (tableVariants.length > 0) {
     variants = tableVariants;
   } else {
-    const pattern = new RegExp(`\\b${escapeRegex(base)}:[a-z0-9._-]+\\b`, "gi");
-    const matches = Array.from(html.matchAll(pattern)).map((m) => String(m?.[0] || "").trim());
-    const names = Array.from(new Set(matches.map((m) => m.toLowerCase()).filter(Boolean)));
+    // Strict fallback: only trust explicit library links, not free-text regex,
+    // to avoid synthetic/invalid tags from unrelated page text.
+    const linkPattern = new RegExp(`/library/${escapeRegex(base)}:([a-z0-9._-]+)`, "gi");
+    const names = Array.from(
+      new Set(
+        Array.from(html.matchAll(linkPattern))
+          .map((m) => `${base}:${String(m?.[1] || "").trim().toLowerCase()}`)
+          .filter(Boolean),
+      ),
+    );
     variants = names.map((name) => ({
       name,
       size_label: null,

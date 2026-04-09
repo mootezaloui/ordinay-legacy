@@ -182,17 +182,9 @@ router.get("/ai-provider/ollama/catalog", async (req, res) => {
         capability_source: "ollama_library_tags",
         checked_at: new Date().toISOString(),
       });
-    } else if (libraryCapabilities.length === 0) {
-      // No capability data available — include with unknown tool support
-      // so users can still see and download models
-      filtered.push({
-        ...row,
-        supports_tools: null,
-        capability_source: "unknown",
-        checked_at: new Date().toISOString(),
-      });
     }
-    // Models with capabilities that explicitly lack "tools" are excluded
+    // Strict mode: only include models positively verified/tagged with tools.
+    // Unknown capability or explicit non-tools entries are excluded.
   }
   return res.json({ ...result, models: filtered });
 });
@@ -371,13 +363,18 @@ router.post("/ai-provider/models", async (req, res) => {
 router.put("/ai-provider", async (req, res, next) => {
   try {
     const { provider_type, base_url, api_key, model } = req.body || {};
+    let resolvedApiKey = String(api_key || "");
+    if (resolvedApiKey === "****") {
+      const saved = aiProviderService.getRawProviderConfig();
+      resolvedApiKey = String(saved?.api_key || "");
+    }
     const configToValidate = {
       provider_type,
       base_url:
         provider_type === "ollama"
           ? resolveOllamaBaseUrl(base_url)
           : String(base_url || "").trim(),
-      api_key,
+      api_key: resolvedApiKey,
       model,
     };
 

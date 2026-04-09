@@ -70,6 +70,56 @@ const normalizeNotesValue = (value, fallback = "") => {
   return value;
 };
 
+function normalizeDateInputValue(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+
+  // Already HTML date input format
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+  // ISO-like datetime string
+  if (/^\d{4}-\d{2}-\d{2}T/.test(raw)) return raw.slice(0, 10);
+
+  // Common localized formats with "/" or "-"
+  const dateLike = raw.match(/^(\d{1,4})[/-](\d{1,2})[/-](\d{1,4})$/);
+  if (dateLike) {
+    const a = Number(dateLike[1]);
+    const b = Number(dateLike[2]);
+    const c = Number(dateLike[3]);
+    const pad = (n) => String(n).padStart(2, "0");
+
+    // yyyy/mm/dd
+    if (dateLike[1].length === 4) {
+      return `${a}-${pad(b)}-${pad(c)}`;
+    }
+
+    // dd/mm/yyyy (default for this app display)
+    if (dateLike[3].length === 4) {
+      const year = c;
+      let day = a;
+      let month = b;
+
+      // If obviously mm/dd/yyyy, flip
+      if (a <= 12 && b > 12) {
+        day = b;
+        month = a;
+      }
+      return `${year}-${pad(month)}-${pad(day)}`;
+    }
+  }
+
+  // Final parse attempt
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) {
+    const y = parsed.getFullYear();
+    const m = String(parsed.getMonth() + 1).padStart(2, "0");
+    const d = String(parsed.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+
+  return "";
+}
+
 /**
  * Structured Edit Section - Explicit Edit/Save buttons
  */
@@ -119,7 +169,11 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
           ? field.value(data, contextData)
           : undefined;
         const resolvedValue = resolvedFromField !== undefined ? resolvedFromField : data[fieldKey];
-        initialData[fieldKey] = resolvedValue ?? '';
+        if (field.type === "date") {
+          initialData[fieldKey] = normalizeDateInputValue(resolvedValue);
+        } else {
+          initialData[fieldKey] = resolvedValue ?? '';
+        }
       });
     } else if (section.fieldKey) {
       const rawValue = data[section.fieldKey] ?? (
@@ -416,7 +470,9 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
                     {(['text', 'email', 'tel', 'number', 'date'].includes(fieldType)) && (
                       <input
                         type={fieldType}
-                        value={editedData[fieldKey] || ''}
+                        value={fieldType === "date"
+                          ? normalizeDateInputValue(editedData[fieldKey])
+                          : (editedData[fieldKey] || '')}
                         onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
                         placeholder={field.placeholder}
                         className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow"
@@ -463,6 +519,8 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
                             placeholder={searchableSelectPlaceholder}
                             disabled={false}
                             compact={false}
+                            showClear={false}
+                            className="rounded-full border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800/80 shadow-sm hover:shadow focus:ring-2 focus:ring-blue-400/40"
                             allowCreate={field.allowCreate || false}
                             onCreateOption={field.onCreateOption || null}
                             createLabel={field.createLabel || t("actions.add")}
@@ -477,7 +535,7 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
                           <select
                             value={editedData[fieldKey] ?? value ?? ''}
                             onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
-                            className="w-full px-3.5 py-2.5 pr-10 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 appearance-none cursor-pointer hover:border-slate-300 dark:hover:border-slate-600 hover:shadow"
+                            className="w-full px-4 py-2.5 pr-10 border border-slate-300 dark:border-slate-600 rounded-full shadow-sm bg-slate-100 dark:bg-slate-800/80 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-400/40 transition-all duration-200 appearance-none cursor-pointer hover:shadow"
                           >
                             <option value="">{selectPlaceholder}</option>
                             {fieldOptions.map((option) => (
@@ -698,7 +756,9 @@ function RegularSection({ section, data, isEditing, onDataChange, contextData = 
                     {(['text', 'email', 'tel', 'number', 'date'].includes(fieldType)) && (
                       <input
                         type={fieldType}
-                        value={value || ''}
+                        value={fieldType === "date"
+                          ? normalizeDateInputValue(editedData[fieldKey] ?? value)
+                          : (editedData[fieldKey] ?? value ?? '')}
                         onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
                         placeholder={field.placeholder}
                         className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow"
@@ -738,6 +798,8 @@ function RegularSection({ section, data, isEditing, onDataChange, contextData = 
                             placeholder={searchableSelectPlaceholder}
                             disabled={false}
                             compact={false}
+                            showClear={false}
+                            className="rounded-full border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800/80 shadow-sm hover:shadow focus:ring-2 focus:ring-blue-400/40"
                             isLoading={field.isLoading === true}
                           />
                         );
@@ -749,7 +811,7 @@ function RegularSection({ section, data, isEditing, onDataChange, contextData = 
                           <select
                             value={editedData[fieldKey] || ''}
                             onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
-                            className="w-full px-3.5 py-2.5 pr-10 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 appearance-none cursor-pointer hover:border-slate-300 dark:hover:border-slate-600 hover:shadow"
+                            className="w-full px-4 py-2.5 pr-10 border border-slate-300 dark:border-slate-600 rounded-full shadow-sm bg-slate-100 dark:bg-slate-800/80 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-400/40 transition-all duration-200 appearance-none cursor-pointer hover:shadow"
                           >
                             <option value="">{selectPlaceholder}</option>
                             {field.options.map((option) => (
