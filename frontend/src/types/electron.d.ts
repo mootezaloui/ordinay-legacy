@@ -31,14 +31,18 @@ export interface UpdateStatus {
     | "idle"
     | "checking"
     | "update-available"
+    | "update-check-failed"
     | "up-to-date"
     | "downloading"
     | "downloaded"
-    | "download-failed";
+    | "download-failed"
+    | "verification-failed"
+    | "install-blocked";
   version: string;
   availableVersion: string | null;
   progress: number | null;
   lastCheckedAt: string | null;
+  lastError?: string | null;
   updatesEnabled: boolean;
 }
 
@@ -105,6 +109,28 @@ export interface ElectronAPI {
   writeDeviceId: (deviceId: string) => Promise<{ ok: boolean }>;
 
   /**
+   * Read secure agent token cache.
+   */
+  readAgentTokenCache: () => Promise<{
+    exists: boolean;
+    token?: string;
+    expiresAt?: number;
+  }>;
+
+  /**
+   * Write secure agent token cache.
+   */
+  writeAgentTokenCache: (
+    token: string,
+    expiresAt: number,
+  ) => Promise<{ ok: boolean; error?: string }>;
+
+  /**
+   * Clear secure agent token cache.
+   */
+  clearAgentTokenCache: () => Promise<{ ok: boolean; error?: string }>;
+
+  /**
    * Open external web URL (https-only).
    */
   openExternalWebUrl: (url: string) => Promise<{ ok: boolean; error?: string }>;
@@ -147,7 +173,7 @@ export interface ElectronAPI {
   /**
    * Install the downloaded update and restart
    */
-  installUpdate: () => Promise<{ ok: boolean }>;
+  installUpdate: () => Promise<{ ok: boolean; error?: string }>;
 
   /**
    * Reset app data (backend DB + documents)

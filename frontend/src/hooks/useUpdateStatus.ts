@@ -7,6 +7,7 @@ const fallbackStatus: UpdateStatus = {
   availableVersion: null,
   progress: null,
   lastCheckedAt: null,
+  lastError: null,
   updatesEnabled: false,
 };
 

@@ -5,6 +5,14 @@ function env(key: string, fallback: string): string {
   return process.env[key]?.trim() || fallback;
 }
 
+function requiredEnv(key: string): string {
+  const value = process.env[key]?.trim();
+  if (!value) {
+    throw new Error(`[FATAL] Missing required environment variable: ${key}`);
+  }
+  return value;
+}
+
 function envInt(key: string, fallback: number): number {
   const v = process.env[key]?.trim();
   return v ? parseInt(v, 10) : fallback;
@@ -17,7 +25,7 @@ export const HOST = env("HOST", "0.0.0.0");
 
 // ── JWT ───────────────────────────────────────────────────
 
-export const JWT_SECRET = env("JWT_SECRET", "ordinay-dev-jwt-secret-change-in-prod");
+export const JWT_SECRET = requiredEnv("JWT_SECRET");
 
 // ── Redis ─────────────────────────────────────────────────
 

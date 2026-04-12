@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const db = require('../db/connection');
 const documentsService = require('./documents.service');
+const documentStorage = require('./documentStorage');
 const { resolveIngestionDocType } = require('../domain/documentFormatGovernance');
 const { chunkText } = require('../agent/retrieval/chunker');
 const {
@@ -410,12 +411,14 @@ async function ingestDocument(documentId) {
     return doc;
   }
 
-  const filePath = doc.file_path;
-  if (!filePath || !fs.existsSync(filePath)) {
+  const filePath = documentStorage.resolveManagedDocumentPath(doc.file_path, {
+    mustExist: true,
+  });
+  if (!filePath) {
     updateExtractionState(documentId, {
       text_status: 'failed',
       failure_stage: 'extraction',
-      failure_detail: 'File not found on disk',
+      failure_detail: 'Document path is invalid or outside managed storage',
       processing_finished_at: new Date().toISOString(),
     });
     return documentsService.get(documentId);
@@ -531,12 +534,14 @@ async function runOcr(documentId) {
     return doc;
   }
 
-  const filePath = doc.file_path;
-  if (!filePath || !fs.existsSync(filePath)) {
+  const filePath = documentStorage.resolveManagedDocumentPath(doc.file_path, {
+    mustExist: true,
+  });
+  if (!filePath) {
     updateExtractionState(documentId, {
       text_status: 'failed',
       failure_stage: 'ocr',
-      failure_detail: 'File not found on disk',
+      failure_detail: 'Document path is invalid or outside managed storage',
       processing_finished_at: new Date().toISOString(),
     });
     return documentsService.get(documentId);

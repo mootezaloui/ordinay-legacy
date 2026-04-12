@@ -39,6 +39,33 @@ function getDocumentsRoot() {
   return path.join(resolveUserDataPath(), "documents");
 }
 
+function isPathInside(parentPath, candidatePath) {
+  const parent = path.resolve(parentPath);
+  const candidate = path.resolve(candidatePath);
+  const relative = path.relative(parent, candidate);
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+function resolveManagedDocumentPath(filePath, { mustExist = false } = {}) {
+  if (!filePath || typeof filePath !== "string") {
+    return null;
+  }
+
+  const root = path.resolve(getDocumentsRoot());
+  const candidate = path.resolve(filePath);
+  const effectiveCandidate =
+    fs.existsSync(candidate) ? fs.realpathSync.native(candidate) : candidate;
+  const effectiveRoot = fs.existsSync(root) ? fs.realpathSync.native(root) : root;
+
+  if (!isPathInside(effectiveRoot, effectiveCandidate)) {
+    return null;
+  }
+  if (mustExist && !fs.existsSync(effectiveCandidate)) {
+    return null;
+  }
+  return effectiveCandidate;
+}
+
 function ensureDocumentsRoot() {
   const root = getDocumentsRoot();
   if (!fs.existsSync(root)) {
@@ -107,5 +134,6 @@ function saveUploadedDocument({ originalName, mimeType, dataBase64 }) {
 module.exports = {
   getDocumentsRoot,
   ensureDocumentsRoot,
+  resolveManagedDocumentPath,
   saveUploadedDocument,
 };

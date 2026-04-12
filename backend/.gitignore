@@ -24,7 +24,9 @@ dist-ssr
 *.sw
 
 .debug
-.db
+*.db
+*.sqlite
+*.sqlite3
 .env
 .env.local
 .env.development.local

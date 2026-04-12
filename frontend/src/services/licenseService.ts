@@ -272,8 +272,81 @@ export interface AgentTokenResult {
   error?: string;
 }
 
-const AGENT_TOKEN_CACHE_KEY = "ordinay_agent_token";
-const AGENT_TOKEN_EXPIRY_KEY = "ordinay_agent_token_expires_at";
+interface AgentTokenCacheRecord {
+  token: string;
+  expiresAt: number;
+}
+
+const MAX_AGENT_TOKEN_LENGTH = 16_384;
+let inMemoryAgentTokenCache: AgentTokenCacheRecord | null = null;
+
+const normalizeAgentTokenCacheRecord = (
+  value: unknown,
+): AgentTokenCacheRecord | null => {
+  if (!isPlainObject(value)) return null;
+  const token = typeof value.token === "string" ? value.token.trim() : "";
+  const expiresAt = Number(value.expiresAt);
+  if (!token || token.length > MAX_AGENT_TOKEN_LENGTH) return null;
+  if (!Number.isFinite(expiresAt) || expiresAt <= 0) return null;
+  return { token, expiresAt };
+};
+
+const calculateTokenExpiry = (expiresIn: number): number => {
+  const seconds = Number.isFinite(expiresIn) ? Math.max(0, expiresIn) : 0;
+  return Date.now() + seconds * 1000;
+};
+
+const cacheAgentTokenSecurely = async (
+  token: string,
+  expiresIn: number,
+): Promise<void> => {
+  const record = normalizeAgentTokenCacheRecord({
+    token,
+    expiresAt: calculateTokenExpiry(expiresIn),
+  });
+  if (!record) return;
+  inMemoryAgentTokenCache = record;
+  if (typeof window === "undefined") return;
+  const bridge = window.electronAPI;
+  if (!bridge?.writeAgentTokenCache) return;
+  try {
+    const writeResult = await bridge.writeAgentTokenCache(
+      record.token,
+      record.expiresAt,
+    );
+    if (!writeResult?.ok) {
+      console.warn(
+        "[License] Failed to persist secure agent token cache:",
+        writeResult?.error || "write failed",
+      );
+    }
+  } catch (error) {
+    console.warn("[License] Failed to persist secure agent token cache:", error);
+  }
+};
+
+const readAgentTokenCacheRecord = async (): Promise<AgentTokenCacheRecord | null> => {
+  if (inMemoryAgentTokenCache) {
+    return inMemoryAgentTokenCache;
+  }
+  if (typeof window === "undefined") return null;
+  const bridge = window.electronAPI;
+  if (!bridge?.readAgentTokenCache) return null;
+  try {
+    const readResult = await bridge.readAgentTokenCache();
+    if (!readResult?.exists) return null;
+    const record = normalizeAgentTokenCacheRecord({
+      token: readResult.token,
+      expiresAt: readResult.expiresAt,
+    });
+    if (!record) return null;
+    inMemoryAgentTokenCache = record;
+    return record;
+  } catch (error) {
+    console.warn("[License] Failed to read secure agent token cache:", error);
+    return null;
+  }
+};
 
 export async function fetchAgentToken(
   deviceId: string,
@@ -294,7 +367,7 @@ export async function fetchAgentToken(
       };
     }
     if (payload.token) {
-      cacheAgentTokenLocally(payload.token, payload.expires_in || 3600);
+      await cacheAgentTokenSecurely(payload.token, payload.expires_in || 3600);
     }
     return payload;
   } catch (error) {
@@ -305,31 +378,36 @@ export async function fetchAgentToken(
   }
 }
 
-function cacheAgentTokenLocally(token: string, expiresIn: number): void {
+export async function getCachedAgentToken(): Promise<{ token: string; expired: boolean } | null> {
+  const record = await readAgentTokenCacheRecord();
+  if (!record) return null;
+  return { token: record.token, expired: Date.now() >= record.expiresAt };
+}
+
+export async function clearCachedAgentToken(): Promise<void> {
+  inMemoryAgentTokenCache = null;
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(AGENT_TOKEN_CACHE_KEY, token);
-  const expiresAt = Date.now() + expiresIn * 1000;
-  window.localStorage.setItem(AGENT_TOKEN_EXPIRY_KEY, String(expiresAt));
+  const bridge = window.electronAPI;
+  if (!bridge?.clearAgentTokenCache) return;
+  try {
+    const clearResult = await bridge.clearAgentTokenCache();
+    if (!clearResult?.ok) {
+      console.warn(
+        "[License] Failed to clear secure agent token cache:",
+        clearResult?.error || "clear failed",
+      );
+    }
+  } catch (error) {
+    console.warn("[License] Failed to clear secure agent token cache:", error);
+  }
 }
 
-export function getCachedAgentToken(): { token: string; expired: boolean } | null {
-  if (typeof window === "undefined") return null;
-  const token = window.localStorage.getItem(AGENT_TOKEN_CACHE_KEY);
-  if (!token) return null;
-  const expiresAt = Number(window.localStorage.getItem(AGENT_TOKEN_EXPIRY_KEY) || "0");
-  return { token, expired: Date.now() >= expiresAt };
-}
-
-export function clearCachedAgentToken(): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.removeItem(AGENT_TOKEN_CACHE_KEY);
-  window.localStorage.removeItem(AGENT_TOKEN_EXPIRY_KEY);
-}
-
-export function isAgentTokenNearExpiry(thresholdMs = 5 * 60 * 1000): boolean {
-  if (typeof window === "undefined") return true;
-  const expiresAt = Number(window.localStorage.getItem(AGENT_TOKEN_EXPIRY_KEY) || "0");
-  return Date.now() >= expiresAt - thresholdMs;
+export async function isAgentTokenNearExpiry(
+  thresholdMs = 5 * 60 * 1000,
+): Promise<boolean> {
+  const record = await readAgentTokenCacheRecord();
+  if (!record) return true;
+  return Date.now() >= record.expiresAt - thresholdMs;
 }
 
 export function clearPendingReferralCode(): void {

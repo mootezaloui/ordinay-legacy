@@ -1,5 +1,6 @@
 const db = require('../db/connection');
 const { assert, filterPayload, buildUpdateClause } = require('./_utils');
+const documentStorage = require('./documentStorage');
 
 const table = 'documents';
 const DOCUMENT_UNDERSTANDING_DISABLED_REASON = 'document_understanding_disabled';
@@ -47,6 +48,15 @@ function validateTarget(data) {
   ];
   const count = targets.filter((v) => v !== null && v !== undefined).length;
   assert(count === 1, 'Exactly one parent reference is required for documents');
+}
+
+function normalizeManagedFilePath(filePath) {
+  const resolved = documentStorage.resolveManagedDocumentPath(String(filePath || ''));
+  assert(
+    resolved,
+    'file_path must resolve inside the managed documents directory',
+  );
+  return resolved;
 }
 
 function resolveTextStatus(document) {
@@ -590,6 +600,7 @@ function create(payload) {
   };
   assert(insertData.title, 'title is required');
   assert(insertData.file_path, 'file_path is required');
+  insertData.file_path = normalizeManagedFilePath(insertData.file_path);
   validateTarget(insertData);
 
   const stmt = db.prepare(
@@ -632,6 +643,10 @@ function update(id, payload) {
     validateTarget(updatable);
   }
   assert(Object.keys(data).length > 0, 'No fields provided for update');
+
+  if (data.file_path !== undefined) {
+    data.file_path = normalizeManagedFilePath(data.file_path);
+  }
 
   let ingestionState = null;
   if (data.file_path !== undefined || data.mime_type !== undefined) {

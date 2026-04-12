@@ -1,6 +1,7 @@
 "use strict";
 
 const crypto = require("crypto");
+const path = require("path");
 const db = require("../db/connection");
 
 // ── Encryption (AES-256-GCM) ──────────────────────────────
@@ -9,8 +10,19 @@ const ENCRYPTION_ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
 
 function getEncryptionKey() {
-  const secret = process.env.APP_SECRET || "ordinay-default-app-secret-key-32";
-  return crypto.createHash("sha256").update(secret).digest();
+  const configured = String(process.env.APP_SECRET || "").trim();
+  if (configured) {
+    return crypto.createHash("sha256").update(configured).digest();
+  }
+
+  const nodeEnv = String(process.env.NODE_ENV || "development").trim().toLowerCase();
+  if (nodeEnv === "production") {
+    throw new Error("APP_SECRET is required in production");
+  }
+
+  // Dev-only fallback: instance-scoped key to avoid shared static secret.
+  const workspaceScopedFallback = `dev-fallback:${path.resolve(process.cwd())}`;
+  return crypto.createHash("sha256").update(workspaceScopedFallback).digest();
 }
 
 function encrypt(plaintext) {

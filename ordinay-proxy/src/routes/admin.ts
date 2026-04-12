@@ -1,18 +1,29 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { querySummary, purgeOldRecords } from "../analytics/store";
+import crypto from "crypto";
 
 const ADMIN_KEY = process.env.ADMIN_API_KEY || "";
 
 const router = Router();
+
+function secureEquals(left: string, right: string): boolean {
+  const leftBuf = Buffer.from(left, "utf8");
+  const rightBuf = Buffer.from(right, "utf8");
+  if (leftBuf.length !== rightBuf.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(leftBuf, rightBuf);
+}
 
 function requireAdminKey(req: Request, res: Response): boolean {
   if (!ADMIN_KEY) {
     res.status(503).json({ error: "admin_not_configured", message: "ADMIN_API_KEY not set" });
     return false;
   }
-  const provided = req.headers["x-admin-key"] || req.query.admin_key;
-  if (provided !== ADMIN_KEY) {
+  const providedHeader = req.headers["x-admin-key"];
+  const provided = Array.isArray(providedHeader) ? providedHeader[0] : providedHeader;
+  if (!provided || !secureEquals(String(provided), ADMIN_KEY)) {
     res.status(403).json({ error: "forbidden", message: "Invalid admin key" });
     return false;
   }

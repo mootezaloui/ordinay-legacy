@@ -408,14 +408,18 @@ function App() {
         updateStatus.availableVersion;
     }
 
-    if (
-      status === "download-failed" &&
-      updateAlertRef.current.lastStatus !== "download-failed"
-    ) {
+    const isUpdateFailure = [
+      "download-failed",
+      "update-check-failed",
+      "verification-failed",
+      "install-blocked",
+    ].includes(status);
+    if (isUpdateFailure && updateAlertRef.current.lastStatus !== status) {
       addAlert({
         type: "error",
         title: tSettings("updates.notice.downloadFailedTitle"),
-        message: tSettings("updates.notice.downloadFailedMessage"),
+        message:
+          updateStatus.lastError || tSettings("updates.notice.downloadFailedMessage"),
       });
     }
 

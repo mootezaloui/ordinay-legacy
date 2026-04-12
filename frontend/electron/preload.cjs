@@ -70,6 +70,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
   writeDeviceId: (deviceId) => ipcRenderer.invoke('write-device-id', deviceId),
 
   /**
+   * Read secure agent token cache from main process storage.
+   * @returns {Promise<{exists: boolean, token?: string, expiresAt?: number}>}
+   */
+  readAgentTokenCache: () => ipcRenderer.invoke('read-agent-token-cache'),
+
+  /**
+   * Write secure agent token cache through main process storage.
+   * @param {string} token
+   * @param {number} expiresAt
+   * @returns {Promise<{ok: boolean, error?: string}>}
+   */
+  writeAgentTokenCache: (token, expiresAt) =>
+    ipcRenderer.invoke('write-agent-token-cache', { token, expiresAt }),
+
+  /**
+   * Clear secure agent token cache from main process storage.
+   * @returns {Promise<{ok: boolean, error?: string}>}
+   */
+  clearAgentTokenCache: () => ipcRenderer.invoke('clear-agent-token-cache'),
+
+  /**
    * Open external web URL (https only)
    * @param {string} url
    * @returns {Promise<{ok: boolean, error?: string}>}

@@ -198,8 +198,14 @@ async function download(req, res, next) {
     if (!document.file_path) {
       return res.status(404).json({ message: 'Document file path not found' });
     }
+    const safePath = storage.resolveManagedDocumentPath(document.file_path, {
+      mustExist: true,
+    });
+    if (!safePath) {
+      return res.status(403).json({ message: 'Document path is outside managed storage' });
+    }
     const filename = document.original_filename || document.title || `document-${id}`;
-    res.download(document.file_path, filename);
+    res.download(safePath, filename);
   } catch (error) {
     next(error);
   }

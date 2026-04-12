@@ -7,6 +7,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
+    "test:security:phase2": "node scripts/security/phase2-backend-exposure.js",
+    "test:security:phase3": "node scripts/security/phase3-document-path-safety.js",
     "typecheck:agent": "tsc -p tsconfig.agent.json --pretty false",
     "build:agent": "tsc -p tsconfig.agent.build.json --pretty false",
     "mcp:websearch": "node scripts/run-mcp-websearch-server.js",

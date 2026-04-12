@@ -21,6 +21,11 @@ const {
   auditExternalLink,
   buildAuditEntry,
 } = require("./externalLinks.cjs");
+const {
+  resolveUpdateFeedUrl,
+  evaluateFeedSecurity,
+  verifyFileSha256,
+} = require("./updateSecurity.cjs");
 
 // ============================================================
 // CONFIGURATION
@@ -73,20 +78,30 @@ const DB_PATH = path.join(USER_DATA_PATH, "ordinay.db");
 const DOCUMENTS_PATH = path.join(USER_DATA_PATH, "documents");
 const LICENSE_PATH = path.join(USER_DATA_PATH, "ordinay_license.json");
 const DEVICE_ID_PATH = path.join(USER_DATA_PATH, "ordinay_device_id.txt");
+const AGENT_TOKEN_CACHE_PATH = path.join(
+  USER_DATA_PATH,
+  "ordinay_agent_token.json",
+);
 const ACTIVATION_PROTOCOL = "ordinay";
 // Queue for protocol URLs received before the renderer is ready (e.g. fresh launch via deep link on Windows)
 let deferredProtocolUrl = null;
 const UPDATE_CACHE_PATH = path.join(USER_DATA_PATH, "updates");
-const RAW_UPDATE_URL = (
-  process.env.ORDINAY_UPDATE_URL || "http://localhost:5174/updates/latest.json"
-).trim();
-const isLocalHttpUrl = (value) =>
-  value.startsWith("http://localhost") || value.startsWith("http://127.0.0.1");
-const UPDATE_FEED_URL =
-  RAW_UPDATE_URL.startsWith("https://") || isLocalHttpUrl(RAW_UPDATE_URL)
-    ? RAW_UPDATE_URL
-    : "";
 const ALLOW_DEV_UPDATES = process.env.ORDINAY_DEV_UPDATES === "1";
+const RAW_UPDATE_URL = String(process.env.ORDINAY_UPDATE_URL || "").trim();
+const UPDATE_MANIFEST_PUBLIC_KEY = String(
+  process.env.ORDINAY_UPDATE_MANIFEST_PUBLIC_KEY ||
+    process.env.ORDINAY_UPDATE_PUBLIC_KEY ||
+    "",
+).trim();
+const REQUIRE_SIGNED_UPDATE_MANIFEST = !isDev;
+const UPDATE_FEED_URL = resolveUpdateFeedUrl({
+  rawUpdateUrl: RAW_UPDATE_URL,
+  isDev,
+  allowDevUpdates: ALLOW_DEV_UPDATES,
+});
+if (RAW_UPDATE_URL && !UPDATE_FEED_URL) {
+  console.warn(`[Updater] Ignoring insecure update feed URL: ${RAW_UPDATE_URL}`);
+}
 
 // Backend configuration
 let backendProcess = null;
@@ -96,15 +111,16 @@ let mainWindow = null;
 let resetting = false;
 let updateDownloadUrl = null;
 let downloadedUpdatePath = null;
+let updateExpectedSha256 = null;
 let updateState = {
   status: "idle",
   version: app.getVersion(),
   availableVersion: null,
   progress: null,
   lastCheckedAt: null,
+  lastError: null,
   updatesEnabled: Boolean(UPDATE_FEED_URL) && (!isDev || ALLOW_DEV_UPDATES),
 };
-let updateStatusBeforeCheck = null;
 let lastUpdateAction = null;
 
 const CHROMIUM_UNSAFE_PORTS = new Set([
@@ -119,6 +135,87 @@ const CHROMIUM_UNSAFE_PORTS = new Set([
 function isBrowserUnsafePort(port) {
   const parsed = Number.parseInt(String(port || ""), 10);
   return Number.isInteger(parsed) && CHROMIUM_UNSAFE_PORTS.has(parsed);
+}
+
+const MAX_AGENT_TOKEN_LENGTH = 16_384;
+
+function normalizeAgentTokenCacheRecord(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  const token = typeof value.token === "string" ? value.token.trim() : "";
+  const expiresAt = Number(value.expiresAt);
+  if (!token || token.length > MAX_AGENT_TOKEN_LENGTH) {
+    return null;
+  }
+  if (!Number.isFinite(expiresAt) || expiresAt <= 0) {
+    return null;
+  }
+  return { token, expiresAt };
+}
+
+function readAgentTokenCacheFromDisk() {
+  if (!fs.existsSync(AGENT_TOKEN_CACHE_PATH)) {
+    return { exists: false };
+  }
+
+  try {
+    const raw = fs.readFileSync(AGENT_TOKEN_CACHE_PATH, "utf-8");
+    const parsed = JSON.parse(raw);
+    const normalized = normalizeAgentTokenCacheRecord(parsed);
+    if (!normalized) {
+      fs.unlinkSync(AGENT_TOKEN_CACHE_PATH);
+      return { exists: false };
+    }
+    return {
+      exists: true,
+      token: normalized.token,
+      expiresAt: normalized.expiresAt,
+    };
+  } catch (error) {
+    console.warn(
+      "[Security] Failed to read agent token cache:",
+      error?.message || error,
+    );
+    return { exists: false };
+  }
+}
+
+function writeAgentTokenCacheToDisk(token, expiresAt) {
+  const normalized = normalizeAgentTokenCacheRecord({ token, expiresAt });
+  if (!normalized) {
+    return { ok: false, error: "Invalid token cache payload." };
+  }
+
+  try {
+    const payload = JSON.stringify(normalized, null, 2);
+    fs.writeFileSync(AGENT_TOKEN_CACHE_PATH, payload, {
+      encoding: "utf-8",
+      mode: 0o600,
+    });
+    return { ok: true };
+  } catch (error) {
+    console.warn(
+      "[Security] Failed to write agent token cache:",
+      error?.message || error,
+    );
+    return { ok: false, error: "Failed to write agent token cache." };
+  }
+}
+
+function clearAgentTokenCacheFromDisk() {
+  try {
+    if (fs.existsSync(AGENT_TOKEN_CACHE_PATH)) {
+      fs.unlinkSync(AGENT_TOKEN_CACHE_PATH);
+    }
+    return { ok: true };
+  } catch (error) {
+    console.warn(
+      "[Security] Failed to clear agent token cache:",
+      error?.message || error,
+    );
+    return { ok: false, error: "Failed to clear agent token cache." };
+  }
 }
 
 // ============================================================
@@ -690,44 +787,89 @@ async function fetchUpdateFeed() {
   }
 }
 
-function resolveDownloadUrl(feed) {
-  const platformKey = getPlatformKey();
-  const downloads = feed?.downloads || {};
-  const url = downloads[platformKey];
-  if (typeof url !== "string") {
-    return null;
+function mapFeedSecurityError(errorCode) {
+  switch (String(errorCode || "")) {
+    case "feed_missing_version":
+      return "Update feed is missing a valid version.";
+    case "feed_missing_platform_download":
+      return "Update feed does not provide a download URL for this platform.";
+    case "feed_rejected_download_url":
+      return "Update feed provided an insecure download URL.";
+    case "feed_missing_signed_manifest":
+      return "Signed manifest is required but missing.";
+    case "feed_missing_manifest_signature":
+      return "Manifest signature is missing.";
+    case "feed_missing_public_key":
+      return "Updater public key is not configured.";
+    case "feed_manifest_signature_invalid":
+      return "Manifest signature verification failed.";
+    case "feed_missing_platform_checksum":
+      return "SHA-256 checksum for this platform is missing.";
+    default:
+      return "Update feed failed security validation.";
   }
-  if (url.startsWith("https://")) {
-    return url;
+}
+
+function mapChecksumError(result) {
+  if (!result || result.error === "missing_expected_sha256") {
+    return "Expected SHA-256 checksum is missing.";
   }
-  if (isLocalHttpUrl(url)) {
-    return url;
+  if (result.error === "sha256_mismatch") {
+    return "Downloaded update failed checksum verification.";
   }
-  return null;
+  return "Downloaded update integrity verification failed.";
 }
 
 async function checkForUpdates({ userInitiated = false } = {}) {
   if (!updatesEnabled()) return updateState;
   const online = await canReachUpdateHost();
   if (!online) return updateState;
-  updateStatusBeforeCheck = updateState.status;
   lastUpdateAction = "check";
   try {
     if (userInitiated) {
-      setUpdateState({ status: "checking", progress: null });
+      setUpdateState({ status: "checking", progress: null, lastError: null });
     }
+
     const feed = await fetchUpdateFeed();
-    const feedVersion = feed?.version;
+    const feedVersion = String(feed?.version || feed?.manifest?.version || "").trim();
+    const platformKey = getPlatformKey();
     const currentVersion = app.getVersion();
     const versionCompare = compareVersions(feedVersion, currentVersion);
-    updateDownloadUrl = versionCompare > 0 ? resolveDownloadUrl(feed) : null;
+
+    updateDownloadUrl = null;
+    updateExpectedSha256 = null;
     downloadedUpdatePath = null;
-    if (versionCompare > 0 && updateDownloadUrl) {
+    if (versionCompare > 0) {
+      const security = evaluateFeedSecurity({
+        feed,
+        platformKey,
+        isDev,
+        allowDevUpdates: ALLOW_DEV_UPDATES,
+        requireSignedManifest: REQUIRE_SIGNED_UPDATE_MANIFEST,
+        publicKey: UPDATE_MANIFEST_PUBLIC_KEY,
+      });
+
+      if (!security.ok) {
+        const message = mapFeedSecurityError(security.error);
+        setUpdateState({
+          status: "update-check-failed",
+          availableVersion: null,
+          progress: null,
+          lastCheckedAt: new Date().toISOString(),
+          lastError: message,
+        });
+        console.warn(`[Updater] Feed rejected: ${message}`);
+        return updateState;
+      }
+
+      updateDownloadUrl = security.downloadUrl;
+      updateExpectedSha256 = security.sha256 || null;
       setUpdateState({
         status: "update-available",
         availableVersion: feedVersion,
         progress: null,
         lastCheckedAt: new Date().toISOString(),
+        lastError: null,
       });
     } else {
       setUpdateState({
@@ -735,14 +877,15 @@ async function checkForUpdates({ userInitiated = false } = {}) {
         availableVersion: null,
         progress: null,
         lastCheckedAt: new Date().toISOString(),
+        lastError: null,
       });
     }
   } catch (error) {
-    if (updateStatusBeforeCheck) {
-      setUpdateState({ status: updateStatusBeforeCheck });
-    } else {
-      setUpdateState({ status: "idle" });
-    }
+    setUpdateState({
+      status: "update-check-failed",
+      progress: null,
+      lastError: error?.message || "Update check failed.",
+    });
     console.warn("[Updater] Check failed:", error?.message || error);
   } finally {
     lastUpdateAction = null;
@@ -805,16 +948,44 @@ async function downloadUpdate() {
     }
     const fileName = path.basename(new URL(updateDownloadUrl).pathname);
     const targetPath = path.join(UPDATE_CACHE_PATH, fileName);
-    setUpdateState({ status: "downloading", progress: 0 });
+    setUpdateState({ status: "downloading", progress: 0, lastError: null });
     await downloadToFile(updateDownloadUrl, targetPath);
+
+    const shouldVerifyDownload =
+      REQUIRE_SIGNED_UPDATE_MANIFEST || Boolean(updateExpectedSha256);
+    if (shouldVerifyDownload) {
+      const checksum = verifyFileSha256(targetPath, updateExpectedSha256);
+      if (!checksum.ok) {
+        try {
+          fs.unlinkSync(targetPath);
+        } catch {
+          // ignore cleanup failure
+        }
+        downloadedUpdatePath = null;
+        const message = mapChecksumError(checksum);
+        setUpdateState({
+          status: "verification-failed",
+          progress: null,
+          lastError: message,
+        });
+        console.warn(`[Updater] ${message}`);
+        return updateState;
+      }
+    }
+
     downloadedUpdatePath = targetPath;
     setUpdateState({
       status: "downloaded",
       availableVersion: updateState.availableVersion,
       progress: 100,
+      lastError: null,
     });
   } catch (error) {
-    setUpdateState({ status: "download-failed", progress: null });
+    setUpdateState({
+      status: "download-failed",
+      progress: null,
+      lastError: error?.message || "Download failed.",
+    });
     console.warn("[Updater] Download failed:", error?.message || error);
   } finally {
     lastUpdateAction = null;
@@ -823,17 +994,45 @@ async function downloadUpdate() {
 }
 
 function installUpdate() {
-  if (!updatesEnabled()) return;
-  if (!downloadedUpdatePath) return;
-  if (process.platform !== "win32") return;
+  if (!updatesEnabled()) return { ok: false, error: "updates_disabled" };
+  if (!downloadedUpdatePath) {
+    return { ok: false, error: "no_downloaded_update" };
+  }
+  if (process.platform !== "win32") {
+    return { ok: false, error: "install_not_supported_platform" };
+  }
+
+  const shouldVerifyBeforeInstall =
+    REQUIRE_SIGNED_UPDATE_MANIFEST || Boolean(updateExpectedSha256);
+  if (shouldVerifyBeforeInstall) {
+    const checksum = verifyFileSha256(downloadedUpdatePath, updateExpectedSha256);
+    if (!checksum.ok) {
+      const message = mapChecksumError(checksum);
+      setUpdateState({
+        status: "install-blocked",
+        progress: null,
+        lastError: message,
+      });
+      console.warn(`[Updater] Install blocked: ${message}`);
+      return { ok: false, error: "checksum_verification_failed" };
+    }
+  }
+
   try {
     spawn(downloadedUpdatePath, [], {
       detached: true,
       stdio: "ignore",
     }).unref();
     app.quit();
+    return { ok: true };
   } catch (error) {
+    setUpdateState({
+      status: "install-blocked",
+      progress: null,
+      lastError: error?.message || "Install failed.",
+    });
     console.warn("[Updater] Install failed:", error?.message || error);
+    return { ok: false, error: "install_spawn_failed" };
   }
 }
 
@@ -1123,6 +1322,21 @@ function setupIPC() {
     return { ok: true };
   });
 
+  // Handlers for secure agent token cache persisted outside renderer storage.
+  ipcMain.handle("read-agent-token-cache", () => {
+    return readAgentTokenCacheFromDisk();
+  });
+
+  ipcMain.handle("write-agent-token-cache", (_event, payload) => {
+    const token = payload?.token;
+    const expiresAt = payload?.expiresAt;
+    return writeAgentTokenCacheToDisk(token, expiresAt);
+  });
+
+  ipcMain.handle("clear-agent-token-cache", () => {
+    return clearAgentTokenCacheFromDisk();
+  });
+
   // Handler to open external web URLs (https-only)
   ipcMain.handle("open-external-web-url", (_event, url) => {
     return openExternalSafe(url, "renderer_web_link", { allowMailto: false });
@@ -1155,8 +1369,7 @@ function setupIPC() {
   });
 
   ipcMain.handle("updates-install", () => {
-    installUpdate();
-    return { ok: true };
+    return installUpdate();
   });
 
   ipcMain.handle("reset-app-data", async () => {

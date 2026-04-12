@@ -1,6 +1,8 @@
 {
   "scripts": {
-    "test:ordinay-e2e": "vitest run tests/e2e/ordinay-ai-provider.test.ts"
+    "test:ordinay-e2e": "vitest run tests/e2e/ordinay-ai-provider.test.ts",
+    "test:security:phase5": "vitest run tests/security/phase5-proxy-security.test.ts",
+    "test:security:phase6": "vitest run tests/security/phase6-license-boundaries.test.ts"
   },
   "dependencies": {
     "@tailwindcss/typography": "^0.5.19",

@@ -9,16 +9,24 @@ export default function SettingsUpdates() {
   const isChecking = updateStatus.status === "checking";
   const isDownloading = updateStatus.status === "downloading";
   const isDownloaded = updateStatus.status === "downloaded";
+  const hasFailure = [
+    "download-failed",
+    "update-check-failed",
+    "verification-failed",
+    "install-blocked",
+  ].includes(updateStatus.status);
   const isAvailable =
     updateStatus.status === "update-available" ||
     updateStatus.status === "download-failed" ||
+    updateStatus.status === "verification-failed" ||
+    updateStatus.status === "install-blocked" ||
     isDownloaded;
 
   const statusLabel = isChecking
     ? t("updates.checking")
     : isDownloading
       ? t("updates.downloading")
-      : updateStatus.status === "download-failed"
+      : hasFailure
         ? t("updates.updateFailed")
         : isAvailable
           ? t("updates.available")
@@ -80,6 +88,11 @@ export default function SettingsUpdates() {
                   {t("updates.downloadProgress", {
                     percent: updateStatus.progress,
                   })}
+                </div>
+              )}
+              {hasFailure && updateStatus.lastError && (
+                <div className="mt-1 text-xs text-red-600 dark:text-red-400">
+                  {updateStatus.lastError}
                 </div>
               )}
             </div>

@@ -20,7 +20,32 @@ function loadEnvFiles() {
   }
 }
 
+function parseBoolean(value, fallback = false) {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+  const normalized = String(value).trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+  if (["0", "false", "no", "off"].includes(normalized)) {
+    return false;
+  }
+  return fallback;
+}
+
 loadEnvFiles();
+
+const publicBindEnabled = parseBoolean(
+  process.env.AGENT_DEPLOYMENT_ALLOW_PUBLIC_BIND,
+  false,
+);
+if (publicBindEnabled && !String(process.env.BACKEND_API_TOKEN || "").trim()) {
+  console.error(
+    "[FATAL] BACKEND_API_TOKEN is required when AGENT_DEPLOYMENT_ALLOW_PUBLIC_BIND=true",
+  );
+  process.exit(1);
+}
 
 const deploymentState = initializeDeployment({
   env: process.env,

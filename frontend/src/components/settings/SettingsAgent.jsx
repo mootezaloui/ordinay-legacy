@@ -25,7 +25,6 @@ import {
 import { useLicense } from "../../contexts/LicenseContext";
 import {
   fetchAgentToken,
-  getCachedAgentToken,
   getOrCreateDeviceId,
 } from "../../services/licenseService";
 

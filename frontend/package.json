@@ -18,6 +18,7 @@
     "dev": "vite",
     "build:renderer": "tsc -b && vite build",
     "test:agent-suggestions": "node --test src/Agent_front/tests/suggestion.helpers.test.js",
+    "test:security:phase4": "node --test electron/updateSecurity.test.cjs",
     "build": "npm run build:renderer && npm run prepare:node && npm run rebuild:backend && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win",
     "lint": "eslint .",
     "preview": "vite preview",
