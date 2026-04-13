@@ -35,6 +35,61 @@ erDiagram
     PERSONAL_TASKS ||--o{ DOCUMENTS : files
 ```
 
+## 1.1 Domain Context Groups
+
+```mermaid
+flowchart LR
+    subgraph Legal["Legal Case Core"]
+        C["Clients"]
+        D["Dossiers"]
+        L["Lawsuits"]
+    end
+
+    subgraph Ops["Operational Execution"]
+        T["Tasks"]
+        S["Sessions"]
+        M["Missions"]
+        O["Officers"]
+    end
+
+    subgraph Fin["Finance and Evidence"]
+        F["Financial Entries"]
+        DOC["Documents"]
+        H["History and Notes"]
+    end
+
+    C --> D --> L
+    D --> T
+    D --> S
+    D --> M
+    L --> T
+    L --> S
+    L --> M
+    O --> M
+    T --> F
+    M --> F
+    S --> DOC
+    T --> DOC
+    M --> DOC
+    L --> DOC
+    D --> DOC
+    C --> F
+    C --> DOC
+    D --> H
+    L --> H
+    T --> H
+    S --> H
+    M --> H
+
+    classDef legal fill:#E8F1FF,stroke:#2F6FEB,color:#0A2A59,stroke-width:2px;
+    classDef ops fill:#FFF4CC,stroke:#B7791F,color:#5B3A00,stroke-width:2px;
+    classDef fin fill:#EAFAF1,stroke:#1F8F5F,color:#0A4C2A,stroke-width:2px;
+
+    class C,D,L legal;
+    class T,S,M,O ops;
+    class F,DOC,H fin;
+```
+
 ## 2. Logic Invariants (Critical)
 
 1. `Task ownership XOR`  

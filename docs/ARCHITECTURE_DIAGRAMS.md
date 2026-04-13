@@ -23,6 +23,17 @@ flowchart LR
     B -->|Agent tools + prompt orchestration| LLM
     B -. optional hosted deployment .-> Proxy
     Proxy -->|Auth, rate limits, quotas| LLM
+
+    classDef actor fill:#FFF4CC,stroke:#B7791F,color:#5B3A00,stroke-width:2px;
+    classDef app fill:#E8F1FF,stroke:#2F6FEB,color:#0A2A59,stroke-width:2px;
+    classDef data fill:#EAFAF1,stroke:#1F8F5F,color:#0A4C2A,stroke-width:2px;
+    classDef external fill:#F6ECFF,stroke:#7C3AED,color:#3B0764,stroke-width:2px;
+
+    class User actor;
+    class R,M,B app;
+    class DB data;
+    class Proxy,LLM external;
+    style Desktop fill:#F8FAFC,stroke:#64748B,stroke-width:1px;
 ```
 
 ## 2. Runtime Transport Logic
@@ -32,13 +43,23 @@ flowchart TD
     A["Renderer CRUD Request"] --> B{"Electron runtime?"}
     B -->|Yes| C["IPC: window.electronAPI.apiRequest"]
     C --> D["Main process proxyApiRequest"]
-    D --> E["Backend /api/* routes"]
+    D --> E["Backend API routes"]
 
-    B -->|No (web/fallback)| F["HTTP fetch to configured API base"]
+    B -->|No, web fallback| F["HTTP fetch to configured API base"]
     F --> E
 
-    G["Agent streaming request"] --> H["Direct HTTP/SSE to /agent/v2/stream"]
+    G["Agent streaming request"] --> H["Direct HTTP SSE to /agent/v2/stream"]
     H --> E
+
+    classDef request fill:#FFF4CC,stroke:#B7791F,color:#5B3A00,stroke-width:2px;
+    classDef decision fill:#FFEAF2,stroke:#BE185D,color:#831843,stroke-width:2px;
+    classDef transport fill:#E8F1FF,stroke:#2F6FEB,color:#0A2A59,stroke-width:2px;
+    classDef backend fill:#EAFAF1,stroke:#1F8F5F,color:#0A4C2A,stroke-width:2px;
+
+    class A,G request;
+    class B decision;
+    class C,D,F,H transport;
+    class E backend;
 ```
 
 ## 3. Backend Domain Modules
@@ -66,6 +87,14 @@ flowchart LR
     Documents --> DB
     Financial --> DB
     Agent --> DB
+
+    classDef core fill:#E8F1FF,stroke:#2F6FEB,color:#0A2A59,stroke-width:2px;
+    classDef module fill:#EEF2FF,stroke:#4F46E5,color:#1E1B4B,stroke-width:1.5px;
+    classDef store fill:#EAFAF1,stroke:#1F8F5F,color:#0A4C2A,stroke-width:2px;
+
+    class Router core;
+    class Clients,Dossiers,Lawsuits,Tasks,Sessions,Missions,Documents,Financial,Agent,Settings module;
+    class DB store;
 ```
 
 ## 4. Agent V2 Safety Flow
@@ -80,16 +109,24 @@ sequenceDiagram
     participant DB as SQLite
     participant L as LLM
 
+    rect rgb(236, 248, 255)
     U->>FE: Ask question / request action
     FE->>BE: POST /agent/v2/stream
     BE->>BE: Validate payload + optional stream auth
+    end
+
+    rect rgb(243, 240, 255)
     BE->>RT: Start agent loop
     RT->>L: Reason over context + tool schemas
     L->>RT: Tool calls / text chunks
     RT->>DB: Read/prepare write operations
+    end
+
+    rect rgb(235, 252, 242)
     RT-->>BE: Structured result events
     BE-->>FE: SSE chunks + result envelope
     FE-->>U: Live response + confirmation UX for sensitive ops
+    end
 ```
 
 ## 5. Optional Proxy Topology
@@ -103,6 +140,18 @@ flowchart LR
     Route --> ProviderA["Fast Model Provider"]
     Route --> ProviderB["Capable Model Provider"]
     Proxy --> Usage["Analytics + Usage API"]
+
+    classDef entry fill:#FFF4CC,stroke:#B7791F,color:#5B3A00,stroke-width:2px;
+    classDef proxy fill:#E8F1FF,stroke:#2F6FEB,color:#0A2A59,stroke-width:2px;
+    classDef guard fill:#FFEAF2,stroke:#BE185D,color:#831843,stroke-width:2px;
+    classDef provider fill:#F6ECFF,stroke:#7C3AED,color:#3B0764,stroke-width:2px;
+    classDef analytics fill:#EAFAF1,stroke:#1F8F5F,color:#0A4C2A,stroke-width:2px;
+
+    class Client entry;
+    class Proxy proxy;
+    class Auth,Limits,Route guard;
+    class ProviderA,ProviderB provider;
+    class Usage analytics;
 ```
 
 ## 6. Architecture Notes

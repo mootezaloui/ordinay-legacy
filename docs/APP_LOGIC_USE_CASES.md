@@ -11,6 +11,14 @@ flowchart TD
     A --> F["Attach and Analyze Documents"]
     A --> G["Track Financial Entries"]
     A --> H["Use AI Assistant with Safeguards"]
+
+    classDef root fill:#E8F1FF,stroke:#2F6FEB,color:#0A2A59,stroke-width:2px;
+    classDef core fill:#EAFAF1,stroke:#1F8F5F,color:#0A4C2A,stroke-width:2px;
+    classDef ai fill:#F6ECFF,stroke:#7C3AED,color:#3B0764,stroke-width:2px;
+
+    class A root;
+    class B,C,D,E,F,G core;
+    class H ai;
 ```
 
 ## 2. High-Value Use Cases
@@ -87,15 +95,23 @@ sequenceDiagram
     participant AG as Agent Runtime
     participant DB as SQLite
 
+    rect rgb(236, 248, 255)
     U->>FE: "Close this lawsuit and update sessions"
     FE->>BE: /agent/v2/stream
     BE->>AG: classify + plan operation
     AG-->>FE: return confirmation preview
+    end
+
+    rect rgb(243, 240, 255)
     U->>FE: confirm
     FE->>BE: confirmation turn
     BE->>AG: execute validated tools
     AG->>DB: apply mutation set
+    end
+
+    rect rgb(235, 252, 242)
     BE-->>FE: success + mutation outcome
+    end
 ```
 
 ## 4. Open-Source Logic Review Checkpoints

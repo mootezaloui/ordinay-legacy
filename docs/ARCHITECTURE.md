@@ -1,7 +1,5 @@
 # ARCHITECTURE.md — Ordinay Agent Technical Architecture
 
-_Migration Status: Phase 16 ✅ Completed | Phase 17 (Operational Controls) 🔄 In Progress_
-
 ## 1. System Context
 
 ```
