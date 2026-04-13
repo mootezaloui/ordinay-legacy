@@ -1,57 +1,114 @@
-# Ordinay Backend Foundation (MVP)
+# Backend Package
 
-Database-first backend with an Express HTTP layer. SQLite schema is enforced; the connection helper initializes the DB; endpoints perform basic CRUD with soft deletes and server-side validation aligned to schema constraints.
+Express + SQLite backend for `lawyer-app`.
 
-## Folder layout
-- `backend/src/config/app.config.js` – app-level settings (port, env, API prefix).
-- `backend/src/config/db.config.js` – database file location.
-- `backend/src/db/schema.sql` – full SQLite schema (structural constraints only).
-- `backend/src/db/connection.js` – opens `ordinay.db`, ensures the schema is applied, and exports a `better-sqlite3` instance.
-- `backend/src/routes` – Express route modules (mounted under `/api/*`).
-- `backend/src/controllers` – request/response handlers returning data or 404; they surface validation errors cleanly.
-- `backend/src/services` – CRUD + validation against schema rules (soft deletes, XOR checks on polymorphic relations).
-- `backend/src/middlewares` – error/not-found handlers.
-- `backend/src/app.js` – Express app wiring (JSON parsing, routes, middleware).
-- `backend/src/server.js` – server entry point.
+Responsibilities:
 
-## Why SQLite for the desktop-first MVP
-- File-based, zero-ops: fits the single-user desktop app with no external services required.
-- Fast and reliable on local disks; safe to bundle/distribute as one file (`ordinay.db`).
-- Supports foreign keys and CHECK/UNIQUE constraints to enforce integrity early.
-- Smooth path to later sync: the file can be replicated or migrated to a server-side RDBMS when a web backend arrives.
+- Domain APIs under `/api/*`
+- Data integrity and business rule enforcement
+- Local persistence (`better-sqlite3`)
+- Agent v2 stream endpoint integration
 
-## Why Express for the service layer
-- Ubiquitous, lightweight, and easy to extend for both desktop and future web targets.
-- Plays well with synchronous `better-sqlite3` access for local-first flows.
-- Simple middleware model for future auth, validation, and logging.
+## Requirements
 
-## Layered architecture
-- Routes: define endpoints only; mounted under `/api/*`.
-- Controllers: handle req/res, parse IDs, and return JSON/404.
-- Services: CRUD + validation (XOR polymorphic checks, required fields, soft deletes via `deleted_at`, updated timestamps).
-- DB: connection helper and schema; `better-sqlite3` used synchronously.
+- Node.js `20.19+` or `22.12+`
+- npm `10+`
 
-## Schema highlights (how it maps to the frontend)
-- `clients` → `dossiers` → `lawsuits` mirror the existing hierarchy (1:N per step).
-- Tasks: `tasks` link to either a dossier or a lawsuit; `personal_tasks` are standalone.
-- Hearings/consultations: `sessions` attach to either a lawsuit or a dossier (polymorphic) with status checks.
-- Missions/officers: `missions` link to a lawsuit or dossier and may be assigned to an `officer`.
-- Documents: single required target among client/dossier/lawsuit/mission/task/session/personal_task/financial_entry/officer.
-- Money: `financial_entries` always link to a client, optionally to a dossier or lawsuit (but never both together).
-- Activity: `notifications` (lightweight reminders) and `history_events` (audit trail) capture timeline data.
-- Every table is soft-delete ready (`deleted_at`) and timestamps creation/updates.
-- Reference codes: dossiers (`DOS-YYYY-XXX`), lawsuits (`PRO-YYYY-XXX`), missions (`MIS-YYYY-XXX`) are UNIQUE with format guards.
+## Install
 
-## Connection helper
-`connection.js` uses `better-sqlite3` (synchronous, low overhead) which suits a desktop app and keeps query code simple. It enables foreign keys and runs `schema.sql` automatically the first time (`clients` table check). Install dependencies once in the backend package: `npm install`.
+```bash
+npm ci
+```
 
-## What is intentionally not here yet
-- No authentication/authorization.
-- No data migration from the frontend/localStorage.
-- No sync/cloud logic; this will be layered on later.
-- No repository/DAL abstraction beyond the current services.
+## Configuration
 
-## Notes for future backend/web sync
-- Keep `schema.sql` as the single source of truth; migrations can be added later.
-- When introducing multi-user or remote sync, revisit auth fields and row-level ownership.
-- Triggers can later enforce cross-entity invariants if needed (e.g., lawsuit ↔ dossier consistency for finances).
+Create local environment config:
+
+```bash
+cp .env.example .env
+```
+
+Key runtime settings are defined in:
+
+- `src/config/app.config.js`
+- `src/config/db.config.js`
+- `.env.example`
+
+## Run
+
+Start production mode:
+
+```bash
+npm run start
+```
+
+Start development mode (nodemon):
+
+```bash
+npm run dev
+```
+
+## Agent Build Scripts
+
+Type-check agent TypeScript:
+
+```bash
+npm run typecheck:agent
+```
+
+Build agent runtime artifacts:
+
+```bash
+npm run build:agent
+```
+
+## Project Layout
+
+```text
+backend/
+  src/
+    app.js               Express app wiring and middleware
+    server.js            Backend startup entrypoint
+    routes/              API route modules
+    controllers/         Request handlers
+    services/            Domain and persistence operations
+    db/
+      schema.sql         SQLite schema and constraints
+      connection.js      DB initialization and connection
+    middlewares/         Error, not-found, and request middlewares
+    agent/               Agent runtime/deployment modules
+```
+
+## Data and Integrity Model
+
+- SQLite schema is the authoritative source for structural constraints.
+- Foreign keys and `CHECK` constraints enforce domain invariants.
+- Soft-delete pattern is used across core entities (`deleted_at`).
+- Backend services perform additional validation before writes.
+
+## API Scope
+
+The route layer covers core legal-office domains such as:
+
+- clients, dossiers, lawsuits
+- tasks, sessions, missions, officers
+- documents, financial entries, notifications
+- profile, settings, dashboard, imports
+- agent endpoints (`/agent/v2/stream` when enabled)
+
+## Integration Notes
+
+- Frontend desktop mode typically reaches this backend through Electron IPC proxying.
+- Agent streaming is consumed via direct HTTP stream endpoint access from the frontend.
+- Optional `ordinay-proxy` can be used for hosted/provider-side AI routing scenarios.
+
+## Related Docs
+
+- Root project README: `../README.md`
+- Architecture diagrams: `../docs/ARCHITECTURE_DIAGRAMS.md`
+- Domain model: `../docs/DOMAIN_MODEL.md`
+- Deep architecture notes: `../docs/ARCHITECTURE.md`
+
+## License
+
+MIT

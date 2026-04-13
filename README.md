@@ -13,6 +13,9 @@ Law office management application with:
 - [App Logic Use Cases](docs/APP_LOGIC_USE_CASES.md)
 - [Domain Model](docs/DOMAIN_MODEL.md)
 - [Deep Technical Architecture](docs/ARCHITECTURE.md)
+- [Agent System Design](docs/AGENT_SYSTEM_DESIGN.md)
+- [Agent Diagrams](docs/AGENT_DIAGRAMS.md)
+- [Agent Use Cases](docs/AGENT_USE_CASES.md)
 
 Architecture at a glance:
 
@@ -106,6 +109,9 @@ For engineering and recruiter review, follow this order:
 3. `docs/APP_LOGIC_USE_CASES.md` (core business flows and logic checkpoints)
 4. `docs/DOMAIN_MODEL.md` (entity relationships and invariants)
 5. `docs/ARCHITECTURE.md` (deep technical notes)
+6. `docs/AGENT_SYSTEM_DESIGN.md` (agent runtime decisions and safety model)
+7. `docs/AGENT_DIAGRAMS.md` (agent-focused architecture and lifecycle diagrams)
+8. `docs/AGENT_USE_CASES.md` (AI workflow scenarios mapped to runtime behavior)
 
 ## License
 

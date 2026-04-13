@@ -1,151 +1,104 @@
-# Ordinay — Case & Workflow Management SaaS
+# Frontend Package
 
-Ordinay is a modern, Tunisian-born SaaS platform designed to help professionals manage cases, clients, tasks, documents, financial tracking, and daily operations — all in one clean and intuitive dashboard.  
-Built with a scalable architecture, Ordinay can adapt beyond legal workflows to any business needing structured management.
+Desktop UI package for `lawyer-app`, containing:
 
----
+- React renderer (`src/`)
+- Electron main/preload process (`electron/`)
+- Desktop packaging configuration (`electron-builder.json`)
 
-## 🚀 Features
+This package is designed to run with the backend package in this repository.
 
-### 🌙 Full Dark Mode  
-Global dark/light theme system powered by Tailwind + Context Providers.
+## Requirements
 
-### 📁 Modular Sidebar Navigation  
-Fully collapsible, responsive sidebar with FontAwesome icons:
-- Dashboard  
-- Clients  
-- Dossiers  
-- Tasks  
-- Cases  
-- Sessions  
-- Courses  
-- Officers  
-- Accounting  
-- ChatBot  
+- Node.js `20.19+` or `22.12+`
+- npm `10+`
 
-### 📄 Individual Screens  
-Each module has its own screen located in:  
-`src/Screens/...`
+## Install
 
-### 📊 Reusable Table Components  
-Reusable table system under:  
-`src/components/table/`
-
-Includes:
-- Table  
-- TableHeader  
-- TableRow  
-- TableCell  
-- TableBody  
-- Pagination  
-- TableActions  
-- EmptyState  
-
-This ensures consistent UI/UX across all screens.
-
-### 🧩 Shared UI Components  
-Using ShadCN UI + custom extensions:
-- Cards  
-- Inputs  
-- Buttons  
-- Dialogs  
-- Dropdowns  
-- Sheets  
-
-### 🔔 Notification System  
-Minimal and extendable notification dropdown integrated in the header.
-
----
-
-## 🏛️ Project Structure
-
-```
-src/
- ├─ Screens/           → All page screens  
- ├─ components/
- │   ├─ layout/        → Page header + layout wrappers  
- │   ├─ table/         → Reusable table components  
- │   ├─ ui/            → ShadCN-based UI components  
- │   ├─ Sidebar.jsx  
- │   ├─ Header.jsx  
- ├─ contexts/
- │   ├─ ThemeProvider.jsx  
- │   ├─ SidebarContext.jsx  
- ├─ utils/
- │   └─ mockData.js  
- ├─ App.tsx  
- ├─ main.tsx  
- └─ index.css          → Tailwind setup + theme variables  
-```
-
----
-
-## 🛠️ Tech Stack
-
-- **React + TypeScript**  
-- **Vite**  
-- **TailwindCSS**  
-- **ShadCN UI**  
-- **PostCSS**  
-- **React Router**  
-- **FontAwesome**  
-
----
-
-## 🌐 Setup & Installation
-
-### 1. Clone the repository
 ```bash
-git clone https://github.com/mootez/lawyer-app.git
-cd lawyer-app
+npm ci
 ```
 
-### 2. Install dependencies
-```bash
-npm install
-```
+## Run
 
-### 3. Run development server
+Renderer only (Vite dev server):
+
 ```bash
 npm run dev
 ```
 
----
-
-## 📦 Build for Production
+Desktop mode (Vite + Electron):
 
 ```bash
-npm run build
+npm run electron:dev
 ```
 
----
+## Build
 
-## 🎯 Vision
+Renderer build only:
 
-Ordinay aims to become the go-to management workspace for professionals in Tunisia and across the region.  
-A unified dashboard that handles:
-- Client records  
-- Document & dossier management  
-- Legal cases & sessions  
-- Tasks & workflows  
-- Accountability & financial tracking  
+```bash
+npm run build:renderer
+```
 
-Fast, organized, and beautifully designed.
+Desktop package (electron-builder):
 
----
+```bash
+npm run electron:build
+```
 
-## 🤝 Contributing
+Windows package only:
 
-Contributions are welcome!  
-Ordinay’s modular architecture makes it easy to add:
-- New screens  
-- New components  
-- Additional business modules  
+```bash
+npm run electron:build:win
+```
 
-Open a pull request with your contribution.
+Unpacked directory build:
 
----
+```bash
+npm run electron:build:dir
+```
 
-## 📄 License
+## Scripts
 
-MIT License
+- `dev`: start Vite renderer dev server
+- `electron:dev`: start Vite + Electron desktop runtime
+- `build:renderer`: TypeScript project build + Vite production bundle
+- `electron:build*`: desktop packaging variants
+- `lint`: run ESLint
+- `preview`: preview renderer production bundle
+- `prepare:node`: copy Node runtime needed for packaged app
+- `rebuild:backend`: rebuild backend native dependencies for packaging
+- `generate:icons`: regenerate application icons
+
+## Project Layout
+
+```text
+frontend/
+  electron/         Electron main process and preload bridge
+  src/              React application code
+    Agent_front/    Agent experience UI
+    Screens/        Page-level screens
+    components/     Shared UI components
+    contexts/       Global app providers/state containers
+    services/       API/domain client services
+  build/            Build-time assets/scripts
+  public/           Static public assets
+```
+
+## Integration Notes
+
+- Standard CRUD calls are proxied through Electron IPC in desktop mode.
+- Agent streaming uses direct HTTP stream endpoint access.
+- Core business invariants are enforced in backend and database layers, not in this package.
+
+## Related Docs
+
+- Root project README: `../README.md`
+- Architecture diagrams: `../docs/ARCHITECTURE_DIAGRAMS.md`
+- App logic use cases: `../docs/APP_LOGIC_USE_CASES.md`
+- Domain model: `../docs/DOMAIN_MODEL.md`
+
+## License
+
+MIT
