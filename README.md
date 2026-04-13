@@ -65,7 +65,29 @@ npm --prefix ordinay-proxy run build
 - `backend/` API server and domain logic
 - `frontend/` Electron + React application
 - `ordinay-proxy/` optional secured proxy
-- `docs/ARCHITECTURE.md` high-level architecture
+- `docs/` architecture, domain, and use-case documentation
+
+## Architecture Vision Pack
+
+For engineering and recruiter review, start with:
+
+1. `docs/PROJECT_VISION.md` (product + architecture rationale)
+2. `docs/ARCHITECTURE_DIAGRAMS.md` (system, runtime, and safety flow diagrams)
+3. `docs/APP_LOGIC_USE_CASES.md` (core business flows and logic checkpoints)
+4. `docs/DOMAIN_MODEL.md` (entity relationships and invariants)
+5. `docs/ARCHITECTURE.md` (deep technical notes)
+
+High-level system map:
+
+```mermaid
+flowchart LR
+    User["Operator"] --> UI["React Renderer"]
+    UI --> IPC["Electron IPC"]
+    IPC --> API["Express Backend"]
+    API --> DB[("SQLite")]
+    API --> LLM["LLM API"]
+    API -. optional .-> Proxy["Ordinay Proxy"]
+```
 
 ## License
 
