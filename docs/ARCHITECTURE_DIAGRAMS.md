@@ -23,17 +23,6 @@ flowchart LR
     B -->|Agent tools + prompt orchestration| LLM
     B -. optional hosted deployment .-> Proxy
     Proxy -->|Auth, rate limits, quotas| LLM
-
-    classDef actor fill:#FFF4CC,stroke:#B7791F,color:#5B3A00,stroke-width:2px;
-    classDef app fill:#E8F1FF,stroke:#2F6FEB,color:#0A2A59,stroke-width:2px;
-    classDef data fill:#EAFAF1,stroke:#1F8F5F,color:#0A4C2A,stroke-width:2px;
-    classDef external fill:#F6ECFF,stroke:#7C3AED,color:#3B0764,stroke-width:2px;
-
-    class User actor;
-    class R,M,B app;
-    class DB data;
-    class Proxy,LLM external;
-    style Desktop fill:#F8FAFC,stroke:#64748B,stroke-width:1px;
 ```
 
 ## 2. Runtime Transport Logic
@@ -109,24 +98,16 @@ sequenceDiagram
     participant DB as SQLite
     participant L as LLM
 
-    rect rgb(236, 248, 255)
     U->>FE: Ask question / request action
     FE->>BE: POST /agent/v2/stream
     BE->>BE: Validate payload + optional stream auth
-    end
-
-    rect rgb(243, 240, 255)
     BE->>RT: Start agent loop
     RT->>L: Reason over context + tool schemas
     L->>RT: Tool calls / text chunks
     RT->>DB: Read/prepare write operations
-    end
-
-    rect rgb(235, 252, 242)
     RT-->>BE: Structured result events
     BE-->>FE: SSE chunks + result envelope
     FE-->>U: Live response + confirmation UX for sensitive ops
-    end
 ```
 
 ## 5. Optional Proxy Topology

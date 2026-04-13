@@ -95,23 +95,15 @@ sequenceDiagram
     participant AG as Agent Runtime
     participant DB as SQLite
 
-    rect rgb(236, 248, 255)
     U->>FE: "Close this lawsuit and update sessions"
     FE->>BE: /agent/v2/stream
     BE->>AG: classify + plan operation
     AG-->>FE: return confirmation preview
-    end
-
-    rect rgb(243, 240, 255)
     U->>FE: confirm
     FE->>BE: confirmation turn
     BE->>AG: execute validated tools
     AG->>DB: apply mutation set
-    end
-
-    rect rgb(235, 252, 242)
     BE-->>FE: success + mutation outcome
-    end
 ```
 
 ## 4. Open-Source Logic Review Checkpoints
