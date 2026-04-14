@@ -33,7 +33,7 @@ export function FollowUpSuggestions({
           <Sparkles className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
         </div>
         <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-          Suggested Next Steps
+          {t("agent.followUps.header")}
         </span>
       </div>
 

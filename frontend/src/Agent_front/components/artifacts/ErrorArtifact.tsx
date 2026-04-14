@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { AlertCircle, Search, ArrowRight } from "lucide-react";
 import { MarkdownOutput } from "../../../components/MarkdownOutput";
 import { useData } from "../../../contexts/DataContext";
@@ -136,6 +137,7 @@ function useContextSuggestions(): ContextSuggestion[] {
  * Suggestions reference real entities, not hard-coded examples.
  */
 export function ErrorArtifact({ content, onExampleClick }: ErrorArtifactProps) {
+  const { t } = useTranslation("common");
   const isContext = isContextError(content);
   const normalized = content.trim().toUpperCase();
   const isPendingSelection = normalized === "PENDING_SELECTION";
@@ -158,7 +160,7 @@ export function ErrorArtifact({ content, onExampleClick }: ErrorArtifactProps) {
             ? "text-amber-700 dark:text-amber-400"
             : "text-red-600 dark:text-red-400"
         }`}>
-          {isContext ? "Context Needed" : isPendingSelection ? "Selection Needed" : "Error"}
+          {isContext ? t("agent.artifacts.contextNeeded") : isPendingSelection ? t("agent.artifacts.selectionNeeded") : t("agent.artifacts.error")}
         </span>
       </div>
       <div className="artifact-build-section artifact-build-section-1 px-5 py-3 space-y-3">
@@ -176,7 +178,7 @@ export function ErrorArtifact({ content, onExampleClick }: ErrorArtifactProps) {
         {showSuggestions && (
           <div className="pt-2 space-y-2">
             <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-              Try loading an entity first:
+              {t("agent.artifacts.tryLoadEntity")}
             </p>
             <div className="flex flex-wrap gap-2">
               {contextSuggestions.map((suggestion, idx) => (

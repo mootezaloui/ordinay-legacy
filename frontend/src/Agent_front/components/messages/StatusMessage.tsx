@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Brain, Globe, Database, Terminal, FileText, Upload } from "lucide-react";
 
 interface StatusMessageProps {
@@ -103,6 +104,7 @@ function ThinkingLoader({ action }: { action: string }) {
 // ────────────────────────────────────────────────────────────────
 
 function WebSearchLoader({ action }: { action: string }) {
+  const { t } = useTranslation("common");
   const mountRef = useRef(Date.now());
   const [elapsed, setElapsed] = useState(0);
 
@@ -122,7 +124,7 @@ function WebSearchLoader({ action }: { action: string }) {
           <div className="agent-loader-scan-beam" />
         </div>
         <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400 dark:text-slate-500 flex-shrink-0">
-          Searching
+          {t("agent.status.searching")}
         </span>
       </div>
 

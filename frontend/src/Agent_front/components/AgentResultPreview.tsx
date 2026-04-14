@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Database,
   Zap,
@@ -57,17 +58,17 @@ interface DataContext {
 }
 
 const DATA_SOURCE_CONFIG = [
-  { id: "dossiers", label: "Dossiers", icon: FolderOpen },
-  { id: "clients", label: "Clients", icon: Users },
-  { id: "lawsuits", label: "lawsuits", icon: FileText },
-  { id: "tasks", label: "Tasks", icon: CheckSquare },
-  { id: "personalTasks", label: "Personal Tasks", icon: CheckSquare },
-  { id: "missions", label: "Missions", icon: Zap },
-  { id: "sessions", label: "Sessions", icon: Calendar },
-  { id: "financialEntries", label: "Accounting", icon: Wallet },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "history", label: "History", icon: History },
-  { id: "documents", label: "Documents", icon: FileText },
+  { id: "dossiers", labelKey: "dossiers", icon: FolderOpen },
+  { id: "clients", labelKey: "clients", icon: Users },
+  { id: "lawsuits", labelKey: "lawsuits", icon: FileText },
+  { id: "tasks", labelKey: "tasks", icon: CheckSquare },
+  { id: "personalTasks", labelKey: "personalTasks", icon: CheckSquare },
+  { id: "missions", labelKey: "missions", icon: Zap },
+  { id: "sessions", labelKey: "sessions", icon: Calendar },
+  { id: "financialEntries", labelKey: "financialEntries", icon: Wallet },
+  { id: "notifications", labelKey: "notifications", icon: Bell },
+  { id: "history", labelKey: "history", icon: History },
+  { id: "documents", labelKey: "documents", icon: FileText },
 ];
 
 interface AgentResultPreviewProps {
@@ -79,6 +80,7 @@ export function AgentResultPreview({
   dataAccess,
   setDataAccess,
 }: AgentResultPreviewProps) {
+  const { t } = useTranslation("common");
   const data = useData() as DataContext;
   const { notifications = [] } = useNotifications();
   const [auxCounts, setAuxCounts] = useState<{
@@ -188,8 +190,8 @@ export function AgentResultPreview({
             }`}
           >
             {Object.values(dataAccess).some(Boolean)
-              ? "Connected to your data"
-              : "Data access disabled"}
+              ? t("agent.context.connected")
+              : t("agent.context.disabled")}
           </span>
         </button>
       </div>
@@ -198,7 +200,7 @@ export function AgentResultPreview({
         <div className="flex items-center gap-2 mb-3">
           <Database className="w-4 h-4 text-slate-600 dark:text-slate-400" />
           <h3 className="text-xs font-bold text-[#0f172a] dark:text-[#f1f5f9] uppercase tracking-wide">
-            Data Access
+            {t("agent.context.dataAccess")}
           </h3>
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -258,7 +260,7 @@ export function AgentResultPreview({
                       : "text-slate-400 dark:text-slate-600"
                   }`}
                 >
-                  {source.label}
+                  {t(`agent.context.sources.${source.labelKey}`)}
                 </div>
               </button>
             );

@@ -1,4 +1,5 @@
 import { useCallback, useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { AgentTopBar } from "./components/AgentTopBar";
 import { AgentInput } from "./components/AgentInput";
 import { AgentConversation } from "./components/AgentConversation";
@@ -18,6 +19,7 @@ interface AgentLayoutProps {
 export function AgentLayout({
   isGlobalSidebarCollapsed = false,
 }: AgentLayoutProps = {}) {
+  const { t } = useTranslation("common");
   const [rightPanelTab, setRightPanelTab] = useState<"context" | "documents">(
     "context",
   );
@@ -239,7 +241,7 @@ export function AgentLayout({
             <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636a9 9 0 010 12.728M15.536 8.464a5 5 0 010 7.072M6.343 6.343a9 9 0 000 12.728M9.172 9.172a5 5 0 000 7.071M12 12h.01" />
             </svg>
-            No internet connection — Agent is unavailable
+            {t("agent.layout.offline")}
           </div>
         )}
 
@@ -267,7 +269,7 @@ export function AgentLayout({
         <div 
           className="absolute -left-4 top-[10%] bottom-[10%] w-4 cursor-pointer group/toggle flex items-center justify-center z-50 overflow-visible"
           onClick={() => setShowContextSidebar(!showContextSidebar)}
-          title={showContextSidebar ? "Collapse panel" : "Expand panel"}
+          title={showContextSidebar ? t("agent.layout.collapsePanel") : t("agent.layout.expandPanel")}
         >
           <div className="h-20 w-1.5 bg-black/[0.1] dark:bg-white/[0.1] rounded-full flex items-center justify-center group-hover/toggle:h-32 group-hover/toggle:w-4 group-hover/toggle:bg-indigo-500/20 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] border border-transparent group-hover/toggle:border-indigo-500/30 group-hover/toggle:shadow-[0_0_12px_rgba(79,70,229,0.15)] relative overflow-hidden">
                <i className={`fas ${showContextSidebar ? "fa-chevron-right" : "fa-chevron-left"} text-[8px] text-indigo-500 opacity-0 group-hover/toggle:opacity-100 transition-opacity duration-300 absolute`}></i>
@@ -286,7 +288,7 @@ export function AgentLayout({
                     : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800"
                 }`}
               >
-                Context
+                {t("agent.layout.contextTab")}
               </button>
               <button
                 type="button"
@@ -297,7 +299,7 @@ export function AgentLayout({
                     : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800"
                 }`}
               >
-                Documents
+                {t("agent.layout.documentsTab")}
               </button>
             </div>
           </div>
@@ -339,7 +341,7 @@ export function AgentLayout({
                     : "bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800"
                 }`}
               >
-                Context
+                {t("agent.layout.contextTab")}
               </button>
               <button
                 type="button"
@@ -350,7 +352,7 @@ export function AgentLayout({
                     : "bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800"
                 }`}
               >
-                Documents
+                {t("agent.layout.documentsTab")}
               </button>
             </div>
           </div>

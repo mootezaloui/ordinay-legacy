@@ -1,4 +1,5 @@
 import { Sparkles, Database, ChevronLeft, ChevronRight } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { AgentModelPreference } from "../../services/api/agent";
 
 interface AgentTopBarProps {
@@ -20,6 +21,7 @@ export function AgentTopBar({
   onModelPreferenceChange,
   isStreaming = false,
 }: AgentTopBarProps) {
+  const { t } = useTranslation("common");
   return (
     <div className="h-14 flex-shrink-0 border-b border-black/[0.05] dark:border-white/[0.05] bg-white/80 dark:bg-[#0f172a]/80 backdrop-blur px-3 sm:px-4 flex items-center justify-between gap-3">
       <div className="flex items-center gap-2 min-w-0">
@@ -44,28 +46,28 @@ export function AgentTopBar({
             <Sparkles className="w-3.5 h-3.5" />
           </div>
           <span className="text-sm font-semibold text-[#0f172a] dark:text-[#f1f5f9] truncate">
-            <span className="hidden sm:inline">Ordinay Intelligence</span>
-            <span className="sm:hidden">Ordinay Agent</span>
+            <span className="hidden sm:inline">{t("agent.topbar.titleDesktop")}</span>
+            <span className="sm:hidden">{t("agent.topbar.titleMobile")}</span>
           </span>
         </div>
       </div>
 
       <div className="flex items-center gap-2">
         <span className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate max-w-[200px]">
-          {modelPreference || "Configure AI in Settings"}
+          {modelPreference || t("agent.topbar.configurePlaceholder")}
         </span>
         <button
           onClick={onToggleContext}
           className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] rounded-lg transition-colors whitespace-nowrap"
           aria-label={
-            showContextSidebar ? "Hide context panel" : "Show context panel"
+            showContextSidebar ? t("agent.topbar.hideContextAria") : t("agent.topbar.showContextAria")
           }
         >
           <Database className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">
-            {showContextSidebar ? "Hide Context" : "Show Context"}
+            {showContextSidebar ? t("agent.topbar.hideContext") : t("agent.topbar.showContext")}
           </span>
-          <span className="sm:hidden">Context</span>
+          <span className="sm:hidden">{t("agent.topbar.context")}</span>
         </button>
       </div>
     </div>

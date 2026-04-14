@@ -1,4 +1,5 @@
 import { HelpCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { ClarificationOutput, SemanticSignal } from "../../../services/api/agent";
 
 interface ClarificationArtifactProps {
@@ -34,6 +35,7 @@ function renderSignal(signal: SemanticSignal) {
 }
 
 export function ClarificationArtifact({ data, onConfirmWebSearch }: ClarificationArtifactProps) {
+  const { t } = useTranslation("common");
   const reasonType = data.reason?.type || "UNKNOWN";
   const entityType = data.reason?.entityType || null;
   const resultCount = data.reason?.resultCount;
@@ -45,7 +47,7 @@ export function ClarificationArtifact({ data, onConfirmWebSearch }: Clarificatio
       <div className="artifact-build-header agent-artifact-header flex items-center gap-2 px-5 py-3">
         <HelpCircle className="w-4 h-4 text-slate-500" />
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-          Clarification Required
+          {t("agent.artifacts.clarificationRequired")}
         </span>
       </div>
 
@@ -53,19 +55,19 @@ export function ClarificationArtifact({ data, onConfirmWebSearch }: Clarificatio
         <div className="artifact-build-section artifact-build-section-2 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-slate-600 dark:text-slate-300">
           <div className="flex flex-col gap-1">
             <span className="uppercase tracking-wide text-slate-400 dark:text-slate-500">
-              Reason
+              {t("agent.artifacts.reason")}
             </span>
             <span className="font-semibold">{reasonType}</span>
           </div>
           <div className="flex flex-col gap-1">
             <span className="uppercase tracking-wide text-slate-400 dark:text-slate-500">
-              Entity
+              {t("agent.artifacts.entity")}
             </span>
             <span className="font-semibold">{formatValue(entityType)}</span>
           </div>
           <div className="flex flex-col gap-1">
             <span className="uppercase tracking-wide text-slate-400 dark:text-slate-500">
-              Result Count
+              {t("agent.artifacts.resultCount")}
             </span>
             <span className="font-semibold">{formatValue(resultCount ?? null)}</span>
           </div>
@@ -74,7 +76,7 @@ export function ClarificationArtifact({ data, onConfirmWebSearch }: Clarificatio
         {hasOptions && (
           <div className="artifact-build-section artifact-build-section-2 space-y-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-              Options
+              {t("agent.artifacts.options")}
             </span>
             <div className="flex flex-wrap gap-2">
               {data.options?.map((option, idx) => (
@@ -93,7 +95,7 @@ export function ClarificationArtifact({ data, onConfirmWebSearch }: Clarificatio
         {hasSignals && (
           <div className="artifact-build-section artifact-build-section-3 space-y-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-              Signals
+              {t("agent.artifacts.signals")}
             </span>
             <div className="flex flex-wrap gap-2">
               {data.signals?.map((signal, idx) => (
@@ -116,7 +118,7 @@ export function ClarificationArtifact({ data, onConfirmWebSearch }: Clarificatio
               onClick={onConfirmWebSearch}
               className="px-3 py-2 rounded-lg text-xs font-semibold bg-[#0f172a] text-white dark:bg-[#f1f5f9] dark:text-[#0f172a]"
             >
-              Search The Web
+              {t("agent.artifacts.searchTheWeb")}
             </button>
           </div>
         )}

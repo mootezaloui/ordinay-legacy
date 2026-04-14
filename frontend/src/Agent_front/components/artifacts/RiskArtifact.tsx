@@ -1,4 +1,5 @@
 import { Shield, AlertTriangle, Clock, Link2, FileWarning, CircleDot } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { RiskAnalysisOutput, RiskItem } from "../../../services/api/agent";
 
 interface RiskArtifactProps {
@@ -51,6 +52,7 @@ function getSeverityStyle(severity: string) {
  * Grouped by severity, each risk is its own card — no prose wrappers.
  */
 export function RiskArtifact({ data }: RiskArtifactProps) {
+  const { t } = useTranslation("common");
   const overallStyle = getSeverityStyle(data.overallRiskLevel);
 
   // Group risks by severity in order: CRITICAL → HIGH → MEDIUM → LOW
@@ -72,10 +74,10 @@ export function RiskArtifact({ data }: RiskArtifactProps) {
           </div>
           <div>
             <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-              Risk Analysis
+              {t("agent.artifacts.riskAnalysis")}
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              {data.risks?.length || 0} risk{(data.risks?.length || 0) !== 1 ? "s" : ""} identified
+              {t("agent.artifacts.risksIdentified", { count: data.risks?.length || 0 })}
             </p>
           </div>
         </div>
@@ -144,7 +146,7 @@ export function RiskArtifact({ data }: RiskArtifactProps) {
         <div className="flex items-center gap-2">
           <CircleDot className="w-3.5 h-3.5 text-slate-400" />
           <span className="text-xs text-slate-500 dark:text-slate-400">
-            Rule-based analysis · Requires validation
+            {t("agent.artifacts.riskAnalysisFooter")}
           </span>
         </div>
       </div>

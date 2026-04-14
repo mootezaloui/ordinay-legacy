@@ -1,4 +1,5 @@
 import { Check, Sparkles, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { AssistSuggestionsOutput, AssistSuggestionItem } from "../../../services/api/agent";
 import {
   resolveAssistSuggestionQuestion,
@@ -18,6 +19,7 @@ export function AssistSuggestions({
   onAccept,
   onDecline,
 }: AssistSuggestionsProps) {
+  const { t } = useTranslation("common");
   const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
   if (suggestions.length === 0) return null;
 
@@ -34,7 +36,7 @@ export function AssistSuggestions({
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-amber-500 dark:text-amber-400" />
           <span className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-            Suggestion
+            {t("agent.artifacts.suggestion")}
           </span>
           <span className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${meta.color}`}>
             {meta.label}
@@ -46,7 +48,7 @@ export function AssistSuggestions({
             onClick={onDismiss}
             className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
           >
-            Dismiss
+            {t("agent.artifacts.dismiss")}
           </button>
         )}
       </div>
@@ -61,11 +63,11 @@ export function AssistSuggestions({
           decision === "accepted" ? (
             <div className="rounded-md border border-emerald-200/80 bg-emerald-50 px-3 py-2 flex items-center gap-1.5 text-xs font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
               <Check className="h-3.5 w-3.5 shrink-0" />
-              {suggestion.domain === "execute" ? "Action started" : "Draft generation started"}
+              {suggestion.domain === "execute" ? t("agent.artifacts.actionStarted") : t("agent.artifacts.draftGenerationStarted")}
             </div>
           ) : (
             <div className="rounded-md border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
-              Declined
+              {t("agent.artifacts.declined")}
             </div>
           )
         ) : (
@@ -76,7 +78,7 @@ export function AssistSuggestions({
               className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition-colors"
             >
               <Check className="h-4 w-4" />
-              Yes
+              {t("agent.artifacts.yes")}
             </button>
             <button
               type="button"
@@ -84,7 +86,7 @@ export function AssistSuggestions({
               className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 transition-colors"
             >
               <X className="h-4 w-4" />
-              No
+              {t("agent.artifacts.no")}
             </button>
           </div>
         )}

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { FolderOpen, Folder, ChevronRight, ChevronDown, MoreVertical, Edit2, Trash2, GripVertical, Check, X } from "lucide-react";
 import { AgentFolder } from "../types/agentSession";
 import {
@@ -52,6 +53,7 @@ export function AgentFolderItem({
   onDrop,
   registerRef,
 }: AgentFolderItemProps) {
+  const { t } = useTranslation("common");
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(folder.title);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -153,13 +155,13 @@ export function AgentFolderItem({
                 onChange={(e) => setEditValue(e.target.value)}
                 onKeyDown={handleKeyDown}
                 onBlur={handleSaveEdit}
-                aria-label="Folder name"
+                aria-label={t("agent.folder.nameAria")}
                 className="flex-1 min-w-0 text-sm font-medium bg-white/90 dark:bg-[#1e293b]/70 border border-black/[0.06] dark:border-white/[0.06] rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-slate-400/20"
               />
               <button
                 type="button"
                 onClick={handleSaveEdit}
-                title="Save"
+                title={t("agent.folder.save")}
                 className="p-0.5 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded-full"
               >
                 <Check className="w-3.5 h-3.5 text-emerald-600" />
@@ -167,7 +169,7 @@ export function AgentFolderItem({
               <button
                 type="button"
                 onClick={handleCancelEdit}
-                title="Cancel"
+                title={t("agent.folder.cancel")}
                 className="p-0.5 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded-full"
               >
                 <X className="w-3.5 h-3.5 text-rose-600" />
@@ -191,7 +193,7 @@ export function AgentFolderItem({
                 <button
                   type="button"
                   onClick={(e) => e.stopPropagation()}
-                  title="Folder options"
+                  title={t("agent.folder.options")}
                   className="opacity-0 group-hover:opacity-100 p-1 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] rounded-full transition-all"
                 >
                   <MoreVertical className="w-3.5 h-3.5 text-slate-400" />
@@ -206,14 +208,14 @@ export function AgentFolderItem({
               >
                 <DropdownMenuItem onClick={handleStartEdit}>
                   <Edit2 className="w-3.5 h-3.5 mr-2" />
-                  Rename
+                  {t("agent.folder.rename")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => setShowDeleteDialog(true)}
                   className="text-red-600 dark:text-red-400 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/20"
                 >
                   <Trash2 className="w-3.5 h-3.5 mr-2" />
-                  Delete Folder
+                  {t("agent.folder.delete")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -232,12 +234,12 @@ export function AgentFolderItem({
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>
-            <DialogTitle>Delete Folder</DialogTitle>
+            <DialogTitle>{t("agent.folder.deleteTitle")}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete the folder "{folder.title}"?
+              {t("agent.folder.deleteConfirm", { title: folder.title })}
               {conversationCount > 0 && (
                 <span className="block mt-2">
-                  This folder contains <strong>{conversationCount}</strong> conversation{conversationCount !== 1 ? 's' : ''}.
+                  {t("agent.folder.containsConversations", { count: conversationCount })}
                 </span>
               )}
             </DialogDescription>
@@ -248,7 +250,7 @@ export function AgentFolderItem({
               onClick={() => setShowDeleteDialog(false)}
               className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white/80 dark:bg-[#0f172a]/60 hover:bg-white dark:hover:bg-[#1e293b] rounded-full border border-black/[0.05] dark:border-white/[0.06] transition-colors"
             >
-              Cancel
+              {t("agent.folder.cancel")}
             </button>
             {conversationCount > 0 && (
               <button
@@ -259,7 +261,7 @@ export function AgentFolderItem({
                 }}
                 className="px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 bg-amber-100/80 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50 rounded-full transition-colors"
               >
-                Move to Root & Delete
+                {t("agent.folder.moveToRootAndDelete")}
               </button>
             )}
             <button
@@ -270,7 +272,7 @@ export function AgentFolderItem({
               }}
               className="px-4 py-2 text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-full transition-colors"
             >
-              {conversationCount > 0 ? "Delete All" : "Delete"}
+              {conversationCount > 0 ? t("agent.folder.deleteAll") : t("agent.folder.delete")}
             </button>
           </DialogFooter>
         </DialogContent>

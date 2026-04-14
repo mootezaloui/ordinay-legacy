@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { FileText, Image as ImageIcon, Paperclip } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { MessageAttachment } from "../../types/agentMessage";
 
 type ChatAttachmentVariant = "user" | "neutral";
@@ -58,6 +59,7 @@ export function ChatMessageAttachments({
   variant = "user",
   className = "",
 }: ChatMessageAttachmentsProps) {
+  const { t } = useTranslation("common");
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
   const isUserVariant = variant === "user";
 
@@ -91,7 +93,7 @@ export function ChatMessageAttachments({
                 type="button"
                 className={imageContainerClass}
                 onClick={() => setExpandedImage(att.preview || null)}
-                aria-label={`View ${att.name}`}
+                aria-label={t("agent.attachments.view", { name: att.name })}
               >
                 <img
                   src={att.preview}

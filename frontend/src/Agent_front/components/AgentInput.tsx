@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
   X,
   Plus,
@@ -94,6 +95,7 @@ export function AgentInput({
   context,
   isOffline = false,
 }: AgentInputProps) {
+  const { t } = useTranslation("common");
   const [commands, setCommands] = useState<SlashCommand[]>([]);
   const [manualDropdownOpen, setManualDropdownOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -456,7 +458,7 @@ export function AgentInput({
               <div className="absolute bottom-full left-0 right-0 mb-3 bg-white/95 dark:bg-[#1e293b]/95 backdrop-blur-md border border-black/[0.06] dark:border-white/[0.06] rounded-2xl shadow-xl max-h-80 overflow-y-auto z-50 premium-panel-enter-center">
                 <div className="p-2">
                   <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-3 py-2 uppercase tracking-[0.2em] bg-black/[0.02] dark:bg-white/[0.03] rounded-xl mb-1">
-                    Available Commands
+                    {t("agent.input.availableCommands")}
                   </div>
                   {filteredCommands.map((cmd, idx) => (
                     <button
@@ -496,7 +498,7 @@ export function AgentInput({
               >
                 <div className="p-2">
                   <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-3 py-2 uppercase tracking-[0.2em] bg-black/[0.02] dark:bg-white/[0.03] rounded-xl mb-1">
-                    Attachments
+                    {t("agent.input.attachments")}
                   </div>
                   <button
                     type="button"
@@ -510,9 +512,9 @@ export function AgentInput({
                       <Folder className="w-5 h-5" />
                     </div>
                     <div className="flex-1">
-                      <div className="font-semibold">Existing Document</div>
+                      <div className="font-semibold">{t("agent.input.existingDocument")}</div>
                       <div className="text-xs text-slate-500 dark:text-slate-400">
-                        From your library
+                        {t("agent.input.fromLibrary")}
                       </div>
                     </div>
                   </button>
@@ -525,9 +527,9 @@ export function AgentInput({
                       <Upload className="w-5 h-5" />
                     </div>
                     <div className="flex-1">
-                      <div className="font-semibold">Upload File</div>
+                      <div className="font-semibold">{t("agent.input.uploadFile")}</div>
                       <div className="text-xs text-slate-500 dark:text-slate-400">
-                        PDF, DOCX, TXT, etc.
+                        {t("agent.input.uploadFileHint")}
                       </div>
                     </div>
                   </button>
@@ -540,9 +542,9 @@ export function AgentInput({
                       <Image className="w-5 h-5" />
                     </div>
                     <div className="flex-1">
-                      <div className="font-semibold">Upload Image</div>
+                      <div className="font-semibold">{t("agent.input.uploadImage")}</div>
                       <div className="text-xs text-slate-500 dark:text-slate-400">
-                        JPG, PNG, GIF, etc.
+                        {t("agent.input.uploadImageHint")}
                       </div>
                     </div>
                   </button>
@@ -550,7 +552,7 @@ export function AgentInput({
                   <div className="my-1 mx-3 border-t border-black/[0.04] dark:border-white/[0.04]" />
 
                   <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-3 py-2 uppercase tracking-[0.2em] bg-black/[0.02] dark:bg-white/[0.03] rounded-xl mb-1">
-                    Tools
+                    {t("agent.input.toolsHeading")}
                   </div>
                   <button
                     type="button"
@@ -565,9 +567,9 @@ export function AgentInput({
                       /
                     </div>
                     <div className="flex-1">
-                      <div className="font-semibold">Commands</div>
+                      <div className="font-semibold">{t("agent.input.commands")}</div>
                       <div className="text-xs text-slate-500 dark:text-slate-400">
-                        Slash commands
+                        {t("agent.input.slashCommands")}
                       </div>
                     </div>
                   </button>
@@ -599,11 +601,11 @@ export function AgentInput({
                       <Globe className="w-5 h-5" />
                     </div>
                     <div className="flex-1">
-                      <div className="font-semibold">Web Search</div>
+                      <div className="font-semibold">{t("agent.input.webSearch")}</div>
                       <div className="text-xs text-slate-500 dark:text-slate-400">
                         {searchModeArmed === "web"
-                          ? "Active — click to disable"
-                          : "Search the web"}
+                          ? t("agent.input.webSearchActive")
+                          : t("agent.input.webSearchHint")}
                       </div>
                     </div>
                     {searchModeArmed === "web" && (
@@ -623,7 +625,7 @@ export function AgentInput({
                   <div className="flex items-center gap-2 mb-3">
                     <Folder className="w-5 h-5 text-slate-500 dark:text-slate-400" />
                     <h3 className="font-bold text-[#0f172a] dark:text-[#f1f5f9]">
-                      Select Document
+                      {t("agent.input.selectDocument")}
                     </h3>
                   </div>
                   <div className="relative">
@@ -632,7 +634,7 @@ export function AgentInput({
                       type="text"
                       value={documentSearch}
                       onChange={(e) => setDocumentSearch(e.target.value)}
-                      placeholder="Search documents..."
+                      placeholder={t("agent.input.searchDocuments")}
                       className="w-full pl-10 pr-4 py-2 bg-white dark:bg-[#1e293b] border border-black/[0.06] dark:border-white/[0.06] rounded-xl text-sm focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-400/20"
                     />
                   </div>
@@ -641,14 +643,14 @@ export function AgentInput({
                   {documentsLoading && (
                     <div className="flex items-center justify-center py-8">
                       <div className="text-sm text-slate-500 dark:text-slate-400">
-                        Loading documents...
+                        {t("agent.input.loadingDocuments")}
                       </div>
                     </div>
                   )}
                   {!documentsLoading && filteredDocuments.length === 0 && (
                      <div className="flex items-center justify-center py-8">
                       <div className="text-sm text-slate-500 dark:text-slate-400">
-                        No documents found
+                        {t("agent.input.noDocumentsFound")}
                       </div>
                     </div>
                   )}
@@ -671,9 +673,9 @@ export function AgentInput({
                         fileExt,
                         fileSize,
                         formattedDate,
-                        doc.client_name && `Client: ${doc.client_name}`,
+                        doc.client_name && `${t("agent.input.client")}: ${doc.client_name}`,
                         doc.dossier_reference &&
-                          `Dossier: ${doc.dossier_reference}`,
+                          `${t("agent.input.dossier")}: ${doc.dossier_reference}`,
                       ]
                         .filter(Boolean)
                         .join(" · ");
@@ -729,7 +731,7 @@ export function AgentInput({
                       <Globe className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                     </div>
                     <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
-                      Web Search
+                      {t("agent.input.webSearch")}
                     </span>
                     <button
                       type="button"
@@ -784,8 +786,8 @@ export function AgentInput({
                     setShowAttachMenu(!showAttachMenu);
                     setTimeout(() => inputRef.current?.focus(), 0);
                   }}
-                  title="Tools & attachments"
-                  aria-label="Tools and attachments"
+                  title={t("agent.input.tools")}
+                  aria-label={t("agent.input.toolsAria")}
                   className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${
                     showAttachMenu
                       ? "bg-[#0f172a] text-white dark:bg-[#f1f5f9] dark:text-[#0f172a] rotate-45"
@@ -819,7 +821,7 @@ export function AgentInput({
                 }}
                 rows={1}
                 disabled={isOffline}
-                placeholder={isOffline ? "Connect to the internet to use the Agent..." : "Ask Ordinay anything about your lawsuits, clients, tasks, or request reports and analysis..."}
+                placeholder={isOffline ? t("agent.input.placeholderOffline") : t("agent.input.placeholder")}
                 className="flex-1 resize-none bg-transparent px-2 py-0 text-[14px] leading-8 text-[#0f172a] dark:text-[#f1f5f9] placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none overflow-y-auto disabled:cursor-not-allowed"
               />
 
@@ -828,8 +830,8 @@ export function AgentInput({
                   <button
                     type="button"
                     onClick={onClear}
-                    title="Clear input"
-                    aria-label="Clear input"
+                    title={t("agent.input.clear")}
+                    aria-label={t("agent.input.clear")}
                     className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:text-slate-600 dark:hover:text-slate-400 transition-all"
                   >
                     <X className="w-4 h-4" />
@@ -840,8 +842,8 @@ export function AgentInput({
                   <button
                     type="button"
                     onClick={onStopGeneration}
-                    title="Stop generation"
-                    aria-label="Stop generation"
+                    title={t("agent.input.stop")}
+                    aria-label={t("agent.input.stop")}
                     className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-slate-700 dark:hover:bg-slate-300 transition-all"
                   >
                     <div className="w-3 h-3 bg-current rounded-sm" />
@@ -854,8 +856,8 @@ export function AgentInput({
                       handleSendMessage(event);
                     }}
                     disabled={isOffline || (!input.trim() && attachedFiles.length === 0)}
-                    title="Send message"
-                    aria-label="Send message"
+                    title={t("agent.input.send")}
+                    aria-label={t("agent.input.send")}
                     className="group relative w-8 h-8 flex items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm shadow-blue-500/20 hover:shadow-md hover:shadow-blue-500/40 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:-translate-y-0 disabled:hover:shadow-sm transition-all duration-200"
                   >
                     <div className="absolute inset-0 rounded-xl bg-white opacity-0 group-hover:opacity-10 transition-opacity" />
@@ -884,7 +886,7 @@ export function AgentInput({
             <kbd className="font-mono text-slate-500 dark:text-slate-400">
               Enter
             </kbd>{" "}
-            to send
+            {t("agent.input.toSend")}
           </span>
           <span className="hidden sm:inline text-slate-300 dark:text-slate-600">
             ·
@@ -893,7 +895,7 @@ export function AgentInput({
             <kbd className="font-mono text-slate-500 dark:text-slate-400">
               Shift+Enter
             </kbd>{" "}
-            new line
+            {t("agent.input.newLine")}
           </span>
           <span className="hidden sm:inline text-slate-300 dark:text-slate-600">
             ·
@@ -902,7 +904,7 @@ export function AgentInput({
             <kbd className="font-mono text-slate-500 dark:text-slate-400">
               /
             </kbd>{" "}
-            commands
+            {t("agent.input.slashCommandsHint")}
           </span>
         </div>
       </div>

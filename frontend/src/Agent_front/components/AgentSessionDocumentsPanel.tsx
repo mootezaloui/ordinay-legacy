@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import {
   AlertTriangle,
   ChevronDown,
@@ -18,14 +19,14 @@ interface AgentSessionDocumentsPanelProps {
   sessionId?: string | null;
 }
 
-function formatUserStatus(status?: string | null): string {
+function statusKey(status?: string | null): string {
   const normalized = String(status || "").toLowerCase();
-  if (normalized === "readable" || normalized === "completed") return "Ready for assistant context";
-  if (normalized === "needs_ocr") return "Needs OCR";
-  if (normalized === "failed") return "Extraction failed";
-  if (normalized === "extracting") return "Extracting text...";
-  if (normalized === "unreadable") return "Not processed";
-  return "Processing document";
+  if (normalized === "readable" || normalized === "completed") return "ready";
+  if (normalized === "needs_ocr") return "needsOcr";
+  if (normalized === "failed") return "failed";
+  if (normalized === "extracting") return "extracting";
+  if (normalized === "unreadable") return "notProcessed";
+  return "processing";
 }
 
 function renderStatusTone(status?: string | null): string {
@@ -58,7 +59,7 @@ function asArtifact(value: unknown): ArtifactShape | null {
   return value as ArtifactShape;
 }
 
-function sanitizeVisualSummary(summary?: string | null): string | null {
+function sanitizeVisualSummary(summary: string | null | undefined, analyzedFallback: string): string | null {
   const text = String(summary || "").trim();
   if (!text) return null;
   const lower = text.toLowerCase();
@@ -68,7 +69,7 @@ function sanitizeVisualSummary(summary?: string | null): string | null {
     lower.includes("analyzed offline") ||
     lower.includes("provenance")
   ) {
-    return "This document was analyzed and is available to support assistant responses.";
+    return analyzedFallback;
   }
   return text;
 }
@@ -86,6 +87,7 @@ function mapRiskFlags(flags: string[]): string[] {
 export function AgentSessionDocumentsPanel({
   sessionId,
 }: AgentSessionDocumentsPanelProps) {
+  const { t } = useTranslation("common");
   const [context, setContext] = useState<AgentDocumentContext | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -121,7 +123,7 @@ export function AgentSessionDocumentsPanel({
       setContext(next);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load documents");
+      setError(err instanceof Error ? err.message : t("agent.documents.errorLoad"));
     } finally {
       setLoading(false);
     }
@@ -148,7 +150,7 @@ export function AgentSessionDocumentsPanel({
         setError(null);
       } catch (err) {
         if (!mounted) return;
-        setError(err instanceof Error ? err.message : "Failed to load documents");
+        setError(err instanceof Error ? err.message : t("agent.documents.errorLoad"));
       } finally {
         if (mounted) setLoading(false);
       }
@@ -183,7 +185,7 @@ export function AgentSessionDocumentsPanel({
         [documentId]: detail.artifacts || null,
       }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to open artifacts");
+      setError(err instanceof Error ? err.message : t("agent.documents.errorOpenArtifacts"));
     } finally {
       setDocBusy(documentId, null);
     }
@@ -201,7 +203,7 @@ export function AgentSessionDocumentsPanel({
         return next;
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to retry analysis");
+      setError(err instanceof Error ? err.message : t("agent.documents.errorRetry"));
     } finally {
       setDocBusy(documentId, null);
     }
@@ -219,7 +221,7 @@ export function AgentSessionDocumentsPanel({
       });
       await loadContext();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to remove document");
+      setError(err instanceof Error ? err.message : t("agent.documents.errorRemove"));
     } finally {
       setDocBusy(documentId, null);
     }
@@ -239,32 +241,32 @@ export function AgentSessionDocumentsPanel({
     <div className="h-full w-full flex flex-col border-l border-black/[0.05] dark:border-white/[0.04] bg-[#f8fafc] dark:bg-[#0b1220] overflow-hidden">
       <div className="px-4 py-3 border-b border-black/[0.05] dark:border-white/[0.04]">
         <p className="text-xs font-semibold tracking-wide text-slate-800 dark:text-slate-100 uppercase">
-          Session Documents
+          {t("agent.documents.heading")}
         </p>
         <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-          Files available to support responses in this chat.
+          {t("agent.documents.subheading")}
         </p>
       </div>
 
       <div className="px-4 py-3 border-b border-black/[0.05] dark:border-white/[0.04] grid grid-cols-4 gap-2 text-center">
-        <Stat value={context?.totalDocuments ?? 0} label="Total" />
-        <Stat value={context?.readableCount ?? 0} label="Readable" />
-        <Stat value={context?.processingCount ?? 0} label="Processing" />
-        <Stat value={context?.unreadableCount ?? 0} label="Unreadable" />
+        <Stat value={context?.totalDocuments ?? 0} label={t("agent.documents.total")} />
+        <Stat value={context?.readableCount ?? 0} label={t("agent.documents.readable")} />
+        <Stat value={context?.processingCount ?? 0} label={t("agent.documents.processing")} />
+        <Stat value={context?.unreadableCount ?? 0} label={t("agent.documents.unreadable")} />
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {!sessionId ? (
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Start a session and upload files to see document understanding.
+            {t("agent.documents.emptyNoSession")}
           </p>
         ) : loading && sortedDocuments.length === 0 ? (
-          <p className="text-xs text-slate-500 dark:text-slate-400">Loading documents...</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{t("agent.documents.loading")}</p>
         ) : error ? (
           <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>
         ) : sortedDocuments.length === 0 ? (
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            No documents attached in this session yet.
+            {t("agent.documents.empty")}
           </p>
         ) : (
           sortedDocuments.map((doc) => {
@@ -289,7 +291,7 @@ export function AgentSessionDocumentsPanel({
                       textStatus,
                     )}`}
                   >
-                    {formatUserStatus(textStatus)}
+                    {t(`agent.documents.status.${statusKey(textStatus)}`)}
                   </span>
                 </div>
 
@@ -308,7 +310,7 @@ export function AgentSessionDocumentsPanel({
                     disabled={Boolean(actionBusyByDoc[doc.document_id])}
                     className="text-[11px] px-2 py-1 rounded border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-60"
                   >
-                    {openedArtifactByDoc[doc.document_id] ? "Hide details" : "View details"}
+                    {openedArtifactByDoc[doc.document_id] ? t("agent.documents.hideDetails") : t("agent.documents.viewDetails")}
                   </button>
                   {textStatus === "failed" ? (
                     <button
@@ -317,7 +319,7 @@ export function AgentSessionDocumentsPanel({
                       disabled={Boolean(actionBusyByDoc[doc.document_id])}
                       className="text-[11px] px-2 py-1 rounded border border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 disabled:opacity-60"
                     >
-                      Retry extraction
+                      {t("agent.documents.retryExtraction")}
                     </button>
                   ) : null}
                   <button
@@ -326,18 +328,18 @@ export function AgentSessionDocumentsPanel({
                     disabled={Boolean(actionBusyByDoc[doc.document_id])}
                     className="text-[11px] px-2 py-1 rounded border border-rose-300 dark:border-rose-700 text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/20 disabled:opacity-60"
                   >
-                    Remove from session
+                    {t("agent.documents.removeFromSession")}
                   </button>
                 </div>
 
                 {actionBusyByDoc[doc.document_id] ? (
                   <p className="mt-2 text-[10px] text-slate-500 dark:text-slate-400">
-                    Working: {actionBusyByDoc[doc.document_id]}...
+                    {t("agent.documents.working", { action: actionBusyByDoc[doc.document_id] })}
                   </p>
                 ) : null}
 
                 {openedArtifactByDoc[doc.document_id] ? (
-                  <ArtifactDetails artifact={openedArtifactByDoc[doc.document_id]} />
+                  <ArtifactDetails artifact={openedArtifactByDoc[doc.document_id]} t={t} />
                 ) : null}
               </div>
             );
@@ -357,7 +359,7 @@ function Stat({ value, label }: { value: number; label: string }) {
   );
 }
 
-function ArtifactDetails({ artifact }: { artifact: unknown }) {
+function ArtifactDetails({ artifact, t }: { artifact: unknown; t: (key: string, options?: Record<string, unknown>) => string }) {
   const [open, setOpen] = useState({
     visual: true,
     entities: true,
@@ -368,7 +370,7 @@ function ArtifactDetails({ artifact }: { artifact: unknown }) {
     return (
       <div className="mt-3 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/40 p-2">
         <p className="text-[10px] font-medium text-slate-700 dark:text-slate-300 mb-1">
-          Artifact payload
+          {t("agent.documents.artifactPayload")}
         </p>
         <pre className="text-[10px] leading-relaxed text-slate-700 dark:text-slate-200 whitespace-pre-wrap break-words overflow-auto max-h-56">
 {JSON.stringify(artifact, null, 2)}
@@ -380,13 +382,13 @@ function ArtifactDetails({ artifact }: { artifact: unknown }) {
   const entities = Array.isArray(parsed.key_entities) ? parsed.key_entities : [];
   const flags = Array.isArray(parsed.risk_flags) ? parsed.risk_flags : [];
   const normalizedFlags = mapRiskFlags(flags);
-  const safeSummary = sanitizeVisualSummary(parsed.visual_summary || null);
+  const safeSummary = sanitizeVisualSummary(parsed.visual_summary || null, t("agent.documents.analyzedSummary"));
 
   return (
     <div className="mt-3 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/40 p-2 space-y-2">
       {safeSummary ? (
         <CollapsibleSection
-          title="Document Summary"
+          title={t("agent.documents.documentSummary")}
           icon={Eye}
           tone="blue"
           open={open.visual}
@@ -400,7 +402,7 @@ function ArtifactDetails({ artifact }: { artifact: unknown }) {
 
       {entities.length > 0 ? (
         <CollapsibleSection
-          title="Key Entities"
+          title={t("agent.documents.keyEntities")}
           icon={Tags}
           tone="emerald"
           open={open.entities}
@@ -424,7 +426,7 @@ function ArtifactDetails({ artifact }: { artifact: unknown }) {
 
       {normalizedFlags.length > 0 ? (
         <CollapsibleSection
-          title="Quality Notes"
+          title={t("agent.documents.qualityNotes")}
           icon={AlertTriangle}
           tone="amber"
           open={open.flags}

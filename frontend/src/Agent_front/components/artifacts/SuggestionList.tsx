@@ -27,7 +27,10 @@ export function SuggestionList({
 
   // Extract entity type from first suggestion
   const entityType = suggestions[0]?.entityType || "record";
-  const defaultIntro = `I found ${suggestions.length} ${entityType}${suggestions.length === 1 ? "" : "s"} that might match your request:`;
+  const defaultIntro = t("agent.followUps.suggestionIntro", {
+    count: suggestions.length,
+    entity: entityType,
+  });
 
   return (
     <div className="agent-message-row">

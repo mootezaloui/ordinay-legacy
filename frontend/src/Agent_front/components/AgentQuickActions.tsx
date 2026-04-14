@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
   MessageSquare,
   TrendingUp,
@@ -296,6 +297,7 @@ function useDynamicSuggestions(): DynamicSuggestion[] {
  * They reference real entities and reflect actual system state.
  */
 export function AgentQuickActions({ onExampleClick }: AgentQuickActionsProps) {
+  const { t } = useTranslation("common");
   const suggestions = useDynamicSuggestions();
   const data = useData() as DataContext;
   const isLoading = data?.loading;
@@ -309,14 +311,14 @@ export function AgentQuickActions({ onExampleClick }: AgentQuickActionsProps) {
             <MessageSquare className="w-5 h-5 text-slate-500 dark:text-slate-400" />
           </div>
           <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">
-            Ordinay Intelligence
+            {t("agent.quickActions.title")}
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 max-w-xs mx-auto">
-            Query your dossiers, clients, tasks, and documents. Use{" "}
+            {t("agent.quickActions.hint")}{" "}
             <kbd className="px-2 py-0.5 bg-white/80 dark:bg-[#1e293b] rounded-full text-slate-500 dark:text-slate-400 font-mono text-[10px] border border-black/[0.04] dark:border-white/[0.06]">
               /
             </kbd>{" "}
-            for commands.
+            {t("agent.quickActions.hintSuffix")}
           </p>
         </div>
       </div>
@@ -327,14 +329,14 @@ export function AgentQuickActions({ onExampleClick }: AgentQuickActionsProps) {
     <div className="pt-12 sm:pt-16">
       <div className="mb-6 px-1">
         <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">
-          Agent
+          {t("agent.quickActions.heading")}
         </h2>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Query your dossiers, clients, tasks, and documents. Use{" "}
+          {t("agent.quickActions.hint")}{" "}
           <kbd className="px-2 py-0.5 bg-white/80 dark:bg-[#1e293b] rounded-full text-slate-500 dark:text-slate-400 font-mono text-[10px] border border-black/[0.04] dark:border-white/[0.06]">
             /
           </kbd>{" "}
-          for commands.
+          {t("agent.quickActions.hintSuffix")}
         </p>
       </div>
 

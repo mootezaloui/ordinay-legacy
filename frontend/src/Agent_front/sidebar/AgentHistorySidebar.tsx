@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useLayoutEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Plus, FolderPlus, Check, X } from "lucide-react";
 import { AgentSession, AgentFolder } from "../types/agentSession";
 import { AgentSessionItem } from "./AgentSessionItem";
@@ -58,6 +59,7 @@ export function AgentHistorySidebar({
   isCollapsed = false,
   onToggleCollapse,
 }: AgentHistorySidebarProps) {
+  const { t } = useTranslation("common");
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dropTargetFolderId, setDropTargetFolderId] = useState<
     string | null | "root"
@@ -434,7 +436,7 @@ export function AgentHistorySidebar({
             e.stopPropagation();
             onToggleCollapse();
           }}
-          title={isCollapsed ? "Expand history" : "Collapse history"}
+          title={isCollapsed ? t("agent.history.expand") : t("agent.history.collapse")}
         >
           <div className="h-20 w-1.5 bg-black/[0.1] dark:bg-white/[0.1] rounded-full flex items-center justify-center group-hover/toggle:h-32 group-hover/toggle:w-4 group-hover/toggle:bg-blue-500/20 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] border border-transparent group-hover/toggle:border-blue-500/30 group-hover/toggle:shadow-[0_0_12px_rgba(59,130,246,0.15)] relative overflow-hidden">
                <i className={`fas ${isCollapsed ? "fa-chevron-right" : "fa-chevron-left"} text-[8px] text-blue-500 opacity-0 group-hover/toggle:opacity-100 transition-opacity duration-300 absolute`}></i>
@@ -450,7 +452,7 @@ export function AgentHistorySidebar({
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#0f172a] text-white dark:bg-[#f1f5f9] dark:text-[#0f172a] text-sm font-semibold rounded-xl hover:bg-[#1e293b] dark:hover:bg-white transition-all shadow-sm"
         >
           <Plus className="w-4 h-4" />
-          New Conversation
+          {t("agent.history.newConversation")}
         </button>
         <button
           type="button"
@@ -462,7 +464,7 @@ export function AgentHistorySidebar({
           disabled={isCreatingFolder}
         >
           <FolderPlus className="w-4 h-4" />
-          New Folder
+          {t("agent.history.newFolder")}
         </button>
       </div>
 
@@ -496,7 +498,7 @@ export function AgentHistorySidebar({
               <input
                 ref={pendingInputRef}
                 className="flex-1 h-8 px-2 rounded bg-transparent text-sm outline-none border-none focus:ring-2 focus:ring-slate-400/20 placeholder:text-slate-400 dark:placeholder:text-slate-500"
-                placeholder="Folder name"
+                placeholder={t("agent.history.folderNamePlaceholder")}
                 value={pendingFolderName}
                 onChange={(e) => setPendingFolderName(e.target.value)}
                 onKeyDown={(e) => {
@@ -519,7 +521,7 @@ export function AgentHistorySidebar({
               <button
                 type="button"
                 className="flex items-center justify-center w-7 h-7 rounded-full hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors ml-1"
-                title="Create folder"
+                title={t("agent.history.createFolder")}
                 onClick={() => {
                   const name = pendingFolderName.trim();
                   if (name) {
@@ -536,7 +538,7 @@ export function AgentHistorySidebar({
               <button
                 type="button"
                 className="flex items-center justify-center w-7 h-7 rounded-full hover:bg-rose-100 dark:hover:bg-rose-900/30 transition-colors"
-                title="Cancel"
+                title={t("agent.history.cancel")}
                 onClick={() => {
                   setIsCreatingFolder(false);
                   setPendingFolderName("");
@@ -626,7 +628,7 @@ export function AgentHistorySidebar({
           >
             {sortedFolders.length > 0 && (
               <div className="text-[11px] text-slate-400 dark:text-slate-500 px-2 py-1 font-semibold uppercase tracking-[0.18em]">
-                Ungrouped
+                {t("agent.history.ungrouped")}
               </div>
             )}
             {rootSessions.map((session, sessionIndex) => (
@@ -661,7 +663,7 @@ export function AgentHistorySidebar({
         {/* Empty state */}
         {rootSessions.length === 0 && sortedFolders.length === 0 && (
           <div className="text-center text-sm text-slate-400 dark:text-slate-500 py-8">
-            No conversations yet
+            {t("agent.history.noConversations")}
           </div>
         )}
 
@@ -679,7 +681,7 @@ export function AgentHistorySidebar({
               onDragLeave={handleRootDragLeave}
               onDrop={handleRootDrop}
             >
-              Drop here to move to root
+              {t("agent.history.dropToRoot")}
             </div>
           )}
       </div>
