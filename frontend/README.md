@@ -1,12 +1,17 @@
-# Frontend Package
+# Ordinay Frontend
 
-Desktop UI package for `lawyer-app`, containing:
+![Electron](https://img.shields.io/badge/Desktop-Electron-47848F?logo=electron&logoColor=white)
+![React](https://img.shields.io/badge/UI-React-61DAFB?logo=react&logoColor=000)
+![Vite](https://img.shields.io/badge/Bundler-Vite-646CFF?logo=vite&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-Enabled-3178C6?logo=typescript&logoColor=white)
 
-- React renderer (`src/`)
-- Electron main/preload process (`electron/`)
-- Desktop packaging configuration (`electron-builder.json`)
+Desktop UI package for Ordinay.
 
-This package is designed to run with the backend package in this repository.
+This package contains:
+
+- React renderer application (`src/`)
+- Electron main/preload bridge (`electron/`)
+- desktop packaging setup (`electron-builder.json`)
 
 ## Requirements
 
@@ -21,13 +26,13 @@ npm ci
 
 ## Run
 
-Renderer only (Vite dev server):
+Run renderer only:
 
 ```bash
 npm run dev
 ```
 
-Desktop mode (Vite + Electron):
+Run full desktop app (Vite + Electron):
 
 ```bash
 npm run electron:dev
@@ -35,69 +40,69 @@ npm run electron:dev
 
 ## Build
 
-Renderer build only:
+Renderer bundle:
 
 ```bash
 npm run build:renderer
 ```
 
-Desktop package (electron-builder):
+Desktop package:
 
 ```bash
 npm run electron:build
 ```
 
-Windows package only:
+Windows-only package:
 
 ```bash
 npm run electron:build:win
 ```
 
-Unpacked directory build:
+Unpacked desktop directory:
 
 ```bash
 npm run electron:build:dir
 ```
 
-## Scripts
+## Script Reference
 
-- `dev`: start Vite renderer dev server
-- `electron:dev`: start Vite + Electron desktop runtime
-- `build:renderer`: TypeScript project build + Vite production bundle
-- `electron:build*`: desktop packaging variants
-- `lint`: run ESLint
-- `preview`: preview renderer production bundle
-- `prepare:node`: copy Node runtime needed for packaged app
-- `rebuild:backend`: rebuild backend native dependencies for packaging
-- `generate:icons`: regenerate application icons
+- `dev`: Vite renderer development server.
+- `electron:dev`: full desktop development runtime.
+- `build:renderer`: TypeScript + Vite production renderer build.
+- `electron:build*`: desktop packaging variants.
+- `lint`: ESLint checks.
+- `preview`: renderer preview server.
+- `prepare:node`: bundle Node runtime needed by packaged app.
+- `rebuild:backend`: rebuild backend native dependencies for packaging.
+- `generate:icons`: regenerate application icons.
 
-## Project Layout
+## High-Level Layout
 
 ```text
 frontend/
-  electron/         Electron main process and preload bridge
-  src/              React application code
-    Agent_front/    Agent experience UI
-    Screens/        Page-level screens
-    components/     Shared UI components
-    contexts/       Global app providers/state containers
-    services/       API/domain client services
-  build/            Build-time assets/scripts
-  public/           Static public assets
+  electron/       Electron main and preload code
+  src/            React app source
+    Agent_front/  agent experience and artifacts
+    Screens/      route-level screens
+    components/   reusable UI building blocks
+    contexts/     global state/providers
+    services/     API and domain client services
+  build/          build-time assets and scripts
+  public/         static assets
 ```
 
 ## Integration Notes
 
-- Standard CRUD calls are proxied through Electron IPC in desktop mode.
-- Agent streaming uses direct HTTP stream endpoint access.
-- Core business invariants are enforced in backend and database layers, not in this package.
+- CRUD calls are proxied through Electron IPC in desktop mode.
+- Agent stream is consumed through direct HTTP SSE.
+- Domain invariants are enforced in backend/database layers.
 
-## Related Docs
+## Related Documentation
 
-- Root project README: `../README.md`
-- Architecture diagrams: `../docs/ARCHITECTURE_DIAGRAMS.md`
-- App logic use cases: `../docs/APP_LOGIC_USE_CASES.md`
-- Domain model: `../docs/DOMAIN_MODEL.md`
+- Root README: [../README.md](../README.md)
+- Architecture diagrams: [../docs/ARCHITECTURE_DIAGRAMS.md](../docs/ARCHITECTURE_DIAGRAMS.md)
+- App logic use cases: [../docs/APP_LOGIC_USE_CASES.md](../docs/APP_LOGIC_USE_CASES.md)
+- Domain model: [../docs/DOMAIN_MODEL.md](../docs/DOMAIN_MODEL.md)
 
 ## License
 

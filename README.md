@@ -1,12 +1,97 @@
-# lawyer-app
+# Ordinay
 
-Law office management application with:
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+![Desktop](https://img.shields.io/badge/Desktop-Electron-47848F?logo=electron&logoColor=white)
+![Frontend](https://img.shields.io/badge/Frontend-React-61DAFB?logo=react&logoColor=000)
+![Backend](https://img.shields.io/badge/Backend-Node.js-339933?logo=node.js&logoColor=white)
+![Database](https://img.shields.io/badge/Database-SQLite-003B57?logo=sqlite&logoColor=white)
+![AI](https://img.shields.io/badge/AI-Agent%20V2-6D28D9)
 
-- Electron desktop frontend (`frontend`)
-- Node/Express backend (`backend`)
-- Optional proxy service (`ordinay-proxy`)
+Ordinay is a desktop-first legal operations platform for law offices.  
+It centralizes casework, dossiers, hearings, tasks, missions, documents, billing, and notifications, with an AI agent runtime designed for safety and operational control.
 
-## Architecture Quick Links
+## Core Capabilities
+
+- Client, dossier, and lawsuit lifecycle management.
+- Task, mission, and session tracking with domain-aware workflows.
+- Document management and legal document generation pipelines.
+- Financial entry tracking linked to legal operations.
+- Agent v2 streaming assistant with plan/confirm/execute safety model.
+
+## System Architecture
+
+```mermaid
+flowchart LR
+    User["Law Office Operator"] --> UI["React Renderer"]
+    UI --> IPC["Electron IPC Bridge"]
+    IPC --> API["Express Backend"]
+    API --> DB[("SQLite")]
+    API --> LLM["LLM Provider"]
+    API -. optional .-> Proxy["Ordinay Proxy"]
+```
+
+## Requirements
+
+- Node.js `20.19+` or `22.12+`
+- npm `10+`
+
+## Quick Start
+
+1. Install dependencies.
+
+```bash
+npm ci
+npm --prefix backend ci
+npm --prefix frontend ci
+npm --prefix ordinay-proxy ci
+```
+
+2. Configure backend environment.
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+3. Configure frontend environment (optional overrides).
+
+```bash
+cp frontend/.env.example frontend/.env
+```
+
+4. Start backend.
+
+```bash
+npm --prefix backend run start
+```
+
+5. Start desktop frontend in development mode.
+
+```bash
+npm --prefix frontend run electron:dev
+```
+
+## Build
+
+Build desktop application:
+
+```bash
+npm --prefix frontend run electron:build
+```
+
+Build optional proxy service:
+
+```bash
+npm --prefix ordinay-proxy run build
+```
+
+## Repository Layout
+
+- `frontend/` Electron + React desktop UI.
+- `backend/` Express API, domain logic, agent runtime, and persistence.
+- `ordinay-proxy/` optional provider proxy layer for hosted deployments.
+- `docs/` product, architecture, domain, and agent design documentation.
+
+## Documentation Index
 
 - [Project Vision](docs/PROJECT_VISION.md)
 - [Architecture Diagrams](docs/ARCHITECTURE_DIAGRAMS.md)
@@ -17,102 +102,12 @@ Law office management application with:
 - [Agent Diagrams](docs/AGENT_DIAGRAMS.md)
 - [Agent Use Cases](docs/AGENT_USE_CASES.md)
 
-Architecture at a glance:
+## Contribution And Security
 
-```mermaid
-flowchart LR
-    User["Operator"] --> UI["React Renderer"]
-    UI --> IPC["Electron IPC"]
-    IPC --> API["Express Backend"]
-    API --> DB[("SQLite")]
-    API --> LLM["LLM API"]
-    API -. optional .-> Proxy["Ordinay Proxy"]
-
-    classDef actor fill:#FFF4CC,stroke:#B7791F,color:#5B3A00,stroke-width:2px;
-    classDef app fill:#E8F1FF,stroke:#2F6FEB,color:#0A2A59,stroke-width:2px;
-    classDef data fill:#EAFAF1,stroke:#1F8F5F,color:#0A4C2A,stroke-width:2px;
-    classDef ext fill:#F6ECFF,stroke:#7C3AED,color:#3B0764,stroke-width:2px;
-
-    class User actor;
-    class UI,IPC,API app;
-    class DB data;
-    class LLM,Proxy ext;
-```
-
-## Requirements
-
-- Node.js 20.19+ or 22.12+
-- npm 10+
-
-## Quick Start
-
-1. Install dependencies:
-
-```bash
-npm ci
-npm --prefix backend ci
-npm --prefix frontend ci
-npm --prefix ordinay-proxy ci
-```
-
-2. Backend env setup:
-
-```bash
-cp backend/.env.example backend/.env
-```
-
-3. Frontend env setup (optional overrides):
-
-```bash
-cp frontend/.env.example frontend/.env
-```
-
-4. Start backend:
-
-```bash
-npm --prefix backend run start
-```
-
-5. Start frontend (dev mode):
-
-```bash
-npm --prefix frontend run electron:dev
-```
-
-## Build
-
-Frontend desktop package:
-
-```bash
-npm --prefix frontend run electron:build
-```
-
-Proxy build:
-
-```bash
-npm --prefix ordinay-proxy run build
-```
-
-## Repository Layout
-
-- `backend/` API server and domain logic
-- `frontend/` Electron + React application
-- `ordinay-proxy/` optional secured proxy
-- `docs/` architecture, domain, and use-case documentation
-
-## Architecture Vision Pack
-
-For engineering and recruiter review, follow this order:
-
-1. `docs/PROJECT_VISION.md` (product + architecture rationale)
-2. `docs/ARCHITECTURE_DIAGRAMS.md` (system, runtime, and safety flow diagrams)
-3. `docs/APP_LOGIC_USE_CASES.md` (core business flows and logic checkpoints)
-4. `docs/DOMAIN_MODEL.md` (entity relationships and invariants)
-5. `docs/ARCHITECTURE.md` (deep technical notes)
-6. `docs/AGENT_SYSTEM_DESIGN.md` (agent runtime decisions and safety model)
-7. `docs/AGENT_DIAGRAMS.md` (agent-focused architecture and lifecycle diagrams)
-8. `docs/AGENT_USE_CASES.md` (AI workflow scenarios mapped to runtime behavior)
+- Contributing guide: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Code of conduct: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- Security policy: [SECURITY.md](SECURITY.md)
 
 ## License
 
-MIT. See `LICENSE`.
+This project is licensed under the MIT License. See [LICENSE](LICENSE).

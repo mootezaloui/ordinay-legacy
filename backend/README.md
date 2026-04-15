@@ -1,13 +1,18 @@
-# Backend Package
+# Ordinay Backend
 
-Express + SQLite backend for `lawyer-app`.
+![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-339933?logo=node.js&logoColor=white)
+![Express](https://img.shields.io/badge/Framework-Express-000000?logo=express&logoColor=white)
+![SQLite](https://img.shields.io/badge/Database-SQLite-003B57?logo=sqlite&logoColor=white)
+![Agent](https://img.shields.io/badge/AI-Agent%20V2-6D28D9)
 
-Responsibilities:
+Express + SQLite backend for Ordinay.
 
-- Domain APIs under `/api/*`
-- Data integrity and business rule enforcement
-- Local persistence (`better-sqlite3`)
-- Agent v2 stream endpoint integration
+## Responsibilities
+
+- Domain API surface under `/api/*`.
+- Business rule enforcement and persistence integrity.
+- Session, document, and financial orchestration.
+- Agent v2 streaming runtime and safety controls.
 
 ## Requirements
 
@@ -22,13 +27,13 @@ npm ci
 
 ## Configuration
 
-Create local environment config:
+Create local runtime environment:
 
 ```bash
 cp .env.example .env
 ```
 
-Key runtime settings are defined in:
+Primary configuration references:
 
 - `src/config/app.config.js`
 - `src/config/db.config.js`
@@ -36,13 +41,13 @@ Key runtime settings are defined in:
 
 ## Run
 
-Start production mode:
+Start backend:
 
 ```bash
 npm run start
 ```
 
-Start development mode (nodemon):
+Start development mode:
 
 ```bash
 npm run dev
@@ -50,7 +55,7 @@ npm run dev
 
 ## Agent Build Scripts
 
-Type-check agent TypeScript:
+Type-check agent runtime:
 
 ```bash
 npm run typecheck:agent
@@ -62,52 +67,46 @@ Build agent runtime artifacts:
 npm run build:agent
 ```
 
-## Project Layout
+## High-Level Layout
 
 ```text
 backend/
   src/
-    app.js               Express app wiring and middleware
-    server.js            Backend startup entrypoint
-    routes/              API route modules
-    controllers/         Request handlers
-    services/            Domain and persistence operations
-    db/
-      schema.sql         SQLite schema and constraints
-      connection.js      DB initialization and connection
-    middlewares/         Error, not-found, and request middlewares
-    agent/               Agent runtime/deployment modules
+    routes/        API contracts
+    controllers/   request orchestration
+    services/      domain and persistence services
+    db/            schema and connection
+    agent/         agent v2 runtime and modules
+    middlewares/   cross-cutting request concerns
 ```
 
-## Data and Integrity Model
+## Data Integrity Model
 
-- SQLite schema is the authoritative source for structural constraints.
-- Foreign keys and `CHECK` constraints enforce domain invariants.
-- Soft-delete pattern is used across core entities (`deleted_at`).
-- Backend services perform additional validation before writes.
+- SQLite schema is the structural source of truth.
+- Foreign keys and `CHECK` constraints enforce invariants.
+- Soft-delete lifecycle is used for core entities.
+- Services perform additional domain-level validation before writes.
 
-## API Scope
-
-The route layer covers core legal-office domains such as:
+## API Coverage
 
 - clients, dossiers, lawsuits
 - tasks, sessions, missions, officers
 - documents, financial entries, notifications
 - profile, settings, dashboard, imports
-- agent endpoints (`/agent/v2/stream` when enabled)
+- agent endpoints (`/agent/v2/stream` and admin operations when enabled)
 
 ## Integration Notes
 
-- Frontend desktop mode typically reaches this backend through Electron IPC proxying.
-- Agent streaming is consumed via direct HTTP stream endpoint access from the frontend.
-- Optional `ordinay-proxy` can be used for hosted/provider-side AI routing scenarios.
+- Desktop frontend usually accesses backend through Electron IPC proxying.
+- Agent stream is consumed via direct HTTP SSE.
+- `ordinay-proxy` is optional for hosted/provider routing.
 
-## Related Docs
+## Related Documentation
 
-- Root project README: `../README.md`
-- Architecture diagrams: `../docs/ARCHITECTURE_DIAGRAMS.md`
-- Domain model: `../docs/DOMAIN_MODEL.md`
-- Deep architecture notes: `../docs/ARCHITECTURE.md`
+- Root README: [../README.md](../README.md)
+- Architecture diagrams: [../docs/ARCHITECTURE_DIAGRAMS.md](../docs/ARCHITECTURE_DIAGRAMS.md)
+- Domain model: [../docs/DOMAIN_MODEL.md](../docs/DOMAIN_MODEL.md)
+- Deep architecture notes: [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md)
 
 ## License
 
