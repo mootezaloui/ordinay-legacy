@@ -1719,8 +1719,8 @@
     "quickActions": {
       "title": "Ordinay Intelligence",
       "heading": "الوكيل",
-      "hint": "استعلم عن ملفاتك وعملائك ومهامك ومستنداتك. استخدم",
-      "hintSuffix": "للأوامر."
+      "hint": "استعلم عن ملفاتك وعملائك ومهامك ومستنداتك.",
+      "hintSuffix": ""
     },
     "input": {
       "placeholder": "اسأل Ordinay أي شيء عن قضاياك وعملائك ومهامك، أو اطلب تقارير وتحليلات...",
@@ -1730,7 +1730,7 @@
       "clear": "مسح الإدخال",
       "stop": "إيقاف التوليد",
       "send": "إرسال الرسالة",
-      "availableCommands": "الأوامر المتاحة",
+      "availableCommands": "",
       "attachments": "المرفقات",
       "existingDocument": "مستند موجود",
       "fromLibrary": "من مكتبتك",
@@ -1739,8 +1739,8 @@
       "uploadImage": "رفع صورة",
       "uploadImageHint": "JPG، PNG، GIF، إلخ.",
       "toolsHeading": "الأدوات",
-      "commands": "الأوامر",
-      "slashCommands": "أوامر الشرطة المائلة",
+      "commands": "",
+      "slashCommands": "",
       "webSearch": "بحث على الويب",
       "webSearchActive": "نشط — انقر للتعطيل",
       "webSearchHint": "ابحث على الويب",
@@ -1754,7 +1754,7 @@
       "toSend": "للإرسال",
       "shiftEnter": "Shift+Enter",
       "newLine": "سطر جديد",
-      "slashCommandsHint": "أوامر"
+      "slashCommandsHint": ""
     },
     "history": {
       "newConversation": "محادثة جديدة",

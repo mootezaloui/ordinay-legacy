@@ -29,3 +29,9 @@ dist-ssr
 *.bak
 *.tmp
 *.temp
+
+# Generated build artifacts (do not commit)
+backend/.agent-build/
+frontend/dist-electron/
+frontend/build/node.exe
+frontend/*.tsbuildinfo

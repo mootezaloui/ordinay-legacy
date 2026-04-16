@@ -9,7 +9,14 @@
  * - Provides navigation controls
  */
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useLayoutEffect,
+  useId,
+} from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -28,6 +35,32 @@ interface TooltipPosition {
   top: number;
   left: number;
   arrowPosition: "top" | "bottom" | "left" | "right";
+}
+
+const POSITION_EPSILON = 0.75;
+
+function isSameRect(a: TargetRect | null, b: TargetRect | null): boolean {
+  if (!a || !b) return a === b;
+  return (
+    Math.abs(a.top - b.top) <= POSITION_EPSILON &&
+    Math.abs(a.left - b.left) <= POSITION_EPSILON &&
+    Math.abs(a.width - b.width) <= POSITION_EPSILON &&
+    Math.abs(a.height - b.height) <= POSITION_EPSILON &&
+    Math.abs(a.bottom - b.bottom) <= POSITION_EPSILON &&
+    Math.abs(a.right - b.right) <= POSITION_EPSILON
+  );
+}
+
+function isSameTooltipPosition(
+  a: TooltipPosition | null,
+  b: TooltipPosition | null
+): boolean {
+  if (!a || !b) return a === b;
+  return (
+    a.arrowPosition === b.arrowPosition &&
+    Math.abs(a.top - b.top) <= POSITION_EPSILON &&
+    Math.abs(a.left - b.left) <= POSITION_EPSILON
+  );
 }
 
 export default function TutorialOverlayComponent() {
@@ -53,7 +86,12 @@ export default function TutorialOverlayComponent() {
   const [tooltipPosition, setTooltipPosition] =
     useState<TooltipPosition | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const clearTargetTimeoutRef = useRef<number | null>(null);
+  const lastResolvedStepIdRef = useRef<string | null>(null);
+  const spotlightMaskId = useId();
 
   const isDossierDetailRoute = useCallback((pathname: string) => {
     const segments = pathname.split("/").filter(Boolean);
@@ -68,11 +106,37 @@ export default function TutorialOverlayComponent() {
 
   // Update target rectangle
   const updateTargetRect = useCallback(() => {
+    const stepId = currentStep?.id ?? null;
     const element = findTargetElement();
     if (!element) {
-      setTargetRect(null);
-      setTooltipPosition(null);
+      // Step changed and new target is not mounted yet: clear immediately to
+      // avoid showing stale card/highlight from previous step.
+      if (lastResolvedStepIdRef.current !== stepId) {
+        if (clearTargetTimeoutRef.current !== null) {
+          window.clearTimeout(clearTargetTimeoutRef.current);
+          clearTargetTimeoutRef.current = null;
+        }
+        setTargetRect(null);
+        setTooltipPosition(null);
+        return;
+      }
+
+      // Avoid transient hide/show flicker when target remounts rapidly.
+      if (clearTargetTimeoutRef.current === null) {
+        clearTargetTimeoutRef.current = window.setTimeout(() => {
+          setTargetRect(null);
+          setTooltipPosition(null);
+          clearTargetTimeoutRef.current = null;
+        }, 180);
+      }
       return;
+    }
+
+    lastResolvedStepIdRef.current = stepId;
+
+    if (clearTargetTimeoutRef.current !== null) {
+      window.clearTimeout(clearTargetTimeoutRef.current);
+      clearTargetTimeoutRef.current = null;
     }
 
     const rect = element.getBoundingClientRect();
@@ -87,14 +151,14 @@ export default function TutorialOverlayComponent() {
       right: rect.right + padding,
     };
 
-    setTargetRect(newRect);
-
-    // Calculate tooltip position
-    const tooltipWidth = 340; // Match actual tooltip width
-    const tooltipHeight = 280; // Account for action hint and padding
-    const gap = 24; // Increased gap to ensure clear separation
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
+    const measuredTooltip = tooltipRef.current?.getBoundingClientRect();
+
+    // Calculate tooltip position
+    const tooltipWidth = measuredTooltip?.width ?? Math.min(340, viewportWidth - 32);
+    const tooltipHeight = measuredTooltip?.height ?? 280;
+    const gap = 24; // Increased gap to ensure clear separation
 
     let position: TooltipPosition;
     const preferredPosition = currentStep?.position || "auto";
@@ -173,8 +237,8 @@ export default function TutorialOverlayComponent() {
         calculatePosition("top") ||
         calculatePosition("right") ||
         calculatePosition("left") || {
-          top: viewportHeight / 2 - tooltipHeight / 2,
-          left: viewportWidth / 2 - tooltipWidth / 2,
+          top: Math.max(16, viewportHeight / 2 - tooltipHeight / 2),
+          left: Math.max(16, viewportWidth / 2 - tooltipWidth / 2),
           arrowPosition: "top",
         };
     } else {
@@ -183,14 +247,25 @@ export default function TutorialOverlayComponent() {
         calculatePosition("top") ||
         calculatePosition("right") ||
         calculatePosition("left") || {
-          top: viewportHeight / 2 - tooltipHeight / 2,
-          left: viewportWidth / 2 - tooltipWidth / 2,
+          top: Math.max(16, viewportHeight / 2 - tooltipHeight / 2),
+          left: Math.max(16, viewportWidth / 2 - tooltipWidth / 2),
           arrowPosition: "top",
         };
     }
 
-    setTooltipPosition(position);
+    setTargetRect((prev) => (isSameRect(prev, newRect) ? prev : newRect));
+    setTooltipPosition((prev) =>
+      isSameTooltipPosition(prev, position) ? prev : position
+    );
   }, [currentStep, findTargetElement]);
+
+  const scheduleUpdateTargetRect = useCallback(() => {
+    if (rafRef.current !== null) return;
+    rafRef.current = window.requestAnimationFrame(() => {
+      rafRef.current = null;
+      updateTargetRect();
+    });
+  }, [updateTargetRect]);
 
   // Navigate to required route (only for non-action steps)
   useEffect(() => {
@@ -209,16 +284,6 @@ export default function TutorialOverlayComponent() {
     location.pathname,
     navigate,
   ]);
-
-  // Handle resuming tutorial - navigate to the step's route even if it requires action
-  useEffect(() => {
-    if (!isActive || !currentStep?.route) return;
-
-    // Only navigate if not already on the correct route
-    if (location.pathname !== currentStep.route) {
-      navigate(currentStep.route);
-    }
-  }, [isActive, currentStep?.route, location.pathname, navigate]);
 
   // Detect when user navigates to complete an action-required step
   const searchString = location.search || "";
@@ -445,6 +510,20 @@ export default function TutorialOverlayComponent() {
     isDossierDetailRoute,
   ]);
 
+  useLayoutEffect(() => {
+    if (!isActive || !currentStep?.target) return;
+    scheduleUpdateTargetRect();
+  }, [isActive, currentStep?.target, scheduleUpdateTargetRect]);
+
+  useEffect(() => {
+    if (isActive) return;
+    lastResolvedStepIdRef.current = null;
+    if (clearTargetTimeoutRef.current !== null) {
+      window.clearTimeout(clearTargetTimeoutRef.current);
+      clearTargetTimeoutRef.current = null;
+    }
+  }, [isActive]);
+
   // Track target element with ResizeObserver and scroll
   useEffect(() => {
     if (!isActive || !currentStep?.target) return;
@@ -453,34 +532,38 @@ export default function TutorialOverlayComponent() {
     const scrollToTarget = () => {
       const element = findTargetElement();
       if (element) {
-        // Scroll the element into view with some padding
-        element.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-          inline: "nearest",
-        });
+        const rect = element.getBoundingClientRect();
+        const margin = 48;
+        const isOutOfView =
+          rect.top < margin || rect.bottom > window.innerHeight - margin;
+
+        if (isOutOfView) {
+          // Keep tutorial movement stable: avoid smooth chase animations.
+          element.scrollIntoView({
+            behavior: "auto",
+            block: "center",
+            inline: "nearest",
+          });
+        }
       }
     };
 
     // Initial scroll with delay for DOM to settle after navigation
-    const scrollTimeout = setTimeout(scrollToTarget, 150);
+    const scrollTimeout = window.setTimeout(scrollToTarget, 90);
 
     // Initial update with small delay for DOM to settle after navigation
-    const initialTimeout = setTimeout(updateTargetRect, 200);
+    const initialTimeout = window.setTimeout(scheduleUpdateTargetRect, 130);
 
     // Setup observers
-    const handleResize = () => updateTargetRect();
-    const handleScroll = () => updateTargetRect();
+    const handleResize = () => scheduleUpdateTargetRect();
+    const handleScroll = () => scheduleUpdateTargetRect();
 
     window.addEventListener("resize", handleResize);
     window.addEventListener("scroll", handleScroll, true);
 
     // Watch for DOM changes (element might appear later)
     const mutationObserver = new MutationObserver(() => {
-      const element = findTargetElement();
-      if (element) {
-        updateTargetRect();
-      }
+      scheduleUpdateTargetRect();
     });
 
     mutationObserver.observe(document.body, {
@@ -495,23 +578,42 @@ export default function TutorialOverlayComponent() {
         resizeObserverRef.current.disconnect();
       }
       if (element) {
-        resizeObserverRef.current = new ResizeObserver(updateTargetRect);
+        resizeObserverRef.current = new ResizeObserver(() => {
+          scheduleUpdateTargetRect();
+        });
         resizeObserverRef.current.observe(element);
       }
     };
 
-    const observeTimeout = setTimeout(checkAndObserve, 150);
+    const observeTimeout = window.setTimeout(checkAndObserve, 120);
 
     return () => {
-      clearTimeout(scrollTimeout);
-      clearTimeout(initialTimeout);
-      clearTimeout(observeTimeout);
+      window.clearTimeout(scrollTimeout);
+      window.clearTimeout(initialTimeout);
+      window.clearTimeout(observeTimeout);
+      if (clearTargetTimeoutRef.current !== null) {
+        window.clearTimeout(clearTargetTimeoutRef.current);
+        clearTargetTimeoutRef.current = null;
+      }
+      if (rafRef.current !== null) {
+        window.cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("scroll", handleScroll, true);
       mutationObserver.disconnect();
       resizeObserverRef.current?.disconnect();
     };
-  }, [isActive, currentStep?.target, findTargetElement, updateTargetRect]);
+  }, [isActive, currentStep?.target, findTargetElement, scheduleUpdateTargetRect]);
+
+  useEffect(() => {
+    if (!isActive || !tooltipRef.current) return;
+    const tooltipObserver = new ResizeObserver(() => {
+      scheduleUpdateTargetRect();
+    });
+    tooltipObserver.observe(tooltipRef.current);
+    return () => tooltipObserver.disconnect();
+  }, [isActive, currentStep?.id, scheduleUpdateTargetRect]);
 
   const effectiveTargetRect =
     isActive && currentStep?.target ? targetRect : null;
@@ -602,7 +704,11 @@ export default function TutorialOverlayComponent() {
   const allowSpotlightClicks =
     currentStep?.allowInteraction && effectiveTargetRect;
 
-  return createPortal(
+  // Check if a modal is open behind the tutorial (e.g. client notification)
+  const isModalOpen = isCompletionStep && !!document.querySelector("[data-tutorial='client-notification-modal']");
+
+  return (<>
+  {createPortal(
     <div
       ref={overlayRef}
       className="fixed inset-0 z-[9997]"
@@ -623,7 +729,7 @@ export default function TutorialOverlayComponent() {
         style={{ pointerEvents: "none" }}
       >
         <defs>
-          <mask id="spotlight-mask">
+          <mask id={spotlightMaskId}>
             <rect x="0" y="0" width="100%" height="100%" fill="white" />
             {effectiveTargetRect && (
               <rect
@@ -643,7 +749,7 @@ export default function TutorialOverlayComponent() {
           width="100%"
           height="100%"
           fill="rgba(15, 23, 42, 0.6)"
-          mask="url(#spotlight-mask)"
+          mask={`url(#${spotlightMaskId})`}
           style={{ pointerEvents: "none" }}
         />
       </svg>
@@ -699,146 +805,21 @@ export default function TutorialOverlayComponent() {
       )}
 
       {/* Spotlight border/glow - refined subtle appearance */}
-      {effectiveTargetRect && (
+      {/* Hide glow on sidebar navigation steps to avoid clashing with active sidebar styling */}
+      {effectiveTargetRect && !currentStep?.target?.startsWith("sidebar-") && (
         <div
           className="absolute pointer-events-none rounded-xl border border-blue-400/60 shadow-[0_0_0_3px_rgba(59,130,246,0.15),0_0_20px_rgba(59,130,246,0.2)]"
           style={{
-            top: effectiveTargetRect.top,
-            left: effectiveTargetRect.left,
+            top: 0,
+            left: 0,
             width: effectiveTargetRect.width,
             height: effectiveTargetRect.height,
-            transition: "all 0.2s ease-out",
+            transform: `translate3d(${effectiveTargetRect.left}px, ${effectiveTargetRect.top}px, 0)`,
+            transition:
+              "transform 120ms cubic-bezier(0.22,1,0.36,1), width 120ms cubic-bezier(0.22,1,0.36,1), height 120ms cubic-bezier(0.22,1,0.36,1)",
+            willChange: "transform, width, height",
           }}
         />
-      )}
-
-      {/* Tooltip */}
-      {(effectiveTooltipPosition || isCompletionStep) && (
-        <div
-          data-tutorial-tooltip
-          className="absolute bg-white dark:bg-slate-800 rounded-2xl shadow-xl shadow-slate-900/10 dark:shadow-slate-900/50 border border-slate-200/80 dark:border-slate-700/80 w-[340px] max-w-[calc(100vw-2rem)] z-[9999] pointer-events-auto"
-          style={
-            isCompletionStep
-              ? {
-                  top: "50%",
-                  left: "50%",
-                  transform: "translate(-50%, -50%)",
-                  animation: "fadeInScale 0.25s ease-out",
-                }
-              : {
-                  top: effectiveTooltipPosition?.top,
-                  left: effectiveTooltipPosition?.left,
-                  animation: "fadeInScale 0.2s ease-out",
-                }
-          }
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Arrow - refined */}
-          {effectiveTooltipPosition && !isCompletionStep && (
-            <div
-              className={`absolute w-2.5 h-2.5 bg-white dark:bg-slate-800 border-slate-200/80 dark:border-slate-700/80 transform rotate-45 ${
-                effectiveTooltipPosition.arrowPosition === "top"
-                  ? "-top-[5px] left-1/2 -translate-x-1/2 border-l border-t"
-                  : effectiveTooltipPosition.arrowPosition === "bottom"
-                  ? "-bottom-[5px] left-1/2 -translate-x-1/2 border-r border-b"
-                  : effectiveTooltipPosition.arrowPosition === "left"
-                  ? "-left-[5px] top-1/2 -translate-y-1/2 border-l border-b"
-                  : "-right-[5px] top-1/2 -translate-y-1/2 border-r border-t"
-              }`}
-            />
-          )}
-
-          {/* Content */}
-          <div className="p-5">
-            {/* Progress indicator */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="flex gap-1">
-                  {Array.from({ length: Math.min(totalSteps, 8) }).map(
-                    (_, i) => {
-                      const segmentSize = Math.ceil(totalSteps / 8);
-                      const segmentIndex = Math.floor(
-                        currentStepIndex / segmentSize
-                      );
-                      return (
-                        <div
-                          key={i}
-                          className={`h-1 w-4 rounded-full transition-colors duration-200 ${
-                            i <= segmentIndex
-                              ? "bg-blue-500"
-                              : "bg-slate-200 dark:bg-slate-600"
-                          }`}
-                        />
-                      );
-                    }
-                  )}
-                </div>
-                <span className="text-xs text-slate-400 dark:text-slate-500 font-medium tabular-nums">
-                  {currentStepIndex + 1}/{totalSteps}
-                </span>
-              </div>
-              <button
-                onClick={exitTutorial}
-                className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:text-slate-300 dark:hover:bg-slate-700 transition-all"
-                aria-label={t("controls.exit")}
-              >
-                <i className="fas fa-times text-xs" />
-              </button>
-            </div>
-
-            {/* Step title */}
-            <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-2 leading-snug">
-              {t(`steps.${currentStep?.id}.title`)}
-            </h3>
-
-            {/* Step description */}
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
-              {t(`steps.${currentStep?.id}.description`)}
-            </p>
-
-            {/* Action hint for interactive steps */}
-            {currentStep?.requiresAction && (
-              <div className="mb-4 px-3 py-2.5 bg-blue-50 dark:bg-blue-950/40 rounded-lg border border-blue-100 dark:border-blue-900/50">
-                <p className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-2 font-medium">
-                  <i className="fas fa-hand-pointer text-blue-500/70" />
-                  {t(`steps.${currentStep.id}.action`)}
-                </p>
-              </div>
-            )}
-
-            {/* Navigation */}
-            <div className="flex items-center justify-center pt-3 mt-1 border-t border-slate-100 dark:border-slate-700/60">
-              {/* Next or Finish */}
-              {canGoForward && (
-                <button
-                  onClick={nextStep}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-medium rounded-lg transition-all flex items-center gap-2 shadow-sm hover:shadow"
-                >
-                  {isLastStep || isTutorialComplete
-                    ? t("controls.finish")
-                    : isPhase1Complete
-                    ? t("controls.continuePhase2")
-                    : isPhase2Complete
-                    ? t("controls.continuePhase3")
-                    : isPhase3Complete
-                    ? t("controls.continuePhase4")
-                    : isPhase4Complete
-                    ? t("controls.continuePhase5")
-                    : isPhase5Complete
-                    ? t("controls.continuePhase6")
-                    : isPhase6Complete
-                    ? t("controls.continuePhase7")
-                    : isPhase7Complete
-                    ? t("controls.continuePhase8")
-                    : t("controls.next")}
-                  {!isLastStep && !isTutorialComplete && (
-                    <i className="fas fa-arrow-right text-xs" />
-                  )}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
       )}
 
       {/* ESC hint - refined */}
@@ -850,6 +831,141 @@ export default function TutorialOverlayComponent() {
       </div>
     </div>,
     tutorialRoot
-  );
+  )}
+
+  {/* Tooltip - rendered in a separate portal above all modals (z-[10001]) */}
+  {(effectiveTooltipPosition || isCompletionStep) && createPortal(
+    <div
+      key={currentStep?.id || "tutorial-tooltip"}
+      ref={tooltipRef}
+      data-tutorial-tooltip
+      className="fixed bg-white dark:bg-slate-800 rounded-2xl shadow-xl shadow-slate-900/10 dark:shadow-slate-900/50 border border-slate-200/80 dark:border-slate-700/80 w-[340px] max-w-[calc(100vw-2rem)] z-[10001] pointer-events-auto"
+      style={
+        isCompletionStep
+          ? {
+              top: isModalOpen ? 24 : "50%",
+              left: "50%",
+              transform: isModalOpen ? "translateX(-50%)" : "translate(-50%, -50%)",
+              animation: isModalOpen
+                ? "fadeInTooltip 0.2s ease-out"
+                : "fadeInScale 0.25s ease-out",
+            }
+          : {
+              top: effectiveTooltipPosition?.top,
+              left: effectiveTooltipPosition?.left,
+              animation: "fadeInTooltip 0.18s ease-out",
+            }
+      }
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Arrow - refined */}
+      {effectiveTooltipPosition && !isCompletionStep && (
+        <div
+          className={`absolute w-2.5 h-2.5 bg-white dark:bg-slate-800 border-slate-200/80 dark:border-slate-700/80 transform rotate-45 ${
+            effectiveTooltipPosition.arrowPosition === "top"
+              ? "-top-[5px] left-1/2 -translate-x-1/2 border-l border-t"
+              : effectiveTooltipPosition.arrowPosition === "bottom"
+              ? "-bottom-[5px] left-1/2 -translate-x-1/2 border-r border-b"
+              : effectiveTooltipPosition.arrowPosition === "left"
+              ? "-left-[5px] top-1/2 -translate-y-1/2 border-l border-b"
+              : "-right-[5px] top-1/2 -translate-y-1/2 border-r border-t"
+          }`}
+        />
+      )}
+
+      {/* Content */}
+      <div className="p-5">
+        {/* Progress indicator */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1">
+              {Array.from({ length: Math.min(totalSteps, 8) }).map(
+                (_, i) => {
+                  const segmentSize = Math.ceil(totalSteps / 8);
+                  const segmentIndex = Math.floor(
+                    currentStepIndex / segmentSize
+                  );
+                  return (
+                    <div
+                      key={i}
+                      className={`h-1 w-4 rounded-full transition-colors duration-200 ${
+                        i <= segmentIndex
+                          ? "bg-blue-500"
+                          : "bg-slate-200 dark:bg-slate-600"
+                      }`}
+                    />
+                  );
+                }
+              )}
+            </div>
+            <span className="text-xs text-slate-400 dark:text-slate-500 font-medium tabular-nums">
+              {currentStepIndex + 1}/{totalSteps}
+            </span>
+          </div>
+          <button
+            onClick={exitTutorial}
+            className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:text-slate-300 dark:hover:bg-slate-700 transition-all"
+            aria-label={t("controls.exit")}
+          >
+            <i className="fas fa-times text-xs" />
+          </button>
+        </div>
+
+        {/* Step title */}
+        <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-2 leading-snug">
+          {t(`steps.${currentStep?.id}.title`)}
+        </h3>
+
+        {/* Step description */}
+        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
+          {t(`steps.${currentStep?.id}.description`)}
+        </p>
+
+        {/* Action hint for interactive steps */}
+        {currentStep?.requiresAction && (
+          <div className="mb-4 px-3 py-2.5 bg-blue-50 dark:bg-blue-950/40 rounded-lg border border-blue-100 dark:border-blue-900/50">
+            <p className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-2 font-medium">
+              <i className="fas fa-hand-pointer text-blue-500/70" />
+              {t(`steps.${currentStep.id}.action`)}
+            </p>
+          </div>
+        )}
+
+        {/* Navigation */}
+        <div className="flex items-center justify-center pt-3 mt-1 border-t border-slate-100 dark:border-slate-700/60">
+          {/* Next or Finish */}
+          {canGoForward && (
+            <button
+              onClick={nextStep}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-medium rounded-lg transition-all flex items-center gap-2 shadow-sm hover:shadow"
+            >
+              {isLastStep || isTutorialComplete
+                ? t("controls.finish")
+                : isPhase1Complete
+                ? t("controls.continuePhase2")
+                : isPhase2Complete
+                ? t("controls.continuePhase3")
+                : isPhase3Complete
+                ? t("controls.continuePhase4")
+                : isPhase4Complete
+                ? t("controls.continuePhase5")
+                : isPhase5Complete
+                ? t("controls.continuePhase6")
+                : isPhase6Complete
+                ? t("controls.continuePhase7")
+                : isPhase7Complete
+                ? t("controls.continuePhase8")
+                : t("controls.next")}
+              {!isLastStep && !isTutorialComplete && (
+                <i className="fas fa-arrow-right text-xs" />
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>,
+    tutorialRoot
+  )}
+  </>);
 }
 

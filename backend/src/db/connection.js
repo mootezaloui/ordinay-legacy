@@ -126,6 +126,33 @@ function initialize() {
     `);
   }
 
+  // Ensure audit_mutations exists even on older DBs
+  const hasAuditMutations = db
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='audit_mutations'"
+    )
+    .get();
+  if (!hasAuditMutations) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS audit_mutations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entity_type TEXT NOT NULL,
+        entity_id INTEGER,
+        operation TEXT NOT NULL,
+        actor_id TEXT,
+        source TEXT NOT NULL DEFAULT 'rest_api',
+        route TEXT,
+        before_json TEXT,
+        after_json TEXT,
+        metadata_json TEXT,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_audit_mutations_entity ON audit_mutations(entity_type, entity_id);
+      CREATE INDEX IF NOT EXISTS idx_audit_mutations_created_at ON audit_mutations(created_at);
+      CREATE INDEX IF NOT EXISTS idx_audit_mutations_operation ON audit_mutations(operation);
+    `);
+  }
+
   // Apply pending migrations (idempotent via PRAGMA user_version)
   applyMigrations(db);
 

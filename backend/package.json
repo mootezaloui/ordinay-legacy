@@ -6,7 +6,9 @@
   "type": "commonjs",
   "main": "src/server.js",
   "scripts": {
+    "prestart": "npm run build:agent",
     "start": "node src/server.js",
+    "predev": "npm run build:agent",
     "dev": "nodemon src/server.js",
     "typecheck:agent": "tsc -p tsconfig.agent.json --pretty false",
     "build:agent": "tsc -p tsconfig.agent.build.json --pretty false"

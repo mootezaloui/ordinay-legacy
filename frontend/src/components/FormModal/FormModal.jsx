@@ -429,9 +429,54 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
   const resolvedPlaceholder = interpolateCurrency(field.placeholder, currencyDisplay);
   const baseInputClass = `w-full ${compact ? 'px-3 py-1.5 text-sm' : 'px-3.5 py-2.5'} border-2 rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all duration-200 ${error ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/30" : "border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500"}`;
   const isReadOnly = field.type === "readonly" || field.disabled;
+  const isRelationshipField = /(^id$|Id$|_id$)/.test(field.name || "");
+
+  const areValuesEqual = (left, right) => {
+    if (left === right) return true;
+    if (left === undefined || left === null || right === undefined || right === null) {
+      return false;
+    }
+    return String(left) === String(right);
+  };
+
+  const resolveFieldOptions = () => {
+    if (typeof field.getOptions === "function") {
+      const generatedOptions = field.getOptions(formData, field.allOptions);
+      return Array.isArray(generatedOptions) ? generatedOptions : [];
+    }
+    return Array.isArray(field.options) ? field.options : [];
+  };
+
+  const resolveReadOnlyValue = () => {
+    if (field.displayValue) {
+      return typeof field.displayValue === "function"
+        ? field.displayValue(formData, value)
+        : field.displayValue;
+    }
+
+    const fieldOptions = resolveFieldOptions();
+    if (fieldOptions.length > 0 || field.type === "select" || field.type === "searchable-select") {
+      const matchedOption = fieldOptions.find((option) =>
+        areValuesEqual(option?.value, value)
+      );
+
+      if (matchedOption && matchedOption.label !== undefined && matchedOption.label !== null && matchedOption.label !== "") {
+        return matchedOption.label;
+      }
+
+      // Never leak raw database identifiers when label resolution is unavailable.
+      if (isRelationshipField) {
+        return "";
+      }
+    }
+
+    return value;
+  };
 
   const renderInput = () => {
-    if (isReadOnly) return <ReadOnlyField label={resolvedLabel} value={field.displayValue ? (typeof field.displayValue === "function" ? field.displayValue(formData, value) : field.displayValue) : value} compact={compact} />;
+    if (isReadOnly) {
+      return <ReadOnlyField label={resolvedLabel} value={resolveReadOnlyValue()} compact={compact} />;
+    }
     
     switch (field.type) {
       case "text":
@@ -445,8 +490,8 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
         return <textarea id={field.name} value={value} onChange={(e) => onChange(field.name, e.target.value)} placeholder={resolvedPlaceholder} required={field.required} disabled={field.disabled} rows={field.rows || (compact ? 2 : 3)} className={baseInputClass} />;
       case "select":
       case "searchable-select":
-        const fieldOptions = field.getOptions ? field.getOptions(formData) : (field.options || []);
-        return <SearchableSelect value={value} onChange={(newValue) => onChange(field.name, newValue)} options={fieldOptions} placeholder={resolvedPlaceholder} disabled={field.disabled} error={error} compact={compact} isLoading={field.isLoading} />;
+        const fieldOptions = resolveFieldOptions();
+        return <SearchableSelect value={value} onChange={(newValue) => onChange(field.name, newValue)} options={fieldOptions} placeholder={resolvedPlaceholder} disabled={field.disabled} error={error} compact={compact} isLoading={field.isLoading} allowCreate={field.allowCreate} onCreateOption={field.onCreateOption} createLabel={field.createLabel} showClear={field.showClear !== false} />;
       case "checkbox":
         return (
           <div className="flex items-center">

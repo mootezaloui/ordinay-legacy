@@ -58,10 +58,23 @@ Windows-only package:
 npm run electron:build:win
 ```
 
+Windows-only package without executable resource editing
+(works on environments without symlink/admin privileges, but may keep a generic Electron icon):
+
+```bash
+npm run electron:build:win:unsigned
+```
+
 Unpacked desktop directory:
 
 ```bash
 npm run electron:build:dir
+```
+
+Unpacked desktop directory without executable resource editing:
+
+```bash
+npm run electron:build:dir:unsigned
 ```
 
 ## Script Reference
@@ -70,6 +83,8 @@ npm run electron:build:dir
 - `electron:dev`: full desktop development runtime.
 - `build:renderer`: TypeScript + Vite production renderer build.
 - `electron:build*`: desktop packaging variants.
+- `electron:build:win`: release-oriented Windows package (expects permissions required by electron-builder executable editing).
+- `electron:build:win:unsigned`: fallback Windows package when local privilege constraints block executable editing.
 - `lint`: ESLint checks.
 - `preview`: renderer preview server.
 - `prepare:node`: bundle Node runtime needed by packaged app.

@@ -55,6 +55,13 @@ function rebuildNativeModules() {
       stdio: "inherit",
     });
 
+    // Build the Agent v2 runtime artifacts required by packaged desktop backend.
+    console.log("[rebuild] Building backend Agent v2 runtime artifacts...");
+    execSync("npm run build:agent", {
+      cwd: backendDir,
+      stdio: "inherit",
+    });
+
     console.log("[rebuild] Native modules rebuilt successfully!");
   } catch (error) {
     console.error("[rebuild] Failed to rebuild native modules:", error.message);

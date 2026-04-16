@@ -18,6 +18,7 @@ import { useLicense } from "./contexts/LicenseContext";
 import { useNotifications } from "./contexts/NotificationContext";
 import { useUpdateStatus } from "./hooks/useUpdateStatus";
 import { useOnboarding } from "./contexts/OnboardingContext";
+import { useTutorial } from "./contexts/TutorialContext";
 import {
   clearPendingReferralCode,
   extractPendingReferralFromUrl,
@@ -94,6 +95,11 @@ function App() {
     isActive: isOnboardingActive,
     showWelcomeModal,
   } = useOnboarding();
+  const {
+    isActive: isGuidedTutorialActive,
+    hasCompletedTutorial: hasCompletedGuidedTutorial,
+    hasStartedTutorial: hasStartedGuidedTutorial,
+  } = useTutorial();
   const {
     licenseState,
     licenseData,
@@ -457,9 +463,12 @@ function App() {
   );
   const hasFinishedOnboarding = hasCompletedOnboarding || hasSkippedOnboarding;
   const isOnboardingVisible = showWelcomeModal || isOnboardingActive;
+  const isGuidedTutorialPending =
+    isGuidedTutorialActive || (hasStartedGuidedTutorial && !hasCompletedGuidedTutorial);
   const shouldShowActivation =
     !isOnboardingVisible &&
     hasFinishedOnboarding &&
+    !isGuidedTutorialPending &&
     ((!allowReadOnly && needsActivation) || activationView !== "choice");
   if (shouldShowActivation) {
     return (

@@ -308,11 +308,11 @@ export function CompletionPhase() {
   const { completeTutorial } = useOnboarding();
 
   const handleStartGuidedTutorial = () => {
-    // Complete onboarding first, then start the interactive tutorial
-    completeTutorial();
-    // Small delay to allow modal to close
+    // Start guided tutorial first so activation screen doesn't flash,
+    // then complete onboarding after a small delay to allow modal to close
+    startTutorial();
     setTimeout(() => {
-      startTutorial();
+      completeTutorial();
     }, 300);
   };
 

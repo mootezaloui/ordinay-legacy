@@ -314,11 +314,7 @@ export function AgentQuickActions({ onExampleClick }: AgentQuickActionsProps) {
             {t("agent.quickActions.title")}
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 max-w-xs mx-auto">
-            {t("agent.quickActions.hint")}{" "}
-            <kbd className="px-2 py-0.5 bg-white/80 dark:bg-[#1e293b] rounded-full text-slate-500 dark:text-slate-400 font-mono text-[10px] border border-black/[0.04] dark:border-white/[0.06]">
-              /
-            </kbd>{" "}
-            {t("agent.quickActions.hintSuffix")}
+            {t("agent.quickActions.hint")}
           </p>
         </div>
       </div>
@@ -332,11 +328,7 @@ export function AgentQuickActions({ onExampleClick }: AgentQuickActionsProps) {
           {t("agent.quickActions.heading")}
         </h2>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          {t("agent.quickActions.hint")}{" "}
-          <kbd className="px-2 py-0.5 bg-white/80 dark:bg-[#1e293b] rounded-full text-slate-500 dark:text-slate-400 font-mono text-[10px] border border-black/[0.04] dark:border-white/[0.06]">
-            /
-          </kbd>{" "}
-          {t("agent.quickActions.hintSuffix")}
+          {t("agent.quickActions.hint")}
         </p>
       </div>
 

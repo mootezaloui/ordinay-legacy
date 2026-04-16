@@ -41,8 +41,16 @@ export default function SearchableSelect({
   const listRef = useRef(null);
   const dropdownRef = useRef(null);
 
+  const areValuesEqual = (left, right) => {
+    if (left === right) return true;
+    if (left === undefined || left === null || right === undefined || right === null) {
+      return false;
+    }
+    return String(left) === String(right);
+  };
+
   // Get the label for the selected value
-  const selectedOption = options.find((opt) => opt.value === value);
+  const selectedOption = options.find((opt) => areValuesEqual(opt?.value, value));
   const displayValue = selectedOption ? selectedOption.label : "";
 
   // Filter options based on search term
@@ -233,7 +241,7 @@ export default function SearchableSelect({
 
         {/* Icons - ✅ UNIFIED: Consistent sizing and spacing */}
         <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-          {showClear && value && !disabled && (
+          {showClear && value !== undefined && value !== null && value !== "" && !disabled && (
             <button
               type="button"
               onClick={handleClear}
@@ -262,20 +270,20 @@ export default function SearchableSelect({
             <ul ref={listRef} className="py-1">
               {filteredOptions.map((option, index) => (
                 <li
-                  key={option.value}
+                  key={`${option.value ?? "option"}-${index}`}
                   onClick={() => handleOptionClick(option)}
                   onMouseEnter={() => setHighlightedIndex(index)}
                   className={`px-3 ${compact ? 'py-1.5 text-sm' : 'py-2'} cursor-pointer transition-colors ${index === highlightedIndex
                     ? "bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100"
                     : "text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-slate-700"
-                    } ${option.value === value
+                    } ${areValuesEqual(option?.value, value)
                       ? "font-medium bg-blue-50 dark:bg-blue-900/20"
                       : ""
                     }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className={compact ? "text-sm" : "text-sm"}>{option.label}</span>
-                    {option.value === value && (
+                    {areValuesEqual(option?.value, value) && (
                       <i className="fas fa-check text-blue-600 dark:text-blue-400 text-xs"></i>
                     )}
                   </div>

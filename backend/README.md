@@ -53,6 +53,8 @@ Start development mode:
 npm run dev
 ```
 
+Both commands automatically run `build:agent` first to ensure the agent runtime is present.
+
 ## Agent Build Scripts
 
 Type-check agent runtime:

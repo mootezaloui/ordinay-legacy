@@ -7,6 +7,7 @@
     "buildResources": "build",
     "output": "dist-electron"
   },
+  "afterPack": "scripts/after-pack.cjs",
   "files": [
     "dist/**/*",
     "electron/**/*"
@@ -17,7 +18,7 @@
       "to": "backend",
       "filter": [
         "src/**/*",
-        "!src/agent/**",
+        ".agent-build/**/*",
         "package.json",
         "node_modules/**/*",
         "!node_modules/.cache/**",
@@ -41,7 +42,7 @@
         "arch": ["x64"]
       }
     ],
-    "icon": "build/Light_mode_icon.ico",
+    "icon": "Light_mode_icon.ico",
     "artifactName": "${productName}-Setup-${version}.${ext}",
     "sign": false,
     "verifyUpdateCodeSignature": false,
@@ -63,9 +64,9 @@
     "deleteAppDataOnUninstall": false,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
-    "installerIcon": "build/Light_mode_icon.ico",
-    "uninstallerIcon": "build/Light_mode_icon.ico",
-    "installerHeaderIcon": "build/Light_mode_icon.ico"
+    "installerIcon": "Light_mode_icon.ico",
+    "uninstallerIcon": "Light_mode_icon.ico",
+    "installerHeaderIcon": "Light_mode_icon.ico"
   },
   "mac": {
     "target": [

@@ -580,11 +580,12 @@ export function TutorialProvider({ children }: TutorialProviderProps) {
     }));
   }, []);
 
-  // Exit tutorial (can be resumed)
+  // Exit tutorial (marks as completed so activation can proceed)
   const exitTutorial = useCallback(() => {
     setState((prev) => ({
       ...prev,
       isActive: false,
+      hasCompletedTutorial: true,
     }));
   }, []);
 

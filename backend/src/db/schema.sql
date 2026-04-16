@@ -488,6 +488,23 @@ CREATE TABLE IF NOT EXISTS history_events (
 );
 CREATE INDEX IF NOT EXISTS idx_history_events_entity ON history_events(entity_type, entity_id);
 
+CREATE TABLE IF NOT EXISTS audit_mutations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entity_type TEXT NOT NULL,
+    entity_id INTEGER,
+    operation TEXT NOT NULL,
+    actor_id TEXT,
+    source TEXT NOT NULL DEFAULT 'rest_api',
+    route TEXT,
+    before_json TEXT,
+    after_json TEXT,
+    metadata_json TEXT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_audit_mutations_entity ON audit_mutations(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_audit_mutations_created_at ON audit_mutations(created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_mutations_operation ON audit_mutations(operation);
+
 CREATE TABLE IF NOT EXISTS legacy_imports (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     entity_type TEXT NOT NULL CHECK (entity_type IN ('client')),

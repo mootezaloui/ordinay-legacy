@@ -3,6 +3,7 @@ import { useTheme } from "../../contexts/theme";
 import { useSidebar } from "../../contexts/SidebarContext";
 import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { useTutorialSafe } from "../../contexts/TutorialContext";
 
 // Module-level: persists across component unmount/remount cycles
 let _lastIndicatorY = null;
@@ -18,6 +19,38 @@ export default function Sidebar() {
     return window.matchMedia("(max-width: 767px)").matches;
   });
   const { t } = useTranslation("layout");
+  const tutorial = useTutorialSafe();
+
+  const tutorialTargetByRoute = useMemo(
+    () => ({
+      "/dashboard": "sidebar-dashboard-link",
+      "/clients": "sidebar-clients-link",
+      "/dossiers": "sidebar-dossiers-link",
+      "/personal-tasks": "sidebar-personal-tasks-link",
+      "/sessions": "sidebar-sessions-link",
+      "/officers": "sidebar-officers-link",
+      "/accounting": "sidebar-accounting-link",
+    }),
+    [],
+  );
+
+  const currentTutorialSidebarTarget =
+    tutorial?.isActive && tutorial?.currentStep?.target?.startsWith("sidebar-")
+      ? tutorial.currentStep.target
+      : null;
+
+  const tutorialTargetRoute = useMemo(() => {
+    if (!currentTutorialSidebarTarget) return null;
+    const matched = Object.entries(tutorialTargetByRoute).find(
+      ([, target]) => target === currentTutorialSidebarTarget,
+    );
+    return matched ? matched[0] : null;
+  }, [currentTutorialSidebarTarget, tutorialTargetByRoute]);
+
+  const shouldMuteRouteIndicator =
+    Boolean(currentTutorialSidebarTarget) &&
+    Boolean(tutorialTargetRoute) &&
+    !location.pathname.startsWith(tutorialTargetRoute);
 
   // ── Animated indicator ──
   const navContainerRef = useRef(null);
@@ -130,7 +163,7 @@ export default function Sidebar() {
       // Always set the final position immediately
       indicator.style.transform = `translateY(${target.y}px)`;
       indicator.style.height = `${target.h}px`;
-      indicator.style.opacity = "1";
+      indicator.style.opacity = shouldMuteRouteIndicator ? "0.28" : "1";
 
       if (_lastIndicatorY !== null && Math.abs(_lastIndicatorY - target.y) > 1) {
         // Animate from old position to new using Web Animations API
@@ -158,7 +191,7 @@ export default function Sidebar() {
       _lastIndicatorH = target.h;
     });
     return () => cancelAnimationFrame(raf);
-  }, [location.pathname, isCollapsed, isCompact, measureActive]);
+  }, [location.pathname, isCollapsed, isCompact, measureActive, shouldMuteRouteIndicator]);
 
   // On sidebar collapse: recalculate after the sidebar's own CSS transition finishes
   useEffect(() => {
@@ -170,11 +203,12 @@ export default function Sidebar() {
       indicator.style.transition = "none";
       indicator.style.transform = `translateY(${target.y}px)`;
       indicator.style.height = `${target.h}px`;
+      indicator.style.opacity = shouldMuteRouteIndicator ? "0.28" : "1";
       _lastIndicatorY = target.y;
       _lastIndicatorH = target.h;
     }, 320);
     return () => clearTimeout(timer);
-  }, [isCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isCollapsed, shouldMuteRouteIndicator]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // On resize
   useEffect(() => {
@@ -186,12 +220,13 @@ export default function Sidebar() {
       indicator.style.transition = "none";
       indicator.style.transform = `translateY(${target.y}px)`;
       indicator.style.height = `${target.h}px`;
+      indicator.style.opacity = shouldMuteRouteIndicator ? "0.28" : "1";
       _lastIndicatorY = target.y;
       _lastIndicatorH = target.h;
     };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [measureActive]);
+  }, [measureActive, shouldMuteRouteIndicator]);
 
   return (
     <aside
@@ -251,6 +286,10 @@ export default function Sidebar() {
               <ul className="sidebar-items space-y-0.5">
                 {group.items.map((item) => {
                   const isActive = location.pathname.startsWith(item.route);
+                  const tutorialTarget = tutorialTargetByRoute[item.route];
+                  const isTutorialTarget =
+                    Boolean(currentTutorialSidebarTarget) &&
+                    tutorialTarget === currentTutorialSidebarTarget;
                   return (
                     <li key={item.route}>
                       <Link
@@ -259,26 +298,27 @@ export default function Sidebar() {
                         onClick={() => {
                           if (isMobileOpen) closeMobile();
                         }}
-                        data-tutorial={
-                          item.route === "/dashboard" ? "sidebar-dashboard-link" :
-                            item.route === "/clients" ? "sidebar-clients-link" :
-                              item.route === "/dossiers" ? "sidebar-dossiers-link" :
-                                item.route === "/personal-tasks" ? "sidebar-personal-tasks-link" :
-                                  item.route === "/sessions" ? "sidebar-sessions-link" :
-                                    item.route === "/officers" ? "sidebar-officers-link" :
-                                      item.route === "/accounting" ? "sidebar-accounting-link" :
-                                        undefined
-                        }
+                        data-tutorial={tutorialTarget}
+                        data-tutorial-sidebar-target={isTutorialTarget ? "true" : undefined}
                         className={`sidebar-item group relative flex items-center py-2.5 rounded-xl transition-colors duration-200 z-[1] ${isCompact ? "justify-center px-0 gap-0" : "justify-start gap-3 pl-[14px] pr-3"} ${isActive
-                            ? "text-primary-foreground"
+                            ? currentTutorialSidebarTarget && !isTutorialTarget
+                              ? "text-primary-foreground/80"
+                              : "text-primary-foreground"
                             : "hover:bg-muted text-foreground hover:shadow-sm"
+                          } ${isTutorialTarget
+                            ? "bg-blue-500/22 ring-1 ring-blue-300/45 shadow-[inset_0_0_0_1px_rgba(148,197,255,0.24),0_8px_20px_-16px_rgba(96,165,250,0.85)]"
+                            : ""
                           }`}
                       >
                         <span className={`relative flex items-center justify-center w-5 transition-transform duration-200 ${isActive ? "scale-110" : "group-hover:scale-105"
                           }`}>
                           <i
                             className={`${item.icon} text-base transition-colors duration-200 ${isActive
-                              ? "text-primary-foreground"
+                              ? currentTutorialSidebarTarget && !isTutorialTarget
+                                ? "text-primary-foreground/80"
+                                : "text-primary-foreground"
+                              : isTutorialTarget
+                                ? "text-blue-100"
                               : "text-muted-foreground group-hover:text-foreground"
                               }`}
                           ></i>
@@ -287,7 +327,11 @@ export default function Sidebar() {
                         {!isCompact && (
                           <span
                             className={`text-[13px] font-medium transition-colors duration-200 ${isActive
-                              ? "text-primary-foreground"
+                              ? currentTutorialSidebarTarget && !isTutorialTarget
+                                ? "text-primary-foreground/80"
+                                : "text-primary-foreground"
+                              : isTutorialTarget
+                                ? "text-blue-100"
                               : "text-foreground"
                               }`}
                           >

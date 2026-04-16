@@ -1651,8 +1651,8 @@
     "quickActions": {
       "title": "Ordinay Intelligence",
       "heading": "Agent",
-      "hint": "Interrogez vos dossiers, clients, tâches et documents. Utilisez",
-      "hintSuffix": "pour les commandes."
+      "hint": "Interrogez vos dossiers, clients, tâches et documents.",
+      "hintSuffix": ""
     },
     "input": {
       "placeholder": "Demandez n'importe quoi à Ordinay concernant vos procès, clients, tâches, ou sollicitez des rapports et analyses...",
@@ -1662,7 +1662,7 @@
       "clear": "Effacer la saisie",
       "stop": "Arrêter la génération",
       "send": "Envoyer le message",
-      "availableCommands": "Commandes disponibles",
+      "availableCommands": "",
       "attachments": "Pièces jointes",
       "existingDocument": "Document existant",
       "fromLibrary": "Depuis votre bibliothèque",
@@ -1671,8 +1671,8 @@
       "uploadImage": "Téléverser une image",
       "uploadImageHint": "JPG, PNG, GIF, etc.",
       "toolsHeading": "Outils",
-      "commands": "Commandes",
-      "slashCommands": "Commandes slash",
+      "commands": "",
+      "slashCommands": "",
       "webSearch": "Recherche Web",
       "webSearchActive": "Actif — cliquez pour désactiver",
       "webSearchHint": "Rechercher sur le Web",
@@ -1686,7 +1686,7 @@
       "toSend": "pour envoyer",
       "shiftEnter": "Maj+Entrée",
       "newLine": "nouvelle ligne",
-      "slashCommandsHint": "commandes"
+      "slashCommandsHint": ""
     },
     "history": {
       "newConversation": "Nouvelle conversation",

@@ -167,6 +167,7 @@ const CUSTOM_PRESET_AVATARS = {
 const FALLBACK_OPENAI_BASE_URL = "https://api.openai.com/v1";
 const FALLBACK_OLLAMA_BASE_URL = "http://localhost:11434";
 const AI_PROVIDER_DRAFT_STORAGE_KEY = "ordinay:settings:ai-provider-draft:v1";
+let LAST_OLLAMA_STATUS_CACHE = null;
 
 function readAiProviderDraft() {
   if (typeof window === "undefined" || !window.localStorage) return null;
@@ -783,7 +784,7 @@ export default function SettingsAgent() {
   const [model, setModel] = useState("");
   const [testResult, setTestResult] = useState(null);
   const [configSource, setConfigSource] = useState(null);
-  const [ollamaStatus, setOllamaStatus] = useState(null);
+  const [ollamaStatus, setOllamaStatus] = useState(() => LAST_OLLAMA_STATUS_CACHE);
   const [ollamaStatusLoading, setOllamaStatusLoading] = useState(false);
   const [ollamaActionBusy, setOllamaActionBusy] = useState(false);
   const [ollamaFastPoll, setOllamaFastPoll] = useState(false);
@@ -833,6 +834,11 @@ export default function SettingsAgent() {
       displayProvider === "anthropic" ||
       displayProvider === "gemini");
 
+  const setCachedOllamaStatus = useCallback((nextStatus) => {
+    LAST_OLLAMA_STATUS_CACHE = nextStatus;
+    setOllamaStatus(nextStatus);
+  }, []);
+
   const refreshOllamaStatus = useCallback(
     async ({ showLoader = false } = {}) => {
       if (aiMode !== "byok" || displayProvider !== "ollama") {
@@ -843,9 +849,9 @@ export default function SettingsAgent() {
       }
       try {
         const status = await getOllamaStatus(baseUrl);
-        setOllamaStatus(status);
+        setCachedOllamaStatus(status);
       } catch (error) {
-        setOllamaStatus({
+        setCachedOllamaStatus({
           base_url: baseUrl || FALLBACK_OLLAMA_BASE_URL,
           installed: null,
           running: false,
@@ -860,7 +866,7 @@ export default function SettingsAgent() {
         }
       }
     },
-    [aiMode, displayProvider, baseUrl],
+    [aiMode, displayProvider, baseUrl, setCachedOllamaStatus],
   );
 
   const refreshOllamaCatalog = useCallback(
@@ -1113,6 +1119,10 @@ export default function SettingsAgent() {
       setOllamaPullJob(null);
       setOllamaPullStartingModel("");
       return undefined;
+    }
+
+    if (LAST_OLLAMA_STATUS_CACHE) {
+      setOllamaStatus(LAST_OLLAMA_STATUS_CACHE);
     }
 
     let cancelled = false;

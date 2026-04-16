@@ -12,11 +12,6 @@ import {
   Check,
   Globe,
 } from "lucide-react";
-import {
-  getSlashCommands,
-  filterCommands,
-  SlashCommand,
-} from "../../services/api/agent";
 import { apiClient } from "../../services/api/client";
 import { getDocumentFormatGovernance } from "../../services/api/documentFormats";
 
@@ -96,9 +91,6 @@ export function AgentInput({
   isOffline = false,
 }: AgentInputProps) {
   const { t } = useTranslation("common");
-  const [commands, setCommands] = useState<SlashCommand[]>([]);
-  const [manualDropdownOpen, setManualDropdownOpen] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState(0);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [showDocumentPicker, setShowDocumentPicker] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
@@ -173,10 +165,6 @@ export function AgentInput({
   );
 
   useEffect(() => {
-    getSlashCommands().then(setCommands);
-  }, []);
-
-  useEffect(() => {
     getDocumentFormatGovernance()
       .then((governance) => {
         const accept = String(governance?.supported?.uploadAccept || "").trim();
@@ -184,43 +172,6 @@ export function AgentInput({
       })
       .catch(() => {});
   }, []);
-
-  const autoFilteredCommands = useMemo(() => {
-    if (!input.startsWith("/")) return [];
-    return filterCommands(input, commands);
-  }, [input, commands]);
-
-  const filteredCommands = useMemo(() => {
-    if (input.startsWith("/")) {
-      return autoFilteredCommands;
-    }
-    return manualDropdownOpen ? commands : [];
-  }, [input, autoFilteredCommands, commands, manualDropdownOpen]);
-
-  const showDropdown = input.startsWith("/")
-    ? autoFilteredCommands.length > 0
-    : manualDropdownOpen;
-
-  const selectCommand = useCallback(
-    (cmd: SlashCommand) => {
-      setInput(cmd.usage.split(" ")[0] + " ");
-      setManualDropdownOpen(false);
-      inputRef.current?.focus();
-    },
-    [setInput, inputRef],
-  );
-
-  const handleSlashClick = useCallback(() => {
-    if (manualDropdownOpen) {
-      setManualDropdownOpen(false);
-      return;
-    }
-    // Close attachment menu when opening commands
-    setShowAttachMenu(false);
-    setManualDropdownOpen(commands.length > 0);
-    setSelectedIndex(0);
-    inputRef.current?.focus();
-  }, [manualDropdownOpen, commands, inputRef]);
 
   const buildWebSearchMetadata = useCallback(() => {
     if (!searchModeArmed) return undefined;
@@ -250,30 +201,6 @@ export function AgentInput({
 
   const handleKeyDownWithCommands = useCallback(
     (e: React.KeyboardEvent) => {
-      if (showDropdown && filteredCommands.length > 0) {
-        if (e.key === "ArrowDown") {
-          e.preventDefault();
-          setSelectedIndex((prev) =>
-            Math.min(prev + 1, filteredCommands.length - 1),
-          );
-          return;
-        }
-        if (e.key === "ArrowUp") {
-          e.preventDefault();
-          setSelectedIndex((prev) => Math.max(prev - 1, 0));
-          return;
-        }
-        if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) {
-          e.preventDefault();
-          selectCommand(filteredCommands[selectedIndex]);
-          return;
-        }
-        if (e.key === "Escape") {
-          e.preventDefault();
-          setManualDropdownOpen(false);
-          return;
-        }
-      }
       // Intercept Enter key to include attachments in submit
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
@@ -283,10 +210,6 @@ export function AgentInput({
       onKeyDown(e);
     },
     [
-      showDropdown,
-      filteredCommands,
-      selectedIndex,
-      selectCommand,
       onKeyDown,
       handleSendMessage,
     ],
@@ -454,43 +377,6 @@ export function AgentInput({
                 : "bg-white dark:bg-[#0f172a] border-slate-200/60 dark:border-slate-800/60 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] focus-within:shadow-[0_8px_30px_-4px_rgba(6,81,237,0.1)] focus-within:border-blue-500/40 focus-within:ring-4 focus-within:ring-blue-500/10"
             }`}
           >
-            {showDropdown && (
-              <div className="absolute bottom-full left-0 right-0 mb-3 bg-white/95 dark:bg-[#1e293b]/95 backdrop-blur-md border border-black/[0.06] dark:border-white/[0.06] rounded-2xl shadow-xl max-h-80 overflow-y-auto z-50 premium-panel-enter-center">
-                <div className="p-2">
-                  <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-3 py-2 uppercase tracking-[0.2em] bg-black/[0.02] dark:bg-white/[0.03] rounded-xl mb-1">
-                    {t("agent.input.availableCommands")}
-                  </div>
-                  {filteredCommands.map((cmd, idx) => (
-                    <button
-                      key={cmd.command}
-                      type="button"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        selectCommand(cmd);
-                      }}
-                      className={`w-full text-left px-4 py-3 rounded-xl transition-all ${
-                        idx === selectedIndex
-                          ? "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 shadow-sm"
-                          : "hover:bg-black/[0.03] dark:hover:bg-white/[0.04] text-slate-700 dark:text-slate-300"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <code className="text-sm font-mono font-bold">
-                          {cmd.command}
-                        </code>
-                        <span className="text-[11px] px-2 py-1 bg-black/[0.04] dark:bg-white/[0.06] text-slate-600 dark:text-slate-300 rounded-full font-medium capitalize">
-                          {cmd.category}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {cmd.description}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {showAttachMenu && (
               <div
                 ref={attachMenuRef}
@@ -554,25 +440,6 @@ export function AgentInput({
                   <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-3 py-2 uppercase tracking-[0.2em] bg-black/[0.02] dark:bg-white/[0.03] rounded-xl mb-1">
                     {t("agent.input.toolsHeading")}
                   </div>
-                  <button
-                    type="button"
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      setShowAttachMenu(false);
-                      handleSlashClick();
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-black/[0.03] dark:hover:bg-white/[0.04] transition-all group"
-                  >
-                    <div className="w-10 h-10 flex items-center justify-center bg-black/[0.04] dark:bg-white/[0.06] text-slate-600 dark:text-slate-300 rounded-xl group-hover:scale-105 transition-transform text-lg font-mono font-bold">
-                      /
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-semibold">{t("agent.input.commands")}</div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
-                        {t("agent.input.slashCommands")}
-                      </div>
-                    </div>
-                  </button>
                   <button
                     type="button"
                     disabled={isStreaming}
@@ -781,7 +648,6 @@ export function AgentInput({
                   onMouseDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    setManualDropdownOpen(false);
                     setShowDocumentPicker(false);
                     setShowAttachMenu(!showAttachMenu);
                     setTimeout(() => inputRef.current?.focus(), 0);
@@ -804,21 +670,9 @@ export function AgentInput({
                 ref={inputRef}
                 value={input}
                 onChange={(e) => {
-                  const value = e.target.value;
-                  setInput(value);
-                  if (value.startsWith("/")) {
-                    setManualDropdownOpen(false);
-                    setSelectedIndex(0);
-                  }
+                  setInput(e.target.value);
                 }}
                 onKeyDown={handleKeyDownWithCommands}
-                onBlur={() => {
-                  setTimeout(() => {
-                    if (!input.startsWith("/")) {
-                      setManualDropdownOpen(false);
-                    }
-                  }, 150);
-                }}
                 rows={1}
                 disabled={isOffline}
                 placeholder={isOffline ? t("agent.input.placeholderOffline") : t("agent.input.placeholder")}
@@ -896,15 +750,6 @@ export function AgentInput({
               Shift+Enter
             </kbd>{" "}
             {t("agent.input.newLine")}
-          </span>
-          <span className="hidden sm:inline text-slate-300 dark:text-slate-600">
-            ·
-          </span>
-          <span className="hidden sm:inline">
-            <kbd className="font-mono text-slate-500 dark:text-slate-400">
-              /
-            </kbd>{" "}
-            {t("agent.input.slashCommandsHint")}
           </span>
         </div>
       </div>
